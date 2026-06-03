@@ -1,0 +1,60 @@
+Speckit Constitution
+=====================
+
+Purpose
+-------
+This constitution defines guiding principles and measurable standards for code quality, testing, user-experience consistency, and performance across the project. It is intended to be actionable, enforceable via CI, and reviewed periodically.
+
+1. Code Quality Principles
+--------------------------
+- Readability first: prefer clear, well-named abstractions and short functions. Every change should be understandable within a 2–3 minute review.
+- Consistency: follow established style and conventions. Enforce with linters and formatters on every commit.
+- Single Responsibility & Modularity: components and modules should have one responsibility and be composable.
+- Explicitness: prefer explicit interfaces and types; avoid hidden side-effects.
+- Documentation: public APIs, complex flows, and non-obvious decisions must include brief docs or inline rationale.
+- Dependency hygiene: prefer lightweight, well-maintained dependencies; review transitive risks before adding.
+- Security by default: validate inputs, follow least privilege, and treat user data carefully.
+
+2. Testing Standards
+--------------------
+- Test Pyramid: unit tests (fast, deterministic) form the base; integration tests validate component interactions; only targeted end-to-end (E2E) tests cover critical user journeys.
+- Coverage goals: aim for meaningful coverage—target at least 80% for core libraries and critical modules; prioritize path, branch, and edge-case coverage over raw %.
+- CI gating: tests must pass in CI for merges. Flaky tests must be fixed or quarantined; no merge with known flaky failures.
+- Test quality: tests should be deterministic, isolated, and fast. Use mocks/stubs sparingly for external services; prefer sandboxed integration tests for important integrations.
+- Naming & organization: tests mirror implementation structure and use descriptive names (should_read_when_condition_expected()).
+- Regression prevention: add a test for each bug fixed.
+
+3. User Experience Consistency
+-----------------------------
+- Design system: use shared design tokens, components, and spacing rules to ensure visual consistency.
+- Accessibility: meet WCAG 2.1 AA baseline for all public-facing screens; include keyboard navigation and screen-reader labels.
+- Interaction patterns: buttons, alerts, and forms follow standard behaviors (confirmations for destructive actions, inline validation for forms).
+- Copy & tone: adhere to a single product voice for UI text; centralize microcopy where feasible.
+- Error states: show helpful, actionable messages and include telemetry for unexpected errors.
+- Mobile-first: pages must be responsive and usable on common mobile viewports.
+
+4. Performance Requirements
+-------------------------
+- Metrics baseline: measure and monitor Core Web Vitals (LCP, FID/INP, CLS) and set target baselines (example targets: LCP < 2.5s, INP < 200ms, CLS < 0.1). Tailor targets to realistic user contexts.
+- Budgeting: set and enforce budgets for initial payload size (e.g., <= 200–300 KB gzipped for initial JS + critical assets) and bundle sizes per route.
+- Perceived performance: prioritize First Contentful Paint (FCP), Largest Contentful Paint (LCP), and Time to Interactive (TTI) improvements that affect user-perceived speed.
+- Lazy loading & code-splitting: load non-critical code and media lazily; use route-level code splitting for large pages.
+- Caching & CDN: use far-future caching for immutable assets; set appropriate cache-control for dynamic content and leverage a CDN.
+- Server-side optimizations: prefer server-side rendering or edge rendering for critical routes when it improves LCP.
+- Load testing: run periodic load and stress tests for APIs and critical flows; set alert thresholds for error rate and latency regressions.
+
+5. Enforcement & Process
+------------------------
+- CI gates: linting, unit tests, and build checks must run and pass before merge.
+- PR checklist: include review items for tests, performance impact, accessibility, and docs for non-trivial changes.
+- Code review: two approvers for feature or architecture changes; at least one reviewer must confirm testing and UX implications.
+- Monitoring: use automated observability (APM, error tracking, and real-user monitoring) to detect regressions and trigger action items.
+- Periodic review: yearly (or on major platform changes) review this constitution to update thresholds, tools, and priorities.
+
+Appendix: Quick Acceptance Criteria
+----------------------------------
+- New feature: includes tests, follows design tokens, and passes CI and accessibility smoke checks.
+- Bug fix: includes a regression test and brief note describing root cause.
+- Performance change: includes before/after metrics and an approved performance budget update when needed.
+
+End
