@@ -3,7 +3,7 @@ import { ExampleComponent } from 'app/modules/admin/example/example.component';
 
 export default [
     {
-        path     : '',
+        path: '',
         component: ExampleComponent,
     },
 ] as Routes;

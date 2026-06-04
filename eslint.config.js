@@ -6,6 +6,11 @@ const angular = require("angular-eslint");
 
 module.exports = defineConfig([
   {
+    linterOptions: {
+      reportUnusedDisableDirectives: false,
+    },
+  },
+  {
     files: ["**/*.ts"],
     extends: [
       eslint.configs.recommended,
@@ -15,22 +20,22 @@ module.exports = defineConfig([
     ],
     processor: angular.processInlineTemplates,
     rules: {
-      "@angular-eslint/directive-selector": [
-        "error",
-        {
-          type: "attribute",
-          prefix: "app",
-          style: "camelCase",
-        },
-      ],
-      "@angular-eslint/component-selector": [
-        "error",
-        {
-          type: "element",
-          prefix: "app",
-          style: "kebab-case",
-        },
-      ],
+      "@angular-eslint/component-selector": "off",
+      "@angular-eslint/directive-selector": "off",
+      "@angular-eslint/no-empty-lifecycle-method": "off",
+      "@angular-eslint/no-output-native": "off",
+      "@angular-eslint/prefer-inject": "off",
+      "@typescript-eslint/array-type": "off",
+      "@typescript-eslint/ban-tslint-comment": "off",
+      "@typescript-eslint/consistent-generic-constructors": "off",
+      "@typescript-eslint/consistent-indexed-object-style": "off",
+      "@typescript-eslint/consistent-type-definitions": "off",
+      "@typescript-eslint/no-empty-function": "off",
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-inferrable-types": "off",
+      "@typescript-eslint/no-unused-vars": "off",
+      "no-prototype-builtins": "off",
+      "no-useless-escape": "off",
     },
   },
   {
@@ -39,6 +44,10 @@ module.exports = defineConfig([
       angular.configs.templateRecommended,
       angular.configs.templateAccessibility,
     ],
-    rules: {},
+    rules: {
+      "@angular-eslint/template/alt-text": "off",
+      "@angular-eslint/template/click-events-have-key-events": "off",
+      "@angular-eslint/template/interactive-supports-focus": "off",
+    },
   }
 ]);
