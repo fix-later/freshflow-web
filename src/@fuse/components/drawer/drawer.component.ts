@@ -109,7 +109,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
      * @private
      */
     @HostListener('mouseenter')
-    private _onMouseenter(): void {
+    protected _onMouseenter(): void {
         // Enable the animations
         this._enableAnimations();
 
@@ -123,7 +123,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
      * @private
      */
     @HostListener('mouseleave')
-    private _onMouseleave(): void {
+    protected _onMouseleave(): void {
         // Enable the animations
         this._enableAnimations();
 

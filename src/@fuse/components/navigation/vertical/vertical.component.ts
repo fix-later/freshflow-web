@@ -226,7 +226,7 @@ export class FuseVerticalNavigationComponent
      * @private
      */
     @HostListener('mouseenter')
-    private _onMouseenter(): void {
+    protected _onMouseenter(): void {
         // Enable the animations
         this._enableAnimations();
 
@@ -240,7 +240,7 @@ export class FuseVerticalNavigationComponent
      * @private
      */
     @HostListener('mouseleave')
-    private _onMouseleave(): void {
+    protected _onMouseleave(): void {
         // Enable the animations
         this._enableAnimations();
 
