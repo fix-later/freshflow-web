@@ -1,5 +1,10 @@
 import { NgClass } from '@angular/common';
-import { Component, ViewEncapsulation, inject } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    ViewEncapsulation,
+    inject,
+} from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
@@ -25,6 +30,7 @@ import { FuseConfirmationConfig } from '@fuse/services/confirmation/confirmation
     ],
     encapsulation: ViewEncapsulation.None,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatButtonModule, MatDialogModule, MatIconModule, NgClass],
 })
 export class FuseConfirmationDialogComponent {

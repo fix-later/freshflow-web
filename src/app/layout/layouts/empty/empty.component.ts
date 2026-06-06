@@ -1,4 +1,9 @@
-import { Component, OnDestroy, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnDestroy,
+    ViewEncapsulation,
+} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
 import { Subject } from 'rxjs';
@@ -8,6 +13,7 @@ import { Subject } from 'rxjs';
     templateUrl: './empty.component.html',
     encapsulation: ViewEncapsulation.None,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [FuseLoadingBarComponent, RouterOutlet],
 })
 export class EmptyLayoutComponent implements OnDestroy {

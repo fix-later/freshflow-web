@@ -81,7 +81,8 @@ $dark-base: (
 );
 
 /* Include the core Angular Material styles */
-@include mat.core();
+@include mat.elevation-classes();
+@include mat.app-background();
 
 /* Create a base theme without any color to set the density and typography */
 @include mat.all-component-themes(
@@ -227,21 +228,19 @@ $dark-base: (
         )
     );
 
-    /* Merge the custom base colors with the generated themes */
-    $light-theme-colors: map.merge(map.get($light-theme, color), $light-base);
-    $light-theme: map.merge(
-        (
-            color: $light-theme-colors,
-        ),
-        $light-theme-colors
+    /* Merge the custom base colors without breaking the Material 21 theme structure.
+       The previous merge copied color keys to the theme root and dropped _mat-system,
+       which caused empty Material color tokens (broken buttons, menus, cards). */
+    $light-theme: map.set(
+        $light-theme,
+        color,
+        map.merge(map.get($light-theme, color), $light-base)
     );
 
-    $dark-theme-colors: map.merge(map.get($dark-theme, color), $dark-base);
-    $dark-theme: map.merge(
-        (
-            color: $dark-theme-colors,
-        ),
-        $dark-theme-colors
+    $dark-theme: map.set(
+        $dark-theme,
+        color,
+        map.merge(map.get($dark-theme, color), $dark-base)
     );
 
     /* Generate and encapsulate Angular Material themes */

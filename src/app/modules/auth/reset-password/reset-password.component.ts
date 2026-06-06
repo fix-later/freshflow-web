@@ -1,4 +1,10 @@
-import { Component, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+} from '@angular/core';
 import {
     FormsModule,
     NgForm,
@@ -25,6 +31,7 @@ import { finalize } from 'rxjs';
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FuseAlertComponent,
         FormsModule,

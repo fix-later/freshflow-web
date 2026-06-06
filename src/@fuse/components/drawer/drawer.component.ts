@@ -6,6 +6,7 @@ import {
 } from '@angular/animations';
 import { BooleanInput, coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
+    ChangeDetectionStrategy,
     Component,
     ElementRef,
     EventEmitter,
@@ -34,6 +35,7 @@ import { FuseUtilsService } from '@fuse/services/utils/utils.service';
     styleUrls: ['./drawer.component.scss'],
     encapsulation: ViewEncapsulation.None,
     exportAs: 'fuseDrawer',
+    changeDetection: ChangeDetectionStrategy.Eager,
     standalone: true,
 })
 export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
@@ -109,7 +111,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
      * @private
      */
     @HostListener('mouseenter')
-    private _onMouseenter(): void {
+    protected _onMouseenter(): void {
         // Enable the animations
         this._enableAnimations();
 
@@ -123,7 +125,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
      * @private
      */
     @HostListener('mouseleave')
-    private _onMouseleave(): void {
+    protected _onMouseleave(): void {
         // Enable the animations
         this._enableAnimations();
 

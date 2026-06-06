@@ -13,6 +13,7 @@ const generatePalette = require(
  */
 const customPalettes = {
     brand: generatePalette('#2196F3'),
+    freshflow: generatePalette('#3BB77E'),
 };
 
 /**
@@ -22,8 +23,8 @@ const themes = {
     // Default theme is required for theming system to work correctly!
     default: {
         primary: {
-            ...colors.indigo,
-            DEFAULT: colors.indigo[600],
+            ...customPalettes.freshflow,
+            DEFAULT: customPalettes.freshflow[500],
         },
         accent: {
             ...colors.slate,

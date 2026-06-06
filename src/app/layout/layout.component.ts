@@ -1,6 +1,7 @@
-import { DOCUMENT } from '@angular/common';
 import {
+    ChangeDetectionStrategy,
     Component,
+    DOCUMENT,
     Inject,
     OnDestroy,
     OnInit,
@@ -32,6 +33,7 @@ import { ThinLayoutComponent } from './layouts/vertical/thin/thin.component';
     styleUrls: ['./layout.component.scss'],
     encapsulation: ViewEncapsulation.None,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         EmptyLayoutComponent,
         CenteredLayoutComponent,

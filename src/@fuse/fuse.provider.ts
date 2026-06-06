@@ -1,4 +1,8 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptors,
+    withXhr,
+} from '@angular/common/http';
 import {
     APP_INITIALIZER,
     ENVIRONMENT_INITIALIZER,
@@ -7,7 +11,6 @@ import {
     importProvidersFrom,
     inject,
 } from '@angular/core';
-import { MATERIAL_SANITY_CHECKS } from '@angular/material/core';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 import {
@@ -43,15 +46,6 @@ export const provideFuse = (
     // Base providers
     const providers: Array<Provider | EnvironmentProviders> = [
         {
-            // Disable 'theme' sanity check
-            provide: MATERIAL_SANITY_CHECKS,
-            useValue: {
-                doctype: true,
-                theme: false,
-                version: true,
-            },
-        },
-        {
             // Use the 'fill' appearance on Angular Material form fields by default
             provide: MAT_FORM_FIELD_DEFAULT_OPTIONS,
             useValue: {
@@ -74,7 +68,10 @@ export const provideFuse = (
             multi: true,
         },
 
-        provideHttpClient(withInterceptors([fuseLoadingInterceptor])),
+        provideHttpClient(
+            withXhr(),
+            withInterceptors([fuseLoadingInterceptor])
+        ),
         {
             provide: ENVIRONMENT_INITIALIZER,
             useValue: () => inject(FuseLoadingService),
@@ -106,7 +103,10 @@ export const provideFuse = (
     // Mock Api services
     if (config?.mockApi?.services) {
         providers.push(
-            provideHttpClient(withInterceptors([mockApiInterceptor])),
+            provideHttpClient(
+                withXhr(),
+                withInterceptors([mockApiInterceptor])
+            ),
             {
                 provide: APP_INITIALIZER,
                 deps: [...config.mockApi.services],

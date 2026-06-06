@@ -1,0 +1,70 @@
+@use './enterprise-header/tokens' as *;
+@use './container';
+
+.enterprise-layout {
+    background-color: $ff-surface-muted;
+    scrollbar-gutter: stable;
+}
+
+.enterprise-layout__content {
+    padding-block: 1.5rem;
+
+    @media (min-width: 640px) {
+        padding-block: 1.75rem;
+    }
+}
+
+.enterprise-layout--mobile-nav {
+    padding-bottom: 3.25rem;
+}
+
+.enterprise-layout__search-host {
+    search.search-appearance-bar.search-opened {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: block;
+    }
+
+    search.search-appearance-bar:not(.search-opened) {
+        position: fixed;
+        top: -9999px;
+        left: -9999px;
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+.enterprise-layout__ai-chat-host {
+    enterprise-ai-chat.enterprise-ai-chat-opened {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: block;
+    }
+
+    enterprise-ai-chat:not(.enterprise-ai-chat-opened) {
+        position: fixed;
+        top: -9999px;
+        left: -9999px;
+        opacity: 0;
+        pointer-events: none;
+    }
+}
+
+.enterprise-layout__footer {
+    background: $ff-surface;
+    border-color: $ff-border;
+
+    .enterprise-container {
+        height: 3.5rem;
+
+        @media (min-width: 640px) {
+            height: 4rem;
+        }
+    }
+
+    span {
+        color: $ff-text-secondary;
+    }
+}

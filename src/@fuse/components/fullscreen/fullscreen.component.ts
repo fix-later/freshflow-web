@@ -1,7 +1,8 @@
-import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
+import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
+    DOCUMENT,
     Input,
     TemplateRef,
     ViewEncapsulation,

@@ -2,7 +2,7 @@
 <div
     class="fuse-horizontal-navigation-item-wrapper"
     [class.fuse-horizontal-navigation-item-has-subtitle]="!!item.subtitle"
-    [ngClass]="item.classes?.wrapper"
+    [ngClass]="$safeNavigationMigration(item.classes?.wrapper)"
 >
     <!-- Item with an internal link -->
     @if (item.link && !item.externalLink && !item.function && !item.disabled) {
@@ -114,7 +114,7 @@
     @if (item.icon) {
         <mat-icon
             class="fuse-horizontal-navigation-item-icon"
-            [ngClass]="item.classes?.icon"
+            [ngClass]="$safeNavigationMigration(item.classes?.icon)"
             [svgIcon]="item.icon"
         ></mat-icon>
     }
@@ -122,13 +122,15 @@
     <!-- Title & Subtitle -->
     <div class="fuse-horizontal-navigation-item-title-wrapper">
         <div class="fuse-horizontal-navigation-item-title">
-            <span [ngClass]="item.classes?.title">
+            <span [ngClass]="$safeNavigationMigration(item.classes?.title)">
                 {{ item.title }}
             </span>
         </div>
         @if (item.subtitle) {
             <div class="fuse-horizontal-navigation-item-subtitle text-hint">
-                <span [ngClass]="item.classes?.subtitle">
+                <span
+                    [ngClass]="$safeNavigationMigration(item.classes?.subtitle)"
+                >
                     {{ item.subtitle }}
                 </span>
             </div>
