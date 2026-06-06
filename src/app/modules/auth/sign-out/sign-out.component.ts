@@ -1,5 +1,11 @@
 import { I18nPluralPipe } from '@angular/common';
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+} from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, finalize, takeUntil, takeWhile, tap, timer } from 'rxjs';
@@ -9,6 +15,7 @@ import { Subject, finalize, takeUntil, takeWhile, tap, timer } from 'rxjs';
     templateUrl: './sign-out.component.html',
     encapsulation: ViewEncapsulation.None,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [RouterLink, I18nPluralPipe],
 })
 export class AuthSignOutComponent implements OnInit, OnDestroy {

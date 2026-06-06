@@ -1,12 +1,12 @@
-
 import {
-  Component,
-  Inject,
-  OnDestroy,
-  OnInit,
-  Renderer2,
-  ViewEncapsulation,
-  DOCUMENT
+    ChangeDetectionStrategy,
+    Component,
+    DOCUMENT,
+    Inject,
+    OnDestroy,
+    OnInit,
+    Renderer2,
+    ViewEncapsulation,
 } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { FuseConfig, FuseConfigService } from '@fuse/services/config';
@@ -33,6 +33,7 @@ import { ThinLayoutComponent } from './layouts/vertical/thin/thin.component';
     styleUrls: ['./layout.component.scss'],
     encapsulation: ViewEncapsulation.None,
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         EmptyLayoutComponent,
         CenteredLayoutComponent,

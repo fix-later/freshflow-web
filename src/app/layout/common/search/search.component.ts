@@ -2,6 +2,7 @@ import { Overlay } from '@angular/cdk/overlay';
 import { NgClass, NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import {
+    ChangeDetectionStrategy,
     Component,
     ElementRef,
     EventEmitter,
@@ -56,6 +57,7 @@ import { Subject, debounceTime, filter, map, takeUntil } from 'rxjs';
         MatInputModule,
         NgClass,
     ],
+    changeDetection: ChangeDetectionStrategy.Eager,
     providers: [
         {
             provide: MAT_AUTOCOMPLETE_SCROLL_STRATEGY,

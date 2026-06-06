@@ -2,14 +2,14 @@
 <div
     class="fuse-vertical-navigation-item-wrapper"
     [class.fuse-vertical-navigation-item-has-subtitle]="!!item.subtitle"
-    [ngClass]="item.classes?.wrapper"
+    [ngClass]="$safeNavigationMigration(item.classes?.wrapper)"
 >
     <div class="fuse-vertical-navigation-item">
         <!-- Icon -->
         @if (item.icon) {
             <mat-icon
                 class="fuse-vertical-navigation-item-icon"
-                [ngClass]="item.classes?.icon"
+                [ngClass]="$safeNavigationMigration(item.classes?.icon)"
                 [svgIcon]="item.icon"
             ></mat-icon>
         }
@@ -17,13 +17,17 @@
         <!-- Title & Subtitle -->
         <div class="fuse-vertical-navigation-item-title-wrapper">
             <div class="fuse-vertical-navigation-item-title">
-                <span [ngClass]="item.classes?.title">
+                <span [ngClass]="$safeNavigationMigration(item.classes?.title)">
                     {{ item.title }}
                 </span>
             </div>
             @if (item.subtitle) {
                 <div class="fuse-vertical-navigation-item-subtitle">
-                    <span [ngClass]="item.classes?.subtitle">
+                    <span
+                        [ngClass]="
+                            $safeNavigationMigration(item.classes?.subtitle)
+                        "
+                    >
                         {{ item.subtitle }}
                     </span>
                 </div>

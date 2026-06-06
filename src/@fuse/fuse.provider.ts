@@ -1,4 +1,8 @@
-import { provideHttpClient, withInterceptors } from '@angular/common/http';
+import {
+    provideHttpClient,
+    withInterceptors,
+    withXhr,
+} from '@angular/common/http';
 import {
     APP_INITIALIZER,
     ENVIRONMENT_INITIALIZER,
@@ -64,7 +68,10 @@ export const provideFuse = (
             multi: true,
         },
 
-        provideHttpClient(withInterceptors([fuseLoadingInterceptor])),
+        provideHttpClient(
+            withXhr(),
+            withInterceptors([fuseLoadingInterceptor])
+        ),
         {
             provide: ENVIRONMENT_INITIALIZER,
             useValue: () => inject(FuseLoadingService),
@@ -96,7 +103,10 @@ export const provideFuse = (
     // Mock Api services
     if (config?.mockApi?.services) {
         providers.push(
-            provideHttpClient(withInterceptors([mockApiInterceptor])),
+            provideHttpClient(
+                withXhr(),
+                withInterceptors([mockApiInterceptor])
+            ),
             {
                 provide: APP_INITIALIZER,
                 deps: [...config.mockApi.services],

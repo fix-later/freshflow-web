@@ -2,19 +2,20 @@ import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import {
-  AfterViewInit,
-  Component,
-  ElementRef,
-  HostBinding,
-  HostListener,
-  Inject,
-  NgZone,
-  OnDestroy,
-  OnInit,
-  Renderer2,
-  ViewChild,
-  ViewEncapsulation,
-  DOCUMENT
+    AfterViewInit,
+    ChangeDetectionStrategy,
+    Component,
+    DOCUMENT,
+    ElementRef,
+    HostBinding,
+    HostListener,
+    Inject,
+    NgZone,
+    OnDestroy,
+    OnInit,
+    Renderer2,
+    ViewChild,
+    ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -32,6 +33,7 @@ import { Subject, takeUntil } from 'rxjs';
     encapsulation: ViewEncapsulation.None,
     exportAs: 'quickChat',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         NgClass,
         MatIconModule,

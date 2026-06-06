@@ -1,6 +1,7 @@
 import { coerceBooleanProperty } from '@angular/cdk/coercion';
 
 import {
+    ChangeDetectionStrategy,
     Component,
     inject,
     Input,
@@ -21,6 +22,7 @@ import { Subject, takeUntil } from 'rxjs';
     encapsulation: ViewEncapsulation.None,
     exportAs: 'fuseLoadingBar',
     standalone: true,
+    changeDetection: ChangeDetectionStrategy.Eager,
     imports: [MatProgressBarModule],
 })
 export class FuseLoadingBarComponent implements OnChanges, OnInit, OnDestroy {
