@@ -1,0 +1,293 @@
+<div class="shop">
+
+    <!-- ── Sub-nav category pills ── -->
+    <nav class="shop-subnav">
+        @for (cat of subNavCategories; track cat.name) {
+            <button
+                type="button"
+                class="shop-subnav__pill"
+                [class.shop-subnav__pill--active]="activeSubNav === cat.name"
+                (click)="selectSubNav(cat.name)"
+            >
+                <span>{{ cat.emoji }}</span>
+                {{ cat.name }}
+            </button>
+        }
+    </nav>
+
+    <!-- ── Page title + breadcrumb ── -->
+    <div class="shop-hero">
+        <h1 class="shop-hero__title">Shop</h1>
+        <nav class="shop-hero__breadcrumb" aria-label="Breadcrumb">
+            <a routerLink="/home">Home</a>
+            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+            <span>Shop</span>
+        </nav>
+    </div>
+
+    <!-- ── Category icon row ── -->
+    <div class="shop-icon-row">
+        @for (cat of iconCategories; track cat.name) {
+            <button
+                type="button"
+                class="shop-icon-cat"
+                [class.shop-icon-cat--active]="selectedCategory === cat.name"
+                (click)="selectCategory(cat.name)"
+            >
+                <span class="shop-icon-cat__thumb" [style.background]="cat.bg">{{ cat.emoji }}</span>
+                <span class="shop-icon-cat__name">{{ cat.name }}</span>
+            </button>
+        }
+    </div>
+
+    <!-- ── Main: sidebar + product grid ── -->
+    <div class="shop-layout">
+
+        <!-- Sidebar -->
+        <aside class="shop-sidebar">
+
+            <!-- Categories -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Categories</h3>
+                <ul class="shop-filter__list">
+                    @for (cat of sidebarCategories; track cat.name) {
+                        <li class="shop-filter__item">
+                            <button
+                                type="button"
+                                class="shop-filter__cat-btn"
+                                [class.shop-filter__cat-btn--active]="selectedCategory === cat.name"
+                                (click)="selectCategory(cat.name)"
+                            >
+                                <span class="shop-filter__cat-name">{{ cat.name }}</span>
+                                <span class="shop-filter__cat-count">({{ cat.count }})</span>
+                                <mat-icon class="shop-filter__cat-arrow icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <!-- Price range -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Price</h3>
+                <div class="shop-filter__price-range">
+                    <input
+                        type="range"
+                        class="shop-filter__slider"
+                        [(ngModel)]="priceMax"
+                        min="0"
+                        max="500"
+                        (change)="applyFilter()"
+                    />
+                    <div class="shop-filter__price-labels">
+                        <span>${{ priceMin }}</span>
+                        <span>${{ priceMax }}</span>
+                    </div>
+                </div>
+                <button type="button" class="shop-filter__apply-btn" (click)="applyFilter()">Filter</button>
+            </div>
+
+            <!-- Color -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Color</h3>
+                <div class="shop-filter__colors">
+                    @for (c of colorSwatches; track c) {
+                        <button
+                            type="button"
+                            class="shop-filter__swatch"
+                            [style.background]="c"
+                            [class.shop-filter__swatch--active]="selectedColors.includes(c)"
+                            (click)="toggleColor(c)"
+                            [attr.aria-label]="c"
+                        ></button>
+                    }
+                </div>
+            </div>
+
+            <!-- Size -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Size</h3>
+                <div class="shop-filter__tags">
+                    @for (s of sizeOptions; track s) {
+                        <button
+                            type="button"
+                            class="shop-filter__tag"
+                            [class.shop-filter__tag--active]="selectedSizes.includes(s)"
+                            (click)="selectedSizes.includes(s) ? selectedSizes.splice(selectedSizes.indexOf(s),1) : selectedSizes.push(s)"
+                        >{{ s }}</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Weight -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Weight</h3>
+                <div class="shop-filter__tags">
+                    @for (w of weightOptions; track w) {
+                        <button type="button" class="shop-filter__tag">{{ w }}</button>
+                    }
+                </div>
+            </div>
+
+            <!-- Country -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Country</h3>
+                <ul class="shop-filter__list">
+                    @for (co of countryOptions; track co.name) {
+                        <li class="shop-filter__country">
+                            <span>{{ co.flag }}</span>
+                            <span>{{ co.name }}</span>
+                        </li>
+                    }
+                </ul>
+            </div>
+
+            <!-- Units -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Units</h3>
+                <select class="shop-filter__select" [(ngModel)]="selectedUnit">
+                    @for (u of unitOptions; track u) {
+                        <option [value]="u">{{ u }}</option>
+                    }
+                </select>
+            </div>
+
+            <!-- Rating -->
+            <div class="shop-filter">
+                <h3 class="shop-filter__title">Rating</h3>
+                <div class="shop-filter__ratings">
+                    @for (r of [5,4,3,2,1]; track r) {
+                        <button
+                            type="button"
+                            class="shop-filter__rating-row"
+                            [class.shop-filter__rating-row--active]="selectedRating === r"
+                            (click)="selectedRating = selectedRating === r ? 0 : r; applyFilter()"
+                        >
+                            @for (on of stars(r); track $index) {
+                                <mat-icon
+                                    class="shop-star"
+                                    [class.shop-star--on]="on"
+                                    [svgIcon]="'heroicons_solid:star'"
+                                ></mat-icon>
+                            }
+                            <span class="shop-filter__rating-count">({{ r * 7 }})</span>
+                        </button>
+                    }
+                </div>
+            </div>
+        </aside>
+
+        <!-- Product area -->
+        <div class="shop-content">
+            <!-- Toolbar -->
+            <div class="shop-toolbar">
+                <p class="shop-toolbar__count">
+                    Showing <strong>{{ showingFrom }}–{{ showingTo }}</strong> of <strong>{{ totalProducts }}</strong> results
+                </p>
+                <div class="shop-toolbar__right">
+                    <select class="shop-toolbar__sort" [(ngModel)]="sortBy">
+                        @for (opt of sortOptions; track opt.value) {
+                            <option [value]="opt.value">{{ opt.label }}</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            <!-- Product grid -->
+            <div class="shop-grid">
+                @for (p of pagedProducts; track p.id) {
+                    <article class="shop-card">
+                        @if (p.badge) {
+                            <span class="shop-badge" [ngClass]="p.badgeClass">{{ p.badge }}</span>
+                        }
+                        <div class="shop-card__thumb" [style.background]="p.bg">
+                            <span class="shop-card__emoji">{{ p.emoji }}</span>
+                        </div>
+                        <div class="shop-card__body">
+                            <span class="shop-card__vendor">{{ p.vendor }}</span>
+                            <h3 class="shop-card__name">{{ p.name }}</h3>
+                            <p class="shop-card__desc">{{ p.description }}</p>
+
+                            @if (p.colors) {
+                                <div class="shop-card__colors">
+                                    @for (c of p.colors; track c) {
+                                        <span class="shop-card__color" [style.background]="c"></span>
+                                    }
+                                </div>
+                            }
+
+                            <div class="shop-card__rating">
+                                @for (on of stars(p.rating); track $index) {
+                                    <mat-icon
+                                        class="shop-star"
+                                        [class.shop-star--on]="on"
+                                        [svgIcon]="'heroicons_solid:star'"
+                                    ></mat-icon>
+                                }
+                                <span class="shop-card__reviews">({{ p.reviews }})</span>
+                            </div>
+
+                            @if (p.available) {
+                                <div class="shop-card__stock">
+                                    <span class="shop-card__stock-bar">
+                                        <span class="shop-card__stock-fill" [style.width.%]="(p.available / 50) * 100"></span>
+                                    </span>
+                                    <span class="shop-card__stock-text">Available: <strong>{{ p.available }}</strong></span>
+                                </div>
+                            }
+
+                            <div class="shop-card__foot">
+                                <div class="shop-card__qty">
+                                    <button type="button" class="shop-card__qty-btn" (click)="p.qty = p.qty > 1 ? p.qty - 1 : 1">−</button>
+                                    <span class="shop-card__qty-val">{{ p.qty }}</span>
+                                    <button type="button" class="shop-card__qty-btn" (click)="p.qty = p.qty + 1">+</button>
+                                </div>
+                                <div class="shop-card__price">
+                                    <span class="shop-card__price-now">${{ p.price.toFixed(2) }}</span>
+                                    @if (p.oldPrice) {
+                                        <span class="shop-card__price-old">${{ p.oldPrice.toFixed(2) }}</span>
+                                    }
+                                </div>
+                                <button type="button" class="shop-card__add" aria-label="Add to cart">
+                                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:shopping-cart'"></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                    </article>
+                }
+            </div>
+
+            <!-- Pagination -->
+            @if (totalPages > 1) {
+                <div class="shop-pagination">
+                    <button
+                        type="button"
+                        class="shop-pagination__btn"
+                        [class.shop-pagination__btn--disabled]="currentPage === 1"
+                        (click)="goToPage(currentPage - 1)"
+                    >
+                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-left'"></mat-icon>
+                    </button>
+
+                    @for (p of pages; track p) {
+                        <button
+                            type="button"
+                            class="shop-pagination__btn"
+                            [class.shop-pagination__btn--active]="currentPage === p"
+                            (click)="goToPage(p)"
+                        >{{ p }}</button>
+                    }
+
+                    <button
+                        type="button"
+                        class="shop-pagination__btn"
+                        [class.shop-pagination__btn--disabled]="currentPage === totalPages"
+                        (click)="goToPage(currentPage + 1)"
+                    >
+                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</div>

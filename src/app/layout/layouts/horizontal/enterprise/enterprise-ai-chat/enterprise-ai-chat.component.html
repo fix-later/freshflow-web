@@ -1,0 +1,57 @@
+@if (opened) {
+    <div
+        class="enterprise-ai-chat__overlay bg-card flex flex-col"
+        @slideInTop
+        @slideOutTop
+    >
+        <div
+            class="enterprise-ai-chat__bar flex shrink-0 items-center border-b"
+        >
+            <mat-icon
+                class="enterprise-ai-chat__bar-icon"
+                [svgIcon]="'heroicons_outline:sparkles'"
+            ></mat-icon>
+            <input
+                #chatInput
+                class="enterprise-ai-chat__input"
+                type="text"
+                name="aiQuery"
+                [(ngModel)]="query"
+                placeholder="Ask FreshFlow AI..."
+                aria-label="Ask FreshFlow AI"
+                (keydown)="onKeydown($event)"
+            />
+            <button
+                mat-icon-button
+                type="button"
+                class="enterprise-ai-chat__close"
+                aria-label="Close AI chat"
+                (click)="close()"
+            >
+                <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
+            </button>
+        </div>
+
+        <div class="enterprise-ai-chat__body flex flex-auto flex-col overflow-y-auto">
+            @for (message of messages; track $index) {
+                <div
+                    class="enterprise-ai-chat__message"
+                    [ngClass]="{
+                        'enterprise-ai-chat__message--user':
+                            message.role === 'user',
+                        'enterprise-ai-chat__message--assistant':
+                            message.role === 'assistant',
+                    }"
+                >
+                    @if (message.role === 'assistant') {
+                        <mat-icon
+                            class="enterprise-ai-chat__message-icon"
+                            [svgIcon]="'heroicons_outline:sparkles'"
+                        ></mat-icon>
+                    }
+                    <p>{{ message.text }}</p>
+                </div>
+            }
+        </div>
+    </div>
+}
