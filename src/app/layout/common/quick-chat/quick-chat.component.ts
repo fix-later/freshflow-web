@@ -1,19 +1,20 @@
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { TextFieldModule } from '@angular/cdk/text-field';
-import { DOCUMENT, DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
+import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
 import {
-    AfterViewInit,
-    Component,
-    ElementRef,
-    HostBinding,
-    HostListener,
-    Inject,
-    NgZone,
-    OnDestroy,
-    OnInit,
-    Renderer2,
-    ViewChild,
-    ViewEncapsulation,
+  AfterViewInit,
+  Component,
+  ElementRef,
+  HostBinding,
+  HostListener,
+  Inject,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  Renderer2,
+  ViewChild,
+  ViewEncapsulation,
+  DOCUMENT
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -87,7 +88,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
      */
     @HostListener('input')
     @HostListener('ngModelChange')
-    private _resizeMessageInput(): void {
+    protected _resizeMessageInput(): void {
         // This doesn't need to trigger Angular's change detection by itself
         this._ngZone.runOutsideAngular(() => {
             setTimeout(() => {

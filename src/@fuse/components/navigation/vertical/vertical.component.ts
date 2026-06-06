@@ -6,28 +6,29 @@ import {
 } from '@angular/animations';
 import { BooleanInput, coerceBooleanProperty } from '@angular/cdk/coercion';
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
-import { DOCUMENT } from '@angular/common';
+
 import {
-    AfterViewInit,
-    ChangeDetectionStrategy,
-    ChangeDetectorRef,
-    Component,
-    ElementRef,
-    EventEmitter,
-    HostBinding,
-    HostListener,
-    inject,
-    Input,
-    OnChanges,
-    OnDestroy,
-    OnInit,
-    Output,
-    QueryList,
-    Renderer2,
-    SimpleChanges,
-    ViewChild,
-    ViewChildren,
-    ViewEncapsulation,
+  AfterViewInit,
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  EventEmitter,
+  HostBinding,
+  HostListener,
+  inject,
+  Input,
+  OnChanges,
+  OnDestroy,
+  OnInit,
+  Output,
+  QueryList,
+  Renderer2,
+  SimpleChanges,
+  ViewChild,
+  ViewChildren,
+  ViewEncapsulation,
+  DOCUMENT
 } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
@@ -225,7 +226,7 @@ export class FuseVerticalNavigationComponent
      * @private
      */
     @HostListener('mouseenter')
-    private _onMouseenter(): void {
+    protected _onMouseenter(): void {
         // Enable the animations
         this._enableAnimations();
 
@@ -239,7 +240,7 @@ export class FuseVerticalNavigationComponent
      * @private
      */
     @HostListener('mouseleave')
-    private _onMouseleave(): void {
+    protected _onMouseleave(): void {
         // Enable the animations
         this._enableAnimations();
 
