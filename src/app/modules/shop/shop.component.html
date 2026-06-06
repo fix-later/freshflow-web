@@ -1,5 +1,4 @@
 <div class="shop">
-
     <!-- ── Sub-nav category pills ── -->
     <nav class="shop-subnav">
         @for (cat of subNavCategories; track cat.name) {
@@ -20,7 +19,10 @@
         <h1 class="shop-hero__title">Shop</h1>
         <nav class="shop-hero__breadcrumb" aria-label="Breadcrumb">
             <a routerLink="/home">Home</a>
-            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+            <mat-icon
+                class="icon-size-4"
+                [svgIcon]="'heroicons_mini:chevron-right'"
+            ></mat-icon>
             <span>Shop</span>
         </nav>
     </div>
@@ -34,7 +36,11 @@
                 [class.shop-icon-cat--active]="selectedCategory === cat.name"
                 (click)="selectCategory(cat.name)"
             >
-                <span class="shop-icon-cat__thumb" [style.background]="cat.bg">{{ cat.emoji }}</span>
+                <span
+                    class="shop-icon-cat__thumb"
+                    [style.background]="cat.bg"
+                    >{{ cat.emoji }}</span
+                >
                 <span class="shop-icon-cat__name">{{ cat.name }}</span>
             </button>
         }
@@ -42,10 +48,8 @@
 
     <!-- ── Main: sidebar + product grid ── -->
     <div class="shop-layout">
-
         <!-- Sidebar -->
         <aside class="shop-sidebar">
-
             <!-- Categories -->
             <div class="shop-filter">
                 <h3 class="shop-filter__title">Categories</h3>
@@ -55,12 +59,21 @@
                             <button
                                 type="button"
                                 class="shop-filter__cat-btn"
-                                [class.shop-filter__cat-btn--active]="selectedCategory === cat.name"
+                                [class.shop-filter__cat-btn--active]="
+                                    selectedCategory === cat.name
+                                "
                                 (click)="selectCategory(cat.name)"
                             >
-                                <span class="shop-filter__cat-name">{{ cat.name }}</span>
-                                <span class="shop-filter__cat-count">({{ cat.count }})</span>
-                                <mat-icon class="shop-filter__cat-arrow icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+                                <span class="shop-filter__cat-name">{{
+                                    cat.name
+                                }}</span>
+                                <span class="shop-filter__cat-count"
+                                    >({{ cat.count }})</span
+                                >
+                                <mat-icon
+                                    class="shop-filter__cat-arrow icon-size-4"
+                                    [svgIcon]="'heroicons_mini:chevron-right'"
+                                ></mat-icon>
                             </button>
                         </li>
                     }
@@ -84,7 +97,13 @@
                         <span>${{ priceMax }}</span>
                     </div>
                 </div>
-                <button type="button" class="shop-filter__apply-btn" (click)="applyFilter()">Filter</button>
+                <button
+                    type="button"
+                    class="shop-filter__apply-btn"
+                    (click)="applyFilter()"
+                >
+                    Filter
+                </button>
             </div>
 
             <!-- Color -->
@@ -96,7 +115,9 @@
                             type="button"
                             class="shop-filter__swatch"
                             [style.background]="c"
-                            [class.shop-filter__swatch--active]="selectedColors.includes(c)"
+                            [class.shop-filter__swatch--active]="
+                                selectedColors.includes(c)
+                            "
                             (click)="toggleColor(c)"
                             [attr.aria-label]="c"
                         ></button>
@@ -112,9 +133,20 @@
                         <button
                             type="button"
                             class="shop-filter__tag"
-                            [class.shop-filter__tag--active]="selectedSizes.includes(s)"
-                            (click)="selectedSizes.includes(s) ? selectedSizes.splice(selectedSizes.indexOf(s),1) : selectedSizes.push(s)"
-                        >{{ s }}</button>
+                            [class.shop-filter__tag--active]="
+                                selectedSizes.includes(s)
+                            "
+                            (click)="
+                                selectedSizes.includes(s)
+                                    ? selectedSizes.splice(
+                                          selectedSizes.indexOf(s),
+                                          1
+                                      )
+                                    : selectedSizes.push(s)
+                            "
+                        >
+                            {{ s }}
+                        </button>
                     }
                 </div>
             </div>
@@ -124,7 +156,9 @@
                 <h3 class="shop-filter__title">Weight</h3>
                 <div class="shop-filter__tags">
                     @for (w of weightOptions; track w) {
-                        <button type="button" class="shop-filter__tag">{{ w }}</button>
+                        <button type="button" class="shop-filter__tag">
+                            {{ w }}
+                        </button>
                     }
                 </div>
             </div>
@@ -156,12 +190,17 @@
             <div class="shop-filter">
                 <h3 class="shop-filter__title">Rating</h3>
                 <div class="shop-filter__ratings">
-                    @for (r of [5,4,3,2,1]; track r) {
+                    @for (r of [5, 4, 3, 2, 1]; track r) {
                         <button
                             type="button"
                             class="shop-filter__rating-row"
-                            [class.shop-filter__rating-row--active]="selectedRating === r"
-                            (click)="selectedRating = selectedRating === r ? 0 : r; applyFilter()"
+                            [class.shop-filter__rating-row--active]="
+                                selectedRating === r
+                            "
+                            (click)="
+                                selectedRating = selectedRating === r ? 0 : r;
+                                applyFilter()
+                            "
                         >
                             @for (on of stars(r); track $index) {
                                 <mat-icon
@@ -170,7 +209,9 @@
                                     [svgIcon]="'heroicons_solid:star'"
                                 ></mat-icon>
                             }
-                            <span class="shop-filter__rating-count">({{ r * 7 }})</span>
+                            <span class="shop-filter__rating-count"
+                                >({{ r * 7 }})</span
+                            >
                         </button>
                     }
                 </div>
@@ -182,7 +223,9 @@
             <!-- Toolbar -->
             <div class="shop-toolbar">
                 <p class="shop-toolbar__count">
-                    Showing <strong>{{ showingFrom }}–{{ showingTo }}</strong> of <strong>{{ totalProducts }}</strong> results
+                    Showing
+                    <strong>{{ showingFrom }}–{{ showingTo }}</strong> of
+                    <strong>{{ totalProducts }}</strong> results
                 </p>
                 <div class="shop-toolbar__right">
                     <select class="shop-toolbar__sort" [(ngModel)]="sortBy">
@@ -198,20 +241,27 @@
                 @for (p of pagedProducts; track p.id) {
                     <article class="shop-card">
                         @if (p.badge) {
-                            <span class="shop-badge" [ngClass]="p.badgeClass">{{ p.badge }}</span>
+                            <span class="shop-badge" [ngClass]="p.badgeClass">{{
+                                p.badge
+                            }}</span>
                         }
                         <div class="shop-card__thumb" [style.background]="p.bg">
                             <span class="shop-card__emoji">{{ p.emoji }}</span>
                         </div>
                         <div class="shop-card__body">
-                            <span class="shop-card__vendor">{{ p.vendor }}</span>
+                            <span class="shop-card__vendor">{{
+                                p.vendor
+                            }}</span>
                             <h3 class="shop-card__name">{{ p.name }}</h3>
                             <p class="shop-card__desc">{{ p.description }}</p>
 
                             @if (p.colors) {
                                 <div class="shop-card__colors">
                                     @for (c of p.colors; track c) {
-                                        <span class="shop-card__color" [style.background]="c"></span>
+                                        <span
+                                            class="shop-card__color"
+                                            [style.background]="c"
+                                        ></span>
                                     }
                                 </div>
                             }
@@ -224,32 +274,71 @@
                                         [svgIcon]="'heroicons_solid:star'"
                                     ></mat-icon>
                                 }
-                                <span class="shop-card__reviews">({{ p.reviews }})</span>
+                                <span class="shop-card__reviews"
+                                    >({{ p.reviews }})</span
+                                >
                             </div>
 
                             @if (p.available) {
                                 <div class="shop-card__stock">
                                     <span class="shop-card__stock-bar">
-                                        <span class="shop-card__stock-fill" [style.width.%]="(p.available / 50) * 100"></span>
+                                        <span
+                                            class="shop-card__stock-fill"
+                                            [style.width.%]="
+                                                (p.available / 50) * 100
+                                            "
+                                        ></span>
                                     </span>
-                                    <span class="shop-card__stock-text">Available: <strong>{{ p.available }}</strong></span>
+                                    <span class="shop-card__stock-text"
+                                        >Available:
+                                        <strong>{{ p.available }}</strong></span
+                                    >
                                 </div>
                             }
 
                             <div class="shop-card__foot">
                                 <div class="shop-card__qty">
-                                    <button type="button" class="shop-card__qty-btn" (click)="p.qty = p.qty > 1 ? p.qty - 1 : 1">−</button>
-                                    <span class="shop-card__qty-val">{{ p.qty }}</span>
-                                    <button type="button" class="shop-card__qty-btn" (click)="p.qty = p.qty + 1">+</button>
+                                    <button
+                                        type="button"
+                                        class="shop-card__qty-btn"
+                                        (click)="
+                                            p.qty = p.qty > 1 ? p.qty - 1 : 1
+                                        "
+                                    >
+                                        −
+                                    </button>
+                                    <span class="shop-card__qty-val">{{
+                                        p.qty
+                                    }}</span>
+                                    <button
+                                        type="button"
+                                        class="shop-card__qty-btn"
+                                        (click)="p.qty = p.qty + 1"
+                                    >
+                                        +
+                                    </button>
                                 </div>
                                 <div class="shop-card__price">
-                                    <span class="shop-card__price-now">${{ p.price.toFixed(2) }}</span>
+                                    <span class="shop-card__price-now"
+                                        >${{ p.price.toFixed(2) }}</span
+                                    >
                                     @if (p.oldPrice) {
-                                        <span class="shop-card__price-old">${{ p.oldPrice.toFixed(2) }}</span>
+                                        <span class="shop-card__price-old"
+                                            >${{ p.oldPrice.toFixed(2) }}</span
+                                        >
                                     }
                                 </div>
-                                <button type="button" class="shop-card__add" aria-label="Add to cart">
-                                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:shopping-cart'"></mat-icon>
+                                <button
+                                    type="button"
+                                    class="shop-card__add"
+                                    aria-label="Add to cart"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:shopping-cart'
+                                        "
+                                    ></mat-icon>
                                 </button>
                             </div>
                         </div>
@@ -263,28 +352,42 @@
                     <button
                         type="button"
                         class="shop-pagination__btn"
-                        [class.shop-pagination__btn--disabled]="currentPage === 1"
+                        [class.shop-pagination__btn--disabled]="
+                            currentPage === 1
+                        "
                         (click)="goToPage(currentPage - 1)"
                     >
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-left'"></mat-icon>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_mini:chevron-left'"
+                        ></mat-icon>
                     </button>
 
                     @for (p of pages; track p) {
                         <button
                             type="button"
                             class="shop-pagination__btn"
-                            [class.shop-pagination__btn--active]="currentPage === p"
+                            [class.shop-pagination__btn--active]="
+                                currentPage === p
+                            "
                             (click)="goToPage(p)"
-                        >{{ p }}</button>
+                        >
+                            {{ p }}
+                        </button>
                     }
 
                     <button
                         type="button"
                         class="shop-pagination__btn"
-                        [class.shop-pagination__btn--disabled]="currentPage === totalPages"
+                        [class.shop-pagination__btn--disabled]="
+                            currentPage === totalPages
+                        "
                         (click)="goToPage(currentPage + 1)"
                     >
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_mini:chevron-right'"></mat-icon>
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_mini:chevron-right'"
+                        ></mat-icon>
                     </button>
                 </div>
             }

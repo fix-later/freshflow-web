@@ -35,7 +35,7 @@ export class EnterpriseAiChatComponent {
     messages: AiChatMessage[] = [
         {
             role: 'assistant',
-            text: 'Hi! I\'m FreshFlow AI. Ask me about products, orders, or delivery.',
+            text: "Hi! I'm FreshFlow AI. Ask me about products, orders, or delivery.",
         },
     ];
 

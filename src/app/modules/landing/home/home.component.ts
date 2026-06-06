@@ -310,7 +310,8 @@ export class LandingHomeComponent implements OnInit, OnDestroy {
     secs = '00';
 
     private _timerId: ReturnType<typeof setInterval> | null = null;
-    private readonly _saleEnd = Date.now() + 4 * 24 * 3600 * 1000 + 15600 * 1000;
+    private readonly _saleEnd =
+        Date.now() + 4 * 24 * 3600 * 1000 + 15600 * 1000;
 
     constructor(private _cdr: ChangeDetectorRef) {}
 

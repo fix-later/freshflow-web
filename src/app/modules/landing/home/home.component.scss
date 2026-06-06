@@ -554,8 +554,7 @@ $home-border: #ececec;
     min-height: 12rem;
     padding: 2.5rem 3rem;
     border-radius: $home-radius;
-    background:
-        radial-gradient(
+    background: radial-gradient(
             circle at 80% 50%,
             rgba(255 255 255 / 8%) 0%,
             transparent 45%

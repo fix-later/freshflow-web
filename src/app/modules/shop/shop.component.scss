@@ -211,7 +211,9 @@ $shop-bg: #f4f6f9;
     cursor: pointer;
     font-size: 0.875rem;
     color: $shop-text;
-    transition: background 0.12s ease, color 0.12s ease;
+    transition:
+        background 0.12s ease,
+        color 0.12s ease;
 
     &:hover,
     &--active {
@@ -286,14 +288,18 @@ $shop-bg: #f4f6f9;
     border-radius: 9999px;
     border: 2px solid transparent;
     cursor: pointer;
-    transition: transform 0.12s ease, box-shadow 0.12s ease;
+    transition:
+        transform 0.12s ease,
+        box-shadow 0.12s ease;
 
     &:hover {
         transform: scale(1.2);
     }
 
     &--active {
-        box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--fuse-primary);
+        box-shadow:
+            0 0 0 2px #fff,
+            0 0 0 4px var(--fuse-primary);
     }
 }
 
@@ -312,7 +318,10 @@ $shop-bg: #f4f6f9;
     font-size: 0.8125rem;
     font-weight: 600;
     cursor: pointer;
-    transition: border-color 0.12s, background 0.12s, color 0.12s;
+    transition:
+        border-color 0.12s,
+        background 0.12s,
+        color 0.12s;
 
     &:hover,
     &--active {
@@ -685,10 +694,18 @@ $shop-bg: #f4f6f9;
     color: #fff;
     background: var(--fuse-primary);
 
-    &--primary { background: var(--fuse-primary); }
-    &--rose    { background: #f43f5e; }
-    &--blue    { background: #3b82f6; }
-    &--amber   { background: #f59e0b; }
+    &--primary {
+        background: var(--fuse-primary);
+    }
+    &--rose {
+        background: #f43f5e;
+    }
+    &--blue {
+        background: #3b82f6;
+    }
+    &--amber {
+        background: #f59e0b;
+    }
 }
 
 /* ── Pagination ── */

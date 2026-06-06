@@ -13,10 +13,7 @@
                 Fresh groceries delivered to your door. Save up to 25% on your
                 first order with FreshFlow.
             </p>
-            <form
-                class="home-hero__form"
-                (ngSubmit)="$event.preventDefault()"
-            >
+            <form class="home-hero__form" (ngSubmit)="$event.preventDefault()">
                 <mat-icon
                     class="home-hero__form-icon icon-size-5"
                     [svgIcon]="'heroicons_outline:envelope'"
@@ -89,20 +86,17 @@
                 @for (p of popularProducts; track p.name) {
                     <article class="home-card">
                         @if (p.badge) {
-                            <span
-                                class="home-badge"
-                                [ngClass]="p.badgeClass"
-                                >{{ p.badge }}</span
-                            >
+                            <span class="home-badge" [ngClass]="p.badgeClass">{{
+                                p.badge
+                            }}</span>
                         }
-                        <div
-                            class="home-card__thumb"
-                            [style.background]="p.bg"
-                        >
+                        <div class="home-card__thumb" [style.background]="p.bg">
                             <span class="home-card__emoji">{{ p.emoji }}</span>
                         </div>
                         <div class="home-card__body">
-                            <span class="home-card__vendor">{{ p.vendor }}</span>
+                            <span class="home-card__vendor">{{
+                                p.vendor
+                            }}</span>
                             <h3 class="home-card__name">{{ p.name }}</h3>
                             <div class="home-card__rating">
                                 @for (on of stars(p.rating); track $index) {
@@ -148,10 +142,7 @@
     <section class="home-section">
         <div class="home-promos">
             @for (promo of promos; track promo.title) {
-                <div
-                    class="home-promo"
-                    [style.background]="promo.gradient"
-                >
+                <div class="home-promo" [style.background]="promo.gradient">
                     <div class="home-promo__copy">
                         <h3 class="home-promo__title">{{ promo.title }}</h3>
                         <a class="home-promo__btn" routerLink="/home">
@@ -291,7 +282,9 @@
                 <div class="home-testimonial__card">
                     <mat-icon
                         class="home-testimonial__quote icon-size-8"
-                        [svgIcon]="'heroicons_solid:chat-bubble-bottom-center-text'"
+                        [svgIcon]="
+                            'heroicons_solid:chat-bubble-bottom-center-text'
+                        "
                     ></mat-icon>
                     <p class="home-testimonial__text">
                         “FreshFlow completely changed the way I shop for

@@ -32,7 +32,9 @@
             </button>
         </div>
 
-        <div class="enterprise-ai-chat__body flex flex-auto flex-col overflow-y-auto">
+        <div
+            class="enterprise-ai-chat__body flex flex-auto flex-col overflow-y-auto"
+        >
             @for (message of messages; track $index) {
                 <div
                     class="enterprise-ai-chat__message"

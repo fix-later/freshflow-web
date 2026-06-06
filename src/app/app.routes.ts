@@ -109,8 +109,7 @@ export const appRoutes: Route[] = [
             },
             {
                 path: 'shop',
-                loadChildren: () =>
-                    import('app/modules/shop/shop.routes'),
+                loadChildren: () => import('app/modules/shop/shop.routes'),
             },
         ],
     },

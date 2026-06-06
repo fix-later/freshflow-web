@@ -50,7 +50,7 @@
 
     <!-- Content -->
     <div
-        class="enterprise-layout__content mx-auto flex w-full enterprise-container flex-auto flex-col"
+        class="enterprise-layout__content enterprise-container mx-auto flex w-full flex-auto flex-col"
     >
         @if (true) {
             <router-outlet></router-outlet>
@@ -58,7 +58,9 @@
     </div>
 
     <!-- Footer -->
-    <div class="enterprise-layout__footer w-full shrink-0 border-t print:hidden">
+    <div
+        class="enterprise-layout__footer w-full shrink-0 border-t print:hidden"
+    >
         <div class="enterprise-container flex h-full w-full items-center">
             <span class="font-medium">FreshFlow &copy; {{ currentYear }}</span>
         </div>
