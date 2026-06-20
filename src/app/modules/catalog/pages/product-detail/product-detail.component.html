@@ -1,0 +1,78 @@
+<div class="flex w-full flex-col" *transloco="let t">
+    @if (product(); as product) {
+        <!-- Header: breadcrumb + title -->
+        <div class="px-6 pt-6 md:px-8">
+            <nav
+                class="text-hint flex items-center gap-1 text-sm"
+                aria-label="Breadcrumb"
+            >
+                <a
+                    routerLink="/home"
+                    class="font-medium text-primary hover:underline"
+                >
+                    {{ t('catalog.breadcrumb.home') }}
+                </a>
+                <mat-icon
+                    class="text-hint icon-size-4"
+                    svgIcon="heroicons_mini:chevron-right"
+                ></mat-icon>
+                <a
+                    routerLink="/catalog"
+                    class="font-medium text-primary hover:underline"
+                >
+                    {{ t('catalog.breadcrumb.catalog') }}
+                </a>
+                <mat-icon
+                    class="text-hint icon-size-4"
+                    svgIcon="heroicons_mini:chevron-right"
+                ></mat-icon>
+                <span>{{ isVi() ? product.name : product.nameEn }}</span>
+            </nav>
+            <h1 class="mt-1 text-3xl font-semibold tracking-tight">
+                {{ isVi() ? product.name : product.nameEn }}
+            </h1>
+        </div>
+
+        <div class="flex flex-col gap-8 px-6 py-6 md:flex-row md:px-8">
+            <!-- Image -->
+            <div class="md:w-1/2">
+                <img
+                    [src]="product.thumbnail"
+                    [alt]="isVi() ? product.name : product.nameEn"
+                    class="w-full rounded-lg bg-gray-100 object-cover"
+                />
+            </div>
+
+            <!-- Details -->
+            <div class="flex flex-1 flex-col gap-4 md:w-1/2">
+                <span
+                    class="text-hint text-sm font-medium uppercase tracking-wider"
+                >
+                    {{ categoryName(product.categoryId) }}
+                </span>
+                <p class="text-secondary leading-relaxed">
+                    {{ isVi() ? product.description : product.descriptionEn }}
+                </p>
+
+                <div class="mt-4 grid grid-cols-2 gap-6">
+                    <div>
+                        <span class="text-hint text-sm">
+                            {{ t('catalog.unit') }}
+                        </span>
+                        <p class="mt-1 font-medium">
+                            {{ isVi() ? product.unit : product.unitEn }}
+                        </p>
+                    </div>
+                    <div>
+                        <span class="text-hint text-sm">
+                            {{ t('catalog.marketSource') }}
+                        </span>
+                        <p class="mt-1 font-medium">
+                            {{ product.marketSource }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

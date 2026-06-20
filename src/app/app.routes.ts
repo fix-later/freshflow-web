@@ -108,6 +108,11 @@ export const appRoutes: Route[] = [
                     import('app/modules/landing/home/home.routes'),
             },
             {
+                path: 'catalog',
+                loadChildren: () =>
+                    import('app/modules/catalog/catalog.routes'),
+            },
+            {
                 path: 'shop',
                 loadChildren: () => import('app/modules/shop/shop.routes'),
             },

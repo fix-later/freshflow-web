@@ -10,6 +10,13 @@ export const defaultNavigation: FuseNavigationItem[] = [
         link: '/home',
     },
     {
+        id: 'catalog',
+        title: 'Catalog',
+        type: 'basic',
+        icon: 'heroicons_outline:squares-2x2',
+        link: '/catalog',
+    },
+    {
         id: 'shop',
         title: 'Shop',
         type: 'collapsable',
@@ -109,6 +116,12 @@ export const horizontalNavigation: FuseNavigationItem[] = [
                 link: '/home',
             },
         ],
+    },
+    {
+        id: 'catalog',
+        title: 'Catalog',
+        type: 'basic',
+        link: '/catalog',
     },
     {
         id: 'shop',
