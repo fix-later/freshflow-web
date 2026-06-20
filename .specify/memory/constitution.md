@@ -1,50 +1,80 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+# FreshFlow Web (FFX) Constitution
+
+**Layer:** Engineering. Subordinate to Business, UX, and Design; authoritative for *how*
+the web client is built. Product truth lives in the Business layer
+([`specs/product/PRD.md`](../../specs/product/PRD.md) → `UseCase.xlsx`);
+visual truth in the Design layer ([`specs/references/README.md`](../../specs/references/README.md)).
+All documentation is consolidated under `specs/` (single Spec-Kit source of truth).
+
+## Precedence
+
+When documents disagree, resolve in this order:
+**Business → UX → Design → Engineering → AI.** Engineering choices must serve the product
+scope and design direction, never redefine them.
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Angular-First, Signal-Driven
+Angular 22 standalone components, signal-based reactivity, and the Fuse architecture. No
+NgModules for new features. All feature routes are lazy-loaded.
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+### II. Real-Time by Default
+The Restaurant surface reflects live data without manual refresh. Price updates arrive via
+SignalR within 500 ms; order, hub, and delivery status push automatically. On
+disconnect/reconnect, recover current state via REST — missed events are not replayed.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### III. Type Safety (NON-NEGOTIABLE)
+Strict TypeScript. API responses typed to match the backend OpenAPI contract. No `any` in
+new code. ESLint + Prettier enforced by pre-commit hooks.
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+### IV. Test Before Merge
+Every change passes lint → Prettier check → unit tests → production build before merge.
+Husky runs lint-staged on commit and the test+build gate on push; CI is the final gate.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### V. Bilingual UX
+All user-facing text supports Vietnamese and English via Transloco. No hardcoded
+user-facing strings in templates — labels, errors, and notifications are translated.
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+### VI. Performance Budget
+Production initial bundle ≤ 5 MB (error) / ≤ 3 MB (warning); per-component styles ≤ 90 KB.
+Feature modules stay small via lazy loading. Use Angular Material for consistent,
+accessible UI.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+## Domain Facts (must hold in the UI)
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+These follow from the Business layer and constrain implementation:
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+- **B2B credit/debt, not prepaid checkout.** Orders settle against a restaurant credit
+  balance with periodic statements — there is no consumer payment-gateway checkout flow.
+- **Self-registration + approval.** Restaurants self-register and start
+  `PENDING_APPROVAL`; they cannot order until an Admin approves them.
+- **22:00 cutoff.** Order confirmation participates in the next delivery cycle only before
+  the configurable daily cutoff.
+- **13-module surface.** Build against the canonical module map in the feature map.
+
+## Technology Stack
+
+- **Framework:** Angular 22 (standalone, signals, new control flow)
+- **UI:** Angular Material 22 + Fuse Admin Template
+- **Styling:** Tailwind CSS 3.x + SCSS via the Fuse theming system
+- **State:** Angular Signals + RxJS
+- **Real-time:** SignalR client (prices, order/hub/delivery status)
+- **i18n:** @ngneat/transloco
+- **Testing:** Jasmine + Karma (unit); Playwright (e2e, planned)
+- **Tooling:** Node 24, ESLint, Prettier, Husky + lint-staged
+- **CI/CD:** GitHub Actions → Docker image (GHCR) → VPS
+
+## Development Workflow
+
+- Branch from `dev`; PR into `main` for releases. Branch names: `{ticket-id}-short-desc`.
+- Pre-commit: ESLint + Prettier on staged files. Pre-push: unit tests + production build.
+- CI runs the full pipeline on push/PR to `main` and `dev`; CD deploys `dev` on green CI.
+- Feature work is spec-driven: no implementation without a spec under `specs/`.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc engineering decisions but never the layers above it.
+Conflicts are resolved by the precedence chain. Architecture changes update this file;
+product/scope changes update the Business layer first, then cascade down.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version:** 1.1 | **Ratified:** 2026-06-21 | **Last Amended:** 2026-06-21
