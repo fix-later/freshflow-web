@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "skills": {
+    "Tailwind CSS v4": {
+      "source": "shamiul-anik/tailwindcss-skills",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "a64c694bf2ecc5906ca0a7be5ace2e8b3c099f2b32d1b3ee9115a81be2b2f56a"
+    },
+    "angular-developer": {
+      "source": "angular/skills",
+      "sourceType": "github",
+      "skillPath": "angular-developer/SKILL.md",
+      "computedHash": "dc0d00affef561cd0181f5e2c38723fe645a1ecef591655d2b03ad95685812c9"
+    },
+    "angular-material": {
+      "source": "angular-sanctuary/angular-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/angular-material/SKILL.md",
+      "computedHash": "1775dea334012420545623b9c7849a29e8f7edf53d53b7f356253e7fbf2b5fbd"
+    },
+    "angular-new-app": {
+      "source": "angular/skills",
+      "sourceType": "github",
+      "skillPath": "angular-new-app/SKILL.md",
+      "computedHash": "d9f712544847ab80ef7ed20043820afd275c394ca05340c2f20a0f051e35d945"
+    },
+    "frontend-design": {
+      "source": "anthropics/claude-code",
+      "sourceType": "github",
+      "skillPath": "plugins/frontend-design/skills/frontend-design/SKILL.md",
+      "computedHash": "3e0be122a3db8206b6d0d6b07cca898b5c75fb9b7b2101abe143fb2851734d2e"
+    },
+    "playwright-skill": {
+      "source": "lackeyjb/playwright-skill",
+      "sourceType": "github",
+      "skillPath": "skills/playwright-skill/SKILL.md",
+      "computedHash": "0f4b5a14e0afb85c2855943e5898a2da565c504bc46943aaf9e768f251ceb47f"
+    }
+  }
+}

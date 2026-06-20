@@ -1,27 +1,77 @@
-# Fuse - Admin template and Starter project for Angular
+# FreshFlow Web (FFX)
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli)
+Angular web client for **FreshFlow** — a B2B platform that optimizes food procurement and
+logistics from Ho Chi Minh City wholesale markets for restaurants. This repo serves the
+**Restaurant, Admin, and Operations Manager** surfaces (Market Agent / Hub Staff / Driver
+are mobile).
 
-## Development server
+## Documentation
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+All project documentation is consolidated under **`specs/`** as a single Spec-Kit source of
+truth. Layers resolve conflicts **Business → UX → Design → Engineering → AI**.
 
-## Code scaffolding
+| Layer | Location |
+|-------|----------|
+| Business (what) | [specs/product/](specs/product/) — PRD, BUSINESS_RULES, ROLE_MATRIX, UseCase.xlsx |
+| UX (flows) | [specs/ux/](specs/ux/) — SITEMAP, NAVIGATION, SCREEN_RULES |
+| Design (look) | [specs/design/](specs/design/) + [specs/references/](specs/references/) |
+| Engineering (how) | [specs/engineering/](specs/engineering/) + [.specify/memory/constitution.md](.specify/memory/constitution.md) |
+| AI (agents) | [specs/ai/](specs/ai/) + [CLAUDE.md](CLAUDE.md) |
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+Feature specs live alongside as `specs/NNN-<feature>/` (created via the `/speckit-*` skills).
 
-## Build
+## Tech stack
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+Angular 22 (standalone + signals) · Angular Material 22 + Fuse · Tailwind CSS 3 · RxJS ·
+SignalR (real-time) · Transloco (vi/en) · Jasmine/Karma.
 
-## Running unit tests
+## Prerequisites
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+- Node **24** (see [.nvmrc](.nvmrc)) and npm
 
-## Running end-to-end tests
+## Getting started
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+```bash
+npm ci          # install exact dependencies
+npm start       # dev server at http://localhost:4200
+```
 
-## Further help
+## Scripts
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+| Command | Purpose |
+|---------|---------|
+| `npm start` | Dev server (`ng serve`) |
+| `npm run build` | Build to `dist/` (production by default) |
+| `npm test` | Unit tests (watch) |
+| `npm run test:ci` | Unit tests headless, single run, with coverage |
+| `npm run lint` | ESLint |
+| `npm run precheck` | Full local gate: lint → Prettier → tests → production build |
+
+## Quality gates
+
+Husky enforces quality automatically:
+
+- **pre-commit** → `lint-staged` (ESLint `--fix` + Prettier on staged files)
+- **pre-push** → `test:ci` + production build
+
+CI (GitHub Actions) re-runs lint → Prettier → tests → build on every push/PR to `main` and
+`dev`. On green CI for `dev`, CD builds a Docker image (GHCR) and deploys to the VPS. Run
+`npm run precheck` before pushing to catch failures early.
+
+## Project structure
+
+```
+src/
+├── @fuse/        # Fuse framework: components, services, Tailwind plugins, theming
+├── app/          # Application: layouts, modules (features), core (auth, navigation)
+└── styles/       # Global styles and Tailwind entry points
+docs/             # Layered project documentation (see above)
+specs/            # Spec-Kit feature specs (spec-driven development)
+```
+
+## Spec-driven development
+
+Feature work uses [Spec-Kit](https://github.com/github/spec-kit). Skills are installed
+under `.claude/skills/`: `/speckit-specify` → `/speckit-plan` → `/speckit-tasks` →
+`/speckit-implement`, with `/speckit-clarify` and `/speckit-analyze` as needed. Project
+principles live in the constitution above.
