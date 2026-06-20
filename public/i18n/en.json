@@ -1,5 +1,13 @@
 {
     "welcome-back": "Welcome back",
     "Project": "Project",
-    "Analytics": "Analytics"
+    "Analytics": "Analytics",
+    "catalog.title": "Product Catalog",
+    "catalog.breadcrumb.home": "Home",
+    "catalog.breadcrumb.catalog": "Catalog",
+    "catalog.searchPlaceholder": "Search products...",
+    "catalog.allCategories": "All Categories",
+    "catalog.unit": "Unit",
+    "catalog.marketSource": "Market Source",
+    "catalog.noResults": "No products found"
 }

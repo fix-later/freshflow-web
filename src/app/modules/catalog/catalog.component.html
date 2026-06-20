@@ -1,0 +1,135 @@
+<div class="flex w-full flex-col" *transloco="let t">
+    <!-- Header: breadcrumb + title -->
+    <div class="px-6 pt-6 md:px-8">
+        <nav
+            class="text-hint flex items-center gap-1 text-sm"
+            aria-label="Breadcrumb"
+        >
+            <a
+                routerLink="/home"
+                class="font-medium text-primary hover:underline"
+            >
+                {{ t('catalog.breadcrumb.home') }}
+            </a>
+            <mat-icon
+                class="text-hint icon-size-4"
+                svgIcon="heroicons_mini:chevron-right"
+            ></mat-icon>
+            <span>{{ t('catalog.breadcrumb.catalog') }}</span>
+        </nav>
+        <h1 class="mt-1 text-3xl font-semibold tracking-tight">
+            {{ t('catalog.title') }}
+        </h1>
+    </div>
+
+    <!-- Search + filters -->
+    <div class="flex flex-col gap-4 px-6 pb-6 md:px-8">
+        <!-- Search bar -->
+        <mat-form-field
+            class="w-full max-w-lg"
+            appearance="outline"
+            subscriptSizing="dynamic"
+        >
+            <mat-icon
+                matPrefix
+                svgIcon="heroicons_outline:magnifying-glass"
+            ></mat-icon>
+            <input
+                matInput
+                [formControl]="searchControl"
+                [placeholder]="t('catalog.searchPlaceholder')"
+            />
+        </mat-form-field>
+
+        <!-- Category filter chips -->
+        <mat-chip-listbox>
+            <mat-chip-option
+                [selected]="!selectedCategory()"
+                (click)="filterByCategory('')"
+            >
+                {{ t('catalog.allCategories') }}
+            </mat-chip-option>
+            @for (cat of categories(); track cat.id) {
+                <mat-chip-option
+                    [selected]="selectedCategory() === cat.id"
+                    (click)="filterByCategory(cat.id)"
+                >
+                    {{ isVi() ? cat.name : cat.nameEn }}
+                </mat-chip-option>
+            }
+        </mat-chip-listbox>
+    </div>
+
+    <!-- Loading bar -->
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    <!-- Product grid -->
+    <div class="px-6 pb-8 md:px-8">
+        @if (products().length > 0) {
+            <div
+                class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+            >
+                @for (product of products(); track product.id) {
+                    <a
+                        [routerLink]="product.id"
+                        class="bg-card flex flex-col overflow-hidden rounded-lg border border-gray-200 transition-shadow hover:shadow-md"
+                    >
+                        <!-- Thumbnail -->
+                        <div class="relative h-48 overflow-hidden bg-gray-100">
+                            <img
+                                [src]="product.thumbnail"
+                                [alt]="productName(product)"
+                                class="h-full w-full object-cover"
+                            />
+                        </div>
+
+                        <!-- Body -->
+                        <div class="flex flex-1 flex-col gap-1 p-4">
+                            <span
+                                class="text-hint text-xs font-medium uppercase tracking-wider"
+                            >
+                                {{ categoryName(product.categoryId) }}
+                            </span>
+                            <h3 class="text-base font-semibold leading-snug">
+                                {{ productName(product) }}
+                            </h3>
+                            <span class="text-secondary mt-auto text-sm">
+                                {{ product.marketSource }}
+                            </span>
+                            <span class="text-hint text-sm">
+                                {{ t('catalog.unit') }}:
+                                {{ isVi() ? product.unit : product.unitEn }}
+                            </span>
+                        </div>
+                    </a>
+                }
+            </div>
+
+            <!-- Pagination -->
+            @if (pagination(); as pag) {
+                <mat-paginator
+                    class="mt-6"
+                    [length]="pag.length"
+                    [pageIndex]="pag.page"
+                    [pageSize]="pag.size"
+                    [pageSizeOptions]="[12, 24, 48]"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
+            }
+        } @else if (!loading()) {
+            <!-- Empty state -->
+            <div class="flex flex-col items-center justify-center py-16">
+                <mat-icon
+                    class="text-hint icon-size-16"
+                    svgIcon="heroicons_outline:magnifying-glass"
+                ></mat-icon>
+                <p class="text-secondary mt-4 text-lg font-medium">
+                    {{ t('catalog.noResults') }}
+                </p>
+            </div>
+        }
+    </div>
+</div>
