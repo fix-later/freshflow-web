@@ -19,12 +19,15 @@ shared `LayoutComponent`, guarded by `AuthGuard` / `NoAuthGuard` (see `src/app/a
 
 ### Authenticated shell (`AuthGuard`, role-filtered nav)
 
+Layout is selected per role (see [`NAVIGATION.md`](./NAVIGATION.md) § Layout per role):
+Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
+
 ```
 /                        → redirect to role landing
 /sign-out
 /unlock-session
 
-# ── Restaurant ──────────────────────────────
+# ── Restaurant (layout: 'enterprise') ──────
 /prices                  M4  live market price board (landing for restaurant)
 /catalog                 M3  browse / search products
 /catalog/:productId      M3  product detail
@@ -38,7 +41,7 @@ shared `LayoutComponent`, guarded by `AuthGuard` / `NoAuthGuard` (see `src/app/a
 /profile                 M2  personal + restaurant profile, addresses
 /notifications           M11 notification center
 
-# ── Operations Manager ──────────────────────
+# ── Operations Manager (layout: 'classic') ──
 /ops                     M12 operations dashboard (landing for ops)
 /ops/procurement         M7  batches & manifests
 /ops/procurement/:batchId M7 batch detail / monitor
@@ -47,7 +50,7 @@ shared `LayoutComponent`, guarded by `AuthGuard` / `NoAuthGuard` (see `src/app/a
 /ops/hub                 M8  hub inbound/outbound & discrepancy oversight
 /ops/deliveries          M10 delivery performance monitoring
 
-# ── Admin ───────────────────────────────────
+# ── Admin (layout: 'classic') ───────────────
 /admin                   M12 admin dashboard (landing for admin)
 /admin/users             M13 user accounts
 /admin/restaurants       M13 restaurant approval & profiles

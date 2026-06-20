@@ -27,6 +27,20 @@ dense, content-first work over marketing chrome.
   notification bell (M11), user menu (profile, sign-out).
 - **No mega-menus, no marketing nav.** This is a tool, not a storefront.
 
+## Layout per role
+
+Each role uses a different Fuse layout, matched to its workflow density and navigation pattern.
+
+| Role | Fuse Layout | Type | Rationale |
+|------|-------------|------|-----------|
+| Restaurant | `enterprise` | Horizontal | Customer-facing; top nav keeps content area wide for price board and ordering |
+| Admin | `classic` | Vertical | Dense admin console; persistent side nav for many sections |
+| Operations Manager | `classic` | Vertical | Same operational density as Admin; side nav for procurement/logistics |
+| Hub Staff | `classy` | Vertical | Streamlined hub workflow; lighter side nav variant |
+
+The layout is selected at login based on the user's primary role and set via the Fuse
+`LayoutComponent`'s `layout` data property in the route config (see `src/app/app.routes.ts`).
+
 ## Role-based menus
 
 The navigation set is filtered by role at build-time of the menu (not just hidden via CSS).
