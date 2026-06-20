@@ -13,7 +13,17 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --no-watch --no-progress --browsers=ChromeHeadless --code-coverage",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "prepare": "husky",
+    "precheck": "npm run lint && npx prettier --check \"src/**/*.{ts,html,scss,json}\" && npm run test:ci && npm run build -- --configuration production"
+  },
+  "lint-staged": {
+    "src/**/*.{ts,html}": [
+      "eslint --fix"
+    ],
+    "src/**/*.{ts,html,scss,json}": [
+      "prettier --write"
+    ]
   },
   "dependencies": {
     "@angular/animations": "22.0.0",
@@ -58,6 +68,7 @@
     "chokidar": "5.0.0",
     "chroma-js": "2.4.2",
     "eslint": "^9.39.1",
+    "husky": "^9.1.7",
     "istanbul-lib-instrument": "^6.0.3",
     "jasmine-core": "5.1.2",
     "karma": "6.4.3",
@@ -65,6 +76,7 @@
     "karma-coverage": "2.2.1",
     "karma-jasmine": "5.1.0",
     "karma-jasmine-html-reporter": "2.1.0",
+    "lint-staged": "^17.0.7",
     "lodash": "4.17.21",
     "postcss": "8.4.38",
     "prettier": "3.3.0",
