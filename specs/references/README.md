@@ -13,6 +13,11 @@ defined — other docs link here rather than restating it.
 | `product.png` | Product listing layout | card density, filter placement, content structure | exact colors, exact assets |
 | `shop.png` | Commerce interaction | navigation, action hierarchy | exact colors, exact assets |
 
+## Feature reference maps
+
+- [`CATALOG_REFERENCES.md`](./CATALOG_REFERENCES.md) — product catalog & detail (UC-CAT-01):
+  Mobbin source screens + layout decisions mapped to the data model.
+
 ## Rules
 
 - These images are **references only — do not clone**.
