@@ -9,5 +9,10 @@
     "catalog.allCategories": "Tất cả",
     "catalog.unit": "Đơn vị",
     "catalog.marketSource": "Nguồn chợ",
+    "catalog.category": "Danh mục",
+    "catalog.description": "Mô tả",
+    "catalog.resultCount": "{{count}} sản phẩm",
+    "catalog.clearAll": "Xóa tất cả",
+    "catalog.removeFilter": "Bỏ bộ lọc",
     "catalog.noResults": "Không tìm thấy sản phẩm"
 }

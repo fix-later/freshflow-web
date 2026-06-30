@@ -1,16 +1,45 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
-import { inject, Injectable, signal } from '@angular/core';
-import { Observable, tap } from 'rxjs';
+import { Injectable, signal } from '@angular/core';
+import { categoriesApi, productsApi } from 'api';
+import { from, Observable, tap } from 'rxjs';
 import {
     CatalogCategory,
     CatalogPagination,
     CatalogProduct,
 } from './catalog.types';
 
+/**
+ * Catalog data access — backed by the generated, typed OpenAPI client
+ * (`typescript-fetch`) instead of a handwritten `HttpClient` call.
+ *
+ * Note: the backend's OpenAPI spec does not yet declare response schemas for
+ * its GET endpoints (they are documented only as "200 OK"), so the generated
+ * client types reads as `void`. Until the backend publishes response models we
+ * call the generated `*Raw` methods (which build the URL, query string, bearer
+ * auth and error handling for us) and parse the body here, treating
+ * `catalog.types.ts` as the provisional response contract. Bodies are unwrapped
+ * from the `{ success, data }` envelope the API uses.
+ */
+interface ApiEnvelope<T> {
+    success?: boolean;
+    data?: T;
+}
+
+interface ProductListData {
+    items?: CatalogProduct[];
+    products?: CatalogProduct[];
+    totalCount?: number;
+}
+
+/** Unwraps the `{ success, data }` envelope, tolerating a bare body too. */
+function unwrap<T>(body: unknown): T | undefined {
+    if (body && typeof body === 'object' && 'data' in body) {
+        return (body as ApiEnvelope<T>).data;
+    }
+    return body as T;
+}
+
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
-    private _httpClient = inject(HttpClient);
-
     private _categories = signal<CatalogCategory[]>([]);
     private _products = signal<CatalogProduct[]>([]);
     private _product = signal<CatalogProduct | null>(null);
@@ -22,9 +51,9 @@ export class CatalogService {
     readonly pagination = this._pagination.asReadonly();
 
     getCategories(): Observable<CatalogCategory[]> {
-        return this._httpClient
-            .get<CatalogCategory[]>('api/apps/catalog/categories')
-            .pipe(tap((categories) => this._categories.set(categories)));
+        return from(this._loadCategories()).pipe(
+            tap((categories) => this._categories.set(categories))
+        );
     }
 
     getProducts(
@@ -40,44 +69,78 @@ export class CatalogService {
         products: CatalogProduct[];
         pagination: CatalogPagination;
     }> {
-        let httpParams = new HttpParams();
-        if (params.search) {
-            httpParams = httpParams.set('search', params.search);
-        }
-        if (params.category) {
-            httpParams = httpParams.set('category', params.category);
-        }
-        if (params.sort) {
-            httpParams = httpParams.set('sort', params.sort);
-        }
-        if (params.order) {
-            httpParams = httpParams.set('order', params.order);
-        }
-        if (params.page != null) {
-            httpParams = httpParams.set('page', params.page.toString());
-        }
-        if (params.size != null) {
-            httpParams = httpParams.set('size', params.size.toString());
-        }
-
-        return this._httpClient
-            .get<{
-                products: CatalogProduct[];
-                pagination: CatalogPagination;
-            }>('api/apps/catalog/products', { params: httpParams })
-            .pipe(
-                tap((response) => {
-                    this._products.set(response.products ?? []);
-                    this._pagination.set(response.pagination);
-                })
-            );
+        return from(this._loadProducts(params)).pipe(
+            tap((response) => {
+                this._products.set(response.products);
+                this._pagination.set(response.pagination);
+            })
+        );
     }
 
     getProductById(id: string): Observable<CatalogProduct> {
-        return this._httpClient
-            .get<CatalogProduct>('api/apps/catalog/product', {
-                params: { id },
-            })
-            .pipe(tap((product) => this._product.set(product)));
+        return from(this._loadProduct(id)).pipe(
+            tap((product) => this._product.set(product))
+        );
+    }
+
+    private async _loadCategories(): Promise<CatalogCategory[]> {
+        // `activeOnly` is a typed, generated request parameter.
+        const res = await categoriesApi.apiV1CategoriesGetRaw({
+            activeOnly: true,
+        });
+        return unwrap<CatalogCategory[]>(await res.raw.json()) ?? [];
+    }
+
+    private async _loadProducts(params: {
+        search?: string;
+        category?: string;
+        page?: number;
+        size?: number;
+    }): Promise<{ products: CatalogProduct[]; pagination: CatalogPagination }> {
+        const page = params.page ?? 0;
+        const size = params.size ?? 12;
+
+        // Typed request model (ApiV1ProductsGetRequest) — no hand-built URLs.
+        const res = await productsApi.apiV1ProductsGetRaw({
+            search: params.search || undefined,
+            category: params.category || undefined,
+            page: page + 1, // component is 0-based; the API is 1-based
+            pageSize: size,
+        });
+
+        const data = unwrap<ProductListData | CatalogProduct[]>(
+            await res.raw.json()
+        );
+        const products = Array.isArray(data)
+            ? data
+            : data?.items ?? data?.products ?? [];
+        const total = Array.isArray(data)
+            ? products.length
+            : data?.totalCount ?? products.length;
+
+        return {
+            products,
+            pagination: this._buildPagination(page, size, total),
+        };
+    }
+
+    private async _loadProduct(id: string): Promise<CatalogProduct> {
+        const res = await productsApi.apiV1ProductsIdGetRaw({ id });
+        const product = unwrap<CatalogProduct>(await res.raw.json());
+        if (!product) {
+            throw new Error(`Product ${id} not found`);
+        }
+        return product;
+    }
+
+    private _buildPagination(
+        page: number,
+        size: number,
+        length: number
+    ): CatalogPagination {
+        const lastPage = Math.max(Math.ceil(length / size) - 1, 0);
+        const startIndex = page * size;
+        const endIndex = Math.min(startIndex + size - 1, length - 1);
+        return { length, size, page, lastPage, startIndex, endIndex };
     }
 }

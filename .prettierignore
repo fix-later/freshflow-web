@@ -1,1 +1,5 @@
 src/@fuse/styles/user-themes.scss
+
+# Generated API client + spec snapshot — never hand-format (npm run generate:api)
+src/api/generated
+src/api/openapi.json

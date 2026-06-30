@@ -9,5 +9,10 @@
     "catalog.allCategories": "All Categories",
     "catalog.unit": "Unit",
     "catalog.marketSource": "Market Source",
+    "catalog.category": "Category",
+    "catalog.description": "Description",
+    "catalog.resultCount": "{{count}} products",
+    "catalog.clearAll": "Clear all",
+    "catalog.removeFilter": "Remove filter",
     "catalog.noResults": "No products found"
 }
