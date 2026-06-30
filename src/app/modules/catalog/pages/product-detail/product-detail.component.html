@@ -34,13 +34,46 @@
         </div>
 
         <div class="flex flex-col gap-8 px-6 py-6 md:flex-row md:px-8">
-            <!-- Image -->
+            <!-- Image gallery -->
             <div class="md:w-1/2">
                 <img
-                    [src]="product.thumbnail"
+                    [src]="mainImage()"
                     [alt]="isVi() ? product.name : product.nameEn"
-                    class="w-full rounded-lg bg-gray-100 object-cover"
+                    class="aspect-square w-full rounded-lg bg-gray-100 object-cover"
                 />
+
+                <!-- Thumbnail rail -->
+                @if (galleryImages().length > 1) {
+                    <div class="mt-4 flex gap-3">
+                        @for (
+                            image of galleryImages();
+                            track image;
+                            let i = $index
+                        ) {
+                            <button
+                                type="button"
+                                class="h-16 w-16 overflow-hidden rounded-md border-2 transition-colors"
+                                [class.border-primary]="selectedIndex() === i"
+                                [class.border-transparent]="
+                                    selectedIndex() !== i
+                                "
+                                (click)="selectImage(i)"
+                            >
+                                <img
+                                    [src]="image"
+                                    [alt]="
+                                        (isVi()
+                                            ? product.name
+                                            : product.nameEn) +
+                                        ' ' +
+                                        (i + 1)
+                                    "
+                                    class="h-full w-full object-cover"
+                                />
+                            </button>
+                        }
+                    </div>
+                }
             </div>
 
             <!-- Details -->
@@ -50,11 +83,9 @@
                 >
                     {{ categoryName(product.categoryId) }}
                 </span>
-                <p class="text-secondary leading-relaxed">
-                    {{ isVi() ? product.description : product.descriptionEn }}
-                </p>
 
-                <div class="mt-4 grid grid-cols-2 gap-6">
+                <!-- Attribute table -->
+                <div class="grid grid-cols-2 gap-6">
                     <div>
                         <span class="text-hint text-sm">
                             {{ t('catalog.unit') }}
@@ -71,6 +102,34 @@
                             {{ product.marketSource }}
                         </p>
                     </div>
+                </div>
+
+                <!-- Description (collapsible) -->
+                <div class="mt-2 border-t border-gray-200 pt-4">
+                    <button
+                        type="button"
+                        class="flex w-full items-center justify-between text-left"
+                        [attr.aria-expanded]="descriptionExpanded()"
+                        (click)="toggleDescription()"
+                    >
+                        <h2 class="text-sm font-semibold">
+                            {{ t('catalog.description') }}
+                        </h2>
+                        <mat-icon
+                            class="text-hint transition-transform icon-size-5"
+                            [class.rotate-180]="descriptionExpanded()"
+                            svgIcon="heroicons_mini:chevron-down"
+                        ></mat-icon>
+                    </button>
+                    @if (descriptionExpanded()) {
+                        <p class="text-secondary mt-2 leading-relaxed">
+                            {{
+                                isVi()
+                                    ? product.description
+                                    : product.descriptionEn
+                            }}
+                        </p>
+                    }
                 </div>
             </div>
         </div>

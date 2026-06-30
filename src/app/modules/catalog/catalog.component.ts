@@ -48,6 +48,7 @@ export class CatalogComponent implements OnInit {
 
     readonly searchControl = new FormControl('', { nonNullable: true });
     readonly selectedCategory = signal<string>('');
+    readonly searchTerm = signal<string>('');
     readonly loading = signal(false);
 
     readonly categories = this._catalogService.categories;
@@ -58,6 +59,10 @@ export class CatalogComponent implements OnInit {
         () => this._translocoService.getActiveLang() === 'vi'
     );
 
+    readonly hasActiveFilters = computed(
+        () => !!this.selectedCategory() || !!this.searchTerm()
+    );
+
     ngOnInit(): void {
         this.searchControl.valueChanges
             .pipe(
@@ -65,12 +70,28 @@ export class CatalogComponent implements OnInit {
                 distinctUntilChanged(),
                 takeUntilDestroyed(this._destroyRef)
             )
-            .subscribe((search) => this._loadProducts({ search }));
+            .subscribe((search) => {
+                this.searchTerm.set(search);
+                this._loadProducts({ search });
+            });
     }
 
     filterByCategory(categoryId: string): void {
         this.selectedCategory.set(categoryId);
         this._loadProducts({ category: categoryId });
+    }
+
+    clearSearch(): void {
+        this.searchControl.setValue('', { emitEvent: false });
+        this.searchTerm.set('');
+        this._loadProducts({ search: '' });
+    }
+
+    clearFilters(): void {
+        this.searchControl.setValue('', { emitEvent: false });
+        this.searchTerm.set('');
+        this.selectedCategory.set('');
+        this._loadProducts({ search: '', category: '' });
     }
 
     onPageChange(event: PageEvent): void {

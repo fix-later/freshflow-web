@@ -22,27 +22,12 @@
         </h1>
     </div>
 
-    <!-- Search + filters -->
-    <div class="flex flex-col gap-4 px-6 pb-6 md:px-8">
-        <!-- Search bar -->
-        <mat-form-field
-            class="w-full max-w-lg"
-            appearance="outline"
-            subscriptSizing="dynamic"
-        >
-            <mat-icon
-                matPrefix
-                svgIcon="heroicons_outline:magnifying-glass"
-            ></mat-icon>
-            <input
-                matInput
-                [formControl]="searchControl"
-                [placeholder]="t('catalog.searchPlaceholder')"
-            />
-        </mat-form-field>
-
+    <!-- Toolbar: category chips (left) + search (right) -->
+    <div
+        class="flex flex-col gap-4 px-6 pb-6 md:flex-row md:items-center md:px-8"
+    >
         <!-- Category filter chips -->
-        <mat-chip-listbox>
+        <mat-chip-listbox class="min-w-0 flex-1">
             <mat-chip-option
                 [selected]="!selectedCategory()"
                 (click)="filterByCategory('')"
@@ -58,6 +43,23 @@
                 </mat-chip-option>
             }
         </mat-chip-listbox>
+
+        <!-- Search bar -->
+        <mat-form-field
+            class="w-full md:w-80"
+            appearance="outline"
+            subscriptSizing="dynamic"
+        >
+            <mat-icon
+                matPrefix
+                svgIcon="heroicons_outline:magnifying-glass"
+            ></mat-icon>
+            <input
+                matInput
+                [formControl]="searchControl"
+                [placeholder]="t('catalog.searchPlaceholder')"
+            />
+        </mat-form-field>
     </div>
 
     <!-- Loading bar -->
@@ -67,6 +69,54 @@
 
     <!-- Product grid -->
     <div class="px-6 pb-8 md:px-8">
+        <!-- Result feedback: count + active-filter summary -->
+        @if (!loading() && pagination(); as pag) {
+            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
+                <p class="text-secondary text-sm">
+                    {{ t('catalog.resultCount', { count: pag.length }) }}
+                </p>
+
+                @if (hasActiveFilters()) {
+                    <mat-chip-set class="min-w-0">
+                        @if (selectedCategory()) {
+                            <mat-chip (removed)="filterByCategory('')">
+                                {{ categoryName(selectedCategory()) }}
+                                <button
+                                    matChipRemove
+                                    [attr.aria-label]="
+                                        t('catalog.removeFilter')
+                                    "
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_mini:x-mark"
+                                    ></mat-icon>
+                                </button>
+                            </mat-chip>
+                        }
+                        @if (searchTerm()) {
+                            <mat-chip (removed)="clearSearch()">
+                                &ldquo;{{ searchTerm() }}&rdquo;
+                                <button
+                                    matChipRemove
+                                    [attr.aria-label]="
+                                        t('catalog.removeFilter')
+                                    "
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_mini:x-mark"
+                                    ></mat-icon>
+                                </button>
+                            </mat-chip>
+                        }
+                    </mat-chip-set>
+
+                    <button mat-button class="ml-auto" (click)="clearFilters()">
+                        {{ t('catalog.clearAll') }}
+                    </button>
+                }
+            </div>
+        }
+
         @if (products().length > 0) {
             <div
                 class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
@@ -95,12 +145,10 @@
                             <h3 class="text-base font-semibold leading-snug">
                                 {{ productName(product) }}
                             </h3>
+                            <!-- Meta line: unit · marketSource -->
                             <span class="text-secondary mt-auto text-sm">
-                                {{ product.marketSource }}
-                            </span>
-                            <span class="text-hint text-sm">
-                                {{ t('catalog.unit') }}:
                                 {{ isVi() ? product.unit : product.unitEn }}
+                                &middot; {{ product.marketSource }}
                             </span>
                         </div>
                     </a>

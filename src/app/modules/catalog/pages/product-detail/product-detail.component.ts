@@ -3,6 +3,7 @@ import {
     Component,
     computed,
     inject,
+    signal,
     ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,9 +27,34 @@ export class ProductDetailComponent {
     readonly product = this._catalogService.product;
     readonly categories = this._catalogService.categories;
 
+    readonly selectedIndex = signal(0);
+    readonly descriptionExpanded = signal(true);
+
     readonly isVi = computed(
         () => this._translocoService.getActiveLang() === 'vi'
     );
+
+    /** Gallery images, falling back to the thumbnail when no images[] are set. */
+    readonly galleryImages = computed<string[]>(() => {
+        const product = this.product();
+        if (!product) {
+            return [];
+        }
+        return product.images?.length ? product.images : [product.thumbnail];
+    });
+
+    readonly mainImage = computed<string>(() => {
+        const images = this.galleryImages();
+        return images[this.selectedIndex()] ?? images[0] ?? '';
+    });
+
+    selectImage(index: number): void {
+        this.selectedIndex.set(index);
+    }
+
+    toggleDescription(): void {
+        this.descriptionExpanded.update((expanded) => !expanded);
+    }
 
     categoryName(categoryId: string): string {
         const cat = this.categories().find((c) => c.id === categoryId);

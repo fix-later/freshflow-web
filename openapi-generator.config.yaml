@@ -1,0 +1,17 @@
+# OpenAPI Generator configuration for the FreshFlow typed API client.
+# Consumed by `npm run generate:api` (see scripts/generate-api.mjs).
+# Reference: https://openapi-generator.tech/docs/generators/typescript-fetch
+#
+# `inputSpec` / `outputDir` are passed on the command line by the script so they
+# can be overridden via env vars; everything else lives here.
+generatorName: typescript-fetch
+additionalProperties:
+    # Emit modern ES (async/await, native fetch) — no axios, no polyfills.
+    supportsES6: true
+    typescriptThreePlus: true
+    # Keep runtime model validators so request payloads are checked.
+    withoutRuntimeChecks: false
+    # Preserve the property names exactly as the backend serializes them.
+    modelPropertyNaming: original
+    # One file per model/api for readable diffs.
+    enumPropertyNaming: original

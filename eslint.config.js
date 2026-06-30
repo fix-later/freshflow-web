@@ -6,6 +6,10 @@ const angular = require("angular-eslint");
 
 module.exports = defineConfig([
   {
+    // Generated API client — never linted (re-run npm run generate:api).
+    ignores: ["src/api/generated/**"],
+  },
+  {
     linterOptions: {
       reportUnusedDisableDirectives: false,
     },
