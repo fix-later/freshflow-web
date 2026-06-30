@@ -111,9 +111,10 @@ export class AuthUnlockSessionComponent implements OnInit {
         // Hide the alert
         this.showAlert = false;
 
+        // No dedicated unlock endpoint — re-authenticate with the identifier.
         this._authService
-            .unlockSession({
-                email: this._email ?? '',
+            .signIn({
+                identifier: this._email ?? '',
                 password: this.unlockSessionForm.get('password').value,
             })
             .subscribe(

@@ -72,13 +72,10 @@ export class AuthSignInComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        // Create the form. `identifier` accepts an email or a phone (BR-AUTH-2).
         this.signInForm = this._formBuilder.group({
-            email: [
-                'hughes.brian@company.com',
-                [Validators.required, Validators.email],
-            ],
-            password: ['admin', Validators.required],
+            identifier: ['', [Validators.required]],
+            password: ['', Validators.required],
             rememberMe: [''],
         });
     }
@@ -127,7 +124,7 @@ export class AuthSignInComponent implements OnInit {
                 // Set the alert
                 this.alert = {
                     type: 'error',
-                    message: 'Wrong email or password',
+                    message: 'Wrong email/phone or password',
                 };
 
                 // Show the alert

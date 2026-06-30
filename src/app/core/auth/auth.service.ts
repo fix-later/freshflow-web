@@ -1,178 +1,229 @@
-import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
+import {
+    authApi,
+    clearTokens,
+    getAccessToken,
+    getRefreshToken,
+    restaurantProfileApi,
+    setAccessToken,
+    setTokens,
+} from 'api';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
-import { catchError, Observable, of, switchMap, throwError } from 'rxjs';
+import { ApprovalStatus, User } from 'app/core/user/user.types';
+import { firstValueFrom, from, Observable, of, tap } from 'rxjs';
+
+/** `data` of `POST /api/v1/auth/login` (and `/refresh`); untyped in the spec. */
+interface AuthTokensData {
+    accessToken: string;
+    refreshToken?: string | null;
+}
+
+function unwrap<T>(body: unknown): T | undefined {
+    if (body && typeof body === 'object' && 'data' in body) {
+        return (body as { data?: T }).data;
+    }
+    return body as T;
+}
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-    private _authenticated: boolean = false;
-    private _httpClient = inject(HttpClient);
+    private _authenticated = false;
     private _userService = inject(UserService);
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
     // -----------------------------------------------------------------------------------------------------
 
-    /**
-     * Setter & getter for access token
-     */
     set accessToken(token: string) {
-        localStorage.setItem('accessToken', token);
+        setAccessToken(token);
     }
 
     get accessToken(): string {
-        return localStorage.getItem('accessToken') ?? '';
+        return getAccessToken() ?? '';
     }
 
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
-    /**
-     * Forgot password
-     *
-     * @param email
-     */
-    forgotPassword(email: string): Observable<any> {
-        return this._httpClient.post('api/auth/forgot-password', email);
+    /** Sign in with email **or** phone + password (BR-AUTH-2). */
+    signIn(credentials: {
+        identifier: string;
+        password: string;
+    }): Observable<User> {
+        return from(this._signIn(credentials)).pipe(
+            tap(() => (this._authenticated = true))
+        );
     }
 
-    /**
-     * Reset password
-     *
-     * @param password
-     */
-    resetPassword(password: string): Observable<any> {
-        return this._httpClient.post('api/auth/reset-password', password);
-    }
-
-    /**
-     * Sign in
-     *
-     * @param credentials
-     */
-    signIn(credentials: { email: string; password: string }): Observable<any> {
-        // Throw error, if the user is already logged in
-        if (this._authenticated) {
-            return throwError('User is already logged in.');
-        }
-
-        return this._httpClient.post('api/auth/sign-in', credentials).pipe(
-            switchMap((response: any) => {
-                // Store the access token in the local storage
-                this.accessToken = response.accessToken;
-
-                // Set the authenticated flag to true
-                this._authenticated = true;
-
-                // Store the user on the user service
-                this._userService.user = response.user;
-
-                // Return a new observable with the response
-                return of(response);
+    /** Self-register a restaurant; the account starts PENDING_APPROVAL (BR-AUTH-1). */
+    signUp(user: {
+        email: string;
+        password: string;
+        restaurantName: string;
+        phone: string;
+    }): Observable<void> {
+        return from(
+            authApi.apiV1AuthRegisterPost({
+                registerRestaurantRequest: {
+                    email: user.email,
+                    password: user.password,
+                    restaurantName: user.restaurantName,
+                    phone: user.phone,
+                },
             })
         );
     }
 
-    /**
-     * Sign in using the access token
-     */
-    signInUsingToken(): Observable<any> {
-        // Sign in using the token
-        return this._httpClient
-            .post('api/auth/sign-in-with-token', {
-                accessToken: this.accessToken,
+    /** Request a password-reset link/code for an email or phone. */
+    forgotPassword(identifier: string): Observable<void> {
+        return from(
+            authApi.apiV1AuthForgotPasswordPost({
+                forgotPasswordRequest: { identifier },
             })
-            .pipe(
-                catchError(() =>
-                    // Return false
-                    of(false)
-                ),
-                switchMap((response: any) => {
-                    // Replace the access token with the new one if it's available on
-                    // the response object.
-                    //
-                    // This is an added optional step for better security. Once you sign
-                    // in using the token, you should generate a new one on the server
-                    // side and attach it to the response object. Then the following
-                    // piece of code can replace the token with the refreshed one.
-                    if (response.accessToken) {
-                        this.accessToken = response.accessToken;
-                    }
-
-                    // Set the authenticated flag to true
-                    this._authenticated = true;
-
-                    // Store the user on the user service
-                    this._userService.user = response.user;
-
-                    // Return true
-                    return of(true);
-                })
-            );
+        );
     }
 
-    /**
-     * Sign out
-     */
-    signOut(): Observable<any> {
-        // Remove the access token from the local storage
-        localStorage.removeItem('accessToken');
-
-        // Set the authenticated flag to false
-        this._authenticated = false;
-
-        // Return the observable
-        return of(true);
+    /** Complete a password reset with the emailed token. */
+    resetPassword(token: string, newPassword: string): Observable<void> {
+        return from(
+            authApi.apiV1AuthResetPasswordPost({
+                resetPasswordRequest: { token, newPassword },
+            })
+        );
     }
 
-    /**
-     * Sign up
-     *
-     * @param user
-     */
-    signUp(user: {
-        name: string;
-        email: string;
-        password: string;
-        company: string;
-    }): Observable<any> {
-        return this._httpClient.post('api/auth/sign-up', user);
+    /** Change the signed-in user's password. */
+    changePassword(
+        currentPassword: string,
+        newPassword: string
+    ): Observable<void> {
+        return from(
+            authApi.apiV1AuthChangePasswordPost({
+                changePasswordRequest: { currentPassword, newPassword },
+            })
+        );
     }
 
-    /**
-     * Unlock session
-     *
-     * @param credentials
-     */
-    unlockSession(credentials: {
-        email: string;
-        password: string;
-    }): Observable<any> {
-        return this._httpClient.post('api/auth/unlock-session', credentials);
+    /** Sign out: revoke the refresh token server-side, then clear local state. */
+    signOut(): Observable<boolean> {
+        return from(this._signOut());
     }
 
-    /**
-     * Check the authentication status
-     */
+    /** Restore/validate the session for route guards. */
     check(): Observable<boolean> {
-        // Check if the user is logged in
         if (this._authenticated) {
             return of(true);
         }
-
-        // Check the access token availability
         if (!this.accessToken) {
             return of(false);
         }
+        return from(this._restore(AuthUtils.isTokenExpired(this.accessToken)));
+    }
 
-        // Check the access token expire date
-        if (AuthUtils.isTokenExpired(this.accessToken)) {
-            return of(false);
+    // -----------------------------------------------------------------------------------------------------
+    // @ Private methods
+    // -----------------------------------------------------------------------------------------------------
+
+    private async _signIn(credentials: {
+        identifier: string;
+        password: string;
+    }): Promise<User> {
+        const res = await authApi.apiV1AuthLoginPostRaw({
+            loginRequest: {
+                identifier: credentials.identifier,
+                password: credentials.password,
+            },
+        });
+        const data = unwrap<AuthTokensData>(await res.raw.json());
+        if (!data?.accessToken) {
+            throw new Error('Invalid login response');
         }
+        setTokens(data.accessToken, data.refreshToken);
+        await this._loadUser();
+        return this._userService.current as User;
+    }
 
-        // If the access token exists, and it didn't expire, sign in using it
-        return this.signInUsingToken();
+    private async _signOut(): Promise<boolean> {
+        const refreshToken = getRefreshToken();
+        try {
+            if (refreshToken) {
+                await authApi.apiV1AuthLogoutPost({
+                    logoutRequest: { refreshToken },
+                });
+            }
+        } catch {
+            // Best-effort revoke; sign out locally regardless.
+        }
+        clearTokens();
+        this._authenticated = false;
+        return true;
+    }
+
+    /** Refresh (if expired), then load the user profile; false on any failure. */
+    private async _restore(expired: boolean): Promise<boolean> {
+        try {
+            if (expired && !(await this._refresh())) {
+                clearTokens();
+                return false;
+            }
+            await this._loadUser();
+            this._authenticated = true;
+            return true;
+        } catch {
+            clearTokens();
+            this._authenticated = false;
+            return false;
+        }
+    }
+
+    private async _refresh(): Promise<boolean> {
+        const refreshToken = getRefreshToken();
+        if (!refreshToken) {
+            return false;
+        }
+        try {
+            const res = await authApi.apiV1AuthRefreshPostRaw({
+                refreshRequest: { refreshToken },
+            });
+            const data = unwrap<AuthTokensData>(await res.raw.json());
+            if (!data?.accessToken) {
+                return false;
+            }
+            setTokens(data.accessToken, data.refreshToken ?? refreshToken);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /** Load `/profile/me` and resolve the (restaurant) approval status. */
+    private async _loadUser(): Promise<void> {
+        const user = await firstValueFrom(this._userService.get());
+        const approvalStatus: ApprovalStatus =
+            user.role === 'restaurant'
+                ? await this._fetchApprovalStatus()
+                : 'approved';
+        this._userService.patch({ approvalStatus });
+    }
+
+    private async _fetchApprovalStatus(): Promise<ApprovalStatus> {
+        try {
+            const res =
+                await restaurantProfileApi.apiV1RestaurantsMeApprovalStatusGetRaw();
+            const data = unwrap<{ status?: string }>(await res.raw.json());
+            const status = (data?.status ?? '').toLowerCase();
+            if (
+                status === 'approved' ||
+                status === 'pending' ||
+                status === 'rejected'
+            ) {
+                return status;
+            }
+            return 'pending';
+        } catch {
+            return 'pending';
+        }
     }
 }

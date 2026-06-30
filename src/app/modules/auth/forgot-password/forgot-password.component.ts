@@ -67,9 +67,9 @@ export class AuthForgotPasswordComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        // Create the form (email or phone — BR-AUTH-2)
         this.forgotPasswordForm = this._formBuilder.group({
-            email: ['', [Validators.required, Validators.email]],
+            identifier: ['', [Validators.required]],
         });
     }
 
@@ -94,7 +94,7 @@ export class AuthForgotPasswordComponent implements OnInit {
 
         // Forgot password
         this._authService
-            .forgotPassword(this.forgotPasswordForm.get('email').value)
+            .forgotPassword(this.forgotPasswordForm.get('identifier').value)
             .pipe(
                 finalize(() => {
                     // Re-enable the form

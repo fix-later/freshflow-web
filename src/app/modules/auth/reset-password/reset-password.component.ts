@@ -18,7 +18,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { FuseValidators } from '@fuse/validators';
@@ -58,6 +58,7 @@ export class AuthResetPasswordComponent implements OnInit {
      * Constructor
      */
     constructor(
+        private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder
     ) {}
@@ -104,9 +105,13 @@ export class AuthResetPasswordComponent implements OnInit {
         // Hide the alert
         this.showAlert = false;
 
+        // The reset token arrives as a query param on the emailed link.
+        const token =
+            this._activatedRoute.snapshot.queryParamMap.get('token') ?? '';
+
         // Send the request to the server
         this._authService
-            .resetPassword(this.resetPasswordForm.get('password').value)
+            .resetPassword(token, this.resetPasswordForm.get('password').value)
             .pipe(
                 finalize(() => {
                     // Re-enable the form

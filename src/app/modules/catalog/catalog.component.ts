@@ -19,6 +19,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@ngneat/transloco';
+import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { CatalogService } from './catalog.service';
 
@@ -39,6 +40,7 @@ import { CatalogService } from './catalog.service';
         ReactiveFormsModule,
         RouterLink,
         TranslocoModule,
+        ApprovalBannerComponent,
     ],
 })
 export class CatalogComponent implements OnInit {

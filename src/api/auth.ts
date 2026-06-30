@@ -9,6 +9,9 @@
 /** localStorage key holding the JWT access token. */
 export const ACCESS_TOKEN_KEY = 'accessToken';
 
+/** localStorage key holding the (opaque, rotating) refresh token. */
+export const REFRESH_TOKEN_KEY = 'refreshToken';
+
 /** Returns the stored access token, or `null` when the user is signed out. */
 export function getAccessToken(): string | null {
     if (typeof localStorage === 'undefined') {
@@ -36,6 +39,37 @@ export function clearAccessToken(): void {
 /** True when an access token is present. */
 export function hasAccessToken(): boolean {
     return getAccessToken() !== null;
+}
+
+/** Returns the stored refresh token, or `null`. */
+export function getRefreshToken(): string | null {
+    if (typeof localStorage === 'undefined') {
+        return null;
+    }
+    return localStorage.getItem(REFRESH_TOKEN_KEY) || null;
+}
+
+/** Persists both tokens after a sign-in or a successful refresh rotation. */
+export function setTokens(
+    accessToken: string,
+    refreshToken?: string | null
+): void {
+    setAccessToken(accessToken);
+    if (typeof localStorage === 'undefined') {
+        return;
+    }
+    if (refreshToken) {
+        localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    }
+}
+
+/** Clears both tokens (sign-out, or a refresh that ultimately failed). */
+export function clearTokens(): void {
+    clearAccessToken();
+    if (typeof localStorage === 'undefined') {
+        return;
+    }
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 /**

@@ -71,12 +71,12 @@ export class AuthSignUpComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        // Create the form (restaurant self-registration — BR-AUTH-1)
         this.signUpForm = this._formBuilder.group({
-            name: ['', Validators.required],
+            restaurantName: ['', Validators.required],
             email: ['', [Validators.required, Validators.email]],
+            phone: ['', Validators.required],
             password: ['', Validators.required],
-            company: [''],
             agreements: ['', Validators.requiredTrue],
         });
     }
@@ -101,27 +101,31 @@ export class AuthSignUpComponent implements OnInit {
         this.showAlert = false;
 
         // Sign up
-        this._authService.signUp(this.signUpForm.value).subscribe(
-            (response) => {
-                // Navigate to the confirmation required page
-                this._router.navigateByUrl('/confirmation-required');
-            },
-            (response) => {
-                // Re-enable the form
-                this.signUpForm.enable();
+        const { restaurantName, email, phone, password } =
+            this.signUpForm.value;
+        this._authService
+            .signUp({ restaurantName, email, phone, password })
+            .subscribe(
+                () => {
+                    // Navigate to the confirmation required page
+                    this._router.navigateByUrl('/confirmation-required');
+                },
+                (response) => {
+                    // Re-enable the form
+                    this.signUpForm.enable();
 
-                // Reset the form
-                this.signUpNgForm.resetForm();
+                    // Reset the form
+                    this.signUpNgForm.resetForm();
 
-                // Set the alert
-                this.alert = {
-                    type: 'error',
-                    message: 'Something went wrong, please try again.',
-                };
+                    // Set the alert
+                    this.alert = {
+                        type: 'error',
+                        message: 'Something went wrong, please try again.',
+                    };
 
-                // Show the alert
-                this.showAlert = true;
-            }
-        );
+                    // Show the alert
+                    this.showAlert = true;
+                }
+            );
     }
 }

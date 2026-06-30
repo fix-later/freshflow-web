@@ -10,7 +10,13 @@
  * Do not edit the generated files in `./generated` — re-run `npm run generate:api`.
  */
 import { environment } from '../environments/environment';
-import { clearAccessToken, getAccessToken, redirectToLogin } from './auth';
+import {
+    clearTokens,
+    getAccessToken,
+    getRefreshToken,
+    redirectToLogin,
+    setTokens,
+} from './auth';
 import {
     Configuration,
     type Middleware,
@@ -66,20 +72,98 @@ export class ServerError extends ApiError {
 }
 
 // -----------------------------------------------------------------------------
+// Silent token refresh (BR-AUTH-5)
+// -----------------------------------------------------------------------------
+
+/**
+ * Pre-auth endpoints where a 401/4xx is a normal outcome (bad credentials,
+ * expired reset token, ...). These must NOT trigger a refresh or a redirect —
+ * the caller renders the error instead.
+ */
+const PRE_AUTH_PATHS = [
+    '/api/v1/auth/login',
+    '/api/v1/auth/refresh',
+    '/api/v1/auth/register',
+    '/api/v1/auth/forgot-password',
+    '/api/v1/auth/reset-password',
+];
+
+/** Header used to mark a request that has already been retried once. */
+const RETRY_HEADER = 'X-Token-Retry';
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+/** Exchanges the refresh token for a new access/refresh pair (rotation). */
+async function refreshTokens(): Promise<boolean> {
+    const refreshToken = getRefreshToken();
+    if (!refreshToken) {
+        return false;
+    }
+    try {
+        const res = await fetch(
+            `${environment.apiBaseUrl}/api/v1/auth/refresh`,
+            {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ refreshToken }),
+            }
+        );
+        if (!res.ok) {
+            return false;
+        }
+        const body = await res.json();
+        const data = body?.data ?? body;
+        if (!data?.accessToken) {
+            return false;
+        }
+        setTokens(data.accessToken, data.refreshToken ?? refreshToken);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/** De-duplicates concurrent refreshes so parallel 401s share one round-trip. */
+function refreshTokensOnce(): Promise<boolean> {
+    refreshInFlight ??= refreshTokens().finally(() => {
+        refreshInFlight = null;
+    });
+    return refreshInFlight;
+}
+
+// -----------------------------------------------------------------------------
 // Error-handling middleware
 // -----------------------------------------------------------------------------
 
 /**
- * Inspects every response and converts the well-known failure codes into typed
- * errors. Runs before the generated runtime's own non-2xx check, so these take
- * precedence. Other 4xx codes fall through to the runtime's `ResponseError`.
+ * Converts the well-known failure codes into typed errors and, on a 401 for an
+ * authenticated request, silently refreshes the session and retries once before
+ * giving up and routing to sign-in. Other 4xx fall through to the runtime's
+ * `ResponseError`.
  */
 const errorMiddleware: Middleware = {
     async post(context: ResponseContext): Promise<Response | void> {
-        const { response } = context;
+        const { response, url, init } = context;
+        const isPreAuth = PRE_AUTH_PATHS.some((p) => url.includes(p));
 
-        if (response.status === 401) {
-            clearAccessToken();
+        if (response.status === 401 && !isPreAuth) {
+            const headers = new Headers(init.headers as HeadersInit);
+            const alreadyRetried = headers.get(RETRY_HEADER) === '1';
+
+            if (!alreadyRetried && (await refreshTokensOnce())) {
+                // Re-issue the original request once with the refreshed token.
+                const token = getAccessToken();
+                if (token) {
+                    headers.set('Authorization', `Bearer ${token}`);
+                }
+                headers.set(RETRY_HEADER, '1');
+                return context.fetch(url, { ...init, headers });
+            }
+
+            clearTokens();
             redirectToLogin();
             throw new UnauthorizedError(response);
         }
