@@ -1,8 +1,4 @@
-/* 1. Components */
-@use 'components/example-viewer';
-@use 'components/input';
-
-/* 2. Overrides */
+/* 1. Overrides */
 @use 'overrides/angular-material';
 @use 'overrides/highlightjs';
 @use 'overrides/perfect-scrollbar';
