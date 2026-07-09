@@ -1,5 +1,9 @@
 import { provideHttpClient, withXhr } from '@angular/common/http';
-import { APP_INITIALIZER, ApplicationConfig, inject } from '@angular/core';
+import {
+    ApplicationConfig,
+    inject,
+    provideAppInitializer,
+} from '@angular/core';
 import { LuxonDateAdapter } from '@angular/material-luxon-adapter';
 import { DateAdapter, MAT_DATE_FORMATS } from '@angular/material/core';
 import { provideAnimations } from '@angular/platform-browser/animations';
@@ -10,7 +14,7 @@ import {
     withPreloading,
 } from '@angular/router';
 import { provideFuse } from '@fuse';
-import { TranslocoService, provideTransloco } from '@ngneat/transloco';
+import { TranslocoService, provideTransloco } from '@jsverse/transloco';
 import { appRoutes } from 'app/app.routes';
 import { provideAuth } from 'app/core/auth/auth.provider';
 import { provideIcons } from 'app/core/icons/icons.provider';
@@ -20,6 +24,10 @@ import { TranslocoHttpLoader } from './core/transloco/transloco.http-loader';
 
 export const appConfig: ApplicationConfig = {
     providers: [
+        // Deprecated since Angular 20.2 (removal planned in v23), but still required:
+        // Fuse relies on @angular/animations (AnimationBuilder in drawer/vertical-nav,
+        // fuseAnimations triggers). Remove once those are migrated to animate.enter/leave.
+        // eslint-disable-next-line @typescript-eslint/no-deprecated
         provideAnimations(),
         provideHttpClient(withXhr()),
         provideRouter(
@@ -68,18 +76,14 @@ export const appConfig: ApplicationConfig = {
             },
             loader: TranslocoHttpLoader,
         }),
-        {
-            // Preload the default language before the app starts to prevent empty/jumping content
-            provide: APP_INITIALIZER,
-            useFactory: () => {
-                const translocoService = inject(TranslocoService);
-                const defaultLang = translocoService.getDefaultLang();
-                translocoService.setActiveLang(defaultLang);
+        // Preload the default language before the app starts to prevent empty/jumping content
+        provideAppInitializer(() => {
+            const translocoService = inject(TranslocoService);
+            const defaultLang = translocoService.getDefaultLang();
+            translocoService.setActiveLang(defaultLang);
 
-                return () => firstValueFrom(translocoService.load(defaultLang));
-            },
-            multi: true,
-        },
+            return firstValueFrom(translocoService.load(defaultLang));
+        }),
 
         // Fuse
         provideAuth(),

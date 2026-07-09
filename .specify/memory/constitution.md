@@ -59,7 +59,7 @@ These follow from the Business layer and constrain implementation:
 - **Styling:** Tailwind CSS 3.x + SCSS via the Fuse theming system
 - **State:** Angular Signals + RxJS
 - **Real-time:** SignalR client (prices, order/hub/delivery status)
-- **i18n:** @ngneat/transloco
+- **i18n:** @jsverse/transloco
 - **Testing:** Jasmine + Karma (unit); Playwright (e2e, planned)
 - **Tooling:** Node 24, ESLint, Prettier, Husky + lint-staged
 - **CI/CD:** GitHub Actions → Docker image (GHCR) → VPS
