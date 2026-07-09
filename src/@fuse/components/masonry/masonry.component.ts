@@ -8,13 +8,11 @@ import {
     TemplateRef,
     ViewEncapsulation,
 } from '@angular/core';
-import { fuseAnimations } from '@fuse/animations';
 
 @Component({
     selector: 'fuse-masonry',
     templateUrl: './masonry.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     exportAs: 'fuseMasonry',
     standalone: true,
     imports: [NgTemplateOutlet],

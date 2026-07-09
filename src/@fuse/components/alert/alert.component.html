@@ -1,8 +1,8 @@
 @if (!dismissible || (dismissible && !dismissed)) {
     <div
         class="fuse-alert-container"
-        [@fadeIn]="!dismissed"
-        [@fadeOut]="!dismissed"
+        animate.enter="fuse-animate-fade-in"
+        animate.leave="fuse-animate-fade-out"
     >
         <!-- Border -->
         @if (appearance === 'border') {

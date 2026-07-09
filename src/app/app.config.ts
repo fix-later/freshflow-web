@@ -6,7 +6,6 @@ import {
 } from '@angular/core';
 import { LuxonDateAdapter } from '@angular/material-luxon-adapter';
 import { DateAdapter, MAT_DATE_FORMATS } from '@angular/material/core';
-import { provideAnimations } from '@angular/platform-browser/animations';
 import {
     PreloadAllModules,
     provideRouter,
@@ -24,11 +23,6 @@ import { TranslocoHttpLoader } from './core/transloco/transloco.http-loader';
 
 export const appConfig: ApplicationConfig = {
     providers: [
-        // Deprecated since Angular 20.2 (removal planned in v23), but still required:
-        // Fuse relies on @angular/animations (AnimationBuilder in drawer/vertical-nav,
-        // fuseAnimations triggers). Remove once those are migrated to animate.enter/leave.
-        // eslint-disable-next-line @typescript-eslint/no-deprecated
-        provideAnimations(),
         provideHttpClient(withXhr()),
         provideRouter(
             appRoutes,

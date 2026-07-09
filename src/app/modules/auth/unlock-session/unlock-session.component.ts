@@ -19,7 +19,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
 import { UserService } from 'app/core/user/user.service';
@@ -28,7 +27,6 @@ import { UserService } from 'app/core/user/user.service';
     selector: 'auth-unlock-session',
     templateUrl: './unlock-session.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [

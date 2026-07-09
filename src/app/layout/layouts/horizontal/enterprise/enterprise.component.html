@@ -395,8 +395,8 @@
 @if (aiChatOpened) {
     <div
         class="bg-card fixed inset-0 z-9999 flex flex-col"
-        @slideInTop
-        @slideOutTop
+        animate.enter="fuse-animate-slide-in-top"
+        animate.leave="fuse-animate-slide-out-top"
     >
         <div class="bg-card flex h-14 shrink-0 items-center border-b pr-2">
             <mat-icon

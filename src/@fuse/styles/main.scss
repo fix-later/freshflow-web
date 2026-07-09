@@ -3,3 +3,6 @@
 @use 'overrides/highlightjs';
 @use 'overrides/perfect-scrollbar';
 @use 'overrides/quill';
+
+/* 2. Animations (classes for animate.enter / animate.leave) */
+@use 'animations';

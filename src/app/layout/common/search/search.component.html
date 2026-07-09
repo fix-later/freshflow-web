@@ -10,8 +10,8 @@
     @if (opened) {
         <div
             class="bg-card absolute inset-0 z-99 flex shrink-0 items-center"
-            @slideInTop
-            @slideOutTop
+            animate.enter="fuse-animate-slide-in-top"
+            animate.leave="fuse-animate-slide-out-top"
         >
             <mat-icon
                 class="absolute ml-6 sm:ml-8"

@@ -17,7 +17,6 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertService } from '@fuse/components/alert/alert.service';
 import {
     FuseAlertAppearance,
@@ -32,7 +31,6 @@ import { Subject, filter, takeUntil } from 'rxjs';
     styleUrls: ['./alert.component.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    animations: fuseAnimations,
     exportAs: 'fuseAlert',
     standalone: true,
     imports: [MatIconModule, MatButtonModule],

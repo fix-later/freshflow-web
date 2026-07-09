@@ -32,7 +32,9 @@
                     [appearance]="'outline'"
                     [showIcon]="false"
                     [type]="alert.type"
-                    [@shake]="alert.type === 'error'"
+                    [animate.enter]="
+                        alert.type === 'error' ? 'fuse-animate-shake' : ''
+                    "
                 >
                     {{ alert.message }}
                 </fuse-alert>

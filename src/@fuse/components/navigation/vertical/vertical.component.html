@@ -104,10 +104,16 @@
             wheelPropagation: false,
             suppressScrollX: true,
         }"
-        [@fadeInLeft]="position === 'left'"
-        [@fadeInRight]="position === 'right'"
-        [@fadeOutLeft]="position === 'left'"
-        [@fadeOutRight]="position === 'right'"
+        [animate.enter]="
+            position === 'left'
+                ? 'fuse-animate-fade-in-left'
+                : 'fuse-animate-fade-in-right'
+        "
+        [animate.leave]="
+            position === 'left'
+                ? 'fuse-animate-fade-out-left'
+                : 'fuse-animate-fade-out-right'
+        "
     >
         <!-- Items -->
         @for (item of navigation; track trackByFn($index, item)) {

@@ -18,7 +18,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
 import { finalize } from 'rxjs';
@@ -27,7 +26,6 @@ import { finalize } from 'rxjs';
     selector: 'auth-forgot-password',
     templateUrl: './forgot-password.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [

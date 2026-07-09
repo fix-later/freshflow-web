@@ -59,7 +59,11 @@
 </div>
 
 @if (!isCollapsed) {
-    <div class="fuse-vertical-navigation-item-children" @expandCollapse>
+    <div
+        class="fuse-vertical-navigation-item-children"
+        (animate.enter)="expandOnEnter($event)"
+        (animate.leave)="collapseOnLeave($event)"
+    >
         @for (item of item.children; track trackByFn($index, item)) {
             <!-- Skip the hidden items -->
             @if ((item.hidden && !item.hidden(item)) || !item.hidden) {
