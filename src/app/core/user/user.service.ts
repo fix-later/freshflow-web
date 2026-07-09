@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { profileApi } from 'api';
 import { User, UserRole } from 'app/core/user/user.types';
+import { profileApi } from 'contract';
 import { from, Observable, ReplaySubject, tap } from 'rxjs';
 
 /** Shape of `GET /api/v1/profile/me` (`data`); responses are untyped in the spec. */

@@ -8,8 +8,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:local": "ng serve -c local",
     "start:clean": "ng cache clean && ng serve",
     "build": "ng build",
+    "build:local": "ng build -c local",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --no-watch --no-progress --browsers=ChromeHeadless --code-coverage",

@@ -5,6 +5,7 @@
         "baseUrl": "./src",
         "ignoreDeprecations": "6.0",
         "strict": false,
+        "rootDir": "./src",
         "outDir": "./dist/out-tsc",
         "esModuleInterop": true,
         "sourceMap": true,

@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { categoriesApi, productsApi } from 'api';
+import { categoriesApi, productsApi } from 'contract';
 import { from, Observable, tap } from 'rxjs';
 import {
     CatalogCategory,

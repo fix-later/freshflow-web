@@ -1,4 +1,7 @@
 import { inject, Injectable } from '@angular/core';
+import { AuthUtils } from 'app/core/auth/auth.utils';
+import { UserService } from 'app/core/user/user.service';
+import { ApprovalStatus, User } from 'app/core/user/user.types';
 import {
     authApi,
     clearTokens,
@@ -7,10 +10,7 @@ import {
     restaurantProfileApi,
     setAccessToken,
     setTokens,
-} from 'api';
-import { AuthUtils } from 'app/core/auth/auth.utils';
-import { UserService } from 'app/core/user/user.service';
-import { ApprovalStatus, User } from 'app/core/user/user.types';
+} from 'contract';
 import { firstValueFrom, from, Observable, of, tap } from 'rxjs';
 
 /** `data` of `POST /api/v1/auth/login` (and `/refresh`); untyped in the spec. */

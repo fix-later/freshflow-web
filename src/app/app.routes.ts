@@ -11,8 +11,6 @@ export const appRoutes: Route[] = [
     // Redirect empty path to '/home'
     { path: '', pathMatch: 'full', redirectTo: 'home' },
 
-    // Redirect signed-in user to the '/example'
-    //
     // After the user signs in, the sign-in page will redirect the user to the 'signed-in-redirect'
     // path. Below is another redirection for that path to redirect the user to the desired
     // location. This is a small convenience to keep all main routes together here on this file.
@@ -99,8 +97,7 @@ export const appRoutes: Route[] = [
         children: [
             {
                 path: 'home',
-                loadChildren: () =>
-                    import('app/modules/landing/home/home.routes'),
+                loadChildren: () => import('app/modules/home/home.routes'),
             },
             {
                 path: 'catalog',
