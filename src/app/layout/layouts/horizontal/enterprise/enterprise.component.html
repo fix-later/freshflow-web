@@ -14,7 +14,7 @@
             <div class="flex h-20 items-center px-8 pt-6">
                 <img
                     class="w-24"
-                    src="images/logo/logo-text-on-dark.svg"
+                    src="images/logo/logo-primary-dark.svg"
                     alt="FreshFlow logo"
                 />
             </div>
@@ -75,17 +75,12 @@
                     class="mx-auto flex h-18 w-full max-w-[95rem] items-center gap-6 px-4"
                 >
                     @if (isScreenSmall) {
-                        <a
-                            class="flex items-center gap-1.5 text-2xl font-bold text-primary no-underline"
-                            routerLink="/home"
-                        >
-                            <span>Fresh</span>
+                        <a class="flex items-center" routerLink="/home">
                             <img
-                                src="images/logo/logo.svg"
-                                alt=""
-                                class="h-6 w-6"
+                                src="images/logo/logo-primary.svg"
+                                alt="FreshFlow logo"
+                                class="h-8 w-auto"
                             />
-                            <span>Flow</span>
                         </a>
 
                         <button
@@ -102,17 +97,12 @@
                     } @else {
                         <!-- Logo + Categories -->
                         <div class="flex shrink-0 items-center gap-5">
-                            <a
-                                class="flex items-center gap-1.5 text-2xl font-bold text-primary no-underline"
-                                routerLink="/home"
-                            >
-                                <span>Fresh</span>
+                            <a class="flex items-center" routerLink="/home">
                                 <img
-                                    src="images/logo/logo.svg"
-                                    alt=""
-                                    class="h-6 w-6"
+                                    src="images/logo/logo-primary.svg"
+                                    alt="FreshFlow logo"
+                                    class="h-10 w-auto"
                                 />
-                                <span>Flow</span>
                             </a>
 
                             <div
