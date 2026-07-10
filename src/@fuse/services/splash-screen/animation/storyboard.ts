@@ -6,7 +6,10 @@ import { Timeline } from './timeline';
  * The whole storyboard as plain timeline data. Adding another animation
  * is inserting another clip — the engine never changes.
  */
-export function buildTimeline(letters: readonly LetterSlot[]): Timeline {
+export function buildTimeline(
+    letters: readonly LetterSlot[],
+    leaf: LetterSlot
+): Timeline {
     const tl = new Timeline();
     const t = TIMINGS;
 
@@ -54,6 +57,30 @@ export function buildTimeline(letters: readonly LetterSlot[]): Timeline {
         });
     });
 
+    // 2b. The leaf sprouts in together with the last letter ("w").
+    const leafStart =
+        t.wordmarkReveal.start +
+        (letters.length - 1) * t.wordmarkReveal.perLetter;
+    const leafEnd = leafStart + t.wordmarkReveal.letterDuration;
+    pinLetterX(tl, leaf);
+    tl.add({
+        targetId: leaf.id,
+        property: 'opacity',
+        from: 0,
+        to: 1,
+        startTime: leafStart,
+        endTime: leafEnd,
+        easing: EASING.letterFade,
+    }).add({
+        targetId: leaf.id,
+        property: 'translateY',
+        from: leaf.centerY + LOGO.letterRise,
+        to: leaf.centerY,
+        startTime: leafStart,
+        endTime: leafEnd,
+        easing: EASING.letterRise,
+    });
+
     // 3. Hold — the timeline runs on past the last clip.
     return tl.holdUntil(t.total);
 }
@@ -64,9 +91,34 @@ export function buildTimeline(letters: readonly LetterSlot[]): Timeline {
  * lifting straight up as they fade, while the icon zooms toward the
  * viewer and dissolves.
  */
-export function buildExitTimeline(letters: readonly LetterSlot[]): Timeline {
+export function buildExitTimeline(
+    letters: readonly LetterSlot[],
+    leaf: LetterSlot
+): Timeline {
     const tl = new Timeline();
     const t = TIMINGS;
+
+    // The leaf closes together with the first-to-exit letter ("w").
+    const leafStart = t.exitWordmark.start;
+    const leafEnd = leafStart + t.exitWordmark.letterDuration;
+    pinLetterX(tl, leaf);
+    tl.add({
+        targetId: leaf.id,
+        property: 'opacity',
+        from: 1,
+        to: 0,
+        startTime: leafStart,
+        endTime: leafEnd,
+        easing: EASING.exit,
+    }).add({
+        targetId: leaf.id,
+        property: 'translateY',
+        from: leaf.centerY,
+        to: leaf.centerY + LOGO.letterRise,
+        startTime: leafStart,
+        endTime: leafEnd,
+        easing: EASING.exit,
+    });
 
     [...letters].reverse().forEach((letter, index) => {
         const start = t.exitWordmark.start + index * t.exitWordmark.perLetter;

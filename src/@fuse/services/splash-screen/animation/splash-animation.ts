@@ -37,7 +37,7 @@ export class SplashScreen {
         host.classList.add(ACTIVE_CLASS);
 
         this.scene = buildScene(host);
-        const timeline = buildTimeline(this.scene.letters);
+        const timeline = buildTimeline(this.scene.letters, this.scene.leaf);
         pinStaticPositions(timeline);
 
         this.animator = new Animator(timeline);
@@ -111,7 +111,7 @@ export class SplashScreen {
         }
         this.floatAnimation?.cancel();
         const exitAnimator = new Animator(
-            buildExitTimeline(this.scene.letters)
+            buildExitTimeline(this.scene.letters, this.scene.leaf)
         );
         for (const [id, element] of this.scene.targets) {
             exitAnimator.register(id, element);

@@ -1,4 +1,5 @@
 import {
+    LEAF,
     LETTER_SPACING,
     LETTERS,
     LOGO,
@@ -23,6 +24,8 @@ export interface SplashScene {
     targets: Map<string, SVGElement>;
     /** Wordmark letters, ordered left→right. */
     letters: LetterSlot[];
+    /** Leaf accent perched on the wordmark's final letter ("w"). */
+    leaf: LetterSlot;
 }
 
 function el<K extends keyof SVGElementTagNameMap>(
@@ -100,6 +103,33 @@ export function buildScene(host: HTMLElement): SplashScene {
         cursorX += letter.width + LETTER_SPACING;
     });
 
+    // Leaf accent — perched on the last letter ("w"), reconstructed from
+    // the original combined w+leaf asset's relative position (see LEAF).
+    const wSlot = letters[letters.length - 1];
+    const wLetter = LETTERS[LETTERS.length - 1];
+    const leafCenterX =
+        wSlot.centerX - wLetter.width / 2 + LEAF.offsetX + LEAF.width / 2;
+    const leafCenterY =
+        wSlot.centerY - wLetter.height / 2 + LEAF.offsetY + LEAF.height / 2;
+    const leafImage = el('image');
+    leafImage.setAttribute('href', LEAF.src);
+    leafImage.setAttribute('x', String(-LEAF.width / 2));
+    leafImage.setAttribute('y', String(-LEAF.height / 2));
+    leafImage.setAttribute('width', String(LEAF.width));
+    leafImage.setAttribute('height', String(LEAF.height));
+    leafImage.setAttribute(
+        'transform',
+        `translate(${leafCenterX} ${leafCenterY})`
+    );
+    leafImage.setAttribute('opacity', '0');
+    wordmark.appendChild(leafImage);
+    targets.set('leaf', leafImage);
+    const leaf: LetterSlot = {
+        id: 'leaf',
+        centerX: leafCenterX,
+        centerY: leafCenterY,
+    };
+
     host.appendChild(svg);
-    return { svg, targets, letters };
+    return { svg, targets, letters, leaf };
 }

@@ -27,7 +27,7 @@ export const LOGO = {
     iconSize: 150,
     iconCenterY: 435,
     /** Intrinsic size of the assembled wordmark (letter-asset units). */
-    wordmarkViewBox: { width: 591, height: 128 },
+    wordmarkViewBox: { width: 558, height: 128 },
     /** Rendered wordmark width (viewBox units). */
     wordmarkWidth: 400,
     /** Vertical gap between icon and wordmark (viewBox units). */
@@ -50,11 +50,25 @@ export const LETTERS = [
     { src: 'images/splashscreen/f.svg', width: 41, height: 92 },
     { src: 'images/splashscreen/l.svg', width: 15, height: 90 },
     { src: 'images/splashscreen/o.svg', width: 75, height: 71 },
-    { src: 'images/splashscreen/w.svg', width: 134, height: 127 },
+    { src: 'images/splashscreen/w.svg', width: 101, height: 69 },
 ] as const;
 
 /** Horizontal gap between letters (letter-asset units). */
 export const LETTER_SPACING = 5.5;
+
+/**
+ * The leaf accent, perched on the wordmark's final letter ("w"). It used
+ * to be baked into the same asset as the "w" glyph; now that they're split,
+ * this reconstructs its original position — offsets from the "w" letter's
+ * top-left corner, in wordmark-intrinsic units.
+ */
+export const LEAF = {
+    src: 'images/splashscreen/leaf.svg',
+    width: 65,
+    height: 71,
+    offsetX: 69.34,
+    offsetY: -58,
+} as const;
 
 /** Master storyboard beats (seconds). */
 export const TIMINGS = {
