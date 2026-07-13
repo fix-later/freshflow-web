@@ -14,6 +14,7 @@ import {
     clearTokens,
     getAccessToken,
     getRefreshToken,
+    promptSignIn,
     redirectToLogin,
     setTokens,
 } from './auth';
@@ -152,6 +153,7 @@ const errorMiddleware: Middleware = {
         if (response.status === 401 && !isPreAuth) {
             const headers = new Headers(init.headers as HeadersInit);
             const alreadyRetried = headers.get(RETRY_HEADER) === '1';
+            const hadSession = getRefreshToken() !== null;
 
             if (!alreadyRetried && (await refreshTokensOnce())) {
                 // Re-issue the original request once with the refreshed token.
@@ -164,7 +166,20 @@ const errorMiddleware: Middleware = {
             }
 
             clearTokens();
-            redirectToLogin();
+            if (hadSession) {
+                // Expired session: back to the sign-in page, as before.
+                redirectToLogin();
+            } else {
+                // Guest. Browsing (GET page data via navigation) fails
+                // silently — pages render their empty states. Only a real
+                // action (mutation) prompts: quick sign-in popup when one
+                // is mounted, else the sign-in page.
+                const method = (init.method ?? 'GET').toUpperCase();
+                const isBrowsing = ['GET', 'HEAD', 'OPTIONS'].includes(method);
+                if (!isBrowsing && !promptSignIn()) {
+                    redirectToLogin();
+                }
+            }
             throw new UnauthorizedError(response);
         }
 

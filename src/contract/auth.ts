@@ -95,3 +95,20 @@ export function redirectToLogin(): void {
     }
     window.location.assign(loginUrl);
 }
+
+/**
+ * Optional in-app sign-in prompt (e.g. the header's quick sign-in popup).
+ * The app registers a handler at startup; when a guest request hits a
+ * protected endpoint the client prefers the prompt over a hard redirect.
+ */
+let signInPrompt: (() => boolean) | null = null;
+
+/** Registers the prompt handler; it returns true when a prompt was shown. */
+export function setSignInPrompt(handler: (() => boolean) | null): void {
+    signInPrompt = handler;
+}
+
+/** Tries to show the in-app sign-in prompt; true when one was shown. */
+export function promptSignIn(): boolean {
+    return signInPrompt?.() ?? false;
+}
