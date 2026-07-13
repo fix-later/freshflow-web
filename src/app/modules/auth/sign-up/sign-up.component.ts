@@ -21,7 +21,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
+import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
 
 @Component({
     selector: 'auth-sign-up',
@@ -40,6 +42,8 @@ import { AuthService } from 'app/core/auth/auth.service';
         MatIconModule,
         MatCheckboxModule,
         MatProgressSpinnerModule,
+        TranslocoModule,
+        AuthBrandPanelComponent,
     ],
 })
 export class AuthSignUpComponent implements OnInit {
@@ -58,7 +62,8 @@ export class AuthSignUpComponent implements OnInit {
     constructor(
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
-        private _router: Router
+        private _router: Router,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -118,7 +123,9 @@ export class AuthSignUpComponent implements OnInit {
                     // Set the alert
                     this.alert = {
                         type: 'error',
-                        message: 'Something went wrong, please try again.',
+                        message: this._translocoService.translate(
+                            'auth.errors.generic'
+                        ),
                     };
 
                     // Show the alert

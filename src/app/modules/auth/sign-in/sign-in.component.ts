@@ -21,7 +21,9 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
+import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
 
 @Component({
     selector: 'auth-sign-in',
@@ -40,6 +42,8 @@ import { AuthService } from 'app/core/auth/auth.service';
         MatIconModule,
         MatCheckboxModule,
         MatProgressSpinnerModule,
+        TranslocoModule,
+        AuthBrandPanelComponent,
     ],
 })
 export class AuthSignInComponent implements OnInit {
@@ -59,7 +63,8 @@ export class AuthSignInComponent implements OnInit {
         private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
-        private _router: Router
+        private _router: Router,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -122,7 +127,9 @@ export class AuthSignInComponent implements OnInit {
                 // Set the alert
                 this.alert = {
                     type: 'error',
-                    message: 'Wrong email/phone or password',
+                    message: this._translocoService.translate(
+                        'auth.errors.wrongCredentials'
+                    ),
                 };
 
                 // Show the alert

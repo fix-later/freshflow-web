@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { TranslocoModule } from '@jsverse/transloco';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 
 /**
@@ -10,11 +11,12 @@ import { PermissionsService } from 'app/core/auth/permissions/permissions.servic
     selector: 'approval-banner',
     standalone: true,
     changeDetection: ChangeDetectionStrategy.OnPush,
-    imports: [MatIconModule],
+    imports: [MatIconModule, TranslocoModule],
     template: `
         @if (permissions.isPendingApproval()) {
             <div
                 class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
+                *transloco="let t"
             >
                 <mat-icon
                     class="text-amber-500 icon-size-5"
@@ -22,11 +24,10 @@ import { PermissionsService } from 'app/core/auth/permissions/permissions.servic
                 ></mat-icon>
                 <div>
                     <div class="font-medium">
-                        Your account is awaiting approval
+                        {{ t('approvalBanner.title') }}
                     </div>
                     <div class="text-sm">
-                        You can browse the catalog and prices. Ordering is
-                        enabled once an admin approves your restaurant.
+                        {{ t('approvalBanner.description') }}
                     </div>
                 </div>
             </div>

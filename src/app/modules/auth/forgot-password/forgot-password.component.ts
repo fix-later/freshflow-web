@@ -19,6 +19,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { finalize } from 'rxjs';
 
@@ -37,6 +38,7 @@ import { finalize } from 'rxjs';
         MatButtonModule,
         MatProgressSpinnerModule,
         RouterLink,
+        TranslocoModule,
     ],
 })
 export class AuthForgotPasswordComponent implements OnInit {
@@ -54,7 +56,8 @@ export class AuthForgotPasswordComponent implements OnInit {
      */
     constructor(
         private _authService: AuthService,
-        private _formBuilder: UntypedFormBuilder
+        private _formBuilder: UntypedFormBuilder,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -110,16 +113,17 @@ export class AuthForgotPasswordComponent implements OnInit {
                     // Set the alert
                     this.alert = {
                         type: 'success',
-                        message:
-                            "Password reset sent! You'll receive an email if you are registered on our system.",
+                        message: this._translocoService.translate(
+                            'auth.errors.resetSent'
+                        ),
                     };
                 },
                 (response) => {
-                    // Set the alert
                     this.alert = {
                         type: 'error',
-                        message:
-                            'Email does not found! Are you sure you are already a member?',
+                        message: this._translocoService.translate(
+                            'auth.errors.emailNotFound'
+                        ),
                     };
                 }
             );

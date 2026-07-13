@@ -21,6 +21,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { FuseValidators } from '@fuse/validators';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { finalize } from 'rxjs';
 
@@ -40,6 +41,7 @@ import { finalize } from 'rxjs';
         MatIconModule,
         MatProgressSpinnerModule,
         RouterLink,
+        TranslocoModule,
     ],
 })
 export class AuthResetPasswordComponent implements OnInit {
@@ -58,7 +60,8 @@ export class AuthResetPasswordComponent implements OnInit {
     constructor(
         private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
-        private _formBuilder: UntypedFormBuilder
+        private _formBuilder: UntypedFormBuilder,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -127,14 +130,17 @@ export class AuthResetPasswordComponent implements OnInit {
                     // Set the alert
                     this.alert = {
                         type: 'success',
-                        message: 'Your password has been reset.',
+                        message: this._translocoService.translate(
+                            'auth.errors.passwordReset'
+                        ),
                     };
                 },
                 (response) => {
-                    // Set the alert
                     this.alert = {
                         type: 'error',
-                        message: 'Something went wrong, please try again.',
+                        message: this._translocoService.translate(
+                            'auth.errors.generic'
+                        ),
                     };
                 }
             );

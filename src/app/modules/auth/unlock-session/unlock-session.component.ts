@@ -20,6 +20,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { UserService } from 'app/core/user/user.service';
 
@@ -39,6 +40,7 @@ import { UserService } from 'app/core/user/user.service';
         MatIconModule,
         MatProgressSpinnerModule,
         RouterLink,
+        TranslocoModule,
     ],
 })
 export class AuthUnlockSessionComponent implements OnInit {
