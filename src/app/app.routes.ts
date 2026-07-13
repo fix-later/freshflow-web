@@ -1,8 +1,16 @@
+import { inject } from '@angular/core';
 import { Route } from '@angular/router';
 import { initialDataResolver } from 'app/app.resolvers';
 import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { NoAuthGuard } from 'app/core/auth/guards/noAuth.guard';
+import { OptionalAuthGuard } from 'app/core/auth/guards/optionalAuth.guard';
+import { roleGuard } from 'app/core/auth/guards/role.guard';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { LayoutComponent } from 'app/layout/layout.component';
+
+// Admin console area: roleGuard checks auth itself (redirects guests to
+// sign-in with a redirectURL), so no separate AuthGuard is needed.
+const adminOnly = roleGuard(['admin']);
 
 // @formatter:off
 /* eslint-disable max-len */
@@ -11,12 +19,14 @@ export const appRoutes: Route[] = [
     // Redirect empty path to '/home'
     { path: '', pathMatch: 'full', redirectTo: 'home' },
 
-    // Redirect signed-in user to the '/example'
-    //
     // After the user signs in, the sign-in page will redirect the user to the 'signed-in-redirect'
-    // path. Below is another redirection for that path to redirect the user to the desired
-    // location. This is a small convenience to keep all main routes together here on this file.
-    { path: 'signed-in-redirect', pathMatch: 'full', redirectTo: 'home' },
+    // path. Below is another redirection for that path to send each role to its landing area.
+    {
+        path: 'signed-in-redirect',
+        pathMatch: 'full',
+        redirectTo: () =>
+            inject(PermissionsService).role() === 'admin' ? '/admin' : '/home',
+    },
 
     // Auth routes for guests
     {
@@ -87,25 +97,25 @@ export const appRoutes: Route[] = [
         ],
     },
 
-    // Admin routes
+    // Storefront area — public, restaurant-facing. Browsable by guests; a
+    // valid session is restored when present. The area drives the chrome
+    // (enterprise layout + storefront nav) regardless of the viewer's role.
     {
         path: '',
-        canActivate: [AuthGuard],
-        canActivateChild: [AuthGuard],
+        canActivate: [OptionalAuthGuard],
+        canActivateChild: [OptionalAuthGuard],
         component: LayoutComponent,
+        data: {
+            area: 'storefront',
+            layout: 'enterprise',
+        },
         resolve: {
             initialData: initialDataResolver,
         },
         children: [
             {
-                path: 'example',
-                loadChildren: () =>
-                    import('app/modules/admin/example/example.routes'),
-            },
-            {
                 path: 'home',
-                loadChildren: () =>
-                    import('app/modules/landing/home/home.routes'),
+                loadChildren: () => import('app/modules/home/home.routes'),
             },
             {
                 path: 'catalog',
@@ -115,6 +125,92 @@ export const appRoutes: Route[] = [
             {
                 path: 'shop',
                 loadChildren: () => import('app/modules/shop/shop.routes'),
+            },
+            {
+                path: 'wishlist',
+                loadChildren: () =>
+                    import('app/modules/wishlist/wishlist.routes'),
+            },
+            {
+                path: 'cart',
+                loadChildren: () => import('app/modules/cart/cart.routes'),
+            },
+            {
+                path: 'checkout',
+                loadComponent: () =>
+                    import('app/modules/cart/checkout.component').then(
+                        (m) => m.CheckoutComponent
+                    ),
+            },
+            { path: 'booking', pathMatch: 'full', redirectTo: 'cart' },
+            // Storefront stub pages (nav "Tìm hiểu FreshFlow" + Hot Deals)
+            {
+                path: 'about',
+                loadComponent: () =>
+                    import('app/modules/pages/placeholder-page.component').then(
+                        (m) => m.PlaceholderPageComponent
+                    ),
+                data: { title: 'Về chúng tôi' },
+            },
+            {
+                path: 'faq',
+                loadComponent: () =>
+                    import('app/modules/pages/placeholder-page.component').then(
+                        (m) => m.PlaceholderPageComponent
+                    ),
+                data: { title: 'Câu hỏi thường gặp' },
+            },
+            {
+                path: 'contact',
+                loadComponent: () =>
+                    import('app/modules/pages/placeholder-page.component').then(
+                        (m) => m.PlaceholderPageComponent
+                    ),
+                data: { title: 'Liên hệ' },
+            },
+            {
+                path: 'deals',
+                loadComponent: () =>
+                    import('app/modules/pages/placeholder-page.component').then(
+                        (m) => m.PlaceholderPageComponent
+                    ),
+                data: { title: 'Hot Deals' },
+            },
+            // Order management area (header "Theo dõi đơn hàng"). Stub until
+            // the M5 Order Management feature (list/detail, real-time
+            // status) has its own spec — see specs/product/PRD.md §5.
+            {
+                path: 'orders',
+                loadComponent: () =>
+                    import('app/modules/pages/placeholder-page.component').then(
+                        (m) => m.PlaceholderPageComponent
+                    ),
+                data: {
+                    title: 'Đơn hàng của tôi',
+                    description:
+                        'Danh sách và trạng thái đơn hàng đang được xây dựng.',
+                },
+            },
+        ],
+    },
+
+    // Admin console area — admin role only (classic layout + admin nav).
+    {
+        path: '',
+        canActivate: [adminOnly],
+        canActivateChild: [adminOnly],
+        component: LayoutComponent,
+        data: {
+            area: 'admin',
+            layout: 'classic',
+        },
+        resolve: {
+            initialData: initialDataResolver,
+        },
+        children: [
+            {
+                path: 'admin',
+                loadChildren: () => import('app/modules/admin/admin.routes'),
             },
         ],
     },

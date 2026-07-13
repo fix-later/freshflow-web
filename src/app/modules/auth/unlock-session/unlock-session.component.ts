@@ -19,8 +19,8 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { UserService } from 'app/core/user/user.service';
 
@@ -28,7 +28,6 @@ import { UserService } from 'app/core/user/user.service';
     selector: 'auth-unlock-session',
     templateUrl: './unlock-session.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
@@ -41,6 +40,7 @@ import { UserService } from 'app/core/user/user.service';
         MatIconModule,
         MatProgressSpinnerModule,
         RouterLink,
+        TranslocoModule,
     ],
 })
 export class AuthUnlockSessionComponent implements OnInit {
@@ -111,9 +111,10 @@ export class AuthUnlockSessionComponent implements OnInit {
         // Hide the alert
         this.showAlert = false;
 
+        // No dedicated unlock endpoint — re-authenticate with the identifier.
         this._authService
-            .unlockSession({
-                email: this._email ?? '',
+            .signIn({
+                identifier: this._email ?? '',
                 password: this.unlockSessionForm.get('password').value,
             })
             .subscribe(

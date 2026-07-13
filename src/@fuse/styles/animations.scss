@@ -1,0 +1,326 @@
+/* ----------------------------------------------------------------------------------------------------- */
+/* @ Enter/leave animation classes for Angular's native `animate.enter` / `animate.leave` bindings.
+/*
+/*   CSS replacement for the removed @angular/animations based `fuseAnimations` triggers.
+/*   Timings and curves mirror FuseAnimationDurations / FuseAnimationCurves
+/*   (see src/@fuse/animations/defaults.ts):
+/*     - entering: 225ms deceleration curve
+/*     - exiting:  195ms acceleration curve
+/* ----------------------------------------------------------------------------------------------------- */
+
+$fuse-anim-enter: 225ms cubic-bezier(0, 0, 0.2, 1);
+$fuse-anim-exit: 195ms cubic-bezier(0.4, 0, 1, 1);
+
+/* Fade in */
+.fuse-animate-fade-in {
+    animation: fuse-animate-fade-in $fuse-anim-enter;
+}
+
+.fuse-animate-fade-in-top {
+    animation: fuse-animate-fade-in-top $fuse-anim-enter;
+}
+
+.fuse-animate-fade-in-bottom {
+    animation: fuse-animate-fade-in-bottom $fuse-anim-enter;
+}
+
+.fuse-animate-fade-in-left {
+    animation: fuse-animate-fade-in-left $fuse-anim-enter;
+}
+
+.fuse-animate-fade-in-right {
+    animation: fuse-animate-fade-in-right $fuse-anim-enter;
+}
+
+/* Fade out */
+.fuse-animate-fade-out {
+    animation: fuse-animate-fade-out $fuse-anim-exit forwards;
+}
+
+.fuse-animate-fade-out-top {
+    animation: fuse-animate-fade-out-top $fuse-anim-exit forwards;
+}
+
+.fuse-animate-fade-out-bottom {
+    animation: fuse-animate-fade-out-bottom $fuse-anim-exit forwards;
+}
+
+.fuse-animate-fade-out-left {
+    animation: fuse-animate-fade-out-left $fuse-anim-exit forwards;
+}
+
+.fuse-animate-fade-out-right {
+    animation: fuse-animate-fade-out-right $fuse-anim-exit forwards;
+}
+
+/* Slide in */
+.fuse-animate-slide-in-top {
+    animation: fuse-animate-slide-in-top $fuse-anim-enter;
+}
+
+.fuse-animate-slide-in-bottom {
+    animation: fuse-animate-slide-in-bottom $fuse-anim-enter;
+}
+
+.fuse-animate-slide-in-left {
+    animation: fuse-animate-slide-in-left $fuse-anim-enter;
+}
+
+.fuse-animate-slide-in-right {
+    animation: fuse-animate-slide-in-right $fuse-anim-enter;
+}
+
+/* Slide out */
+.fuse-animate-slide-out-top {
+    animation: fuse-animate-slide-out-top $fuse-anim-exit forwards;
+}
+
+.fuse-animate-slide-out-bottom {
+    animation: fuse-animate-slide-out-bottom $fuse-anim-exit forwards;
+}
+
+.fuse-animate-slide-out-left {
+    animation: fuse-animate-slide-out-left $fuse-anim-exit forwards;
+}
+
+.fuse-animate-slide-out-right {
+    animation: fuse-animate-slide-out-right $fuse-anim-exit forwards;
+}
+
+/* Zoom */
+.fuse-animate-zoom-in {
+    animation: fuse-animate-zoom-in $fuse-anim-enter;
+}
+
+.fuse-animate-zoom-out {
+    animation: fuse-animate-zoom-out $fuse-anim-exit forwards;
+}
+
+/* Shake */
+.fuse-animate-shake {
+    animation: fuse-animate-shake 800ms cubic-bezier(0.455, 0.03, 0.515, 0.955);
+}
+
+/* ----------------------------------------------------------------------------------------------------- */
+/* @ Keyframes
+/* ----------------------------------------------------------------------------------------------------- */
+
+@keyframes fuse-animate-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fuse-animate-fade-in-top {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-in-bottom {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 100%, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-in-left {
+    from {
+        opacity: 0;
+        transform: translate3d(-100%, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-in-right {
+    from {
+        opacity: 0;
+        transform: translate3d(100%, 0, 0);
+    }
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-out {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes fuse-animate-fade-out-top {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-out-bottom {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(0, 100%, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-out-left {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(-100%, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-fade-out-right {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        opacity: 0;
+        transform: translate3d(100%, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-in-top {
+    from {
+        transform: translate3d(0, -100%, 0);
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-in-bottom {
+    from {
+        transform: translate3d(0, 100%, 0);
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-in-left {
+    from {
+        transform: translate3d(-100%, 0, 0);
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-in-right {
+    from {
+        transform: translate3d(100%, 0, 0);
+    }
+    to {
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-out-top {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(0, -100%, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-out-bottom {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(0, 100%, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-out-left {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(-100%, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-slide-out-right {
+    from {
+        transform: translate3d(0, 0, 0);
+    }
+    to {
+        transform: translate3d(100%, 0, 0);
+    }
+}
+
+@keyframes fuse-animate-zoom-in {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fuse-animate-zoom-out {
+    from {
+        opacity: 1;
+        transform: scale(1);
+    }
+    to {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+}
+
+@keyframes fuse-animate-shake {
+    0%,
+    100% {
+        transform: translate3d(0, 0, 0);
+    }
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translate3d(-10px, 0, 0);
+    }
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translate3d(10px, 0, 0);
+    }
+}

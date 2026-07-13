@@ -1,9 +1,3 @@
-import {
-    animate,
-    AnimationBuilder,
-    AnimationPlayer,
-    style,
-} from '@angular/animations';
 import { BooleanInput, coerceBooleanProperty } from '@angular/cdk/coercion';
 import {
     ChangeDetectionStrategy,
@@ -45,7 +39,6 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
     static ngAcceptInputType_transparentOverlay: BooleanInput;
     /* eslint-enable @typescript-eslint/naming-convention */
 
-    private _animationBuilder = inject(AnimationBuilder);
     private _elementRef = inject(ElementRef);
     private _renderer2 = inject(Renderer2);
     private _fuseDrawerService = inject(FuseDrawerService);
@@ -70,7 +63,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
     private readonly _handleOverlayClick = (): void => this.close();
     private _hovered: boolean = false;
     private _overlay: HTMLElement;
-    private _player: AnimationPlayer;
+    private _overlayAnimation: Animation;
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
@@ -224,8 +217,8 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
      */
     ngOnDestroy(): void {
         // Finish the animation
-        if (this._player) {
-            this._player.finish();
+        if (this._overlayAnimation) {
+            this._overlayAnimation.finish();
         }
 
         // Deregister the drawer from the registry
@@ -335,19 +328,15 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
             this._overlay
         );
 
-        // Create enter animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                style({ opacity: 0 }),
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 1 })
-                ),
-            ])
-            .create(this._overlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the enter animation
+        this._overlayAnimation = this._overlay.animate(
+            { opacity: [0, 1] },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Add an event listener to the overlay
         this._overlay.addEventListener('click', this._handleOverlayClick);
@@ -363,21 +352,18 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
             return;
         }
 
-        // Create the leave animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 0 })
-                ),
-            ])
-            .create(this._overlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the leave animation
+        this._overlayAnimation = this._overlay.animate(
+            { opacity: 0 },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Once the animation is done...
-        this._player.onDone(() => {
+        this._overlayAnimation.onfinish = (): void => {
             // If the overlay still exists...
             if (this._overlay) {
                 // Remove the event listener
@@ -390,7 +376,7 @@ export class FuseDrawerComponent implements OnChanges, OnInit, OnDestroy {
                 this._overlay.parentNode.removeChild(this._overlay);
                 this._overlay = null;
             }
-        });
+        };
     }
 
     /**

@@ -2,3 +2,11 @@
 /*  @ Import/write your custom styles here.
 /*  @ Styles from this file will override 'vendors.scss' and Fuse's base styles.
 /* ----------------------------------------------------------------------------------------------------- */
+
+/**
+ * App-wide typography: Google Sans Flex (UI + headings). Mono stays IBM Plex
+ * Mono for prices / IDs via `font-mono`.
+ */
+body {
+    font-family: theme('fontFamily.sans');
+}

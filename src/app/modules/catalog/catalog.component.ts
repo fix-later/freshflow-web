@@ -17,10 +17,20 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatRadioModule } from '@angular/material/radio';
+import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { TranslocoModule, TranslocoService } from '@ngneat/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
+import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
+import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { CatalogService } from './catalog.service';
+import { CatalogProduct } from './catalog.types';
+
+type SortOption = '' | 'name-asc' | 'name-desc';
+type ViewMode = 'grid' | 'list';
 
 @Component({
     selector: 'catalog',
@@ -36,20 +46,31 @@ import { CatalogService } from './catalog.service';
         MatPaginatorModule,
         MatButtonModule,
         MatProgressBarModule,
+        MatRadioModule,
+        MatSelectModule,
+        MatTooltipModule,
         ReactiveFormsModule,
         RouterLink,
         TranslocoModule,
+        ApprovalBannerComponent,
     ],
 })
 export class CatalogComponent implements OnInit {
     private _catalogService = inject(CatalogService);
     private _translocoService = inject(TranslocoService);
     private _destroyRef = inject(DestroyRef);
+    private _favoritesService = inject(FavoritesService);
+    private _draftOrderService = inject(DraftOrderService);
 
     readonly searchControl = new FormControl('', { nonNullable: true });
     readonly selectedCategory = signal<string>('');
     readonly searchTerm = signal<string>('');
     readonly loading = signal(false);
+
+    /** Client-side refinements (the products API has no such params yet). */
+    readonly selectedMarket = signal<string>('');
+    readonly sortOption = signal<SortOption>('');
+    readonly viewMode = signal<ViewMode>('grid');
 
     readonly categories = this._catalogService.categories;
     readonly products = this._catalogService.products;
@@ -59,8 +80,45 @@ export class CatalogComponent implements OnInit {
         () => this._translocoService.getActiveLang() === 'vi'
     );
 
+    /** Distinct market sources on the current page (client-side filter). */
+    readonly marketSources = computed(() => [
+        ...new Set(
+            this.products()
+                .map((product) => product.marketSource)
+                .filter(Boolean)
+        ),
+    ]);
+
+    /** Page products after the client-side market filter + name sort. */
+    readonly visibleProducts = computed(() => {
+        const market = this.selectedMarket();
+        const sort = this.sortOption();
+        let items = this.products();
+        if (market) {
+            items = items.filter((product) => product.marketSource === market);
+        }
+        if (sort) {
+            const direction = sort === 'name-asc' ? 1 : -1;
+            items = [...items].sort(
+                (a, b) =>
+                    direction *
+                    this.productName(a).localeCompare(this.productName(b), 'vi')
+            );
+        }
+        return items;
+    });
+
+    readonly resultCount = computed(() =>
+        this.selectedMarket()
+            ? this.visibleProducts().length
+            : this.pagination()?.length ?? 0
+    );
+
     readonly hasActiveFilters = computed(
-        () => !!this.selectedCategory() || !!this.searchTerm()
+        () =>
+            !!this.selectedCategory() ||
+            !!this.searchTerm() ||
+            !!this.selectedMarket()
     );
 
     ngOnInit(): void {
@@ -78,7 +136,24 @@ export class CatalogComponent implements OnInit {
 
     filterByCategory(categoryId: string): void {
         this.selectedCategory.set(categoryId);
+        this.selectedMarket.set('');
         this._loadProducts({ category: categoryId });
+    }
+
+    filterByMarket(source: string): void {
+        this.selectedMarket.set(source);
+    }
+
+    setSort(option: SortOption): void {
+        this.sortOption.set(option);
+    }
+
+    setViewMode(mode: ViewMode): void {
+        this.viewMode.set(mode);
+    }
+
+    setPageSize(size: number): void {
+        this._loadProducts({ page: 0, size });
     }
 
     clearSearch(): void {
@@ -91,6 +166,7 @@ export class CatalogComponent implements OnInit {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
         this.selectedCategory.set('');
+        this.selectedMarket.set('');
         this._loadProducts({ search: '', category: '' });
     }
 
@@ -106,8 +182,24 @@ export class CatalogComponent implements OnInit {
         return this.isVi() ? cat.name : cat.nameEn;
     }
 
-    productName(product: { name: string; nameEn: string }): string {
+    productName(product: CatalogProduct): string {
         return this.isVi() ? product.name : product.nameEn;
+    }
+
+    isFavorite(productId: string): boolean {
+        return this._favoritesService.isFavorite(productId);
+    }
+
+    toggleFavorite(product: CatalogProduct, event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this._favoritesService.toggle(product);
+    }
+
+    addToDraftOrder(product: CatalogProduct, event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this._draftOrderService.add(product);
     }
 
     private _loadProducts(

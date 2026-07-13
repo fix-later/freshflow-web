@@ -1,0 +1,21 @@
+<ng-container *transloco="let t">
+    <!-- Favorites trigger (drawer panel lives at the layout root) -->
+    <button
+        class="text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        type="button"
+        (click)="favoritesService.toggleDrawer()"
+        [attr.aria-label]="t('header.favorites')"
+        [matTooltip]="t('header.favorites')"
+    >
+        @if (count() > 0) {
+            <span
+                class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
+                >{{ count() }}</span
+            >
+        }
+        <mat-icon
+            class="icon-size-6"
+            [svgIcon]="'heroicons_outline:heart'"
+        ></mat-icon>
+    </button>
+</ng-container>

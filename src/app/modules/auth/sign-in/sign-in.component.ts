@@ -20,15 +20,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
+import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
 
 @Component({
     selector: 'auth-sign-in',
     templateUrl: './sign-in.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
@@ -42,6 +42,8 @@ import { AuthService } from 'app/core/auth/auth.service';
         MatIconModule,
         MatCheckboxModule,
         MatProgressSpinnerModule,
+        TranslocoModule,
+        AuthBrandPanelComponent,
     ],
 })
 export class AuthSignInComponent implements OnInit {
@@ -61,7 +63,8 @@ export class AuthSignInComponent implements OnInit {
         private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
-        private _router: Router
+        private _router: Router,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -72,13 +75,10 @@ export class AuthSignInComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        // Create the form. `identifier` accepts an email or a phone (BR-AUTH-2).
         this.signInForm = this._formBuilder.group({
-            email: [
-                'hughes.brian@company.com',
-                [Validators.required, Validators.email],
-            ],
-            password: ['admin', Validators.required],
+            identifier: ['', [Validators.required]],
+            password: ['', Validators.required],
             rememberMe: [''],
         });
     }
@@ -127,7 +127,9 @@ export class AuthSignInComponent implements OnInit {
                 // Set the alert
                 this.alert = {
                     type: 'error',
-                    message: 'Wrong email or password',
+                    message: this._translocoService.translate(
+                        'auth.errors.wrongCredentials'
+                    ),
                 };
 
                 // Show the alert

@@ -8,8 +8,10 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:local": "ng serve -c local",
     "start:clean": "ng cache clean && ng serve",
     "build": "ng build",
+    "build:local": "ng build -c local",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "test:ci": "ng test --no-watch --no-progress --browsers=ChromeHeadless --code-coverage",
@@ -27,7 +29,6 @@
     ]
   },
   "dependencies": {
-    "@angular/animations": "22.0.0",
     "@angular/cdk": "22.0.0",
     "@angular/common": "22.0.0",
     "@angular/compiler": "22.0.0",
@@ -38,7 +39,7 @@
     "@angular/platform-browser": "22.0.0",
     "@angular/platform-browser-dynamic": "22.0.0",
     "@angular/router": "22.0.0",
-    "@ngneat/transloco": "6.0.4",
+    "@jsverse/transloco": "^8.4.0",
     "apexcharts": "^5.13.0",
     "crypto-js": "4.2.0",
     "highlight.js": "11.9.0",

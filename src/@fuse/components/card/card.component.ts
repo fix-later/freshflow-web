@@ -8,7 +8,7 @@ import {
     SimpleChanges,
     ViewEncapsulation,
 } from '@angular/core';
-import { fuseAnimations } from '@fuse/animations';
+import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseCardFace } from '@fuse/components/card/card.types';
 
 @Component({
@@ -16,7 +16,6 @@ import { FuseCardFace } from '@fuse/components/card/card.types';
     templateUrl: './card.component.html',
     styleUrls: ['./card.component.scss'],
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     exportAs: 'fuseCard',
     standalone: true,
     imports: [],
@@ -30,6 +29,10 @@ export class FuseCardComponent implements OnChanges {
     @Input() expanded: boolean = false;
     @Input() face: FuseCardFace = 'front';
     @Input() flippable: boolean = false;
+
+    // Expand/collapse animation handlers for the template
+    protected readonly expandOnEnter = expandOnEnter;
+    protected readonly collapseOnLeave = collapseOnLeave;
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors

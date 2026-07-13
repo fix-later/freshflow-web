@@ -1,0 +1,125 @@
+<ng-container *transloco="let t">
+    <!-- Trigger: user icon opens the sign-in popup -->
+    <button
+        class="text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        type="button"
+        (click)="openPanel()"
+        [attr.aria-label]="t('header.signIn')"
+        [matTooltip]="t('header.signIn')"
+    >
+        <mat-icon
+            class="icon-size-6"
+            [svgIcon]="'heroicons_outline:user'"
+        ></mat-icon>
+    </button>
+
+    <!-- Popup dialog content -->
+    <ng-template #quickSignInPanel>
+        <div class="p-6">
+            <!-- Header -->
+            <div class="flex items-baseline justify-between gap-4">
+                <div class="text-2xl font-semibold leading-tight">
+                    {{ t('quickSignIn.title') }}
+                </div>
+                <a
+                    class="text-md font-medium text-primary-500 hover:underline"
+                    routerLink="/sign-up"
+                    (click)="closePanel()"
+                    >{{ t('quickSignIn.createAccount') }}</a
+                >
+            </div>
+
+            <!-- Alert -->
+            @if (showError) {
+                <fuse-alert
+                    class="mt-4 block"
+                    [appearance]="'outline'"
+                    [showIcon]="false"
+                    [type]="'error'"
+                    [animate.enter]="'fuse-animate-shake'"
+                >
+                    {{ t('quickSignIn.error') }}
+                </fuse-alert>
+            }
+
+            <!-- Form -->
+            <form
+                class="mt-4"
+                #quickSignInNgForm="ngForm"
+                [formGroup]="signInForm"
+                (ngSubmit)="signIn(quickSignInNgForm)"
+            >
+                <mat-form-field class="w-full">
+                    <mat-label>{{ t('quickSignIn.identifier') }}</mat-label>
+                    <input matInput [formControlName]="'identifier'" />
+                    <mat-error>{{
+                        t('quickSignIn.identifierRequired')
+                    }}</mat-error>
+                </mat-form-field>
+
+                <mat-form-field class="w-full">
+                    <mat-label>{{ t('quickSignIn.password') }}</mat-label>
+                    <input
+                        #passwordField
+                        matInput
+                        type="password"
+                        [formControlName]="'password'"
+                    />
+                    <button
+                        mat-icon-button
+                        type="button"
+                        matSuffix
+                        (click)="
+                            passwordField.type === 'password'
+                                ? (passwordField.type = 'text')
+                                : (passwordField.type = 'password')
+                        "
+                    >
+                        @if (passwordField.type === 'password') {
+                            <mat-icon
+                                class="icon-size-5"
+                                [svgIcon]="'heroicons_solid:eye'"
+                            ></mat-icon>
+                        }
+                        @if (passwordField.type === 'text') {
+                            <mat-icon
+                                class="icon-size-5"
+                                [svgIcon]="'heroicons_solid:eye-slash'"
+                            ></mat-icon>
+                        }
+                    </button>
+                    <mat-error>{{
+                        t('quickSignIn.passwordRequired')
+                    }}</mat-error>
+                </mat-form-field>
+
+                <button
+                    class="fuse-mat-button-large mt-2 w-full"
+                    mat-flat-button
+                    type="submit"
+                    [color]="'primary'"
+                    [disabled]="signInForm.disabled"
+                >
+                    @if (!signInForm.disabled) {
+                        <span>{{ t('quickSignIn.submit') }}</span>
+                    }
+                    @if (signInForm.disabled) {
+                        <mat-progress-spinner
+                            [diameter]="24"
+                            [mode]="'indeterminate'"
+                        ></mat-progress-spinner>
+                    }
+                </button>
+
+                <div class="mt-4 text-center">
+                    <a
+                        class="text-md font-medium text-primary-500 hover:underline"
+                        routerLink="/forgot-password"
+                        (click)="closePanel()"
+                        >{{ t('quickSignIn.forgotPassword') }}</a
+                    >
+                </div>
+            </form>
+        </div>
+    </ng-template>
+</ng-container>

@@ -1,9 +1,21 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, Routes } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { UnauthorizedError } from 'contract';
+import { OperatorFunction, catchError, forkJoin, of, throwError } from 'rxjs';
 import { CatalogComponent } from './catalog.component';
 import { CatalogService } from './catalog.service';
 import { ProductDetailComponent } from './pages/product-detail/product-detail.component';
+
+/**
+ * Guests may open catalog pages even when the API rejects the data requests
+ * (guest GET 401s fail silently); the page renders its empty state instead
+ * of the navigation being cancelled. Other errors still propagate.
+ */
+function tolerateUnauthorized<T>(): OperatorFunction<T, T | null> {
+    return catchError((err: unknown) =>
+        err instanceof UnauthorizedError ? of(null) : throwError(() => err)
+    );
+}
 
 export default [
     {
@@ -15,7 +27,7 @@ export default [
                 return forkJoin([
                     catalogService.getCategories(),
                     catalogService.getProducts({ page: 0, size: 12 }),
-                ]);
+                ]).pipe(tolerateUnauthorized());
             },
         },
     },
@@ -25,7 +37,9 @@ export default [
         resolve: {
             product: (route: ActivatedRouteSnapshot) => {
                 const catalogService = inject(CatalogService);
-                return catalogService.getProductById(route.params['productId']);
+                return catalogService
+                    .getProductById(route.params['productId'])
+                    .pipe(tolerateUnauthorized());
             },
         },
     },

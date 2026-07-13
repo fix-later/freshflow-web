@@ -14,7 +14,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { NavigationEnd, Router } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
+import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseNavigationService } from '@fuse/components/navigation/navigation.service';
 import { FuseNavigationItem } from '@fuse/components/navigation/navigation.types';
 import { FuseVerticalNavigationBasicItemComponent } from '@fuse/components/navigation/vertical/components/basic/basic.component';
@@ -27,7 +27,6 @@ import { Subject, filter, takeUntil } from 'rxjs';
 @Component({
     selector: 'fuse-vertical-navigation-collapsable-item',
     templateUrl: './collapsable.component.html',
-    animations: fuseAnimations,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
@@ -58,6 +57,10 @@ export class FuseVerticalNavigationCollapsableItemComponent
 
     isCollapsed: boolean = true;
     isExpanded: boolean = false;
+
+    // Expand/collapse animation handlers for the template
+    protected readonly expandOnEnter = expandOnEnter;
+    protected readonly collapseOnLeave = collapseOnLeave;
     private _fuseVerticalNavigationComponent: FuseVerticalNavigationComponent;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 

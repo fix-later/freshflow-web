@@ -20,42 +20,47 @@ dense, content-first work over marketing chrome.
 └───────────┴─────────────────────────────────────────────────┘
 ```
 
-- **Side nav**: Fuse **vertical navigation**, built from a role-filtered navigation data set
-  (`src/app/core/navigation`). Grouped by domain; collapses to icons on `md`, becomes an
-  overlay drawer below `md` (see breakpoints in [`../design/TOKENS.md`](../design/TOKENS.md)).
-- **Top app bar**: logo/home, global product search (restaurant), language toggle (vi/en),
-  notification bell (M11), user menu (profile, sign-out).
-- **No mega-menus, no marketing nav.** This is a tool, not a storefront.
+-   **Side nav**: Fuse **vertical navigation**, built from a role-filtered navigation data set
+    (`src/app/core/navigation`). Grouped by domain; collapses to icons on `md`, becomes an
+    overlay drawer below `md` (see breakpoints in [`../design/TOKENS.md`](../design/TOKENS.md)).
+-   **Top app bar**: logo/home, global product search (restaurant), language toggle (vi/en),
+    notification bell (M11), user menu (profile, sign-out).
+-   **No mega-menus, no marketing nav.** This is a tool, not a storefront.
 
-## Layout per role
+## Layout per area
 
-Each role uses a different Fuse layout, matched to its workflow density and navigation pattern.
+UI chrome (layout + navigation) follows the **route area**, not the user's role: each area is a
+group of routes sharing the same chrome, declared per route block via `data: { area, layout }`
+in `src/app/app.routes.ts`. Roles only gate access (`roleGuard`) and add cross-area entry links
+("Quản trị" in the storefront nav for admins; "Xem cửa hàng" in the admin nav).
 
-| Role | Fuse Layout | Type | Rationale |
-|------|-------------|------|-----------|
-| Restaurant | `enterprise` | Horizontal | Customer-facing; top nav keeps content area wide for price board and ordering |
-| Admin | `classic` | Vertical | Dense admin console; persistent side nav for many sections |
-| Operations Manager | `classic` | Vertical | Same operational density as Admin; side nav for procurement/logistics |
-| Hub Staff | `classy` | Vertical | Streamlined hub workflow; lighter side nav variant |
+| Area                 | Routes                       | Fuse Layout  | Type       | Rationale                                                                                                                      |
+| -------------------- | ---------------------------- | ------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Storefront           | `/home`, `/catalog`, `/shop` | `enterprise` | Horizontal | Customer-facing (restaurant + guest); top nav keeps content area wide for price board and ordering                             |
+| Admin console        | `/admin`                     | `classic`    | Vertical   | Dense admin console; persistent side nav for many sections                                                                     |
+| Operations (planned) | `/ops`                       | `classic`    | Vertical   | Same operational density as Admin; side nav for procurement/logistics — ops users stay on the storefront until this area lands |
+| Hub (planned)        | —                            | `classy`     | Vertical   | Streamlined hub workflow; lighter side nav variant                                                                             |
 
-The layout is selected at login based on the user's primary role and set via the Fuse
-`LayoutComponent`'s `layout` data property in the route config (see `src/app/app.routes.ts`).
+After sign-in, `signed-in-redirect` routes each role to its landing area (admin → `/admin`,
+others → `/home`).
 
 ## Role-based menus
 
-The navigation set is filtered by role at build-time of the menu (not just hidden via CSS).
+Within an area, the navigation set is filtered by role at build-time of the menu (not just
+hidden via CSS); items without a role restriction are visible to every viewer of the area,
+including guests on the public storefront.
 
-| Group | Restaurant | Operations | Admin |
-|-------|:----------:|:----------:|:-----:|
-| Prices / Catalog | ✓ | ✓ | ✓ |
-| Orders / Recurring | ✓ | — | ✓ (all) |
-| Credit | ✓ | — | ✓ |
-| Deliveries | ✓ | ✓ | ✓ |
-| Procurement | — | ✓ | ✓ |
-| Logistics | — | ✓ | ✓ |
-| Hub | — | ✓ | ✓ |
-| Analytics | — | ✓ | ✓ |
-| Administration | — | — | ✓ |
+| Group              | Restaurant | Operations |  Admin  |
+| ------------------ | :--------: | :--------: | :-----: |
+| Prices / Catalog   |     ✓      |     ✓      |    ✓    |
+| Orders / Recurring |     ✓      |     —      | ✓ (all) |
+| Credit             |     ✓      |     —      |    ✓    |
+| Deliveries         |     ✓      |     ✓      |    ✓    |
+| Procurement        |     —      |     ✓      |    ✓    |
+| Logistics          |     —      |     ✓      |    ✓    |
+| Hub                |     —      |     ✓      |    ✓    |
+| Analytics          |     —      |     ✓      |    ✓    |
+| Administration     |     —      |     —      |    ✓    |
 
 ## Wayfinding rules
 

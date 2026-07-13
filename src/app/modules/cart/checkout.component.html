@@ -1,0 +1,333 @@
+<div class="cart checkout w-full" *transloco="let t">
+    <nav class="cart-breadcrumb" aria-label="Breadcrumb">
+        <a routerLink="/home">{{ t('cart.breadcrumb.home') }}</a>
+        <mat-icon
+            class="icon-size-4"
+            [svgIcon]="'heroicons_mini:chevron-right'"
+        ></mat-icon>
+        <a routerLink="/cart">{{ t('cart.breadcrumb.order') }}</a>
+        <mat-icon
+            class="icon-size-4"
+            [svgIcon]="'heroicons_mini:chevron-right'"
+        ></mat-icon>
+        <span>{{ t('checkout.breadcrumb') }}</span>
+    </nav>
+
+    <h1 class="cart-title">{{ t('checkout.title') }}</h1>
+
+    <ol class="cart-stepper w-full">
+        <li class="cart-step cart-step--done">
+            <a class="cart-step__inner" routerLink="/cart">
+                <span class="cart-step__num">1</span>
+                <span class="cart-step__label">{{ t('cart.steps.cart') }}</span>
+            </a>
+        </li>
+        <li class="cart-stepper__line" aria-hidden="true"></li>
+        <li
+            class="cart-step"
+            [class.cart-step--active]="!placed()"
+            [class.cart-step--done]="placed()"
+        >
+            <span class="cart-step__inner">
+                <span class="cart-step__num">2</span>
+                <span class="cart-step__label">{{
+                    t('cart.steps.checkout')
+                }}</span>
+            </span>
+        </li>
+        <li class="cart-stepper__line" aria-hidden="true"></li>
+        <li class="cart-step" [class.cart-step--active]="placed()">
+            <span class="cart-step__inner">
+                <span class="cart-step__num">3</span>
+                <span class="cart-step__label">{{ t('cart.steps.done') }}</span>
+            </span>
+        </li>
+    </ol>
+
+    @if (placed()) {
+        <div class="cart-done">
+            <mat-icon
+                class="text-primary icon-size-12"
+                [svgIcon]="'heroicons_outline:check-circle'"
+            ></mat-icon>
+            <h2>{{ t('cart.done.title') }}</h2>
+            <p>{{ t('cart.done.description') }}</p>
+            <a mat-flat-button color="primary" routerLink="/catalog">{{
+                t('cart.done.continue')
+            }}</a>
+        </div>
+    } @else {
+        <div class="checkout-layout">
+            <!-- Left: shipping info -->
+            <section class="checkout-shipping">
+                <h2>{{ t('checkout.shipping.title') }}</h2>
+
+                <div class="checkout-shipping__address">
+                    <span class="checkout-field__label">{{
+                        t('checkout.shipping.address')
+                    }}</span>
+                    <div class="checkout-shipping__address-body">
+                        <mat-icon
+                            class="text-primary icon-size-5"
+                            [svgIcon]="'heroicons_outline:map-pin'"
+                        ></mat-icon>
+                        <p>{{ demoAddress }}</p>
+                    </div>
+                </div>
+
+                <div class="checkout-shipping__schedule">
+                    <div class="checkout-field">
+                        <span class="checkout-field__label">{{
+                            t('checkout.shipping.date')
+                        }}</span>
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <input
+                                matInput
+                                [matDatepicker]="deliveryPicker"
+                                [min]="minDeliveryDate"
+                                [ngModel]="deliveryDate()"
+                                (ngModelChange)="onDeliveryDateChange($event)"
+                                [placeholder]="t('checkout.shipping.date')"
+                                readonly
+                                (click)="deliveryPicker.open()"
+                            />
+                            <mat-datepicker-toggle
+                                matIconSuffix
+                                [for]="deliveryPicker"
+                            ></mat-datepicker-toggle>
+                            <mat-datepicker
+                                #deliveryPicker
+                                panelClass="checkout-datepicker"
+                            ></mat-datepicker>
+                        </mat-form-field>
+                        <p class="checkout-shipping__hint">
+                            @if (afterCutoff) {
+                                {{ t('checkout.shipping.cutoffHint') }}
+                            } @else {
+                                {{ t('checkout.shipping.minDateHint') }}
+                            }
+                        </p>
+                    </div>
+
+                    <div class="checkout-field">
+                        <span class="checkout-field__label">{{
+                            t('checkout.shipping.time')
+                        }}</span>
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-select
+                                [ngModel]="deliverySlot()"
+                                (ngModelChange)="deliverySlot.set($event)"
+                            >
+                                @for (slot of deliverySlots; track slot) {
+                                    <mat-option [value]="slot">{{
+                                        slot.replace('-', ' - ')
+                                    }}</mat-option>
+                                }
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <div class="checkout-shipping__notes">
+                    <span class="checkout-field__label">{{
+                        t('checkout.shipping.notes')
+                    }}</span>
+                    <mat-checkbox
+                        class="checkout-fresh-check"
+                        color="primary"
+                        [ngModel]="freshQualityNote()"
+                        (ngModelChange)="freshQualityNote.set($event)"
+                    >
+                        {{ t('checkout.shipping.freshNote') }}
+                    </mat-checkbox>
+                    <mat-form-field
+                        class="w-full"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('checkout.shipping.extraNote')
+                        }}</mat-label>
+                        <textarea
+                            matInput
+                            rows="2"
+                            [ngModel]="extraNote()"
+                            (ngModelChange)="extraNote.set($event)"
+                        ></textarea>
+                    </mat-form-field>
+                </div>
+            </section>
+
+            <!-- Right: order pile -->
+            <aside class="checkout-order">
+                <h2 class="checkout-order__title">
+                    {{ t('checkout.order.title') }}
+                </h2>
+
+                <div class="checkout-order__lines">
+                    <div class="checkout-order__head">
+                        <span>{{ t('cart.table.product') }}</span>
+                        <span>{{ t('cart.table.subtotal') }}</span>
+                    </div>
+                    @for (line of lines(); track trackByLine($index, line)) {
+                        <div class="checkout-order__line">
+                            <div>
+                                <div class="checkout-order__name">
+                                    {{ productName(line.product) }}
+                                    <span>× {{ line.quantity }}</span>
+                                </div>
+                                <div class="checkout-order__meta">
+                                    {{ line.product.marketSource }}
+                                </div>
+                            </div>
+                            <strong
+                                >{{
+                                    lineTotal(line) | number: '1.0-0'
+                                }}₫</strong
+                            >
+                        </div>
+                    }
+                </div>
+
+                <div class="checkout-card checkout-card--row">
+                    <span>{{ t('checkout.payment.label') }}</span>
+                    <strong>{{ t('checkout.payment.credit') }}</strong>
+                </div>
+
+                <div class="checkout-card checkout-voucher">
+                    <div class="checkout-voucher__main">
+                        <mat-icon
+                            class="text-amber-600 icon-size-6"
+                            [svgIcon]="'heroicons_outline:receipt-percent'"
+                        ></mat-icon>
+                        <span>{{ t('checkout.voucher.title') }}</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="checkout-voucher__action"
+                        (click)="voucherOpen.set(!voucherOpen())"
+                    >
+                        @if (appliedCoupon()) {
+                            {{ appliedCoupon() }}
+                        } @else {
+                            {{ t('checkout.voucher.choose') }}
+                        }
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_mini:chevron-right'"
+                        ></mat-icon>
+                    </button>
+                </div>
+
+                @if (voucherOpen()) {
+                    <div class="checkout-card checkout-voucher-form">
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{ t('cart.coupon.label') }}</mat-label>
+                            <input
+                                matInput
+                                [ngModel]="couponCode()"
+                                (ngModelChange)="couponCode.set($event)"
+                                [placeholder]="t('cart.coupon.placeholder')"
+                            />
+                        </mat-form-field>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            (click)="applyCoupon()"
+                        >
+                            {{ t('cart.coupon.apply') }}
+                        </button>
+                    </div>
+                }
+
+                <div class="checkout-card checkout-summary">
+                    <h3>{{ t('checkout.summary.title') }}</h3>
+
+                    <div class="checkout-summary__row">
+                        <span>{{ t('checkout.summary.goods') }}</span>
+                        <div class="checkout-summary__value">
+                            <strong
+                                >{{
+                                    goodsBeforeTax() | number: '1.0-0'
+                                }}₫</strong
+                            >
+                            <small>{{
+                                t('checkout.summary.weightNote')
+                            }}</small>
+                        </div>
+                    </div>
+
+                    <div class="checkout-summary__row">
+                        <span>{{ t('checkout.summary.serviceFee') }}</span>
+                        <strong class="is-free">{{
+                            t('checkout.summary.free')
+                        }}</strong>
+                    </div>
+
+                    <div class="checkout-summary__row">
+                        <span>{{ t('checkout.summary.vat') }}</span>
+                        <strong>{{ vat() | number: '1.0-0' }}₫</strong>
+                    </div>
+
+                    <div class="checkout-summary__total">
+                        <span>{{ t('checkout.summary.payable') }}</span>
+                        <div class="checkout-summary__payable">
+                            <strong>{{ total() | number: '1.0-0' }}₫</strong>
+                            @if (listTotal(); as list) {
+                                <s>{{ list | number: '1.0-0' }}₫</s>
+                            }
+                        </div>
+                    </div>
+
+                    <button
+                        class="cart-totals__btn"
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!lines().length"
+                        (click)="placeOrder()"
+                    >
+                        {{ t('cart.totals.placeOrder') }}
+                    </button>
+
+                    <ul class="checkout-trust">
+                        <li>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_solid:check-circle'"
+                            ></mat-icon>
+                            {{ t('checkout.trust.returns') }}
+                        </li>
+                        <li>
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_solid:check-circle'"
+                            ></mat-icon>
+                            {{ t('checkout.trust.invoice') }}
+                        </li>
+                    </ul>
+                </div>
+
+                <a
+                    class="checkout-back"
+                    mat-stroked-button
+                    routerLink="/cart"
+                    >{{ t('cart.totals.back') }}</a
+                >
+            </aside>
+        </div>
+    }
+</div>

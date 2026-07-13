@@ -18,7 +18,11 @@
 
     <!-- Expansion -->
     @if (expanded) {
-        <div class="fuse-card-expansion" [@expandCollapse]>
+        <div
+            class="fuse-card-expansion"
+            (animate.enter)="expandOnEnter($event)"
+            (animate.leave)="collapseOnLeave($event)"
+        >
             <ng-content select="[fuseCardExpansion]"></ng-content>
         </div>
     }

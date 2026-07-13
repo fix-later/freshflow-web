@@ -18,8 +18,8 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { RouterLink } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { finalize } from 'rxjs';
 
@@ -27,7 +27,6 @@ import { finalize } from 'rxjs';
     selector: 'auth-forgot-password',
     templateUrl: './forgot-password.component.html',
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
@@ -39,6 +38,7 @@ import { finalize } from 'rxjs';
         MatButtonModule,
         MatProgressSpinnerModule,
         RouterLink,
+        TranslocoModule,
     ],
 })
 export class AuthForgotPasswordComponent implements OnInit {
@@ -56,7 +56,8 @@ export class AuthForgotPasswordComponent implements OnInit {
      */
     constructor(
         private _authService: AuthService,
-        private _formBuilder: UntypedFormBuilder
+        private _formBuilder: UntypedFormBuilder,
+        private _translocoService: TranslocoService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -67,9 +68,9 @@ export class AuthForgotPasswordComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        // Create the form (email or phone — BR-AUTH-2)
         this.forgotPasswordForm = this._formBuilder.group({
-            email: ['', [Validators.required, Validators.email]],
+            identifier: ['', [Validators.required]],
         });
     }
 
@@ -94,7 +95,7 @@ export class AuthForgotPasswordComponent implements OnInit {
 
         // Forgot password
         this._authService
-            .forgotPassword(this.forgotPasswordForm.get('email').value)
+            .forgotPassword(this.forgotPasswordForm.get('identifier').value)
             .pipe(
                 finalize(() => {
                     // Re-enable the form
@@ -112,16 +113,17 @@ export class AuthForgotPasswordComponent implements OnInit {
                     // Set the alert
                     this.alert = {
                         type: 'success',
-                        message:
-                            "Password reset sent! You'll receive an email if you are registered on our system.",
+                        message: this._translocoService.translate(
+                            'auth.errors.resetSent'
+                        ),
                     };
                 },
                 (response) => {
-                    // Set the alert
                     this.alert = {
                         type: 'error',
-                        message:
-                            'Email does not found! Are you sure you are already a member?',
+                        message: this._translocoService.translate(
+                            'auth.errors.emailNotFound'
+                        ),
                     };
                 }
             );

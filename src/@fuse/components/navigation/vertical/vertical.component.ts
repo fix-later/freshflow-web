@@ -1,9 +1,3 @@
-import {
-    animate,
-    AnimationBuilder,
-    AnimationPlayer,
-    style,
-} from '@angular/animations';
 import { BooleanInput, coerceBooleanProperty } from '@angular/cdk/coercion';
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 
@@ -31,7 +25,6 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { NavigationEnd, Router } from '@angular/router';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseNavigationService } from '@fuse/components/navigation/navigation.service';
 import {
     FuseNavigationItem,
@@ -61,7 +54,6 @@ import {
     selector: 'fuse-vertical-navigation',
     templateUrl: './vertical.component.html',
     styleUrls: ['./vertical.component.scss'],
-    animations: fuseAnimations,
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'fuseVerticalNavigation',
@@ -85,7 +77,6 @@ export class FuseVerticalNavigationComponent
     static ngAcceptInputType_transparentOverlay: BooleanInput;
     /* eslint-enable @typescript-eslint/naming-convention */
 
-    private _animationBuilder = inject(AnimationBuilder);
     private _changeDetectorRef = inject(ChangeDetectorRef);
     private _document = inject(DOCUMENT);
     private _elementRef = inject(ElementRef);
@@ -129,7 +120,7 @@ export class FuseVerticalNavigationComponent
     private _hovered: boolean = false;
     private _mutationObserver: MutationObserver;
     private _overlay: HTMLElement;
-    private _player: AnimationPlayer;
+    private _overlayAnimation: Animation;
     private _scrollStrategy: ScrollStrategy =
         this._scrollStrategyOptions.block();
     private _fuseScrollbarDirectives!: QueryList<FuseScrollbarDirective>;
@@ -658,18 +649,15 @@ export class FuseVerticalNavigationComponent
         // Enable block scroll strategy
         this._scrollStrategy.enable();
 
-        // Create the enter animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 1 })
-                ),
-            ])
-            .create(this._overlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the enter animation
+        this._overlayAnimation = this._overlay.animate(
+            { opacity: 1 },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Add an event listener to the overlay
         this._overlay.addEventListener('click', this._handleOverlayClick);
@@ -685,21 +673,18 @@ export class FuseVerticalNavigationComponent
             return;
         }
 
-        // Create the leave animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 0 })
-                ),
-            ])
-            .create(this._overlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the leave animation
+        this._overlayAnimation = this._overlay.animate(
+            { opacity: 0 },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Once the animation is done...
-        this._player.onDone(() => {
+        this._overlayAnimation.onfinish = (): void => {
             // If the overlay still exists...
             if (this._overlay) {
                 // Remove the event listener
@@ -715,7 +700,7 @@ export class FuseVerticalNavigationComponent
 
             // Disable block scroll strategy
             this._scrollStrategy.disable();
-        });
+        };
     }
 
     /**
@@ -743,18 +728,15 @@ export class FuseVerticalNavigationComponent
             this._asideOverlay
         );
 
-        // Create the enter animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 1 })
-                ),
-            ])
-            .create(this._asideOverlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the enter animation
+        this._overlayAnimation = this._asideOverlay.animate(
+            { opacity: 1 },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Add an event listener to the aside overlay
         this._asideOverlay.addEventListener(
@@ -773,21 +755,18 @@ export class FuseVerticalNavigationComponent
             return;
         }
 
-        // Create the leave animation and attach it to the player
-        this._player = this._animationBuilder
-            .build([
-                animate(
-                    '300ms cubic-bezier(0.25, 0.8, 0.25, 1)',
-                    style({ opacity: 0 })
-                ),
-            ])
-            .create(this._asideOverlay);
-
-        // Play the animation
-        this._player.play();
+        // Play the leave animation
+        this._overlayAnimation = this._asideOverlay.animate(
+            { opacity: 0 },
+            {
+                duration: 300,
+                easing: 'cubic-bezier(0.25, 0.8, 0.25, 1)',
+                fill: 'forwards',
+            }
+        );
 
         // Once the animation is done...
-        this._player.onDone(() => {
+        this._overlayAnimation.onfinish = (): void => {
             // If the aside overlay still exists...
             if (this._asideOverlay) {
                 // Remove the event listener
@@ -800,7 +779,7 @@ export class FuseVerticalNavigationComponent
                 this._asideOverlay.parentNode.removeChild(this._asideOverlay);
                 this._asideOverlay = null;
             }
-        });
+        };
     }
 
     /**

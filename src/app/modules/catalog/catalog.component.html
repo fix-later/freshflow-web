@@ -1,8 +1,38 @@
 <div class="flex w-full flex-col" *transloco="let t">
-    <!-- Header: breadcrumb + title -->
-    <div class="px-6 pt-6 md:px-8">
+    <!-- Approval gate notice for PENDING_APPROVAL restaurants (BR-AUTH-1) -->
+    <approval-banner class="block pt-2"></approval-banner>
+
+    <!-- Promo banner -->
+    <a
+        class="relative mt-2 flex min-h-36 items-center justify-between gap-6 overflow-hidden rounded-2xl bg-gradient-to-r from-[#0A5A6E] via-primary-600 to-primary-400 px-8 py-6 md:px-12"
+        routerLink="/deals"
+    >
+        <span
+            class="hidden select-none text-7xl md:block lg:text-8xl"
+            aria-hidden="true"
+            >🍿🥤🍪</span
+        >
+        <div class="flex flex-col items-start gap-1 text-white md:items-end">
+            <span
+                class="font-semibold text-yellow-300 underline underline-offset-4"
+                >{{ t('catalog.banner.eyebrow') }}</span
+            >
+            <p
+                class="max-w-lg text-2xl font-extrabold leading-tight md:text-right md:text-3xl"
+            >
+                {{ t('catalog.banner.title') }}
+            </p>
+            <span
+                class="text-default bg-card mt-2 rounded-full px-5 py-2 text-base font-semibold"
+                >{{ t('catalog.banner.cta') }}</span
+            >
+        </div>
+    </a>
+
+    <!-- Breadcrumb + title -->
+    <div class="pt-6">
         <nav
-            class="text-hint flex items-center gap-1 text-sm"
+            class="text-hint flex items-center gap-1 text-base"
             aria-label="Breadcrumb"
         >
             <a
@@ -16,168 +46,311 @@
                 svgIcon="heroicons_mini:chevron-right"
             ></mat-icon>
             <span>{{ t('catalog.breadcrumb.catalog') }}</span>
-        </nav>
-        <h1 class="mt-1 text-3xl font-semibold tracking-tight">
-            {{ t('catalog.title') }}
-        </h1>
-    </div>
-
-    <!-- Toolbar: category chips (left) + search (right) -->
-    <div
-        class="flex flex-col gap-4 px-6 pb-6 md:flex-row md:items-center md:px-8"
-    >
-        <!-- Category filter chips -->
-        <mat-chip-listbox class="min-w-0 flex-1">
-            <mat-chip-option
-                [selected]="!selectedCategory()"
-                (click)="filterByCategory('')"
-            >
-                {{ t('catalog.allCategories') }}
-            </mat-chip-option>
-            @for (cat of categories(); track cat.id) {
-                <mat-chip-option
-                    [selected]="selectedCategory() === cat.id"
-                    (click)="filterByCategory(cat.id)"
-                >
-                    {{ isVi() ? cat.name : cat.nameEn }}
-                </mat-chip-option>
+            @if (selectedCategory()) {
+                <mat-icon
+                    class="text-hint icon-size-4"
+                    svgIcon="heroicons_mini:chevron-right"
+                ></mat-icon>
+                <span>{{ categoryName(selectedCategory()) }}</span>
             }
-        </mat-chip-listbox>
-
-        <!-- Search bar -->
-        <mat-form-field
-            class="w-full md:w-80"
-            appearance="outline"
-            subscriptSizing="dynamic"
-        >
-            <mat-icon
-                matPrefix
-                svgIcon="heroicons_outline:magnifying-glass"
-            ></mat-icon>
-            <input
-                matInput
-                [formControl]="searchControl"
-                [placeholder]="t('catalog.searchPlaceholder')"
-            />
-        </mat-form-field>
+        </nav>
+        <h1 class="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
+            {{
+                selectedCategory()
+                    ? categoryName(selectedCategory())
+                    : t('catalog.allProducts')
+            }}
+        </h1>
     </div>
 
     <!-- Loading bar -->
     @if (loading()) {
-        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        <mat-progress-bar class="mt-4" mode="indeterminate"></mat-progress-bar>
     }
 
-    <!-- Product grid -->
-    <div class="px-6 pb-8 md:px-8">
-        <!-- Result feedback: count + active-filter summary -->
-        @if (!loading() && pagination(); as pag) {
-            <div class="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2">
-                <p class="text-secondary text-sm">
-                    {{ t('catalog.resultCount', { count: pag.length }) }}
+    <div class="flex flex-col gap-8 pb-8 pt-6 lg:flex-row">
+        <!-- Filter sidebar -->
+        <aside class="w-full shrink-0 lg:w-64">
+            <!-- Search -->
+            <mat-form-field
+                class="w-full"
+                appearance="outline"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    [formControl]="searchControl"
+                    [placeholder]="t('catalog.searchPlaceholder')"
+                />
+            </mat-form-field>
+
+            <!-- Categories -->
+            <h3 class="mt-8 text-xl font-bold text-primary">
+                {{ t('catalog.filters.categories') }}
+            </h3>
+            <mat-radio-group
+                class="mt-3 flex flex-col gap-1"
+                [value]="selectedCategory()"
+                (change)="filterByCategory($event.value)"
+            >
+                <mat-radio-button [value]="''">
+                    {{ t('catalog.filters.all') }}
+                </mat-radio-button>
+                @for (cat of categories(); track cat.id) {
+                    <mat-radio-button [value]="cat.id">
+                        {{ isVi() ? cat.name : cat.nameEn }}
+                    </mat-radio-button>
+                }
+            </mat-radio-group>
+
+            <!-- Market source (client-side until the API filters by it) -->
+            @if (marketSources().length) {
+                <div class="my-6 border-t"></div>
+                <h3 class="text-xl font-bold text-primary">
+                    {{ t('catalog.filters.market') }}
+                </h3>
+                <mat-radio-group
+                    class="mt-3 flex flex-col gap-1"
+                    [value]="selectedMarket()"
+                    (change)="filterByMarket($event.value)"
+                >
+                    <mat-radio-button [value]="''">
+                        {{ t('catalog.filters.all') }}
+                    </mat-radio-button>
+                    @for (source of marketSources(); track source) {
+                        <mat-radio-button [value]="source">
+                            {{ source }}
+                        </mat-radio-button>
+                    }
+                </mat-radio-group>
+            }
+        </aside>
+
+        <!-- Results -->
+        <section class="min-w-0 flex-1">
+            <!-- Toolbar -->
+            <div
+                class="bg-card flex flex-wrap items-center gap-4 rounded-xl border px-4 py-2"
+            >
+                <div class="flex items-center gap-1">
+                    <button
+                        class="flex h-9 w-9 items-center justify-center rounded-lg"
+                        type="button"
+                        [class.bg-hover]="viewMode() === 'grid'"
+                        [class.text-primary]="viewMode() === 'grid'"
+                        [matTooltip]="t('catalog.viewGrid')"
+                        [attr.aria-label]="t('catalog.viewGrid')"
+                        (click)="setViewMode('grid')"
+                    >
+                        <mat-icon
+                            class="text-current icon-size-5"
+                            svgIcon="heroicons_outline:squares-2x2"
+                        ></mat-icon>
+                    </button>
+                    <button
+                        class="flex h-9 w-9 items-center justify-center rounded-lg"
+                        type="button"
+                        [class.bg-hover]="viewMode() === 'list'"
+                        [class.text-primary]="viewMode() === 'list'"
+                        [matTooltip]="t('catalog.viewList')"
+                        [attr.aria-label]="t('catalog.viewList')"
+                        (click)="setViewMode('list')"
+                    >
+                        <mat-icon
+                            class="text-current icon-size-5"
+                            svgIcon="heroicons_outline:bars-3"
+                        ></mat-icon>
+                    </button>
+                </div>
+
+                <p class="text-secondary text-base">
+                    {{ t('catalog.resultCount', { count: resultCount() }) }}
                 </p>
 
                 @if (hasActiveFilters()) {
-                    <mat-chip-set class="min-w-0">
-                        @if (selectedCategory()) {
-                            <mat-chip (removed)="filterByCategory('')">
-                                {{ categoryName(selectedCategory()) }}
-                                <button
-                                    matChipRemove
-                                    [attr.aria-label]="
-                                        t('catalog.removeFilter')
-                                    "
-                                >
-                                    <mat-icon
-                                        svgIcon="heroicons_mini:x-mark"
-                                    ></mat-icon>
-                                </button>
-                            </mat-chip>
-                        }
-                        @if (searchTerm()) {
-                            <mat-chip (removed)="clearSearch()">
-                                &ldquo;{{ searchTerm() }}&rdquo;
-                                <button
-                                    matChipRemove
-                                    [attr.aria-label]="
-                                        t('catalog.removeFilter')
-                                    "
-                                >
-                                    <mat-icon
-                                        svgIcon="heroicons_mini:x-mark"
-                                    ></mat-icon>
-                                </button>
-                            </mat-chip>
-                        }
-                    </mat-chip-set>
-
-                    <button mat-button class="ml-auto" (click)="clearFilters()">
+                    <button mat-button (click)="clearFilters()">
                         {{ t('catalog.clearAll') }}
                     </button>
                 }
-            </div>
-        }
 
-        @if (products().length > 0) {
-            <div
-                class="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
-            >
-                @for (product of products(); track product.id) {
-                    <a
-                        [routerLink]="product.id"
-                        class="bg-card flex flex-col overflow-hidden rounded-lg border border-gray-200 transition-shadow hover:shadow-md"
+                <div class="ml-auto flex items-center gap-3">
+                    <mat-form-field
+                        class="w-44"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
                     >
-                        <!-- Thumbnail -->
-                        <div class="relative h-48 overflow-hidden bg-gray-100">
-                            <img
-                                [src]="product.thumbnail"
-                                [alt]="productName(product)"
-                                class="h-full w-full object-cover"
-                            />
-                        </div>
+                        <mat-select
+                            [value]="sortOption()"
+                            [aria-label]="t('catalog.sort.label')"
+                            (selectionChange)="setSort($event.value)"
+                        >
+                            <mat-option [value]="''">{{
+                                t('catalog.sort.default')
+                            }}</mat-option>
+                            <mat-option [value]="'name-asc'">{{
+                                t('catalog.sort.nameAsc')
+                            }}</mat-option>
+                            <mat-option [value]="'name-desc'">{{
+                                t('catalog.sort.nameDesc')
+                            }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
 
-                        <!-- Body -->
-                        <div class="flex flex-1 flex-col gap-1 p-4">
-                            <span
-                                class="text-hint text-xs font-medium uppercase tracking-wider"
-                            >
-                                {{ categoryName(product.categoryId) }}
-                            </span>
-                            <h3 class="text-base font-semibold leading-snug">
-                                {{ productName(product) }}
-                            </h3>
-                            <!-- Meta line: unit · marketSource -->
-                            <span class="text-secondary mt-auto text-sm">
-                                {{ isVi() ? product.unit : product.unitEn }}
-                                &middot; {{ product.marketSource }}
-                            </span>
-                        </div>
-                    </a>
-                }
+                    <mat-form-field
+                        class="w-28"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-select
+                            [value]="pagination()?.size ?? 12"
+                            [aria-label]="t('catalog.show')"
+                            (selectionChange)="setPageSize($event.value)"
+                        >
+                            @for (size of [12, 24, 48]; track size) {
+                                <mat-option [value]="size"
+                                    >{{ t('catalog.show') }}
+                                    {{ size }}</mat-option
+                                >
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                </div>
             </div>
 
-            <!-- Pagination -->
-            @if (pagination(); as pag) {
-                <mat-paginator
+            @if (visibleProducts().length > 0) {
+                <!-- Product grid / list -->
+                <div
                     class="mt-6"
-                    [length]="pag.length"
-                    [pageIndex]="pag.page"
-                    [pageSize]="pag.size"
-                    [pageSizeOptions]="[12, 24, 48]"
-                    [showFirstLastButtons]="true"
-                    (page)="onPageChange($event)"
-                ></mat-paginator>
+                    [class.grid]="viewMode() === 'grid'"
+                    [class.grid-cols-1]="viewMode() === 'grid'"
+                    [class.sm:grid-cols-2]="viewMode() === 'grid'"
+                    [class.xl:grid-cols-3]="viewMode() === 'grid'"
+                    [class.gap-6]="viewMode() === 'grid'"
+                    [class.flex]="viewMode() === 'list'"
+                    [class.flex-col]="viewMode() === 'list'"
+                    [class.gap-4]="viewMode() === 'list'"
+                >
+                    @for (product of visibleProducts(); track product.id) {
+                        <a
+                            [routerLink]="product.id"
+                            class="group bg-card relative flex overflow-hidden rounded-xl border transition-shadow hover:shadow-lg"
+                            [class.flex-col]="viewMode() === 'grid'"
+                            [class.items-center]="viewMode() === 'list'"
+                            [class.gap-4]="viewMode() === 'list'"
+                        >
+                            <!-- Thumbnail -->
+                            <div
+                                class="relative shrink-0 overflow-hidden bg-gray-100"
+                                [class.h-48]="viewMode() === 'grid'"
+                                [class.w-full]="viewMode() === 'grid'"
+                                [class.h-28]="viewMode() === 'list'"
+                                [class.w-40]="viewMode() === 'list'"
+                            >
+                                <img
+                                    [src]="product.thumbnail"
+                                    [alt]="productName(product)"
+                                    class="h-full w-full object-cover"
+                                />
+
+                                <!-- Wishlist toggle: always visible once favorited, otherwise on hover -->
+                                <button
+                                    class="text-default bg-card absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full shadow transition-opacity group-hover:opacity-100"
+                                    [class.opacity-0]="!isFavorite(product.id)"
+                                    type="button"
+                                    [matTooltip]="t('catalog.wishlist')"
+                                    [attr.aria-label]="t('catalog.wishlist')"
+                                    [attr.aria-pressed]="isFavorite(product.id)"
+                                    (click)="toggleFavorite(product, $event)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [class.text-primary]="
+                                            isFavorite(product.id)
+                                        "
+                                        [class.text-current]="
+                                            !isFavorite(product.id)
+                                        "
+                                        [svgIcon]="
+                                            isFavorite(product.id)
+                                                ? 'heroicons_solid:heart'
+                                                : 'heroicons_outline:heart'
+                                        "
+                                    ></mat-icon>
+                                </button>
+
+                                <!-- Hover: add to draft order -->
+                                @if (viewMode() === 'grid') {
+                                    <button
+                                        class="absolute inset-x-3 bottom-3 rounded-full bg-primary py-2 text-base font-semibold text-on-primary opacity-0 shadow transition-opacity group-hover:opacity-100"
+                                        type="button"
+                                        (click)="
+                                            addToDraftOrder(product, $event)
+                                        "
+                                    >
+                                        {{ t('catalog.addToCart') }}
+                                    </button>
+                                }
+                            </div>
+
+                            <!-- Body -->
+                            <div class="flex min-w-0 flex-1 flex-col gap-1 p-4">
+                                <span
+                                    class="text-hint text-xs font-medium uppercase tracking-wider"
+                                >
+                                    {{ categoryName(product.categoryId) }}
+                                </span>
+                                <h3
+                                    class="truncate text-lg font-semibold leading-snug"
+                                >
+                                    {{ productName(product) }}
+                                </h3>
+                                <span class="text-secondary mt-auto text-base">
+                                    {{ isVi() ? product.unit : product.unitEn }}
+                                    &middot; {{ product.marketSource }}
+                                </span>
+                            </div>
+
+                            @if (viewMode() === 'list') {
+                                <button
+                                    class="mr-4 shrink-0 rounded-full bg-primary px-5 py-2 text-base font-semibold text-on-primary opacity-0 transition-opacity group-hover:opacity-100"
+                                    type="button"
+                                    (click)="addToDraftOrder(product, $event)"
+                                >
+                                    {{ t('catalog.addToCart') }}
+                                </button>
+                            }
+                        </a>
+                    }
+                </div>
+
+                <!-- Pagination -->
+                @if (pagination(); as pag) {
+                    <mat-paginator
+                        class="mt-6"
+                        [length]="pag.length"
+                        [pageIndex]="pag.page"
+                        [pageSize]="pag.size"
+                        [hidePageSize]="true"
+                        [showFirstLastButtons]="true"
+                        (page)="onPageChange($event)"
+                    ></mat-paginator>
+                }
+            } @else if (!loading()) {
+                <!-- Empty state -->
+                <div class="flex flex-col items-center justify-center py-16">
+                    <mat-icon
+                        class="text-hint icon-size-16"
+                        svgIcon="heroicons_outline:magnifying-glass"
+                    ></mat-icon>
+                    <p class="text-secondary mt-4 text-lg font-medium">
+                        {{ t('catalog.noResults') }}
+                    </p>
+                </div>
             }
-        } @else if (!loading()) {
-            <!-- Empty state -->
-            <div class="flex flex-col items-center justify-center py-16">
-                <mat-icon
-                    class="text-hint icon-size-16"
-                    svgIcon="heroicons_outline:magnifying-glass"
-                ></mat-icon>
-                <p class="text-secondary mt-4 text-lg font-medium">
-                    {{ t('catalog.noResults') }}
-                </p>
-            </div>
-        }
+        </section>
     </div>
 </div>

@@ -40,44 +40,44 @@ export interface ShopProduct {
 export class ShopComponent implements OnInit {
     /* ── Sub-nav category pills ── */
     readonly subNavCategories = [
-        { name: 'All', emoji: '🛒' },
-        { name: 'Vegetables', emoji: '🥦' },
-        { name: 'Fresh Fruit', emoji: '🍓' },
-        { name: 'Meat', emoji: '🥩' },
-        { name: 'Seafood', emoji: '🦐' },
-        { name: 'Eggs', emoji: '🥚' },
-        { name: 'Baking', emoji: '🍞' },
-        { name: 'Drinks', emoji: '🧃' },
-        { name: 'Cheese', emoji: '🧀' },
-        { name: 'Milk', emoji: '🥛' },
+        { name: 'Tất cả', emoji: '🛒' },
+        { name: 'Rau củ', emoji: '🥦' },
+        { name: 'Trái cây tươi', emoji: '🍓' },
+        { name: 'Thịt', emoji: '🥩' },
+        { name: 'Hải sản', emoji: '🦐' },
+        { name: 'Trứng', emoji: '🥚' },
+        { name: 'Bánh mì & nướng', emoji: '🍞' },
+        { name: 'Đồ uống', emoji: '🧃' },
+        { name: 'Phô mai', emoji: '🧀' },
+        { name: 'Sữa', emoji: '🥛' },
     ];
 
-    activeSubNav = 'All';
+    activeSubNav = 'Tất cả';
 
     /* ── Icon category row ── */
     readonly iconCategories = [
-        { name: 'Vegetables', emoji: '🥦', bg: '#eaf7ef' },
-        { name: 'Fresh Fruit', emoji: '🍎', bg: '#fdeef0' },
-        { name: 'Meat', emoji: '🥩', bg: '#fbeceb' },
-        { name: 'Seafood', emoji: '🦐', bg: '#eaf3fb' },
-        { name: 'Eggs', emoji: '🥚', bg: '#fdf6e7' },
-        { name: 'Baking', emoji: '🍞', bg: '#f7efe6' },
-        { name: 'Drinks', emoji: '🧃', bg: '#eef0fb' },
-        { name: 'Cheese', emoji: '🧀', bg: '#fdfae7' },
-        { name: 'Milk', emoji: '🥛', bg: '#eef0fb' },
+        { name: 'Rau củ', emoji: '🥦', bg: '#eaf7ef' },
+        { name: 'Trái cây tươi', emoji: '🍎', bg: '#fdeef0' },
+        { name: 'Thịt', emoji: '🥩', bg: '#fbeceb' },
+        { name: 'Hải sản', emoji: '🦐', bg: '#eaf3fb' },
+        { name: 'Trứng', emoji: '🥚', bg: '#fdf6e7' },
+        { name: 'Bánh mì & nướng', emoji: '🍞', bg: '#f7efe6' },
+        { name: 'Đồ uống', emoji: '🧃', bg: '#eef0fb' },
+        { name: 'Phô mai', emoji: '🧀', bg: '#fdfae7' },
+        { name: 'Sữa', emoji: '🥛', bg: '#eef0fb' },
     ];
 
     /* ── Sidebar filter categories ── */
     readonly sidebarCategories = [
-        { name: 'Baking', count: 4 },
-        { name: 'Cheese', count: 6 },
-        { name: 'Drinks', count: 12 },
-        { name: 'Eggs', count: 3 },
-        { name: 'Juice', count: 5 },
-        { name: 'Fresh Fruit', count: 18 },
-        { name: 'Meat', count: 14 },
-        { name: 'Seafood', count: 8 },
-        { name: 'Vegetables', count: 22 },
+        { name: 'Bánh mì & nướng', count: 4 },
+        { name: 'Phô mai', count: 6 },
+        { name: 'Đồ uống', count: 12 },
+        { name: 'Trứng', count: 3 },
+        { name: 'Nước ép', count: 5 },
+        { name: 'Trái cây tươi', count: 18 },
+        { name: 'Thịt', count: 14 },
+        { name: 'Hải sản', count: 8 },
+        { name: 'Rau củ', count: 22 },
     ];
 
     selectedCategory = '';
@@ -101,29 +101,29 @@ export class ShopComponent implements OnInit {
     readonly sizeOptions = ['XS', 'S', 'M', 'L', 'XL'];
     readonly weightOptions = ['0.5 kg', '1 kg', '2 kg', '5 kg'];
     readonly countryOptions = [
-        { name: 'France', flag: '🇫🇷' },
-        { name: 'Germany', flag: '🇩🇪' },
-        { name: 'Vietnam', flag: '🇻🇳' },
-        { name: 'USA', flag: '🇺🇸' },
+        { name: 'Pháp', flag: '🇫🇷' },
+        { name: 'Đức', flag: '🇩🇪' },
+        { name: 'Việt Nam', flag: '🇻🇳' },
+        { name: 'Mỹ', flag: '🇺🇸' },
     ];
-    readonly unitOptions = ['Piece', 'Bunch', 'Pack', 'Kg', 'Box'];
-    selectedUnit = 'Piece';
+    readonly unitOptions = ['Cái', 'Bó', 'Gói', 'Kg', 'Hộp'];
+    selectedUnit = 'Cái';
 
     /* ── Sort ── */
     sortBy = 'default';
     readonly sortOptions = [
-        { value: 'default', label: 'Default sorting' },
-        { value: 'price-asc', label: 'Price: Low to High' },
-        { value: 'price-desc', label: 'Price: High to Low' },
-        { value: 'rating', label: 'Best Rating' },
-        { value: 'newest', label: 'Newest' },
+        { value: 'default', label: 'Sắp xếp mặc định' },
+        { value: 'price-asc', label: 'Giá: Thấp đến cao' },
+        { value: 'price-desc', label: 'Giá: Cao đến thấp' },
+        { value: 'rating', label: 'Đánh giá cao nhất' },
+        { value: 'newest', label: 'Mới nhất' },
     ];
 
     /* ── Products ── */
     readonly allProducts: ShopProduct[] = [
         {
             id: 1,
-            name: 'Spring Onion Bunch',
+            name: 'Bó hành lá',
             vendor: 'NestFood',
             emoji: '🧅',
             bg: '#eaf7ef',
@@ -131,15 +131,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 13.0,
             rating: 4,
             reviews: 35,
-            badge: 'Bestseller',
+            badge: 'Bán chạy',
             badgeClass: 'shop-badge--amber',
             description:
-                'Fresh spring onions sourced from local farms, great for stir-fry and salads.',
+                'Hành lá tươi từ nông trại địa phương, thích hợp xào và làm salad.',
             qty: 1,
         },
         {
             id: 2,
-            name: 'Basil Leaves',
+            name: 'Lá húng quế',
             vendor: 'NestFood',
             emoji: '🌿',
             bg: '#eaf7ef',
@@ -147,15 +147,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 11.0,
             rating: 5,
             reviews: 22,
-            badge: 'New',
+            badge: 'Mới',
             badgeClass: 'shop-badge--blue',
             description:
-                'Aromatic fresh basil, perfect for pasta, pizza and pesto sauces.',
+                'Húng quế thơm, hoàn hảo cho mì Ý, pizza và sốt pesto.',
             qty: 1,
         },
         {
             id: 3,
-            name: 'Carrots 1 Kg',
+            name: 'Cà rốt 1 kg',
             vendor: 'NestFood',
             emoji: '🥕',
             bg: '#fff4e6',
@@ -163,12 +163,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 41,
             description:
-                'Crisp sweet carrots harvested fresh. Great for juicing, roasting or snacking.',
+                'Cà rốt ngọt giòn mới thu hoạch. Tuyệt vời để ép nước, nướng hoặc ăn vặt.',
             qty: 1,
         },
         {
             id: 4,
-            name: 'Fine Radish 1 Pack',
+            name: 'Củ cải đỏ 1 gói',
             vendor: 'NestFood',
             emoji: '🌶️',
             bg: '#fdeef0',
@@ -177,25 +177,24 @@ export class ShopComponent implements OnInit {
             rating: 5,
             reviews: 18,
             description:
-                'Crisp peppery radishes that add colour and crunch to any dish.',
+                'Củ cải giòn cay, thêm màu sắc và độ giòn cho mọi món ăn.',
             qty: 1,
         },
         {
             id: 5,
-            name: 'Wild Garlic 500g',
+            name: 'Tỏi rừng 500g',
             vendor: 'NestFood',
             emoji: '🧄',
             bg: '#fdf6e7',
             price: 20.0,
             rating: 3,
             reviews: 9,
-            description:
-                'Intensely flavoured wild garlic. Ideal for soups, sauces and butter.',
+            description: 'Tỏi rừng đậm vị. Lý tưởng cho súp, sốt và bơ tỏi.',
             qty: 1,
         },
         {
             id: 6,
-            name: 'Chestnut Mushroom 300g',
+            name: 'Nấm hạt dẻ 300g',
             vendor: 'NestFood',
             emoji: '🍄',
             bg: '#f7efe6',
@@ -203,15 +202,14 @@ export class ShopComponent implements OnInit {
             oldPrice: 13.0,
             rating: 4,
             reviews: 30,
-            badge: 'Hot',
+            badge: 'Nổi bật',
             badgeClass: 'shop-badge--rose',
-            description:
-                'Earthy nutty chestnut mushrooms, ideal for risotto and pasta dishes.',
+            description: 'Nấm hạt dẻ thơm bùi, lý tưởng cho risotto và mì Ý.',
             qty: 1,
         },
         {
             id: 7,
-            name: 'Avocados 2 Units',
+            name: 'Bơ Hass 2 quả',
             vendor: 'NestFood',
             emoji: '🥑',
             bg: '#eef7e9',
@@ -220,7 +218,7 @@ export class ShopComponent implements OnInit {
             rating: 5,
             reviews: 54,
             description:
-                'Creamy ripe Hass avocados. Rich in healthy fats and perfect for guacamole.',
+                'Bơ Hass chín mềm béo. Giàu chất béo tốt, hoàn hảo cho guacamole.',
             qty: 1,
             colors: ['#22c55e', '#1c1917', '#eab308'],
         },
@@ -234,12 +232,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 12,
             description:
-                'Tangy sweet kiwi fruit packed with vitamin C and antioxidants.',
+                'Kiwi chua ngọt, giàu vitamin C và chất chống oxy hóa.',
             qty: 1,
         },
         {
             id: 9,
-            name: 'Fresh Coconut 1 Unit',
+            name: 'Dừa tươi 1 quả',
             vendor: 'NestFood',
             emoji: '🥥',
             bg: '#fdf6e7',
@@ -248,13 +246,13 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 27,
             description:
-                'Whole fresh coconut with sweet water and tender white meat inside.',
+                'Dừa tươi nguyên quả với nước ngọt và cơm trắng mềm bên trong.',
             qty: 1,
             available: 26,
         },
         {
             id: 10,
-            name: 'Strawberries 250g',
+            name: 'Dâu tây 250g',
             vendor: 'NestFood',
             emoji: '🍓',
             bg: '#fdeef0',
@@ -262,15 +260,14 @@ export class ShopComponent implements OnInit {
             oldPrice: 12.99,
             rating: 5,
             reviews: 63,
-            badge: 'Sale',
+            badge: 'Giảm giá',
             badgeClass: 'shop-badge--primary',
-            description:
-                'Sun-ripened strawberries, sweet with a bright ruby red colour.',
+            description: 'Dâu tây chín nắng, ngọt với màu đỏ ruby tươi sáng.',
             qty: 1,
         },
         {
             id: 11,
-            name: 'Blueberries 125g',
+            name: 'Việt quất 125g',
             vendor: 'NestFood',
             emoji: '🫐',
             bg: '#eef0fb',
@@ -278,12 +275,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 19,
             description:
-                'Plump juicy blueberries bursting with natural sweetness and antioxidants.',
+                'Việt quất mọng nước, ngọt tự nhiên và giàu chất chống oxy hóa.',
             qty: 1,
         },
         {
             id: 12,
-            name: 'Blackcurrant',
+            name: 'Quả lý chua đen',
             vendor: 'NestFood',
             emoji: '🍇',
             bg: '#f5eefb',
@@ -291,12 +288,12 @@ export class ShopComponent implements OnInit {
             rating: 3,
             reviews: 8,
             description:
-                'Intensely flavoured blackcurrants. Perfect for jams, sauces and smoothies.',
+                'Lý chua đen đậm vị. Hoàn hảo cho mứt, sốt và sinh tố.',
             qty: 1,
         },
         {
             id: 13,
-            name: 'Green Apples',
+            name: 'Táo xanh',
             vendor: 'NestFood',
             emoji: '🍏',
             bg: '#eef7e9',
@@ -304,15 +301,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 33.0,
             rating: 5,
             reviews: 44,
-            badge: 'Organic',
+            badge: 'Hữu cơ',
             badgeClass: 'shop-badge--primary',
             description:
-                'Crisp tart Granny Smith apples. Great fresh, baked or in green smoothies.',
+                'Táo Granny Smith giòn chua. Tuyệt vời ăn sống, nướng hoặc trong sinh tố xanh.',
             qty: 1,
         },
         {
             id: 14,
-            name: 'Seedless Grapes',
+            name: 'Nho không hạt',
             vendor: 'NestFood',
             emoji: '🍇',
             bg: '#f5eefb',
@@ -320,13 +317,13 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 31,
             description:
-                'Sweet seedless red grapes. Snack on the go or add to salads and cheese boards.',
+                'Nho đỏ không hạt ngọt. Ăn vặt hoặc thêm vào salad và đĩa phô mai.',
             qty: 1,
             colors: ['#ef4444', '#1c1917'],
         },
         {
             id: 15,
-            name: 'Halal Chuck Steak 400g',
+            name: 'Bít tết cổ bò Halal 400g',
             vendor: 'NestFood',
             emoji: '🥩',
             bg: '#fbeceb',
@@ -337,12 +334,12 @@ export class ShopComponent implements OnInit {
             badge: 'Halal',
             badgeClass: 'shop-badge--amber',
             description:
-                'Premium chuck steak, slow-cooked for rich tender flavour. Halal certified.',
+                'Bít tết cổ bò cao cấp, hầm chậm cho vị đậm đà mềm ngon. Chứng nhận Halal.',
             qty: 1,
         },
         {
             id: 16,
-            name: 'Sliced Beef Halloumi',
+            name: 'Halloumi bò lát',
             vendor: 'NestFood',
             emoji: '🧀',
             bg: '#fdfae7',
@@ -350,12 +347,12 @@ export class ShopComponent implements OnInit {
             rating: 5,
             reviews: 36,
             description:
-                'Golden halloumi with a delicious salty flavour. Great grilled or pan-fried.',
+                'Halloumi vàng với vị mặn thơm ngon. Nướng hoặc chiên đều ngon.',
             qty: 1,
         },
         {
             id: 17,
-            name: 'Filipino Royal Beef Sioklun',
+            name: 'Bò cuộn Sioklun kiểu Philippines',
             vendor: 'NestFood',
             emoji: '🥩',
             bg: '#fbeceb',
@@ -363,16 +360,16 @@ export class ShopComponent implements OnInit {
             oldPrice: 200.0,
             rating: 4,
             reviews: 14,
-            badge: 'Hot',
+            badge: 'Nổi bật',
             badgeClass: 'shop-badge--rose',
             description:
-                'Authentic Filipino-style beef roll marinated in a classic savoury sauce.',
+                'Cuộn bò kiểu Philippines ướp sốt đậm đà truyền thống.',
             qty: 1,
             available: 38,
         },
         {
             id: 18,
-            name: 'Whole Duck 1.7–2.5 Kg',
+            name: 'Vịt nguyên con 1,7–2,5 kg',
             vendor: 'NestFood',
             emoji: '🦆',
             bg: '#fdf2e7',
@@ -380,12 +377,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 11,
             description:
-                'Free-range whole duck with rich flavourful meat, perfect for roasting.',
+                'Vịt thả vườn nguyên con, thịt đậm vị, hoàn hảo để quay.',
             qty: 1,
         },
         {
             id: 19,
-            name: 'Chicken Breast Mince',
+            name: 'Thịt gà xay ức',
             vendor: 'NestFood',
             emoji: '🍗',
             bg: '#fdf6e7',
@@ -394,12 +391,12 @@ export class ShopComponent implements OnInit {
             rating: 5,
             reviews: 48,
             description:
-                'Lean chicken breast mince. Ideal for burgers, meatballs and healthy meals.',
+                'Thịt gà ức nạc xay. Lý tưởng cho burger, thịt viên và bữa ăn lành mạnh.',
             qty: 1,
         },
         {
             id: 20,
-            name: 'Freshly Frozen Whole Pigeon',
+            name: 'Bồ câu nguyên con đông lạnh',
             vendor: 'NestFood',
             emoji: '🐦',
             bg: '#eef0fb',
@@ -408,12 +405,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 7,
             description:
-                'Whole frozen pigeon, tender and flavourful for braising or slow-cooking.',
+                'Bồ câu nguyên con đông lạnh, mềm đậm vị để om hoặc hầm chậm.',
             qty: 1,
         },
         {
             id: 21,
-            name: 'Scottish Lamb Selection Box',
+            name: 'Hộp thịt cừu Scotland cao cấp',
             vendor: 'NestFood',
             emoji: '🥩',
             bg: '#fbeceb',
@@ -421,15 +418,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 115.0,
             rating: 5,
             reviews: 23,
-            badge: 'Bestseller',
+            badge: 'Bán chạy',
             badgeClass: 'shop-badge--amber',
             description:
-                'Premium Scottish lamb cuts in a gourmet selection box, direct from the farm.',
+                'Các phần thịt cừu Scotland cao cấp trong hộp tuyển chọn, trực tiếp từ trang trại.',
             qty: 1,
         },
         {
             id: 22,
-            name: 'Marmalade Boneless Raisin Box',
+            name: 'Thịt heo không xương sốt cam nho khô',
             vendor: 'NestFood',
             emoji: '🍖',
             bg: '#fdf2e7',
@@ -437,12 +434,12 @@ export class ShopComponent implements OnInit {
             rating: 3,
             reviews: 5,
             description:
-                'Sweet marmalade-glazed boneless pork with juicy raisins throughout.',
+                'Thịt heo không xương phủ sốt cam ngọt với nho khô mọng nước.',
             qty: 1,
         },
         {
             id: 23,
-            name: 'Black Cotton Steak',
+            name: 'Bít tết Black Cotton',
             vendor: 'NestFood',
             emoji: '🥩',
             bg: '#fbeceb',
@@ -451,12 +448,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 17,
             description:
-                'Dry-aged black cotton steak with intense beefy flavour and beautiful marbling.',
+                'Bít tết Black Cotton ủ khô với vị bò đậm đà và mỡ vân đẹp.',
             qty: 1,
         },
         {
             id: 24,
-            name: 'Cold Smoked Salmon 400g',
+            name: 'Cá hồi hun khói lạnh 400g',
             vendor: 'OceanCo',
             emoji: '🐟',
             bg: '#eaf3fb',
@@ -464,15 +461,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 75.0,
             rating: 5,
             reviews: 52,
-            badge: 'New',
+            badge: 'Mới',
             badgeClass: 'shop-badge--blue',
             description:
-                'Silky Norwegian cold smoked salmon with a mild smoky flavour. Sliced ready.',
+                'Cá hồi Na Uy hun khói lạnh mềm mại, vị hun nhẹ. Đã cắt sẵn.',
             qty: 1,
         },
         {
             id: 25,
-            name: 'Fresh Whole Lotus Fish',
+            name: 'Cá sen nguyên con tươi',
             vendor: 'OceanCo',
             emoji: '🐠',
             bg: '#eaf3fb',
@@ -480,12 +477,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 20,
             description:
-                'Whole fresh lotus fish sustainably sourced. Light, flaky white flesh.',
+                'Cá sen tươi nguyên con nguồn gốc bền vững. Thịt trắng mềm, xốp.',
             qty: 1,
         },
         {
             id: 26,
-            name: 'Jumbo King Prawns 6 Pieces',
+            name: 'Tôm vua jumbo 6 con',
             vendor: 'OceanCo',
             emoji: '🦐',
             bg: '#eaf3fb',
@@ -493,15 +490,15 @@ export class ShopComponent implements OnInit {
             oldPrice: 450.0,
             rating: 5,
             reviews: 39,
-            badge: 'Hot',
+            badge: 'Nổi bật',
             badgeClass: 'shop-badge--rose',
             description:
-                'XL king prawns, perfect for grilling, stir-fry or a classic prawn cocktail.',
+                'Tôm vua size XL, hoàn hảo nướng, xào hoặc cocktail tôm cổ điển.',
             qty: 1,
         },
         {
             id: 27,
-            name: 'King Prawns Peeled',
+            name: 'Tôm vua đã bóc vỏ',
             vendor: 'OceanCo',
             emoji: '🦐',
             bg: '#eaf3fb',
@@ -509,12 +506,12 @@ export class ShopComponent implements OnInit {
             rating: 4,
             reviews: 28,
             description:
-                'Pre-peeled ready-to-cook king prawns. Saves time for weeknight dinners.',
+                'Tôm vua đã bóc vỏ, sẵn sàng nấu. Tiết kiệm thời gian cho bữa tối trong tuần.',
             qty: 1,
         },
         {
             id: 28,
-            name: 'Prawns Mixed Halvar',
+            name: 'Tôm hỗn hợp Halvar',
             vendor: 'OceanCo',
             emoji: '🦞',
             bg: '#eaf3fb',
@@ -523,7 +520,7 @@ export class ShopComponent implements OnInit {
             rating: 3,
             reviews: 10,
             description:
-                'A mixed selection of Atlantic prawns and langoustines in a single portion.',
+                'Tuyển chọn tôm Đại Tây Dương và tôm hùm trong một phần.',
             qty: 1,
         },
     ];
@@ -566,7 +563,7 @@ export class ShopComponent implements OnInit {
 
     selectSubNav(name: string): void {
         this.activeSubNav = name;
-        this.selectedCategory = name === 'All' ? '' : name;
+        this.selectedCategory = name === 'Tất cả' ? '' : name;
         this.currentPage = 1;
         this._applyFilters();
     }
@@ -596,17 +593,17 @@ export class ShopComponent implements OnInit {
 
     private _applyFilters(): void {
         let products = [...this.allProducts];
-        if (this.selectedCategory && this.selectedCategory !== 'All') {
+        if (this.selectedCategory && this.selectedCategory !== 'Tất cả') {
             const map: Record<string, string[]> = {
-                Vegetables: ['🥦', '🥕', '🧄', '🥬', '🧅', '🌶️', '🌿'],
-                'Fresh Fruit': ['🍎', '🍓', '🥝', '🍏', '🫐', '🍇', '🥥'],
-                Meat: ['🥩', '🍗', '🍖', '🦆', '🐦'],
-                Seafood: ['🦐', '🐟', '🐠', '🦞'],
-                Eggs: ['🥚'],
-                Baking: ['🍞', '🥖'],
-                Drinks: ['🧃', '🥤'],
-                Cheese: ['🧀'],
-                Milk: ['🥛'],
+                'Rau củ': ['🥦', '🥕', '🧄', '🥬', '🧅', '🌶️', '🌿'],
+                'Trái cây tươi': ['🍎', '🍓', '🥝', '🍏', '🫐', '🍇', '🥥'],
+                Thịt: ['🥩', '🍗', '🍖', '🦆', '🐦'],
+                'Hải sản': ['🦐', '🐟', '🐠', '🦞'],
+                Trứng: ['🥚'],
+                'Bánh mì & nướng': ['🍞', '🥖'],
+                'Đồ uống': ['🧃', '🥤'],
+                'Phô mai': ['🧀'],
+                Sữa: ['🥛'],
             };
             const emojis = map[this.selectedCategory] || [];
             if (emojis.length) {

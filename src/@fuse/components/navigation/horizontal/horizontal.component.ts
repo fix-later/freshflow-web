@@ -10,7 +10,6 @@ import {
     ViewEncapsulation,
     inject,
 } from '@angular/core';
-import { fuseAnimations } from '@fuse/animations';
 import { FuseNavigationService } from '@fuse/components/navigation/navigation.service';
 import { FuseNavigationItem } from '@fuse/components/navigation/navigation.types';
 import { FuseUtilsService } from '@fuse/services/utils/utils.service';
@@ -23,7 +22,6 @@ import { FuseHorizontalNavigationSpacerItemComponent } from './components/spacer
     selector: 'fuse-horizontal-navigation',
     templateUrl: './horizontal.component.html',
     styleUrls: ['./horizontal.component.scss'],
-    animations: fuseAnimations,
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'fuseHorizontalNavigation',

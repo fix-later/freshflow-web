@@ -1,0 +1,288 @@
+<div class="cart w-full" *transloco="let t">
+    <!-- Breadcrumb -->
+    <nav class="cart-breadcrumb" aria-label="Breadcrumb">
+        <a routerLink="/home">{{ t('cart.breadcrumb.home') }}</a>
+        <mat-icon
+            class="icon-size-4"
+            [svgIcon]="'heroicons_mini:chevron-right'"
+        ></mat-icon>
+        <span>{{ t('cart.breadcrumb.order') }}</span>
+    </nav>
+
+    <h1 class="cart-title">{{ t('cart.title') }}</h1>
+
+    <!-- Stepper -->
+    <ol class="cart-stepper w-full">
+        <li class="cart-step cart-step--active">
+            <span class="cart-step__inner">
+                <span class="cart-step__num">1</span>
+                <span class="cart-step__label">{{ t('cart.steps.cart') }}</span>
+            </span>
+        </li>
+        <li class="cart-stepper__line" aria-hidden="true"></li>
+        <li class="cart-step">
+            <a
+                class="cart-step__inner"
+                routerLink="/checkout"
+                [class.is-disabled]="!lines().length"
+                [attr.tabindex]="lines().length ? null : -1"
+                [attr.aria-disabled]="!lines().length"
+            >
+                <span class="cart-step__num">2</span>
+                <span class="cart-step__label">{{
+                    t('cart.steps.checkout')
+                }}</span>
+            </a>
+        </li>
+        <li class="cart-stepper__line" aria-hidden="true"></li>
+        <li class="cart-step">
+            <span class="cart-step__inner">
+                <span class="cart-step__num">3</span>
+                <span class="cart-step__label">{{ t('cart.steps.done') }}</span>
+            </span>
+        </li>
+    </ol>
+
+    <div class="cart-layout w-full">
+        <div class="cart-main w-full min-w-0">
+            @if (!lines().length) {
+                <div class="cart-empty">
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:shopping-cart'"
+                    ></mat-icon>
+                    <h2>{{ t('cart.empty.title') }}</h2>
+                    <p>{{ t('cart.empty.description') }}</p>
+                    <a mat-flat-button color="primary" routerLink="/catalog">{{
+                        t('cart.empty.cta')
+                    }}</a>
+                </div>
+            } @else {
+                <div class="cart-table">
+                    <div class="cart-table__head">
+                        <span>{{ t('cart.table.product') }}</span>
+                        <span>{{ t('cart.table.price') }}</span>
+                        <span>{{ t('cart.table.quantity') }}</span>
+                        <span>{{ t('cart.table.subtotal') }}</span>
+                    </div>
+
+                    @for (line of lines(); track trackByLine($index, line)) {
+                        <div class="cart-row">
+                            <div class="cart-row__product">
+                                <button
+                                    type="button"
+                                    class="cart-row__remove"
+                                    (click)="remove(line.product.id)"
+                                    [attr.aria-label]="t('cart.remove')"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="'heroicons_outline:x-mark'"
+                                    ></mat-icon>
+                                </button>
+                                <img
+                                    [src]="line.product.thumbnail"
+                                    [alt]="productName(line.product)"
+                                />
+                                <div>
+                                    <div class="cart-row__name">
+                                        {{ productName(line.product) }}
+                                    </div>
+                                    <div class="cart-row__meta">
+                                        {{ line.product.marketSource }} ·
+                                        {{ productUnit(line.product) }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="cart-row__price">
+                                {{ line.unitPrice | number: '1.0-0' }}₫
+                            </div>
+                            <div class="cart-row__qty">
+                                <button
+                                    type="button"
+                                    (click)="decrement(line)"
+                                    [attr.aria-label]="t('cart.decrease')"
+                                >
+                                    −
+                                </button>
+                                <span>{{ line.quantity }}</span>
+                                <button
+                                    type="button"
+                                    (click)="increment(line)"
+                                    [attr.aria-label]="t('cart.increase')"
+                                >
+                                    +
+                                </button>
+                            </div>
+                            <div class="cart-row__subtotal">
+                                {{ lineTotal(line) | number: '1.0-0' }}₫
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <aside class="cart-totals">
+            <h2>{{ t('cart.totals.title') }}</h2>
+
+            @if (lines().length) {
+                <div class="cart-coupon">
+                    <mat-form-field
+                        class="cart-coupon__field"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{ t('cart.coupon.label') }}</mat-label>
+                        <input
+                            matInput
+                            [ngModel]="couponCode()"
+                            (ngModelChange)="couponCode.set($event)"
+                            [placeholder]="t('cart.coupon.placeholder')"
+                        />
+                    </mat-form-field>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        (click)="applyCoupon()"
+                    >
+                        {{ t('cart.coupon.apply') }}
+                    </button>
+                </div>
+            }
+
+            <div class="cart-totals__row">
+                <span>{{ t('cart.totals.subtotal') }}</span>
+                <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
+            </div>
+            @if (discount() > 0) {
+                <div class="cart-totals__row cart-totals__row--discount">
+                    <span
+                        >{{ t('cart.totals.discount') }} ({{
+                            appliedCoupon()
+                        }})</span
+                    >
+                    <strong>−{{ discount() | number: '1.0-0' }}₫</strong>
+                </div>
+            }
+            <div class="cart-totals__row cart-totals__row--total">
+                <span>{{ t('cart.totals.total') }}</span>
+                <strong>{{ total() | number: '1.0-0' }}₫</strong>
+            </div>
+            <p class="cart-totals__note">{{ t('cart.totals.note') }}</p>
+
+            <button
+                class="cart-totals__btn"
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="!lines().length"
+                (click)="proceedToCheckout()"
+            >
+                {{ t('cart.totals.proceed') }}
+            </button>
+        </aside>
+    </div>
+
+    <section class="cart-interest w-full">
+        <div class="cart-interest__head">
+            <h2>{{ t('cart.interest.title') }}</h2>
+            <div class="cart-interest__nav">
+                <button
+                    type="button"
+                    mat-icon-button
+                    (click)="prevInterests()"
+                    [attr.aria-label]="t('cart.interest.prev')"
+                >
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:chevron-left'"
+                    ></mat-icon>
+                </button>
+                <button
+                    type="button"
+                    mat-icon-button
+                    (click)="nextInterests()"
+                    [attr.aria-label]="t('cart.interest.next')"
+                >
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:chevron-right'"
+                    ></mat-icon>
+                </button>
+            </div>
+        </div>
+
+        <div class="cart-interest__grid">
+            @for (item of visibleInterests(); track item.product.id) {
+                <article class="cart-interest-card">
+                    @if (item.badge) {
+                        <span
+                            class="cart-interest-card__badge"
+                            [ngClass]="{
+                                'cart-interest-card__badge--sale':
+                                    item.badge.startsWith('giảm') ||
+                                    item.badge.startsWith('save'),
+                                'cart-interest-card__badge--new':
+                                    item.badge === 'mới' ||
+                                    item.badge === 'new',
+                            }"
+                            >{{ item.badge }}</span
+                        >
+                    }
+                    <div class="cart-interest-card__thumb">
+                        <img
+                            [src]="item.product.thumbnail"
+                            [alt]="productName(item.product)"
+                        />
+                    </div>
+                    <h3>{{ productName(item.product) }}</h3>
+                    <div class="cart-interest-card__rating">
+                        @for (on of stars(item.rating); track $index) {
+                            <mat-icon
+                                class="icon-size-4"
+                                [class.is-on]="on"
+                                [svgIcon]="'heroicons_solid:star'"
+                            ></mat-icon>
+                        }
+                        <span>({{ item.reviews }})</span>
+                    </div>
+                    <div class="cart-interest-card__price">
+                        <span [class.is-sale]="!!item.oldPrice"
+                            >{{ item.unitPrice | number: '1.0-0' }}₫</span
+                        >
+                        @if (item.oldPrice) {
+                            <s>{{ item.oldPrice | number: '1.0-0' }}₫</s>
+                        }
+                    </div>
+                    <div class="cart-interest-card__tags">
+                        <span>{{ t('cart.interest.pickup') }}</span>
+                        <span>{{ t('cart.interest.delivery') }}</span>
+                    </div>
+                    <button
+                        type="button"
+                        class="cart-interest-card__add"
+                        mat-stroked-button
+                        color="primary"
+                        (click)="addInterest(item)"
+                    >
+                        {{ t('cart.interest.add') }}
+                    </button>
+                </article>
+            }
+        </div>
+
+        <div class="cart-interest__dots">
+            @for (
+                item of interestProducts;
+                track item.product.id;
+                let i = $index
+            ) {
+                <button
+                    type="button"
+                    [class.is-active]="interestIndex() === i"
+                    (click)="setInterestPage(i)"
+                    [attr.aria-label]="t('cart.interest.page', { page: i + 1 })"
+                ></button>
+            }
+        </div>
+    </section>
+</div>

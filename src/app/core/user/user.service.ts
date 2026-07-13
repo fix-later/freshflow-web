@@ -1,24 +1,50 @@
-import { HttpClient } from '@angular/common/http';
-import { inject, Injectable } from '@angular/core';
-import { User } from 'app/core/user/user.types';
-import { map, Observable, ReplaySubject, tap } from 'rxjs';
+import { Injectable } from '@angular/core';
+import { User, UserRole } from 'app/core/user/user.types';
+import { profileApi } from 'contract';
+import { from, Observable, ReplaySubject, tap } from 'rxjs';
+
+/** Shape of `GET /api/v1/profile/me` (`data`); responses are untyped in the spec. */
+interface ProfileMeData {
+    id: string;
+    email: string;
+    role: UserRole;
+    fullName?: string | null;
+    phone?: string | null;
+    avatarUrl?: string | null;
+}
+
+function unwrap<T>(body: unknown): T | undefined {
+    if (body && typeof body === 'object' && 'data' in body) {
+        return (body as { data?: T }).data;
+    }
+    return body as T;
+}
+
+/** Maps the backend profile payload to the app `User` model. */
+function toUser(data: ProfileMeData): User {
+    return {
+        id: data.id,
+        email: data.email,
+        role: data.role,
+        fullName: data.fullName ?? null,
+        phone: data.phone ?? null,
+        avatarUrl: data.avatarUrl ?? null,
+        name: data.fullName || data.email,
+        avatar: data.avatarUrl ?? undefined,
+    };
+}
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-    private _httpClient = inject(HttpClient);
     private _user: ReplaySubject<User> = new ReplaySubject<User>(1);
+    private _current: User | null = null;
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
     // -----------------------------------------------------------------------------------------------------
 
-    /**
-     * Setter & getter for user
-     *
-     * @param value
-     */
     set user(value: User) {
-        // Store the value
+        this._current = value;
         this._user.next(value);
     }
 
@@ -26,31 +52,50 @@ export class UserService {
         return this._user.asObservable();
     }
 
+    /** Last known user snapshot (synchronous), or `null` when signed out. */
+    get current(): User | null {
+        return this._current;
+    }
+
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
-    /**
-     * Get the current signed-in user data
-     */
-    get(): Observable<User> {
-        return this._httpClient.get<User>('api/common/user').pipe(
-            tap((user) => {
-                this._user.next(user);
-            })
-        );
+    /** Merge a partial update into the current user (e.g. approval status). */
+    patch(partial: Partial<User>): void {
+        if (this._current) {
+            this.user = { ...this._current, ...partial };
+        }
     }
 
-    /**
-     * Update the user
-     *
-     * @param user
-     */
-    update(user: User): Observable<any> {
-        return this._httpClient.patch<User>('api/common/user', { user }).pipe(
-            map((response) => {
-                this._user.next(response);
-            })
-        );
+    /** Get the current signed-in user from the backend (`GET /profile/me`). */
+    get(): Observable<User> {
+        return from(this._get()).pipe(tap((u) => (this.user = u)));
+    }
+
+    private async _get(): Promise<User> {
+        const res = await profileApi.apiV1ProfileMeGetRaw();
+        const data = unwrap<ProfileMeData>(await res.raw.json());
+        if (!data) {
+            throw new Error('Failed to load profile');
+        }
+        return toUser(data);
+    }
+
+    /** Update the signed-in user's profile (`PUT /profile/me`). */
+    update(user: User): Observable<User> {
+        return from(this._update(user)).pipe(tap((u) => (this.user = u)));
+    }
+
+    private async _update(user: User): Promise<User> {
+        await profileApi.apiV1ProfileMePut({
+            updateMyProfileRequest: {
+                fullName: user.fullName ?? user.name ?? null,
+                phone: user.phone ?? null,
+                avatarUrl: user.avatarUrl ?? null,
+            },
+        });
+        const merged = { ...(this._current ?? user), ...user };
+        return merged;
     }
 }

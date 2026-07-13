@@ -1,0 +1,368 @@
+.checkout-layout {
+    display: grid;
+    gap: 1.5rem;
+    width: 100%;
+    align-items: start;
+
+    @media (min-width: 960px) {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+        gap: 1.75rem;
+    }
+}
+
+.checkout-shipping {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    padding: 1.25rem 1.35rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.35rem;
+
+    > h2 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 800;
+    }
+
+    &__address {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    &__address-body {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.65rem;
+        padding: 0.85rem 1rem;
+        border-radius: 0.75rem;
+        background: #f8fafc;
+        border: 1px solid #eef2f7;
+
+        mat-icon {
+            flex-shrink: 0;
+            margin-top: 0.1rem;
+        }
+
+        p {
+            margin: 0;
+            font-size: 0.9375rem;
+            line-height: 1.45;
+            color: var(--fuse-text-default);
+        }
+    }
+
+    &__schedule {
+        display: grid;
+        gap: 1rem;
+
+        @media (min-width: 560px) {
+            grid-template-columns: 1fr 1fr;
+            gap: 1.1rem;
+        }
+    }
+
+    &__hint {
+        margin: -0.15rem 0 0;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        color: #64748b;
+    }
+
+    &__notes {
+        display: flex;
+        flex-direction: column;
+        gap: 0.55rem;
+        padding-top: 0.25rem;
+        border-top: 1px solid #f1f5f9;
+    }
+}
+
+/* Brand-aligned fresh-quality checkbox (teal primary, readable checkmark) */
+.checkout-fresh-check {
+    --mdc-checkbox-selected-icon-color: var(--fuse-primary);
+    --mdc-checkbox-selected-hover-icon-color: var(--fuse-primary);
+    --mdc-checkbox-selected-focus-icon-color: var(--fuse-primary);
+    --mdc-checkbox-selected-pressed-icon-color: var(--fuse-primary);
+    --mdc-checkbox-selected-checkmark-color: #083b4b;
+    --mdc-checkbox-selected-focus-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-selected-hover-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-selected-pressed-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-hover-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-focus-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-pressed-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-hover-icon-color: #0f766e;
+    --mdc-checkbox-unselected-focus-icon-color: #0f766e;
+    --mdc-checkbox-unselected-icon-color: #64748b;
+
+    .mdc-form-field > label {
+        font-size: 0.875rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: #0f172a;
+    }
+}
+
+/* Calendar popup: brand colors (locale labels come from MAT_DATE_LOCALE / Luxon) */
+.checkout-datepicker {
+    .mat-calendar-body-selected {
+        background-color: var(--fuse-primary) !important;
+        color: #083b4b !important;
+    }
+
+    .mat-calendar-body-today:not(.mat-calendar-body-selected) {
+        border-color: var(--fuse-primary) !important;
+    }
+
+    .mat-calendar-body-cell:not(.mat-calendar-body-disabled):hover
+        > .mat-calendar-body-cell-content:not(.mat-calendar-body-selected):not(
+            .mat-calendar-body-comparison-identical
+        ) {
+        background-color: color-mix(
+            in srgb,
+            var(--fuse-primary) 22%,
+            transparent
+        ) !important;
+    }
+}
+
+.checkout-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+
+    &__label {
+        font-size: 0.8125rem;
+        font-weight: 700;
+        color: #64748b;
+    }
+
+    &__value {
+        margin: 0;
+        font-size: 0.9375rem;
+        line-height: 1.45;
+        color: var(--fuse-text-default);
+    }
+}
+
+.checkout-order {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+
+    &__title {
+        margin: 0 0 0.25rem;
+        font-size: 1.25rem;
+        font-weight: 800;
+    }
+
+    &__lines {
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        background: #fff;
+        overflow: hidden;
+    }
+
+    &__head {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        padding: 0.75rem 1rem;
+        background: #f8fafc;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+    }
+
+    &__line {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        align-items: flex-start;
+        padding: 0.85rem 1rem;
+        border-top: 1px solid #e2e8f0;
+        font-size: 0.9375rem;
+    }
+
+    &__name {
+        font-weight: 600;
+
+        span {
+            margin-left: 0.35rem;
+            font-weight: 500;
+            color: #64748b;
+        }
+    }
+
+    &__meta {
+        margin-top: 0.15rem;
+        font-size: 0.75rem;
+        color: #94a3b8;
+    }
+}
+
+.checkout-card {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    background: #fff;
+    padding: 0.95rem 1.1rem;
+
+    &--row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.9375rem;
+    }
+}
+
+.checkout-voucher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+
+    &__main {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-weight: 600;
+        font-size: 0.9375rem;
+    }
+
+    &__action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.15rem;
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: var(--fuse-primary);
+        font-weight: 700;
+        font-size: 0.875rem;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+}
+
+.checkout-voucher-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+
+    button {
+        width: 100%;
+        height: 2.75rem;
+        border-radius: 999px !important;
+        font-weight: 700 !important;
+    }
+}
+
+.checkout-summary {
+    h3 {
+        margin: 0 0 1rem;
+        font-size: 1.05rem;
+        font-weight: 800;
+    }
+
+    &__row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.875rem;
+
+        .is-free {
+            color: #16a34a;
+        }
+    }
+
+    &__value {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.15rem;
+        text-align: right;
+
+        small {
+            font-size: 0.7rem;
+            color: #94a3b8;
+        }
+    }
+
+    &__total {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 1rem;
+        margin: 0.85rem 0 1.1rem;
+        padding-top: 0.85rem;
+        border-top: 1px solid #e2e8f0;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+
+    &__payable {
+        display: flex;
+        align-items: baseline;
+        gap: 0.5rem;
+
+        strong {
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+
+        s {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+    }
+}
+
+.checkout-trust {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+
+    li {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.4rem;
+        font-size: 0.75rem;
+        line-height: 1.35;
+        color: #64748b;
+
+        mat-icon {
+            flex-shrink: 0;
+            margin-top: 0.05rem;
+            color: #16a34a;
+        }
+    }
+}
+
+.checkout-back {
+    width: 100%;
+    height: 2.75rem;
+    border-radius: 999px !important;
+    font-weight: 700 !important;
+}
+
+.cart-step a.cart-step__inner {
+    text-decoration: none;
+    color: inherit;
+
+    &.is-disabled {
+        pointer-events: none;
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+}

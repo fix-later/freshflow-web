@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -6,14 +5,17 @@ import {
     OnDestroy,
     OnInit,
     ViewEncapsulation,
+    inject,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { DateAdapter } from '@angular/material/core';
+import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
 import {
     FuseNavigationService,
     FuseVerticalNavigationComponent,
 } from '@fuse/components/navigation';
-import { AvailableLangs, TranslocoService } from '@ngneat/transloco';
+import { AvailableLangs, TranslocoService } from '@jsverse/transloco';
 import { take } from 'rxjs';
 
 @Component({
@@ -23,12 +25,18 @@ import { take } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'languages',
     standalone: true,
-    imports: [MatButtonModule, MatMenuModule, NgTemplateOutlet],
+    imports: [MatButtonModule, MatIconModule, MatMenuModule],
 })
 export class LanguagesComponent implements OnInit, OnDestroy {
+    private readonly _dateAdapter = inject(DateAdapter);
+
     availableLangs: AvailableLangs;
     activeLang: string;
-    flagCodes: any;
+    /** Compact text labels shown on the trigger button. */
+    readonly langLabels: Record<string, string> = {
+        en: 'ENG',
+        vi: 'VIE',
+    };
 
     /**
      * Constructor
@@ -54,16 +62,11 @@ export class LanguagesComponent implements OnInit, OnDestroy {
         this._translocoService.langChanges$.subscribe((activeLang) => {
             // Get the active lang
             this.activeLang = activeLang;
+            this._dateAdapter.setLocale(activeLang);
 
             // Update the navigation
             this._updateNavigation(activeLang);
         });
-
-        // Set the country iso codes for languages for flags
-        this.flagCodes = {
-            en: 'us',
-            vi: 'vn',
-        };
     }
 
     /**

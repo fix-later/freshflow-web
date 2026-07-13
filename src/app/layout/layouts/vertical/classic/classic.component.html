@@ -16,13 +16,13 @@
             <!-- Light version -->
             <img
                 class="w-30 dark:hidden"
-                src="images/logo/logo-text.svg"
+                src="images/logo/logo-primary.svg"
                 alt="Logo image"
             />
             <!-- Dark version -->
             <img
                 class="hidden w-30 dark:flex"
-                src="images/logo/logo-text-on-dark.svg"
+                src="images/logo/logo-primary-dark.svg"
                 alt="Logo image"
             />
         </div>
@@ -41,13 +41,13 @@
         </button>
         <!-- Components -->
         <div class="ml-auto flex items-center space-x-0.5 pl-2 sm:space-x-2">
-            <languages></languages>
-            <fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
-            <search [appearance]="'bar'"></search>
-            <shortcuts></shortcuts>
-            <messages></messages>
+            <!-- <languages></languages> -->
+            <!-- <fuse-fullscreen class="hidden md:block"></fuse-fullscreen> -->
+            <!-- <search [appearance]="'bar'"></search> -->
+            <!-- <shortcuts></shortcuts> -->
+            <!-- <messages></messages> -->
             <notifications></notifications>
-            <button
+            <!-- <button
                 class="lg:hidden"
                 mat-icon-button
                 (click)="quickChat.toggle()"
@@ -55,7 +55,7 @@
                 <mat-icon
                     [svgIcon]="'heroicons_outline:chat-bubble-left-right'"
                 ></mat-icon>
-            </button>
+            </button> -->
             <user></user>
         </div>
     </div>
@@ -80,4 +80,4 @@
 </div>
 
 <!-- Quick chat -->
-<quick-chat #quickChat="quickChat"></quick-chat>
+<!-- <quick-chat #quickChat="quickChat"></quick-chat> -->
