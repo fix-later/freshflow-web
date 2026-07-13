@@ -3,15 +3,15 @@
     <section class="home-hero">
         <div class="home-hero__art">
             <span class="home-hero__cart">🛒</span>
-            <span class="home-hero__discount">25%<small>OFF</small></span>
+            <span class="home-hero__discount">25%<small>GIẢM</small></span>
         </div>
         <div class="home-hero__copy">
             <h1 class="home-hero__title">
-                Don't Miss Out on<br />Tasty Grocery Deals!
+                Đừng bỏ lỡ<br />ưu đãi thực phẩm hấp dẫn!
             </h1>
             <p class="home-hero__subtitle">
-                Fresh groceries delivered to your door. Save up to 25% on your
-                first order with FreshFlow.
+                Thực phẩm tươi giao tận nơi. Tiết kiệm đến 25% cho đơn đầu tiên
+                với FreshFlow.
             </p>
             <form class="home-hero__form" (ngSubmit)="$event.preventDefault()">
                 <mat-icon
@@ -21,10 +21,10 @@
                 <input
                     type="email"
                     class="home-hero__input"
-                    placeholder="Your email address"
-                    aria-label="Email address"
+                    placeholder="Địa chỉ email của bạn"
+                    aria-label="Địa chỉ email"
                 />
-                <button type="submit" class="home-hero__btn">Subscribe</button>
+                <button type="submit" class="home-hero__btn">Đăng ký</button>
             </form>
         </div>
     </section>
@@ -32,7 +32,7 @@
     <!-- ───────────────── Featured categories ───────────────── -->
     <section class="home-section">
         <div class="home-section__head">
-            <h2 class="home-section__title">Featured Categories</h2>
+            <h2 class="home-section__title">Danh mục nổi bật</h2>
         </div>
         <div class="home-categories">
             @for (cat of categories; track cat.name) {
@@ -51,12 +51,14 @@
     <!-- ───────────────── Popular products ───────────────── -->
     <section class="home-section">
         <div class="home-section__head">
-            <h2 class="home-section__title">Popular Products</h2>
+            <h2 class="home-section__title">Sản phẩm phổ biến</h2>
             <div class="home-tabs">
-                <span class="home-tabs__tab home-tabs__tab--active">All</span>
-                <span class="home-tabs__tab">Vegetables</span>
-                <span class="home-tabs__tab">Fruit</span>
-                <span class="home-tabs__tab">Meat</span>
+                <span class="home-tabs__tab home-tabs__tab--active"
+                    >Tất cả</span
+                >
+                <span class="home-tabs__tab">Rau củ</span>
+                <span class="home-tabs__tab">Trái cây</span>
+                <span class="home-tabs__tab">Thịt</span>
             </div>
         </div>
 

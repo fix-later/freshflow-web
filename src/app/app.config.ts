@@ -5,7 +5,11 @@ import {
     provideAppInitializer,
 } from '@angular/core';
 import { LuxonDateAdapter } from '@angular/material-luxon-adapter';
-import { DateAdapter, MAT_DATE_FORMATS } from '@angular/material/core';
+import {
+    DateAdapter,
+    MAT_DATE_FORMATS,
+    MAT_DATE_LOCALE,
+} from '@angular/material/core';
 import {
     PreloadAllModules,
     provideRouter,
@@ -21,6 +25,19 @@ import { mockApiServices } from 'app/mock-api';
 import { firstValueFrom } from 'rxjs';
 import { TranslocoHttpLoader } from './core/transloco/transloco.http-loader';
 
+/** Material + Luxon display formats — dd/MM/yyyy matches Vietnamese convention. */
+const VI_DATE_FORMATS = {
+    parse: {
+        dateInput: 'dd/MM/yyyy',
+    },
+    display: {
+        dateInput: 'dd/MM/yyyy',
+        monthYearLabel: 'MMMM yyyy',
+        dateA11yLabel: 'DD',
+        monthYearA11yLabel: 'MMMM yyyy',
+    },
+};
+
 export const appConfig: ApplicationConfig = {
     providers: [
         provideHttpClient(withXhr()),
@@ -30,24 +47,15 @@ export const appConfig: ApplicationConfig = {
             withInMemoryScrolling({ scrollPositionRestoration: 'enabled' })
         ),
 
-        // Material Date Adapter
+        // Material Date Adapter (Vietnamese by default)
+        { provide: MAT_DATE_LOCALE, useValue: 'vi' },
         {
             provide: DateAdapter,
             useClass: LuxonDateAdapter,
         },
         {
             provide: MAT_DATE_FORMATS,
-            useValue: {
-                parse: {
-                    dateInput: 'D',
-                },
-                display: {
-                    dateInput: 'DDD',
-                    monthYearLabel: 'LLL yyyy',
-                    dateA11yLabel: 'DD',
-                    monthYearA11yLabel: 'LLLL yyyy',
-                },
-            },
+            useValue: VI_DATE_FORMATS,
         },
 
         // Transloco Config
@@ -63,8 +71,8 @@ export const appConfig: ApplicationConfig = {
                         label: 'Tiếng Việt',
                     },
                 ],
-                defaultLang: 'en',
-                fallbackLang: 'en',
+                defaultLang: 'vi',
+                fallbackLang: 'vi',
                 reRenderOnLangChange: true,
                 prodMode: true,
             },
@@ -73,8 +81,10 @@ export const appConfig: ApplicationConfig = {
         // Preload the default language before the app starts to prevent empty/jumping content
         provideAppInitializer(() => {
             const translocoService = inject(TranslocoService);
+            const dateAdapter = inject(DateAdapter);
             const defaultLang = translocoService.getDefaultLang();
             translocoService.setActiveLang(defaultLang);
+            dateAdapter.setLocale(defaultLang);
 
             return firstValueFrom(translocoService.load(defaultLang));
         }),

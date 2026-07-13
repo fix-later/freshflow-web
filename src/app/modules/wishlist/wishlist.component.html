@@ -1,0 +1,84 @@
+<div class="wishlist w-full" *transloco="let t">
+    <nav class="wishlist-breadcrumb" aria-label="Breadcrumb">
+        <a routerLink="/home">{{ t('wishlist.breadcrumb.home') }}</a>
+        <mat-icon
+            class="icon-size-4"
+            [svgIcon]="'heroicons_mini:chevron-right'"
+        ></mat-icon>
+        <span>{{ t('wishlist.breadcrumb.current') }}</span>
+    </nav>
+
+    <div class="wishlist-head">
+        <h1 class="wishlist-title">{{ t('favorites.title') }}</h1>
+        @if (count() > 0) {
+            <span class="wishlist-count">{{
+                t('wishlist.itemCount', { count: count() })
+            }}</span>
+        }
+    </div>
+
+    @if (!items().length) {
+        <div class="wishlist-empty">
+            <div class="wishlist-empty__icon">
+                <mat-icon [svgIcon]="'heroicons_outline:heart'"></mat-icon>
+            </div>
+            <h2>{{ t('favorites.empty.title') }}</h2>
+            <p>{{ t('favorites.empty.description') }}</p>
+            <a mat-flat-button color="primary" routerLink="/catalog">{{
+                t('favorites.viewCatalog')
+            }}</a>
+        </div>
+    } @else {
+        <div class="wishlist-panel">
+            <div class="wishlist-list">
+                @for (product of items(); track trackById($index, product)) {
+                    <div class="wishlist-row">
+                        <img
+                            [src]="product.thumbnail"
+                            [alt]="productName(product)"
+                        />
+                        <div class="wishlist-row__info">
+                            <div class="wishlist-row__name">
+                                {{ productName(product) }}
+                            </div>
+                            <div class="wishlist-row__meta">
+                                {{ product.marketSource }} ·
+                                {{ productUnit(product) }}
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            mat-icon-button
+                            (click)="addToDraftOrder(product)"
+                            [matTooltip]="t('favorites.addToDraft')"
+                            [attr.aria-label]="t('favorites.addToDraft')"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                [svgIcon]="'heroicons_outline:shopping-cart'"
+                            ></mat-icon>
+                        </button>
+                        <button
+                            type="button"
+                            mat-icon-button
+                            (click)="remove(product.id)"
+                            [matTooltip]="t('favorites.remove')"
+                            [attr.aria-label]="t('favorites.remove')"
+                        >
+                            <mat-icon
+                                class="text-hint icon-size-5"
+                                [svgIcon]="'heroicons_outline:x-mark'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
+            </div>
+
+            <div class="wishlist-footer">
+                <a class="wishlist-footer__cta" routerLink="/catalog">{{
+                    t('favorites.viewCatalog')
+                }}</a>
+            </div>
+        </div>
+    }
+</div>
