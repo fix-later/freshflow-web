@@ -1,0 +1,95 @@
+<!-- Trigger -->
+<button class="flex items-center gap-1.5" type="button" (click)="openPanel()">
+    <mat-icon
+        class="text-primary-400 icon-size-3.5"
+        [svgIcon]="'heroicons_outline:map-pin'"
+    ></mat-icon>
+    <span>{{ selected()?.name ?? 'Địa chỉ nhà hàng' }}</span>
+    <mat-icon
+        class="text-current icon-size-3"
+        [svgIcon]="'heroicons_outline:chevron-down'"
+    ></mat-icon>
+</button>
+
+<!-- Popup: branch list -->
+<ng-template #branchPickerPanel>
+    <div class="flex max-h-[80vh] flex-col p-6">
+        <!-- Header -->
+        <div class="relative flex items-center justify-center">
+            <h2 class="text-2xl font-bold tracking-tight">
+                Chọn chi nhánh ({{ branches.length }})
+            </h2>
+            <button
+                class="absolute -right-2 -top-2"
+                mat-icon-button
+                type="button"
+                aria-label="Đóng"
+                (click)="closePanel()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:x-mark'"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <!-- Search + add -->
+        <div class="mt-5 flex shrink-0 items-center gap-4">
+            <div class="relative flex-auto">
+                <mat-icon
+                    class="text-hint absolute left-4 top-1/2 -translate-y-1/2 icon-size-4"
+                    [svgIcon]="'heroicons_outline:magnifying-glass'"
+                ></mat-icon>
+                <input
+                    #searchInput
+                    class="text-default h-11 w-full rounded-full border pl-10 pr-4 text-sm outline-none focus:border-primary"
+                    type="search"
+                    placeholder="Tìm kiếm cửa hàng"
+                    aria-label="Tìm kiếm cửa hàng"
+                    (input)="search.set(searchInput.value)"
+                />
+            </div>
+            <button
+                class="flex shrink-0 items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                type="button"
+            >
+                <mat-icon
+                    class="text-current icon-size-4"
+                    [svgIcon]="'heroicons_outline:plus'"
+                ></mat-icon>
+                <span>Thêm mới</span>
+            </button>
+        </div>
+
+        <!-- Branch list -->
+        <div class="mt-4 flex flex-auto flex-col gap-3 overflow-y-auto">
+            @for (branch of filtered(); track branch.id) {
+                <button
+                    class="flex items-center gap-4 rounded-xl border p-4 text-left hover:bg-hover"
+                    type="button"
+                    (click)="select(branch)"
+                >
+                    <span
+                        class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gray-200 font-semibold text-gray-600 dark:bg-gray-700 dark:text-gray-300"
+                    >
+                        {{ initials(branch.name) }}
+                    </span>
+                    <span class="flex min-w-0 flex-col">
+                        <span class="truncate font-bold">{{
+                            branch.name
+                        }}</span>
+                        @if (branch.lastOrderDate) {
+                            <span class="text-secondary mt-0.5 text-sm">
+                                Đặt hàng lần cuối: {{ branch.lastOrderDate }}
+                            </span>
+                        }
+                    </span>
+                </button>
+            } @empty {
+                <div class="text-secondary p-6 text-center">
+                    Không tìm thấy cửa hàng
+                </div>
+            }
+        </div>
+    </div>
+</ng-template>

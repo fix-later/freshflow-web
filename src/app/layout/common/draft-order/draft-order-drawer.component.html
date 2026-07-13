@@ -1,0 +1,149 @@
+<ng-container *transloco="let t">
+    <fuse-drawer
+        class="z-999 w-screen min-w-screen sm:w-100 sm:min-w-100"
+        fixed
+        [mode]="'over'"
+        [name]="'draftOrderDrawer'"
+        [position]="'right'"
+        [opened]="isOpen()"
+        (openedChanged)="draftOrderService.setDrawerOpen($event)"
+    >
+        <div class="bg-card flex h-full w-full flex-col overflow-auto">
+            <!-- Header -->
+            <div
+                class="flex h-20 min-h-20 shrink-0 items-center bg-primary px-6 text-on-primary"
+            >
+                <div class="text-2xl font-semibold tracking-tight">
+                    {{ t('draftOrder.title') }}
+                </div>
+                @if (count() > 0) {
+                    <div class="ml-3 text-sm opacity-90">
+                        {{ t('draftOrder.itemCount', { count: count() }) }}
+                    </div>
+                }
+                <button class="ml-auto" mat-icon-button (click)="closeDrawer()">
+                    <mat-icon
+                        class="text-current"
+                        [svgIcon]="'heroicons_outline:x-mark'"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex flex-auto flex-col divide-y overflow-y-auto">
+                @for (line of lines(); track trackById($index, line)) {
+                    <div class="flex items-center gap-4 px-6 py-4">
+                        <img
+                            class="h-14 w-14 shrink-0 rounded-lg object-cover"
+                            [src]="line.product.thumbnail"
+                            [alt]="productName(line.product)"
+                        />
+                        <div class="flex min-w-0 flex-auto flex-col">
+                            <span class="line-clamp-1 font-medium">{{
+                                productName(line.product)
+                            }}</span>
+                            <span class="text-secondary text-sm">{{
+                                productUnit(line.product)
+                            }}</span>
+                        </div>
+
+                        <!-- Quantity stepper -->
+                        <div class="flex shrink-0 items-center gap-1">
+                            <button
+                                class="h-8 min-h-8 w-8"
+                                mat-icon-button
+                                (click)="decrement(line)"
+                                [attr.aria-label]="t('draftOrder.decrease')"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:minus'"
+                                ></mat-icon>
+                            </button>
+                            <span class="w-6 text-center text-sm font-medium">{{
+                                line.quantity
+                            }}</span>
+                            <button
+                                class="h-8 min-h-8 w-8"
+                                mat-icon-button
+                                (click)="increment(line)"
+                                [attr.aria-label]="t('draftOrder.increase')"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_outline:plus'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+
+                        <button
+                            class="h-9 min-h-9 w-9"
+                            mat-icon-button
+                            (click)="remove(line.product.id)"
+                            [matTooltip]="t('draftOrder.remove')"
+                            [attr.aria-label]="t('draftOrder.remove')"
+                        >
+                            <mat-icon
+                                class="text-hint icon-size-5"
+                                [svgIcon]="'heroicons_outline:x-mark'"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                }
+
+                <!-- Empty state -->
+                @if (!lines().length) {
+                    <div
+                        class="flex flex-auto flex-col items-center justify-center px-8 py-12"
+                    >
+                        <div
+                            class="flex h-14 w-14 flex-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-600"
+                        >
+                            <mat-icon
+                                class="text-primary-700 dark:text-primary-50"
+                                [svgIcon]="'heroicons_outline:shopping-cart'"
+                            ></mat-icon>
+                        </div>
+                        <div class="mt-5 text-2xl font-semibold tracking-tight">
+                            {{ t('draftOrder.empty.title') }}
+                        </div>
+                        <div
+                            class="text-secondary mt-1 w-full max-w-60 text-center text-md"
+                        >
+                            {{ t('draftOrder.empty.description') }}
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Footer -->
+            <div class="bg-card flex shrink-0 flex-col gap-3 border-t p-4">
+                @if (lines().length) {
+                    <div class="flex items-center justify-between px-1">
+                        <span class="text-secondary text-sm font-medium">{{
+                            t('draftOrder.subtotal')
+                        }}</span>
+                        <span class="text-lg font-bold"
+                            >{{ subtotal() | number: '1.0-0' }}₫</span
+                        >
+                    </div>
+                    <div class="text-secondary text-center text-xs">
+                        {{ t('draftOrder.priceNote') }}
+                    </div>
+                }
+                <a
+                    class="flex items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                    routerLink="/cart"
+                    (click)="closeDrawer()"
+                    >{{ t('draftOrder.viewCart') }}</a
+                >
+                <a
+                    class="flex items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
+                    routerLink="/checkout"
+                    (click)="closeDrawer()"
+                    >{{ t('draftOrder.placeOrder') }}</a
+                >
+            </div>
+        </div>
+    </fuse-drawer>
+</ng-container>

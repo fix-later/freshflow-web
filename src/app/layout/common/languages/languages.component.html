@@ -1,37 +1,30 @@
-<!-- Button -->
-<button mat-icon-button [matMenuTriggerFor]="languages">
-    <ng-container
-        *ngTemplateOutlet="flagImage; context: { $implicit: activeLang }"
-    ></ng-container>
+<!-- Button: text form (globe + language code) -->
+<button
+    class="flex items-center gap-1 font-medium"
+    type="button"
+    [matMenuTriggerFor]="languages"
+>
+    <mat-icon
+        class="text-current icon-size-4"
+        [svgIcon]="'heroicons_outline:globe-alt'"
+    ></mat-icon>
+    <span>{{ langLabels[activeLang] ?? activeLang.toUpperCase() }}</span>
+    <mat-icon
+        class="text-current icon-size-3"
+        [svgIcon]="'heroicons_outline:chevron-down'"
+    ></mat-icon>
 </button>
 
 <!-- Language menu -->
 <mat-menu [xPosition]="'before'" #languages="matMenu">
     @for (lang of availableLangs; track trackByFn($index, lang)) {
         <button mat-menu-item (click)="setActiveLang(lang.id)">
-            <span class="flex items-center">
-                <ng-container
-                    *ngTemplateOutlet="
-                        flagImage;
-                        context: { $implicit: lang.id }
-                    "
-                ></ng-container>
-                <span class="ml-3">{{ lang.label }}</span>
+            <span
+                [class.font-semibold]="lang.id === activeLang"
+                [class.text-primary]="lang.id === activeLang"
+            >
+                {{ lang.label }}
             </span>
         </button>
     }
 </mat-menu>
-
-<!-- Flag image template -->
-<ng-template let-lang #flagImage>
-    <span class="relative w-6 overflow-hidden rounded-sm shadow">
-        <span
-            class="absolute inset-0 ring-1 ring-inset ring-black ring-opacity-10"
-        ></span>
-        <img
-            class="w-full"
-            [src]="'images/flags/' + flagCodes[lang].toUpperCase() + '.svg'"
-            [alt]="'Flag image for ' + lang"
-        />
-    </span>
-</ng-template>

@@ -1,0 +1,103 @@
+<ng-container *transloco="let t">
+    <!-- Trigger: hover previews the latest order, click navigates to it -->
+    <a
+        class="text-default flex items-center gap-1.5 text-base font-semibold hover:text-primary"
+        routerLink="/orders"
+        #orderTrackingOrigin
+        (mouseenter)="onTriggerEnter()"
+        (mouseleave)="onTriggerLeave()"
+        [attr.aria-label]="t('orderTracking.trigger')"
+    >
+        <mat-icon
+            class="text-primary icon-size-5"
+            [svgIcon]="'heroicons_outline:clipboard-document-check'"
+        ></mat-icon>
+        <span class="hidden xl:inline">{{ t('orderTracking.trigger') }}</span>
+    </a>
+
+    <!-- Hover preview card -->
+    <ng-template #orderTrackingPanel>
+        <div
+            class="bg-card w-80 overflow-hidden rounded-2xl border shadow-lg"
+            (mouseenter)="onPanelEnter()"
+            (mouseleave)="onPanelLeave()"
+        >
+            @if (latestOrder(); as order) {
+                <div
+                    class="flex items-center justify-between gap-3 border-b px-5 py-4"
+                >
+                    <div>
+                        <div
+                            class="text-hint text-xs font-medium uppercase tracking-wider"
+                        >
+                            {{ t('orderTracking.latest') }}
+                        </div>
+                        <div class="text-lg font-semibold">
+                            {{ order.code }}
+                        </div>
+                    </div>
+                    @switch (order.status) {
+                        @case ('CONFIRMED') {
+                            <span
+                                class="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/20 dark:text-blue-300"
+                            >
+                                {{ t('orderTracking.status.confirmed') }}
+                            </span>
+                        }
+                        @case ('OUT_FOR_DELIVERY') {
+                            <span
+                                class="shrink-0 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/20 dark:text-amber-300"
+                            >
+                                {{ t('orderTracking.status.outForDelivery') }}
+                            </span>
+                        }
+                        @case ('DELIVERED') {
+                            <span
+                                class="shrink-0 rounded-full bg-green-100 px-2.5 py-1 text-xs font-semibold text-green-700 dark:bg-green-500/20 dark:text-green-300"
+                            >
+                                {{ t('orderTracking.status.delivered') }}
+                            </span>
+                        }
+                    }
+                </div>
+
+                <div class="flex flex-col gap-2 px-5 py-4 text-sm">
+                    <div class="flex items-center justify-between">
+                        <span class="text-secondary">{{
+                            t('orderTracking.itemCount')
+                        }}</span>
+                        <span class="font-medium">{{ order.itemCount }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-secondary">{{
+                            t('orderTracking.placedAt')
+                        }}</span>
+                        <span class="font-medium">{{
+                            order.placedAt | date: 'HH:mm, dd/MM'
+                        }}</span>
+                    </div>
+                </div>
+            } @else {
+                <div
+                    class="flex flex-col items-center gap-2 px-6 py-8 text-center"
+                >
+                    <mat-icon
+                        class="text-hint icon-size-8"
+                        [svgIcon]="'heroicons_outline:clipboard-document-check'"
+                    ></mat-icon>
+                    <div class="text-secondary text-sm">
+                        {{ t('orderTracking.empty') }}
+                    </div>
+                </div>
+            }
+
+            <div class="bg-default flex justify-center border-t py-3">
+                <a
+                    class="text-sm font-medium text-primary hover:underline"
+                    routerLink="/orders"
+                    >{{ t('orderTracking.viewAll') }}</a
+                >
+            </div>
+        </div>
+    </ng-template>
+</ng-container>
