@@ -13,7 +13,9 @@ const generatePalette = require(
  */
 const customPalettes = {
     brand: generatePalette('#2196F3'),
-    freshflow: generatePalette('#3BB77E'),
+    // App brand (was restaurant-role): 500 base, 600 hover.
+    freshflow: generatePalette({ 500: '#50F0A3', 600: '#48D892' }),
+    freshflowAccent: generatePalette({ 500: '#313F90', 600: '#2C3881' }),
 };
 
 /**
@@ -27,8 +29,8 @@ const themes = {
             DEFAULT: customPalettes.freshflow[500],
         },
         accent: {
-            ...colors.slate,
-            DEFAULT: colors.slate[800],
+            ...customPalettes.freshflowAccent,
+            DEFAULT: customPalettes.freshflowAccent[500],
         },
         warn: {
             ...colors.red,
@@ -105,7 +107,7 @@ const config = {
                 0: '0 0 auto',
             },
             fontFamily: {
-                sans: `"Inter var", ${defaultTheme.fontFamily.sans.join(',')}`,
+                sans: `"Google Sans Flex", ${defaultTheme.fontFamily.sans.join(',')}`,
                 mono: `"IBM Plex Mono", ${defaultTheme.fontFamily.mono.join(',')}`,
             },
             opacity: {
