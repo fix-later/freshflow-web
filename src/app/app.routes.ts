@@ -1,11 +1,9 @@
-import { inject } from '@angular/core';
 import { Route } from '@angular/router';
 import { initialDataResolver } from 'app/app.resolvers';
 import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { NoAuthGuard } from 'app/core/auth/guards/noAuth.guard';
 import { OptionalAuthGuard } from 'app/core/auth/guards/optionalAuth.guard';
 import { roleGuard } from 'app/core/auth/guards/role.guard';
-import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { LayoutComponent } from 'app/layout/layout.component';
 
 // Admin console area: roleGuard checks auth itself (redirects guests to
@@ -19,14 +17,9 @@ export const appRoutes: Route[] = [
     // Redirect empty path to '/home'
     { path: '', pathMatch: 'full', redirectTo: 'home' },
 
-    // After the user signs in, the sign-in page will redirect the user to the 'signed-in-redirect'
-    // path. Below is another redirection for that path to send each role to its landing area.
-    {
-        path: 'signed-in-redirect',
-        pathMatch: 'full',
-        redirectTo: () =>
-            inject(PermissionsService).role() === 'admin' ? '/admin' : '/home',
-    },
+    // Per-role landing after sign-in is decided in the auth components
+    // (sign-in / unlock-session), where the profile — and therefore the role —
+    // is already loaded. A synchronous `redirectTo` can't await that role.
 
     // Auth routes for guests
     {

@@ -23,6 +23,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
 
 @Component({
@@ -63,6 +64,7 @@ export class AuthSignInComponent implements OnInit {
         private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
+        private _permissions: PermissionsService,
         private _router: Router,
         private _translocoService: TranslocoService
     ) {}
@@ -105,14 +107,13 @@ export class AuthSignInComponent implements OnInit {
         // Sign in
         this._authService.signIn(this.signInForm.value).subscribe(
             () => {
-                // Set the redirect url.
-                // The '/signed-in-redirect' is a dummy url to catch the request and redirect the user
-                // to the correct page after a successful sign in. This way, that url can be set via
-                // routing file and we don't have to touch here.
+                // The profile (and role) is loaded by the time signIn resolves,
+                // so resolve the per-role landing page here and navigate directly
+                // — a synchronous `redirectTo` can't reliably read the async role.
                 const redirectURL =
                     this._activatedRoute.snapshot.queryParamMap.get(
                         'redirectURL'
-                    ) || '/signed-in-redirect';
+                    ) || this._permissions.landingUrl();
 
                 // Navigate to the redirect url
                 this._router.navigateByUrl(redirectURL);
