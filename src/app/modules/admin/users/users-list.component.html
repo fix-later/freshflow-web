@@ -1,0 +1,290 @@
+<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tight">
+                {{ t('admin.users.title') }}
+            </h1>
+            <p class="text-secondary mt-1">
+                {{ t('admin.users.subtitle') }}
+            </p>
+        </div>
+        <button mat-flat-button color="primary" (click)="openCreatePanel()">
+            <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
+            {{ t('admin.users.create.trigger') }}
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <form [formGroup]="filterForm" class="mt-6 flex flex-wrap items-end gap-4">
+        <mat-form-field class="w-64" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.users.filters.search') }}</mat-label>
+            <input
+                matInput
+                formControlName="search"
+                [placeholder]="t('admin.users.filters.searchPlaceholder')"
+            />
+            <mat-icon
+                matPrefix
+                svgIcon="heroicons_outline:magnifying-glass"
+            ></mat-icon>
+        </mat-form-field>
+
+        <mat-form-field class="w-48" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.users.filters.role') }}</mat-label>
+            <mat-select formControlName="role">
+                <mat-option value="">{{
+                    t('admin.users.filters.allRoles')
+                }}</mat-option>
+                @for (role of roles(); track role) {
+                    <mat-option [value]="role">{{ role }}</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+
+        <mat-form-field class="w-48" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.users.filters.status') }}</mat-label>
+            <mat-select formControlName="isActive">
+                <mat-option value="">{{
+                    t('admin.users.filters.allStatuses')
+                }}</mat-option>
+                <mat-option value="true">{{
+                    t('admin.users.filters.active')
+                }}</mat-option>
+                <mat-option value="false">{{
+                    t('admin.users.filters.inactive')
+                }}</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <button mat-stroked-button type="button" (click)="clearFilters()">
+            {{ t('admin.users.filters.clear') }}
+        </button>
+    </form>
+
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
+    }
+
+    <!-- Table -->
+    <div class="bg-card mt-4 overflow-x-auto rounded-2xl border">
+        <table class="w-full min-w-[720px] text-left text-sm">
+            <thead
+                class="text-secondary border-b text-xs uppercase tracking-wide"
+            >
+                <tr>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.users.table.email') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.users.table.role') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.users.table.restaurant') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.users.table.status') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.users.table.actions') }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (user of users(); track trackById($index, user)) {
+                    <tr class="border-b hover:bg-hover last:border-0">
+                        <td class="px-4 py-3">
+                            <button
+                                type="button"
+                                class="text-left font-medium text-primary hover:underline"
+                                (click)="openDetail(user)"
+                            >
+                                {{ user.email || user.id }}
+                            </button>
+                        </td>
+                        <td class="px-4 py-3">{{ user.role || '—' }}</td>
+                        <td class="px-4 py-3">
+                            {{ user.restaurantName || '—' }}
+                        </td>
+                        <td class="px-4 py-3">
+                            @if (user.isActive) {
+                                <span
+                                    class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+                                >
+                                    {{ t('admin.users.filters.active') }}
+                                </span>
+                            } @else {
+                                <span
+                                    class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                                >
+                                    {{ t('admin.users.filters.inactive') }}
+                                </span>
+                            }
+                            @if (user.lockedUntil) {
+                                <span
+                                    class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                                >
+                                    {{ t('admin.users.table.locked') }}
+                                </span>
+                            }
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center gap-1">
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.users.actions.viewDetail')
+                                    "
+                                    (click)="openDetail(user)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:eye"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        user.isActive
+                                            ? t(
+                                                  'admin.users.actions.deactivate'
+                                              )
+                                            : t('admin.users.actions.activate')
+                                    "
+                                    (click)="toggleActive(user)"
+                                >
+                                    <mat-icon
+                                        [svgIcon]="
+                                            user.isActive
+                                                ? 'heroicons_outline:lock-closed'
+                                                : 'heroicons_outline:lock-open'
+                                        "
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.users.actions.unlock')
+                                    "
+                                    (click)="unlock(user)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:key"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                } @empty {
+                    <tr>
+                        <td
+                            class="text-secondary px-4 py-8 text-center"
+                            colspan="5"
+                        >
+                            {{ t('admin.users.empty') }}
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <mat-paginator
+        class="mt-2"
+        [length]="totalCount()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)"
+    ></mat-paginator>
+</div>
+
+<!-- Create user panel -->
+<ng-template #createUserPanel>
+    <div class="flex w-full flex-col p-6" *transloco="let t">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold">
+                {{ t('admin.users.create.title') }}
+            </h2>
+            <button mat-icon-button type="button" (click)="closeCreatePanel()">
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        <form
+            #createNgForm="ngForm"
+            [formGroup]="createForm"
+            class="mt-4 flex flex-col gap-3"
+            (ngSubmit)="createUser(createNgForm)"
+        >
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.email') }}</mat-label>
+                <input matInput type="email" formControlName="email" required />
+            </mat-form-field>
+
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.password') }}</mat-label>
+                <input
+                    matInput
+                    type="password"
+                    formControlName="password"
+                    required
+                />
+            </mat-form-field>
+
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.role') }}</mat-label>
+                <mat-select formControlName="role" required>
+                    @for (role of roles(); track role) {
+                        <mat-option [value]="role">{{ role }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.market') }}</mat-label>
+                <mat-select formControlName="marketId">
+                    <mat-option value="">{{
+                        t('admin.users.create.noMarket')
+                    }}</mat-option>
+                    @for (market of markets(); track market.id) {
+                        <mat-option [value]="market.id">{{
+                            market.name
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.users.create.restaurantName')
+                }}</mat-label>
+                <input matInput formControlName="restaurantName" />
+            </mat-form-field>
+
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.phone') }}</mat-label>
+                <input matInput formControlName="phone" />
+            </mat-form-field>
+
+            <div class="mt-2 flex justify-end gap-2">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeCreatePanel()"
+                >
+                    {{ t('admin.users.create.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="createForm.invalid || createForm.disabled"
+                >
+                    {{ t('admin.users.create.submit') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>

@@ -23,7 +23,7 @@ export interface ForgotPasswordRequest {
      * @type {string}
      * @memberof ForgotPasswordRequest
      */
-    identifier?: string | null;
+    identifier: string;
 }
 
 /**
@@ -32,6 +32,8 @@ export interface ForgotPasswordRequest {
 export function instanceOfForgotPasswordRequest(
     value: object
 ): value is ForgotPasswordRequest {
+    if (!('identifier' in value) || value['identifier'] === undefined)
+        return false;
     return true;
 }
 
@@ -49,7 +51,7 @@ export function ForgotPasswordRequestFromJSONTyped(
         return json;
     }
     return {
-        identifier: json['identifier'] == null ? undefined : json['identifier'],
+        identifier: json['identifier'],
     };
 }
 

@@ -3,20 +3,39 @@ import {
     Component,
     ViewEncapsulation,
 } from '@angular/core';
+import { MatIconModule } from '@angular/material/icon';
+import { RouterLink } from '@angular/router';
+import { TranslocoModule } from '@jsverse/transloco';
 
-/** Placeholder admin landing — the console modules land here module by module. */
+interface DashboardCard {
+    icon: string;
+    link: string;
+    titleKey: string;
+    descriptionKey: string;
+}
+
+/** Admin landing — quick links into every Admin console module. */
 @Component({
     selector: 'admin-dashboard',
-    template: `
-        <div class="flex w-full flex-col p-6 md:p-8">
-            <h1 class="text-3xl font-bold tracking-tight">Tổng quan</h1>
-            <p class="text-secondary mt-2">
-                Bảng điều khiển quản trị FreshFlow. Các phân hệ sẽ được bổ sung.
-            </p>
-        </div>
-    `,
+    templateUrl: './dashboard.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    imports: [MatIconModule, RouterLink, TranslocoModule],
 })
-export class AdminDashboardComponent {}
+export class AdminDashboardComponent {
+    readonly cards: DashboardCard[] = [
+        {
+            icon: 'heroicons_outline:users',
+            link: '/admin/users',
+            titleKey: 'admin.dashboard.users.title',
+            descriptionKey: 'admin.dashboard.users.description',
+        },
+        {
+            icon: 'heroicons_outline:building-storefront',
+            link: '/admin/restaurants',
+            titleKey: 'admin.dashboard.restaurants.title',
+            descriptionKey: 'admin.dashboard.restaurants.description',
+        },
+    ];
+}

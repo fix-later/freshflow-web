@@ -73,23 +73,64 @@ const NAVIGATION: AreaNavItem[] = [
         roles: ['admin'],
     },
 
-    // Admin console
+    // Admin console — group headers + ordered children (Fuse vertical nav
+    // renders sections in array order, like Dashboards / Applications).
     {
-        id: 'admin-dashboard',
+        id: 'admin.dashboards',
         title: 'Tổng quan',
-        type: 'basic',
-        icon: 'heroicons_outline:chart-pie',
-        link: '/admin',
+        subtitle: 'Bảng điều khiển quản trị',
+        type: 'group',
         area: 'admin',
+        children: [
+            {
+                id: 'admin-dashboard',
+                title: 'Dashboard',
+                type: 'basic',
+                icon: 'heroicons_outline:chart-pie',
+                link: '/admin',
+                // /admin is a prefix of /admin/users|restaurants — exact only
+                exactMatch: true,
+            },
+        ],
     },
-    // Cross-area entry: back to the public storefront
     {
-        id: 'admin-view-store',
-        title: 'Xem cửa hàng',
-        type: 'basic',
-        icon: 'heroicons_outline:building-storefront',
-        link: '/home',
+        id: 'admin.management',
+        title: 'Quản lý',
+        subtitle: 'Tài khoản & nhà hàng',
+        type: 'group',
         area: 'admin',
+        children: [
+            {
+                id: 'admin-users',
+                title: 'Người dùng',
+                type: 'basic',
+                icon: 'heroicons_outline:users',
+                link: '/admin/users',
+            },
+            {
+                id: 'admin-restaurants',
+                title: 'Nhà hàng',
+                type: 'basic',
+                icon: 'heroicons_outline:building-storefront',
+                link: '/admin/restaurants',
+            },
+        ],
+    },
+    {
+        id: 'admin.links',
+        title: 'Liên kết',
+        subtitle: 'Đi tới khu vực khác',
+        type: 'group',
+        area: 'admin',
+        children: [
+            {
+                id: 'admin-view-store',
+                title: 'Xem cửa hàng',
+                type: 'basic',
+                icon: 'heroicons_outline:shopping-bag',
+                link: '/home',
+            },
+        ],
     },
 ];
 

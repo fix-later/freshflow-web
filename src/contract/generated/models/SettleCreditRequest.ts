@@ -29,6 +29,18 @@ export interface SettleCreditRequest {
      * @type {string}
      * @memberof SettleCreditRequest
      */
+    paymentMethod?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof SettleCreditRequest
+     */
+    reference?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof SettleCreditRequest
+     */
     note?: string | null;
 }
 
@@ -54,6 +66,9 @@ export function SettleCreditRequestFromJSONTyped(
     }
     return {
         amount: json['amount'] == null ? undefined : json['amount'],
+        paymentMethod:
+            json['paymentMethod'] == null ? undefined : json['paymentMethod'],
+        reference: json['reference'] == null ? undefined : json['reference'],
         note: json['note'] == null ? undefined : json['note'],
     };
 }
@@ -72,6 +87,8 @@ export function SettleCreditRequestToJSONTyped(
 
     return {
         amount: value['amount'],
+        paymentMethod: value['paymentMethod'],
+        reference: value['reference'],
         note: value['note'],
     };
 }

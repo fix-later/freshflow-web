@@ -23,7 +23,7 @@ export interface CreateUnitRequest {
      * @type {string}
      * @memberof CreateUnitRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
@@ -38,6 +38,7 @@ export interface CreateUnitRequest {
 export function instanceOfCreateUnitRequest(
     value: object
 ): value is CreateUnitRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -53,7 +54,7 @@ export function CreateUnitRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
         abbreviation:
             json['abbreviation'] == null ? undefined : json['abbreviation'],
     };

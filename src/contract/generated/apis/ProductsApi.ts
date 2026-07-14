@@ -23,11 +23,11 @@ import {
 import * as runtime from '../runtime';
 
 export interface ApiV1ProductsGetRequest {
-    search?: string;
-    category?: string;
+    search?: string | null;
+    category?: string | null;
     includeInactive?: boolean;
-    page?: number;
-    pageSize?: number;
+    page?: number | null;
+    pageSize?: number | null;
 }
 
 export interface ApiV1ProductsIdDeactivatePatchRequest {
@@ -317,6 +317,53 @@ export class ProductsApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1ProductsIdPutRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1ProductsImageUploadSignaturePost without sending the request
+     */
+    async apiV1ProductsImageUploadSignaturePostRequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/products/image/upload-signature`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1ProductsImageUploadSignaturePostRaw(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1ProductsImageUploadSignaturePostRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1ProductsImageUploadSignaturePost(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1ProductsImageUploadSignaturePostRaw(initOverrides);
     }
 
     /**

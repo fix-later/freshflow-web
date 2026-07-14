@@ -23,7 +23,7 @@ export interface UpdateCategoryRequest {
      * @type {string}
      * @memberof UpdateCategoryRequest
      */
-    name?: string | null;
+    name: string;
 }
 
 /**
@@ -32,6 +32,7 @@ export interface UpdateCategoryRequest {
 export function instanceOfUpdateCategoryRequest(
     value: object
 ): value is UpdateCategoryRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -49,7 +50,7 @@ export function UpdateCategoryRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
     };
 }
 

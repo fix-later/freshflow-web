@@ -220,13 +220,14 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`, `text/json`, `application/*+json`
-- **Accept**: Not defined
+- **Accept**: `text/plain`, `application/json`, `text/json`
 
 
 ### HTTP response details
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | OK |  -  |
+| **400** | Bad Request |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

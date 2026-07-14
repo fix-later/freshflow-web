@@ -1,0 +1,174 @@
+<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
+    <h1 class="text-3xl font-bold tracking-tight">
+        {{ t('admin.restaurants.title') }}
+    </h1>
+    <p class="text-secondary mt-2">
+        {{ t('admin.restaurants.subtitle') }}
+    </p>
+
+    <!-- Lookup -->
+    <form
+        [formGroup]="lookupForm"
+        class="bg-card mt-6 flex flex-wrap items-end gap-4 rounded-2xl border p-6"
+        (ngSubmit)="lookupCredit()"
+    >
+        <mat-form-field class="min-w-96 flex-1" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.restaurants.lookup.label') }}</mat-label>
+            <input
+                matInput
+                formControlName="restaurantId"
+                [placeholder]="t('admin.restaurants.lookup.placeholder')"
+            />
+            @if (
+                lookupForm.get('restaurantId')?.invalid &&
+                lookupForm.get('restaurantId')?.touched
+            ) {
+                <mat-error>{{
+                    t('admin.restaurants.lookup.invalid')
+                }}</mat-error>
+            }
+        </mat-form-field>
+        <button mat-stroked-button type="submit" [disabled]="loadingCredit()">
+            <mat-icon
+                class="mr-1"
+                svgIcon="heroicons_outline:magnifying-glass"
+            ></mat-icon>
+            {{ t('admin.restaurants.lookup.submit') }}
+        </button>
+        <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="approving()"
+            (click)="approve()"
+        >
+            <mat-icon
+                class="mr-1"
+                svgIcon="heroicons_outline:check-badge"
+            ></mat-icon>
+            {{ t('admin.restaurants.approve.submit') }}
+        </button>
+    </form>
+
+    @if (loadingCredit()) {
+        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
+    }
+
+    @if (credit()) {
+        <div
+            class="bg-card mt-4 flex flex-wrap gap-6 rounded-2xl border p-6 text-sm"
+        >
+            <div>
+                <span class="text-secondary block">{{
+                    t('admin.restaurants.credit.limit')
+                }}</span>
+                <span class="text-lg font-semibold">{{
+                    credit()?.creditLimit ?? '—'
+                }}</span>
+            </div>
+            <div>
+                <span class="text-secondary block">{{
+                    t('admin.restaurants.credit.balance')
+                }}</span>
+                <span class="text-lg font-semibold">{{
+                    credit()?.currentBalance ?? '—'
+                }}</span>
+            </div>
+            <div>
+                <span class="text-secondary block">{{
+                    t('admin.restaurants.credit.available')
+                }}</span>
+                <span class="text-lg font-semibold">{{
+                    credit()?.availableCredit ?? '—'
+                }}</span>
+            </div>
+        </div>
+    }
+
+    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Set credit limit -->
+        <form
+            [formGroup]="creditLimitForm"
+            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
+            (ngSubmit)="setCreditLimit()"
+        >
+            <h2 class="text-lg font-semibold">
+                {{ t('admin.restaurants.creditLimit.title') }}
+            </h2>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.creditLimit.amount')
+                }}</mat-label>
+                <input
+                    matInput
+                    type="number"
+                    min="0"
+                    formControlName="creditLimit"
+                />
+            </mat-form-field>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.creditLimit.note')
+                }}</mat-label>
+                <input matInput formControlName="note" />
+            </mat-form-field>
+            <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                class="self-end"
+                [disabled]="creditLimitForm.invalid || settingLimit()"
+            >
+                {{ t('admin.restaurants.creditLimit.submit') }}
+            </button>
+        </form>
+
+        <!-- Settle credit -->
+        <form
+            [formGroup]="settleForm"
+            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
+            (ngSubmit)="settleCredit()"
+        >
+            <h2 class="text-lg font-semibold">
+                {{ t('admin.restaurants.settle.title') }}
+            </h2>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.amount')
+                }}</mat-label>
+                <input
+                    matInput
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    formControlName="amount"
+                />
+            </mat-form-field>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.paymentMethod')
+                }}</mat-label>
+                <input matInput formControlName="paymentMethod" />
+            </mat-form-field>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.reference')
+                }}</mat-label>
+                <input matInput formControlName="reference" />
+            </mat-form-field>
+            <mat-form-field subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.restaurants.settle.note') }}</mat-label>
+                <input matInput formControlName="note" />
+            </mat-form-field>
+            <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                class="self-end"
+                [disabled]="settleForm.invalid || settling()"
+            >
+                {{ t('admin.restaurants.settle.submit') }}
+            </button>
+        </form>
+    </div>
+</div>

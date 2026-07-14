@@ -2,29 +2,32 @@
 /**
  * Regenerates the typed API client from the backend OpenAPI spec.
  *
- * Strategy: fetch the live spec with Node (Node can reach `localhost`, a Docker
- * container cannot), save a snapshot, then run the official OpenAPI Generator
- * (`typescript-fetch`) inside Docker. This needs no local Java/JDK install.
+ * Strategy: fetch the live spec with Node (Node can reach hosts a Docker
+ * container cannot), save a snapshot under `src/contract/`, then run the
+ * official OpenAPI Generator (`typescript-fetch`) inside Docker. This needs
+ * no local Java/JDK install.
  *
  * Usage:   npm run generate:api
  * Env:
- *   OPENAPI_SPEC_URL          spec location (default http://localhost:8080/swagger/v1/swagger.json)
+ *   OPENAPI_SPEC_URL          spec URL (default remote FreshFlow swagger.json)
+ *   OPENAPI_SPEC_FILE         optional local JSON path; skips the network fetch
  *   OPENAPI_GENERATOR_IMAGE   generator image/tag (default openapitools/openapi-generator-cli:latest)
  */
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const SPEC_URL =
     process.env.OPENAPI_SPEC_URL ??
-    'http://localhost:8080/swagger/v1/swagger.json';
+    'http://api.freshflow.fishcloud.vn/swagger/v1/swagger.json';
+const SPEC_FILE_OVERRIDE = process.env.OPENAPI_SPEC_FILE;
 const IMAGE =
     process.env.OPENAPI_GENERATOR_IMAGE ??
     'openapitools/openapi-generator-cli:latest';
 
 const projectRoot = resolve(import.meta.dirname, '..');
-const outDir = 'src/api/generated';
-const specFile = 'src/api/openapi.json';
+const outDir = 'src/contract/generated';
+const specFile = 'src/contract/openapi.json';
 const configFile = 'openapi-generator.config.yaml';
 
 /** Convert a project-relative path to its in-container path under /local. */
@@ -45,22 +48,40 @@ try {
     process.exit(1);
 }
 
-// 2. Fetch + validate the live spec, then snapshot it.
-console.log(`→ Fetching OpenAPI spec: ${SPEC_URL}`);
+// 2. Load + validate the OpenAPI spec, then snapshot it.
+mkdirSync(join(projectRoot, 'src', 'contract'), { recursive: true });
+
 let spec;
-try {
-    const res = await fetch(SPEC_URL);
-    if (!res.ok) {
-        throw new Error(`HTTP ${res.status}`);
+if (SPEC_FILE_OVERRIDE) {
+    const absolute = resolve(projectRoot, SPEC_FILE_OVERRIDE);
+    console.log(`→ Reading OpenAPI spec from file: ${absolute}`);
+    try {
+        spec = readFileSync(absolute, 'utf8');
+        JSON.parse(spec);
+    } catch (err) {
+        console.error(`✖ Could not read/parse ${absolute}: ${err.message}`);
+        process.exit(1);
     }
-    spec = await res.text();
-    JSON.parse(spec); // fail fast on a non-JSON / error page
-} catch (err) {
-    console.error(`✖ Could not fetch/parse spec from ${SPEC_URL}: ${err.message}`);
-    console.error('  Is the backend running? Override with OPENAPI_SPEC_URL=...');
-    process.exit(1);
+} else {
+    console.log(`→ Fetching OpenAPI spec: ${SPEC_URL}`);
+    try {
+        const res = await fetch(SPEC_URL);
+        if (!res.ok) {
+            throw new Error(`HTTP ${res.status}`);
+        }
+        spec = await res.text();
+        JSON.parse(spec); // fail fast on a non-JSON / error page
+    } catch (err) {
+        console.error(
+            `✖ Could not fetch/parse spec from ${SPEC_URL}: ${err.message}`
+        );
+        console.error(
+            '  Is the backend reachable? Override with OPENAPI_SPEC_URL=... or OPENAPI_SPEC_FILE=...'
+        );
+        process.exit(1);
+    }
 }
-mkdirSync(join(projectRoot, 'src', 'api'), { recursive: true });
+
 writeFileSync(join(projectRoot, specFile), spec);
 console.log(`→ Saved spec snapshot: ${specFile}`);
 
@@ -85,5 +106,5 @@ run('docker', [
     inContainer(configFile),
 ]);
 
-console.log('\n✔ API client generated into src/api/generated');
+console.log('\n✔ API client generated into src/contract/generated');
 console.log('  Do not edit generated files — re-run `npm run generate:api`.');

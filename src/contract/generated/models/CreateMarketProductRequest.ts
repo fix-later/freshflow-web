@@ -23,7 +23,7 @@ export interface CreateMarketProductRequest {
      * @type {string}
      * @memberof CreateMarketProductRequest
      */
-    productId?: string;
+    productId: string;
     /**
      *
      * @type {number}
@@ -44,6 +44,8 @@ export interface CreateMarketProductRequest {
 export function instanceOfCreateMarketProductRequest(
     value: object
 ): value is CreateMarketProductRequest {
+    if (!('productId' in value) || value['productId'] === undefined)
+        return false;
     return true;
 }
 
@@ -61,7 +63,7 @@ export function CreateMarketProductRequestFromJSONTyped(
         return json;
     }
     return {
-        productId: json['productId'] == null ? undefined : json['productId'],
+        productId: json['productId'],
         initialPrice:
             json['initialPrice'] == null ? undefined : json['initialPrice'],
         initialQuantity:

@@ -1,0 +1,40 @@
+
+# RecordInboundRequest
+
+
+## Properties
+
+Name | Type
+------------ | -------------
+`sourceMarketId` | string
+`deliveryScheduleId` | string
+`items` | [Array&lt;RecordInboundItemRequest&gt;](RecordInboundItemRequest.md)
+`arrivedAt` | Date
+
+## Example
+
+```typescript
+import type { RecordInboundRequest } from ''
+
+// TODO: Update the object below with actual values
+const example = {
+  "sourceMarketId": null,
+  "deliveryScheduleId": null,
+  "items": null,
+  "arrivedAt": null,
+} satisfies RecordInboundRequest
+
+console.log(example)
+
+// Convert the instance to a JSON string
+const exampleJSON: string = JSON.stringify(example)
+console.log(exampleJSON)
+
+// Parse the JSON string back to an object
+const exampleParsed = JSON.parse(exampleJSON) as RecordInboundRequest
+console.log(exampleParsed)
+```
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+

@@ -23,19 +23,22 @@ export interface LoginRequest {
      * @type {string}
      * @memberof LoginRequest
      */
-    identifier?: string | null;
+    identifier: string;
     /**
      *
      * @type {string}
      * @memberof LoginRequest
      */
-    password?: string | null;
+    password: string;
 }
 
 /**
  * Check if a given object implements the LoginRequest interface.
  */
 export function instanceOfLoginRequest(value: object): value is LoginRequest {
+    if (!('identifier' in value) || value['identifier'] === undefined)
+        return false;
+    if (!('password' in value) || value['password'] === undefined) return false;
     return true;
 }
 
@@ -51,8 +54,8 @@ export function LoginRequestFromJSONTyped(
         return json;
     }
     return {
-        identifier: json['identifier'] == null ? undefined : json['identifier'],
-        password: json['password'] == null ? undefined : json['password'],
+        identifier: json['identifier'],
+        password: json['password'],
     };
 }
 

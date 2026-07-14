@@ -79,6 +79,10 @@ export interface ApiV1OrdersOrderIdConfirmPostRequest {
     orderId: string;
 }
 
+export interface ApiV1OrdersOrderIdConfirmPreviewGetRequest {
+    orderId: string;
+}
+
 export interface ApiV1OrdersOrderIdGetRequest {
     orderId: string;
 }
@@ -457,6 +461,73 @@ export class OrdersApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1OrdersOrderIdConfirmPostRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1OrdersOrderIdConfirmPreviewGet without sending the request
+     */
+    async apiV1OrdersOrderIdConfirmPreviewGetRequestOpts(
+        requestParameters: ApiV1OrdersOrderIdConfirmPreviewGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['orderId'] == null) {
+            throw new runtime.RequiredError(
+                'orderId',
+                'Required parameter "orderId" was null or undefined when calling apiV1OrdersOrderIdConfirmPreviewGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/orders/{orderId}/confirm-preview`;
+        urlPath = urlPath.replace(
+            '{orderId}',
+            encodeURIComponent(String(requestParameters['orderId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdConfirmPreviewGetRaw(
+        requestParameters: ApiV1OrdersOrderIdConfirmPreviewGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1OrdersOrderIdConfirmPreviewGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdConfirmPreviewGet(
+        requestParameters: ApiV1OrdersOrderIdConfirmPreviewGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1OrdersOrderIdConfirmPreviewGetRaw(
             requestParameters,
             initOverrides
         );

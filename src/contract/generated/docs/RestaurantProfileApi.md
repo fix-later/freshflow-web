@@ -5,6 +5,7 @@ All URIs are relative to *http://localhost*
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
 | [**apiV1RestaurantsMeApprovalStatusGet**](RestaurantProfileApi.md#apiv1restaurantsmeapprovalstatusget) | **GET** /api/v1/restaurants/me/approval-status |  |
+| [**apiV1RestaurantsMeBusinessLicenseUploadSignaturePost**](RestaurantProfileApi.md#apiv1restaurantsmebusinesslicenseuploadsignaturepost) | **POST** /api/v1/restaurants/me/business-license/upload-signature |  |
 | [**apiV1RestaurantsMeDeliveryAddressesGet**](RestaurantProfileApi.md#apiv1restaurantsmedeliveryaddressesget) | **GET** /api/v1/restaurants/me/delivery-addresses |  |
 | [**apiV1RestaurantsMeDeliveryAddressesIdDelete**](RestaurantProfileApi.md#apiv1restaurantsmedeliveryaddressesiddelete) | **DELETE** /api/v1/restaurants/me/delivery-addresses/{id} |  |
 | [**apiV1RestaurantsMeDeliveryAddressesIdPut**](RestaurantProfileApi.md#apiv1restaurantsmedeliveryaddressesidput) | **PUT** /api/v1/restaurants/me/delivery-addresses/{id} |  |
@@ -39,6 +40,67 @@ async function example() {
 
   try {
     const data = await api.apiV1RestaurantsMeApprovalStatusGet();
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1RestaurantsMeBusinessLicenseUploadSignaturePost
+
+> apiV1RestaurantsMeBusinessLicenseUploadSignaturePost()
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  RestaurantProfileApi,
+} from '';
+import type { ApiV1RestaurantsMeBusinessLicenseUploadSignaturePostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new RestaurantProfileApi(config);
+
+  try {
+    const data = await api.apiV1RestaurantsMeBusinessLicenseUploadSignaturePost();
     console.log(data);
   } catch (error) {
     console.error(error);
