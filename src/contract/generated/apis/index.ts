@@ -1,13 +1,23 @@
 /* tslint:disable */
 /* eslint-disable */
 export * from './AdminApi';
+export * from './AssistantApi';
 export * from './AuthApi';
 export * from './CategoriesApi';
+export * from './DeliveryZonesApi';
+export * from './DriverApi';
+export * from './HubHandoverApi';
+export * from './HubInboundApi';
+export * from './HubsApi';
 export * from './MarketsApi';
+export * from './NotificationApi';
+export * from './NotificationDeviceApi';
 export * from './OrdersApi';
 export * from './PricingApi';
 export * from './ProductsApi';
 export * from './ProfileApi';
 export * from './RestaurantCreditApi';
 export * from './RestaurantProfileApi';
+export * from './RoutesApi';
 export * from './UnitsApi';
+export * from './VehiclesApi';

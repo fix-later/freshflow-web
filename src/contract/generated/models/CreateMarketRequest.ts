@@ -23,7 +23,7 @@ export interface CreateMarketRequest {
      * @type {string}
      * @memberof CreateMarketRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
@@ -56,6 +56,7 @@ export interface CreateMarketRequest {
 export function instanceOfCreateMarketRequest(
     value: object
 ): value is CreateMarketRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -71,7 +72,7 @@ export function CreateMarketRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
         location: json['location'] == null ? undefined : json['location'],
         address: json['address'] == null ? undefined : json['address'],
         latitude: json['latitude'] == null ? undefined : json['latitude'],

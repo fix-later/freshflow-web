@@ -23,7 +23,7 @@ export interface DraftOrderItemRequest {
      * @type {string}
      * @memberof DraftOrderItemRequest
      */
-    marketProductId?: string;
+    marketProductId: string;
     /**
      *
      * @type {number}
@@ -38,6 +38,8 @@ export interface DraftOrderItemRequest {
 export function instanceOfDraftOrderItemRequest(
     value: object
 ): value is DraftOrderItemRequest {
+    if (!('marketProductId' in value) || value['marketProductId'] === undefined)
+        return false;
     return true;
 }
 
@@ -55,10 +57,7 @@ export function DraftOrderItemRequestFromJSONTyped(
         return json;
     }
     return {
-        marketProductId:
-            json['marketProductId'] == null
-                ? undefined
-                : json['marketProductId'],
+        marketProductId: json['marketProductId'],
         quantity: json['quantity'] == null ? undefined : json['quantity'],
     };
 }

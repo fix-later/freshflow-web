@@ -23,7 +23,7 @@ export interface AddOrderItemRequest {
      * @type {string}
      * @memberof AddOrderItemRequest
      */
-    marketProductId?: string;
+    marketProductId: string;
     /**
      *
      * @type {number}
@@ -38,6 +38,8 @@ export interface AddOrderItemRequest {
 export function instanceOfAddOrderItemRequest(
     value: object
 ): value is AddOrderItemRequest {
+    if (!('marketProductId' in value) || value['marketProductId'] === undefined)
+        return false;
     return true;
 }
 
@@ -53,10 +55,7 @@ export function AddOrderItemRequestFromJSONTyped(
         return json;
     }
     return {
-        marketProductId:
-            json['marketProductId'] == null
-                ? undefined
-                : json['marketProductId'],
+        marketProductId: json['marketProductId'],
         quantity: json['quantity'] == null ? undefined : json['quantity'],
     };
 }

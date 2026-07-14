@@ -23,7 +23,7 @@ export interface AssignRoleRequest {
      * @type {string}
      * @memberof AssignRoleRequest
      */
-    roleName?: string | null;
+    roleName: string;
 }
 
 /**
@@ -32,6 +32,7 @@ export interface AssignRoleRequest {
 export function instanceOfAssignRoleRequest(
     value: object
 ): value is AssignRoleRequest {
+    if (!('roleName' in value) || value['roleName'] === undefined) return false;
     return true;
 }
 
@@ -47,7 +48,7 @@ export function AssignRoleRequestFromJSONTyped(
         return json;
     }
     return {
-        roleName: json['roleName'] == null ? undefined : json['roleName'],
+        roleName: json['roleName'],
     };
 }
 

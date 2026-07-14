@@ -23,7 +23,7 @@ export interface CreateCategoryRequest {
      * @type {string}
      * @memberof CreateCategoryRequest
      */
-    name?: string | null;
+    name: string;
 }
 
 /**
@@ -32,6 +32,7 @@ export interface CreateCategoryRequest {
 export function instanceOfCreateCategoryRequest(
     value: object
 ): value is CreateCategoryRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -49,7 +50,7 @@ export function CreateCategoryRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
     };
 }
 

@@ -23,13 +23,13 @@ export interface ResetPasswordRequest {
      * @type {string}
      * @memberof ResetPasswordRequest
      */
-    token?: string | null;
+    token: string;
     /**
      *
      * @type {string}
      * @memberof ResetPasswordRequest
      */
-    newPassword?: string | null;
+    newPassword: string;
 }
 
 /**
@@ -38,6 +38,9 @@ export interface ResetPasswordRequest {
 export function instanceOfResetPasswordRequest(
     value: object
 ): value is ResetPasswordRequest {
+    if (!('token' in value) || value['token'] === undefined) return false;
+    if (!('newPassword' in value) || value['newPassword'] === undefined)
+        return false;
     return true;
 }
 
@@ -53,9 +56,8 @@ export function ResetPasswordRequestFromJSONTyped(
         return json;
     }
     return {
-        token: json['token'] == null ? undefined : json['token'],
-        newPassword:
-            json['newPassword'] == null ? undefined : json['newPassword'],
+        token: json['token'],
+        newPassword: json['newPassword'],
     };
 }
 

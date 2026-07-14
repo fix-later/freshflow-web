@@ -29,7 +29,7 @@ export interface CreateDraftOrderRequest {
      * @type {Array<DraftOrderItemRequest>}
      * @memberof CreateDraftOrderRequest
      */
-    items?: Array<DraftOrderItemRequest> | null;
+    items: Array<DraftOrderItemRequest>;
     /**
      *
      * @type {Date}
@@ -50,6 +50,7 @@ export interface CreateDraftOrderRequest {
 export function instanceOfCreateDraftOrderRequest(
     value: object
 ): value is CreateDraftOrderRequest {
+    if (!('items' in value) || value['items'] === undefined) return false;
     return true;
 }
 
@@ -67,12 +68,7 @@ export function CreateDraftOrderRequestFromJSONTyped(
         return json;
     }
     return {
-        items:
-            json['items'] == null
-                ? undefined
-                : (json['items'] as Array<any>).map(
-                      DraftOrderItemRequestFromJSON
-                  ),
+        items: (json['items'] as Array<any>).map(DraftOrderItemRequestFromJSON),
         scheduledFor:
             json['scheduledFor'] == null
                 ? undefined
@@ -96,12 +92,7 @@ export function CreateDraftOrderRequestToJSONTyped(
     }
 
     return {
-        items:
-            value['items'] == null
-                ? undefined
-                : (value['items'] as Array<any>).map(
-                      DraftOrderItemRequestToJSON
-                  ),
+        items: (value['items'] as Array<any>).map(DraftOrderItemRequestToJSON),
         scheduledFor:
             value['scheduledFor'] == null
                 ? value['scheduledFor']

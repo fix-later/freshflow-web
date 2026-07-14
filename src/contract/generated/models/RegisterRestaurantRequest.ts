@@ -23,19 +23,19 @@ export interface RegisterRestaurantRequest {
      * @type {string}
      * @memberof RegisterRestaurantRequest
      */
-    email?: string | null;
+    email: string;
     /**
      *
      * @type {string}
      * @memberof RegisterRestaurantRequest
      */
-    password?: string | null;
+    password: string;
     /**
      *
      * @type {string}
      * @memberof RegisterRestaurantRequest
      */
-    restaurantName?: string | null;
+    restaurantName: string;
     /**
      *
      * @type {string}
@@ -50,6 +50,10 @@ export interface RegisterRestaurantRequest {
 export function instanceOfRegisterRestaurantRequest(
     value: object
 ): value is RegisterRestaurantRequest {
+    if (!('email' in value) || value['email'] === undefined) return false;
+    if (!('password' in value) || value['password'] === undefined) return false;
+    if (!('restaurantName' in value) || value['restaurantName'] === undefined)
+        return false;
     return true;
 }
 
@@ -67,10 +71,9 @@ export function RegisterRestaurantRequestFromJSONTyped(
         return json;
     }
     return {
-        email: json['email'] == null ? undefined : json['email'],
-        password: json['password'] == null ? undefined : json['password'],
-        restaurantName:
-            json['restaurantName'] == null ? undefined : json['restaurantName'],
+        email: json['email'],
+        password: json['password'],
+        restaurantName: json['restaurantName'],
         phone: json['phone'] == null ? undefined : json['phone'],
     };
 }

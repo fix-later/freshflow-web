@@ -23,13 +23,13 @@ export interface CreateScheduledOrderRequest {
      * @type {string}
      * @memberof CreateScheduledOrderRequest
      */
-    recurrenceType?: string | null;
+    recurrenceType: string;
     /**
      *
      * @type {Date}
      * @memberof CreateScheduledOrderRequest
      */
-    firstRunAt?: Date;
+    firstRunAt: Date;
     /**
      *
      * @type {string}
@@ -44,6 +44,10 @@ export interface CreateScheduledOrderRequest {
 export function instanceOfCreateScheduledOrderRequest(
     value: object
 ): value is CreateScheduledOrderRequest {
+    if (!('recurrenceType' in value) || value['recurrenceType'] === undefined)
+        return false;
+    if (!('firstRunAt' in value) || value['firstRunAt'] === undefined)
+        return false;
     return true;
 }
 
@@ -61,12 +65,8 @@ export function CreateScheduledOrderRequestFromJSONTyped(
         return json;
     }
     return {
-        recurrenceType:
-            json['recurrenceType'] == null ? undefined : json['recurrenceType'],
-        firstRunAt:
-            json['firstRunAt'] == null
-                ? undefined
-                : new Date(json['firstRunAt']),
+        recurrenceType: json['recurrenceType'],
+        firstRunAt: new Date(json['firstRunAt']),
         notes: json['notes'] == null ? undefined : json['notes'],
     };
 }
@@ -87,10 +87,7 @@ export function CreateScheduledOrderRequestToJSONTyped(
 
     return {
         recurrenceType: value['recurrenceType'],
-        firstRunAt:
-            value['firstRunAt'] == null
-                ? value['firstRunAt']
-                : value['firstRunAt'].toISOString(),
+        firstRunAt: value['firstRunAt'].toISOString(),
         notes: value['notes'],
     };
 }

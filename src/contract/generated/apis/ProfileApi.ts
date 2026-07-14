@@ -27,6 +27,53 @@ export interface ApiV1ProfileMePutRequest {
  */
 export class ProfileApi extends runtime.BaseAPI {
     /**
+     * Creates request options for apiV1ProfileMeAvatarUploadSignaturePost without sending the request
+     */
+    async apiV1ProfileMeAvatarUploadSignaturePostRequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/profile/me/avatar/upload-signature`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1ProfileMeAvatarUploadSignaturePostRaw(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1ProfileMeAvatarUploadSignaturePostRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1ProfileMeAvatarUploadSignaturePost(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1ProfileMeAvatarUploadSignaturePostRaw(initOverrides);
+    }
+
+    /**
      * Creates request options for apiV1ProfileMeGet without sending the request
      */
     async apiV1ProfileMeGetRequestOpts(): Promise<runtime.RequestOpts> {

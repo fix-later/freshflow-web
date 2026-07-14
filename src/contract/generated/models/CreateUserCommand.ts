@@ -23,19 +23,19 @@ export interface CreateUserCommand {
      * @type {string}
      * @memberof CreateUserCommand
      */
-    email?: string | null;
+    email: string;
     /**
      *
      * @type {string}
      * @memberof CreateUserCommand
      */
-    password?: string | null;
+    password: string;
     /**
      *
      * @type {string}
      * @memberof CreateUserCommand
      */
-    role?: string | null;
+    role: string;
     /**
      *
      * @type {string}
@@ -62,6 +62,9 @@ export interface CreateUserCommand {
 export function instanceOfCreateUserCommand(
     value: object
 ): value is CreateUserCommand {
+    if (!('email' in value) || value['email'] === undefined) return false;
+    if (!('password' in value) || value['password'] === undefined) return false;
+    if (!('role' in value) || value['role'] === undefined) return false;
     return true;
 }
 
@@ -77,9 +80,9 @@ export function CreateUserCommandFromJSONTyped(
         return json;
     }
     return {
-        email: json['email'] == null ? undefined : json['email'],
-        password: json['password'] == null ? undefined : json['password'],
-        role: json['role'] == null ? undefined : json['role'],
+        email: json['email'],
+        password: json['password'],
+        role: json['role'],
         marketId: json['marketId'] == null ? undefined : json['marketId'],
         restaurantName:
             json['restaurantName'] == null ? undefined : json['restaurantName'],

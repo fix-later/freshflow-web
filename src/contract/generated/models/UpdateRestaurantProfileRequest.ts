@@ -23,7 +23,7 @@ export interface UpdateRestaurantProfileRequest {
      * @type {string}
      * @memberof UpdateRestaurantProfileRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
@@ -48,6 +48,12 @@ export interface UpdateRestaurantProfileRequest {
      * @memberof UpdateRestaurantProfileRequest
      */
     pickupEnd?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof UpdateRestaurantProfileRequest
+     */
+    businessLicenseUrl?: string | null;
 }
 
 /**
@@ -56,6 +62,7 @@ export interface UpdateRestaurantProfileRequest {
 export function instanceOfUpdateRestaurantProfileRequest(
     value: object
 ): value is UpdateRestaurantProfileRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -73,13 +80,17 @@ export function UpdateRestaurantProfileRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
         address: json['address'] == null ? undefined : json['address'],
         contactPerson:
             json['contactPerson'] == null ? undefined : json['contactPerson'],
         pickupStart:
             json['pickupStart'] == null ? undefined : json['pickupStart'],
         pickupEnd: json['pickupEnd'] == null ? undefined : json['pickupEnd'],
+        businessLicenseUrl:
+            json['businessLicenseUrl'] == null
+                ? undefined
+                : json['businessLicenseUrl'],
     };
 }
 
@@ -103,5 +114,6 @@ export function UpdateRestaurantProfileRequestToJSONTyped(
         contactPerson: value['contactPerson'],
         pickupStart: value['pickupStart'],
         pickupEnd: value['pickupEnd'],
+        businessLicenseUrl: value['businessLicenseUrl'],
     };
 }

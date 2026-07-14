@@ -1,0 +1,172 @@
+<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
+    <div class="flex items-center gap-3">
+        <button mat-icon-button type="button" (click)="goBack()">
+            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+        </button>
+        <div>
+            <h1 class="text-2xl font-bold tracking-tight">
+                {{ user()?.email || t('admin.userDetail.title') }}
+            </h1>
+            <p class="text-secondary mt-0.5 text-sm">{{ userId }}</p>
+        </div>
+    </div>
+
+    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <!-- Profile summary -->
+        <div class="bg-card flex flex-col gap-3 rounded-2xl border p-6">
+            <h2 class="text-lg font-semibold">
+                {{ t('admin.userDetail.profile.title') }}
+            </h2>
+
+            <div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <span class="text-secondary">{{
+                    t('admin.userDetail.profile.email')
+                }}</span>
+                <span>{{ user()?.email || '—' }}</span>
+
+                <span class="text-secondary">{{
+                    t('admin.userDetail.profile.phone')
+                }}</span>
+                <span>{{ user()?.phone || '—' }}</span>
+
+                <span class="text-secondary">{{
+                    t('admin.userDetail.profile.restaurant')
+                }}</span>
+                <span>{{ user()?.restaurantName || '—' }}</span>
+
+                <span class="text-secondary">{{
+                    t('admin.userDetail.profile.status')
+                }}</span>
+                <span>
+                    @if (user()?.isActive) {
+                        <span
+                            class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
+                        >
+                            {{ t('admin.users.filters.active') }}
+                        </span>
+                    } @else {
+                        <span
+                            class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
+                        >
+                            {{ t('admin.users.filters.inactive') }}
+                        </span>
+                    }
+                    @if (user()?.lockedUntil) {
+                        <span
+                            class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                        >
+                            {{ t('admin.users.table.locked') }}
+                        </span>
+                    }
+                </span>
+            </div>
+
+            <div class="mt-2 flex flex-wrap gap-2">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="savingActive()"
+                    (click)="toggleActive()"
+                >
+                    <mat-icon
+                        class="mr-1"
+                        [svgIcon]="
+                            user()?.isActive
+                                ? 'heroicons_outline:lock-closed'
+                                : 'heroicons_outline:lock-open'
+                        "
+                    ></mat-icon>
+                    {{
+                        user()?.isActive
+                            ? t('admin.users.actions.deactivate')
+                            : t('admin.users.actions.activate')
+                    }}
+                </button>
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="unlocking()"
+                    (click)="unlock()"
+                >
+                    <mat-icon
+                        class="mr-1"
+                        svgIcon="heroicons_outline:key"
+                    ></mat-icon>
+                    {{ t('admin.users.actions.unlock') }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Role -->
+        <div class="bg-card flex flex-col gap-3 rounded-2xl border p-6">
+            <h2 class="text-lg font-semibold">
+                {{ t('admin.userDetail.role.title') }}
+            </h2>
+            <form
+                [formGroup]="roleForm"
+                class="flex items-end gap-3"
+                (ngSubmit)="saveRole()"
+            >
+                <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.userDetail.role.label')
+                    }}</mat-label>
+                    <mat-select formControlName="role">
+                        @for (role of roles(); track role) {
+                            <mat-option [value]="role">{{ role }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="roleForm.invalid || savingRole()"
+                >
+                    {{ t('admin.userDetail.role.save') }}
+                </button>
+            </form>
+        </div>
+
+        <!-- Market assignments -->
+        <div
+            class="bg-card flex flex-col gap-3 rounded-2xl border p-6 lg:col-span-2"
+        >
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold">
+                    {{ t('admin.userDetail.assignments.title') }}
+                </h2>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="savingAssignments()"
+                    (click)="saveAssignments()"
+                >
+                    {{ t('admin.userDetail.assignments.save') }}
+                </button>
+            </div>
+
+            @if (loadingAssignments()) {
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            }
+
+            @if (!loadingAssignments() && markets().length === 0) {
+                <p class="text-secondary text-sm">
+                    {{ t('admin.userDetail.assignments.empty') }}
+                </p>
+            }
+
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
+                @for (market of markets(); track market.id) {
+                    <mat-checkbox
+                        [checked]="isMarketAssigned(market.id)"
+                        (change)="toggleMarket(market.id)"
+                    >
+                        {{ market.name }}
+                    </mat-checkbox>
+                }
+            </div>
+        </div>
+    </div>
+</div>

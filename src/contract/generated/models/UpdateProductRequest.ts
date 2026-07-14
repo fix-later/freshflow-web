@@ -23,13 +23,13 @@ export interface UpdateProductRequest {
      * @type {string}
      * @memberof UpdateProductRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
      * @memberof UpdateProductRequest
      */
-    unitId?: string;
+    unitId: string;
     /**
      *
      * @type {string}
@@ -42,6 +42,12 @@ export interface UpdateProductRequest {
      * @memberof UpdateProductRequest
      */
     description?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof UpdateProductRequest
+     */
+    imageUrl?: string | null;
 }
 
 /**
@@ -50,6 +56,8 @@ export interface UpdateProductRequest {
 export function instanceOfUpdateProductRequest(
     value: object
 ): value is UpdateProductRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
+    if (!('unitId' in value) || value['unitId'] === undefined) return false;
     return true;
 }
 
@@ -65,11 +73,12 @@ export function UpdateProductRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
-        unitId: json['unitId'] == null ? undefined : json['unitId'],
+        name: json['name'],
+        unitId: json['unitId'],
         categoryId: json['categoryId'] == null ? undefined : json['categoryId'],
         description:
             json['description'] == null ? undefined : json['description'],
+        imageUrl: json['imageUrl'] == null ? undefined : json['imageUrl'],
     };
 }
 
@@ -90,5 +99,6 @@ export function UpdateProductRequestToJSONTyped(
         unitId: value['unitId'],
         categoryId: value['categoryId'],
         description: value['description'],
+        imageUrl: value['imageUrl'],
     };
 }

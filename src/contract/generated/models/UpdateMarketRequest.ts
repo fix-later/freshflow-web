@@ -23,7 +23,7 @@ export interface UpdateMarketRequest {
      * @type {string}
      * @memberof UpdateMarketRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
@@ -56,6 +56,7 @@ export interface UpdateMarketRequest {
 export function instanceOfUpdateMarketRequest(
     value: object
 ): value is UpdateMarketRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
 
@@ -71,7 +72,7 @@ export function UpdateMarketRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
+        name: json['name'],
         location: json['location'] == null ? undefined : json['location'],
         address: json['address'] == null ? undefined : json['address'],
         latitude: json['latitude'] == null ? undefined : json['latitude'],

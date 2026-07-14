@@ -12,14 +12,38 @@
  * Do not edit the class manually.
  */
 
+import {
+    type GenerateStatementRequest,
+    GenerateStatementRequestToJSON,
+} from '../models/GenerateStatementRequest';
 import * as runtime from '../runtime';
 
 export interface ApiV1RestaurantsRestaurantIdCreditGetRequest {
     restaurantId: string;
 }
 
+export interface ApiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequest {
+    restaurantId: string;
+    generateStatementRequest?: GenerateStatementRequest;
+}
+
+export interface ApiV1RestaurantsRestaurantIdCreditStatementsGetRequest {
+    restaurantId: string;
+    cursor?: string;
+    pageSize?: number;
+}
+
+export interface ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequest {
+    restaurantId: string;
+    statementId: string;
+}
+
 export interface ApiV1RestaurantsRestaurantIdCreditTransactionsGetRequest {
     restaurantId: string;
+    cursor?: string;
+    pageSize?: number;
+    from?: string;
+    to?: string;
 }
 
 /**
@@ -94,6 +118,231 @@ export class RestaurantCreditApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for apiV1RestaurantsRestaurantIdCreditStatementsGeneratePost without sending the request
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequestOpts(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['restaurantId'] == null) {
+            throw new runtime.RequiredError(
+                'restaurantId',
+                'Required parameter "restaurantId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsGeneratePost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/{restaurantId}/credit/statements/generate`;
+        urlPath = urlPath.replace(
+            '{restaurantId}',
+            encodeURIComponent(String(requestParameters['restaurantId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: GenerateStatementRequestToJSON(
+                requestParameters['generateStatementRequest']
+            ),
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRaw(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGeneratePost(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1RestaurantsRestaurantIdCreditStatementsGet without sending the request
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGetRequestOpts(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['restaurantId'] == null) {
+            throw new runtime.RequiredError(
+                'restaurantId',
+                'Required parameter "restaurantId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['cursor'] != null) {
+            queryParameters['cursor'] = requestParameters['cursor'];
+        }
+
+        if (requestParameters['pageSize'] != null) {
+            queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/{restaurantId}/credit/statements`;
+        urlPath = urlPath.replace(
+            '{restaurantId}',
+            encodeURIComponent(String(requestParameters['restaurantId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsRestaurantIdCreditStatementsGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsGet(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGet without sending the request
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequestOpts(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['restaurantId'] == null) {
+            throw new runtime.RequiredError(
+                'restaurantId',
+                'Required parameter "restaurantId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGet().'
+            );
+        }
+
+        if (requestParameters['statementId'] == null) {
+            throw new runtime.RequiredError(
+                'statementId',
+                'Required parameter "statementId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/{restaurantId}/credit/statements/{statementId}`;
+        urlPath = urlPath.replace(
+            '{restaurantId}',
+            encodeURIComponent(String(requestParameters['restaurantId']))
+        );
+        urlPath = urlPath.replace(
+            '{statementId}',
+            encodeURIComponent(String(requestParameters['statementId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRaw(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGet(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
      * Creates request options for apiV1RestaurantsRestaurantIdCreditTransactionsGet without sending the request
      */
     async apiV1RestaurantsRestaurantIdCreditTransactionsGetRequestOpts(
@@ -107,6 +356,22 @@ export class RestaurantCreditApi extends runtime.BaseAPI {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['cursor'] != null) {
+            queryParameters['cursor'] = requestParameters['cursor'];
+        }
+
+        if (requestParameters['pageSize'] != null) {
+            queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        if (requestParameters['from'] != null) {
+            queryParameters['from'] = requestParameters['from'];
+        }
+
+        if (requestParameters['to'] != null) {
+            queryParameters['to'] = requestParameters['to'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 
