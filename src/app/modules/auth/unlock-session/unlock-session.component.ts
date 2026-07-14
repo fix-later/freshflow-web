@@ -22,6 +22,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { UserService } from 'app/core/user/user.service';
 
 @Component({
@@ -62,6 +63,7 @@ export class AuthUnlockSessionComponent implements OnInit {
         private _activatedRoute: ActivatedRoute,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
+        private _permissions: PermissionsService,
         private _router: Router,
         private _userService: UserService
     ) {}
@@ -119,14 +121,13 @@ export class AuthUnlockSessionComponent implements OnInit {
             })
             .subscribe(
                 () => {
-                    // Set the redirect url.
-                    // The '/signed-in-redirect' is a dummy url to catch the request and redirect the user
-                    // to the correct page after a successful sign in. This way, that url can be set via
-                    // routing file and we don't have to touch here.
+                    // Role is known once signIn resolves, so navigate straight to
+                    // the per-role landing page (see sign-in.component for why we
+                    // avoid the async-racy `signed-in-redirect` route).
                     const redirectURL =
                         this._activatedRoute.snapshot.queryParamMap.get(
                             'redirectURL'
-                        ) || '/signed-in-redirect';
+                        ) || this._permissions.landingUrl();
 
                     // Navigate to the redirect url
                     this._router.navigateByUrl(redirectURL);

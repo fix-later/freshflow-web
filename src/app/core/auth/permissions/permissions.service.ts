@@ -33,6 +33,15 @@ export class PermissionsService {
             this._user()?.approvalStatus === 'pending'
     );
 
+    /**
+     * Landing route for the signed-in user (admin console vs storefront).
+     * Call only once the profile is loaded (e.g. after `signIn()` resolves) —
+     * a `null` role falls back to the storefront home.
+     */
+    landingUrl(): string {
+        return this.role() === 'admin' ? '/admin' : '/home';
+    }
+
     /** True if the current role is granted `permission`. */
     has(permission: Permission): boolean {
         return roleHasPermission(this.role(), permission);

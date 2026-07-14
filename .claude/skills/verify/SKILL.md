@@ -19,11 +19,13 @@ description: Build, launch, and drive FreshFlow Web (Angular + Fuse) to verify c
   `chromium.launch({ channel: 'chrome', headless: true })` — system Chrome
   works, no browser download.
 - **Auth**: all main routes sit behind `AuthGuard`, which always fetches
-  `GET /api/v1/profile/me` from the remote API
-  (`http://api.freshflow.fishfix.vn`). To get past it offline:
+  `GET /api/v1/profile/me` from the backend origin configured in
+  `src/environments/environment.*.ts` (`apiBaseUrl`; default
+  `http://localhost:8080`, overridable via `environment.local.ts`). To get
+  past it offline:
   1. Stub routes with Playwright. **Playwright matches routes in reverse
      registration order — register the catch-all FIRST**, then specifics:
-     - catch-all `http://api.freshflow.fishfix.vn/**` → 404
+     - catch-all `**/api/v1/**` → 404
      - `**/api/v1/profile/me` → `{ data: { id, email, role: 'admin', fullName } }`
        (role `admin` skips the restaurant approval-status fetch)
   2. Forge a JWT (any signature; only `exp` is decoded):

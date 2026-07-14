@@ -41,8 +41,9 @@ in `src/app/app.routes.ts`. Roles only gate access (`roleGuard`) and add cross-a
 | Operations (planned) | `/ops`                       | `classic`    | Vertical   | Same operational density as Admin; side nav for procurement/logistics — ops users stay on the storefront until this area lands |
 | Hub (planned)        | —                            | `classy`     | Vertical   | Streamlined hub workflow; lighter side nav variant                                                                             |
 
-After sign-in, `signed-in-redirect` routes each role to its landing area (admin → `/admin`,
-others → `/home`).
+After sign-in, the auth flow routes each role to its landing area (admin → `/admin`,
+others → `/home`). The decision is made in the sign-in / unlock-session components once
+the profile — and therefore the role — is loaded.
 
 ## Role-based menus
 

@@ -1,0 +1,132 @@
+<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
+    <a
+        routerLink="/admin/markets"
+        class="text-secondary mb-4 inline-flex w-fit items-center gap-1 text-sm font-medium hover:text-primary"
+    >
+        <mat-icon
+            class="icon-size-4"
+            svgIcon="heroicons_outline:arrow-left"
+        ></mat-icon>
+        {{ t('admin.markets.title') }}
+    </a>
+
+    <h1 class="text-3xl font-bold tracking-tight">
+        {{ t('admin.markets.pricingTitle') }}
+    </h1>
+    <p class="text-secondary mt-1">{{ t('admin.markets.pricingSubtitle') }}</p>
+
+    <!-- Add product to this market -->
+    <form
+        [formGroup]="addForm"
+        class="mt-6 flex flex-wrap items-end gap-3"
+        (ngSubmit)="addProduct()"
+    >
+        <mat-form-field class="w-64" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.markets.addProduct') }}</mat-label>
+            <mat-select formControlName="productId">
+                @for (opt of productOptions(); track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+        <mat-form-field class="w-36" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.markets.price') }}</mat-label>
+            <input matInput type="number" formControlName="initialPrice" />
+        </mat-form-field>
+        <mat-form-field class="w-36" subscriptSizing="dynamic">
+            <mat-label>{{ t('admin.markets.quantity') }}</mat-label>
+            <input matInput type="number" formControlName="initialQuantity" />
+        </mat-form-field>
+        <button
+            mat-flat-button
+            color="primary"
+            type="submit"
+            [disabled]="!addForm.value.productId || saving()"
+        >
+            <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
+            {{ t('admin.crud.save') }}
+        </button>
+    </form>
+
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
+    }
+
+    <div class="bg-card mt-4 overflow-x-auto rounded-2xl border">
+        <table class="w-full min-w-[640px] text-left text-sm">
+            <thead
+                class="text-secondary border-b text-xs uppercase tracking-wide"
+            >
+                <tr>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.products.name') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.markets.price') }}
+                    </th>
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.markets.quantity') }}
+                    </th>
+                    <th class="px-4 py-3 text-right font-medium">
+                        {{ t('admin.users.table.actions') }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (row of rows(); track row.productId) {
+                    <tr class="border-b last:border-0">
+                        <td class="px-4 py-3 font-medium">
+                            {{ row.name || '—' }}
+                        </td>
+                        <td class="px-4 py-3">
+                            <mat-form-field
+                                class="w-32"
+                                subscriptSizing="dynamic"
+                            >
+                                <input
+                                    matInput
+                                    type="number"
+                                    [(ngModel)]="priceDraft[row.productId]"
+                                />
+                            </mat-form-field>
+                        </td>
+                        <td class="px-4 py-3">
+                            <mat-form-field
+                                class="w-32"
+                                subscriptSizing="dynamic"
+                            >
+                                <input
+                                    matInput
+                                    type="number"
+                                    [(ngModel)]="quantityDraft[row.productId]"
+                                />
+                            </mat-form-field>
+                        </td>
+                        <td class="px-4 py-3 text-right">
+                            <button
+                                mat-icon-button
+                                type="button"
+                                [matTooltip]="t('admin.crud.save')"
+                                [disabled]="saving()"
+                                (click)="saveRow(row)"
+                            >
+                                <mat-icon
+                                    svgIcon="heroicons_outline:check-circle"
+                                ></mat-icon>
+                            </button>
+                        </td>
+                    </tr>
+                } @empty {
+                    <tr>
+                        <td
+                            class="text-secondary px-4 py-8 text-center"
+                            colspan="4"
+                        >
+                            {{ t('admin.crud.empty') }}
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>

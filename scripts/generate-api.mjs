@@ -9,7 +9,7 @@
  *
  * Usage:   npm run generate:api
  * Env:
- *   OPENAPI_SPEC_URL          spec URL (default remote FreshFlow swagger.json)
+ *   OPENAPI_SPEC_URL          spec URL (default http://localhost:8080/swagger/v1/swagger.json)
  *   OPENAPI_SPEC_FILE         optional local JSON path; skips the network fetch
  *   OPENAPI_GENERATOR_IMAGE   generator image/tag (default openapitools/openapi-generator-cli:latest)
  */
@@ -19,7 +19,7 @@ import { join, resolve } from 'node:path';
 
 const SPEC_URL =
     process.env.OPENAPI_SPEC_URL ??
-    'http://api.freshflow.fishcloud.vn/swagger/v1/swagger.json';
+    'http://localhost:8080/swagger/v1/swagger.json';
 const SPEC_FILE_OVERRIDE = process.env.OPENAPI_SPEC_FILE;
 const IMAGE =
     process.env.OPENAPI_GENERATOR_IMAGE ??
