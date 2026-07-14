@@ -8,6 +8,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1ProductsIdDeactivatePatch**](ProductsApi.md#apiv1productsiddeactivatepatch) | **PATCH** /api/v1/products/{id}/deactivate |  |
 | [**apiV1ProductsIdGet**](ProductsApi.md#apiv1productsidget) | **GET** /api/v1/products/{id} |  |
 | [**apiV1ProductsIdPut**](ProductsApi.md#apiv1productsidput) | **PUT** /api/v1/products/{id} |  |
+| [**apiV1ProductsImageUploadSignaturePost**](ProductsApi.md#apiv1productsimageuploadsignaturepost) | **POST** /api/v1/products/image/upload-signature |  |
 | [**apiV1ProductsPost**](ProductsApi.md#apiv1productspost) | **POST** /api/v1/products |  |
 
 
@@ -292,6 +293,67 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1ProductsImageUploadSignaturePost
+
+> apiV1ProductsImageUploadSignaturePost()
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  ProductsApi,
+} from '';
+import type { ApiV1ProductsImageUploadSignaturePostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new ProductsApi(config);
+
+  try {
+    const data = await api.apiV1ProductsImageUploadSignaturePost();
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
 - **Accept**: Not defined
 
 

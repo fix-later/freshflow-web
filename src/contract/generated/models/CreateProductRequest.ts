@@ -23,13 +23,13 @@ export interface CreateProductRequest {
      * @type {string}
      * @memberof CreateProductRequest
      */
-    name?: string | null;
+    name: string;
     /**
      *
      * @type {string}
      * @memberof CreateProductRequest
      */
-    unitId?: string;
+    unitId: string;
     /**
      *
      * @type {string}
@@ -50,6 +50,8 @@ export interface CreateProductRequest {
 export function instanceOfCreateProductRequest(
     value: object
 ): value is CreateProductRequest {
+    if (!('name' in value) || value['name'] === undefined) return false;
+    if (!('unitId' in value) || value['unitId'] === undefined) return false;
     return true;
 }
 
@@ -65,8 +67,8 @@ export function CreateProductRequestFromJSONTyped(
         return json;
     }
     return {
-        name: json['name'] == null ? undefined : json['name'],
-        unitId: json['unitId'] == null ? undefined : json['unitId'],
+        name: json['name'],
+        unitId: json['unitId'],
         categoryId: json['categoryId'] == null ? undefined : json['categoryId'],
         description:
             json['description'] == null ? undefined : json['description'],

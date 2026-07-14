@@ -91,6 +91,55 @@ export class RestaurantProfileApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for apiV1RestaurantsMeBusinessLicenseUploadSignaturePost without sending the request
+     */
+    async apiV1RestaurantsMeBusinessLicenseUploadSignaturePostRequestOpts(): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/me/business-license/upload-signature`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsMeBusinessLicenseUploadSignaturePostRaw(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsMeBusinessLicenseUploadSignaturePostRequestOpts();
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsMeBusinessLicenseUploadSignaturePost(
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsMeBusinessLicenseUploadSignaturePostRaw(
+            initOverrides
+        );
+    }
+
+    /**
      * Creates request options for apiV1RestaurantsMeDeliveryAddressesGet without sending the request
      */
     async apiV1RestaurantsMeDeliveryAddressesGetRequestOpts(): Promise<runtime.RequestOpts> {

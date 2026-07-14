@@ -23,13 +23,13 @@ export interface RequestVerificationRequest {
      * @type {string}
      * @memberof RequestVerificationRequest
      */
-    identifier?: string | null;
+    identifier: string;
     /**
      *
      * @type {string}
      * @memberof RequestVerificationRequest
      */
-    channel?: string | null;
+    channel: string;
 }
 
 /**
@@ -38,6 +38,9 @@ export interface RequestVerificationRequest {
 export function instanceOfRequestVerificationRequest(
     value: object
 ): value is RequestVerificationRequest {
+    if (!('identifier' in value) || value['identifier'] === undefined)
+        return false;
+    if (!('channel' in value) || value['channel'] === undefined) return false;
     return true;
 }
 
@@ -55,8 +58,8 @@ export function RequestVerificationRequestFromJSONTyped(
         return json;
     }
     return {
-        identifier: json['identifier'] == null ? undefined : json['identifier'],
-        channel: json['channel'] == null ? undefined : json['channel'],
+        identifier: json['identifier'],
+        channel: json['channel'],
     };
 }
 

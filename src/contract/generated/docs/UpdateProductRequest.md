@@ -10,6 +10,7 @@ Name | Type
 `unitId` | string
 `categoryId` | string
 `description` | string
+`imageUrl` | string
 
 ## Example
 
@@ -22,6 +23,7 @@ const example = {
   "unitId": null,
   "categoryId": null,
   "description": null,
+  "imageUrl": null,
 } satisfies UpdateProductRequest
 
 console.log(example)

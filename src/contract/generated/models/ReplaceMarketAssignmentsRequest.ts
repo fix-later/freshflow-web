@@ -23,7 +23,7 @@ export interface ReplaceMarketAssignmentsRequest {
      * @type {Array<string>}
      * @memberof ReplaceMarketAssignmentsRequest
      */
-    marketIds?: Array<string> | null;
+    marketIds: Array<string>;
 }
 
 /**
@@ -32,6 +32,8 @@ export interface ReplaceMarketAssignmentsRequest {
 export function instanceOfReplaceMarketAssignmentsRequest(
     value: object
 ): value is ReplaceMarketAssignmentsRequest {
+    if (!('marketIds' in value) || value['marketIds'] === undefined)
+        return false;
     return true;
 }
 
@@ -49,7 +51,7 @@ export function ReplaceMarketAssignmentsRequestFromJSONTyped(
         return json;
     }
     return {
-        marketIds: json['marketIds'] == null ? undefined : json['marketIds'],
+        marketIds: json['marketIds'],
     };
 }
 

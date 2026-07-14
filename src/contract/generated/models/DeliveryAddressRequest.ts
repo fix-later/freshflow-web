@@ -23,7 +23,7 @@ export interface DeliveryAddressRequest {
      * @type {string}
      * @memberof DeliveryAddressRequest
      */
-    addressLine?: string | null;
+    addressLine: string;
     /**
      *
      * @type {string}
@@ -62,6 +62,8 @@ export interface DeliveryAddressRequest {
 export function instanceOfDeliveryAddressRequest(
     value: object
 ): value is DeliveryAddressRequest {
+    if (!('addressLine' in value) || value['addressLine'] === undefined)
+        return false;
     return true;
 }
 
@@ -79,8 +81,7 @@ export function DeliveryAddressRequestFromJSONTyped(
         return json;
     }
     return {
-        addressLine:
-            json['addressLine'] == null ? undefined : json['addressLine'],
+        addressLine: json['addressLine'],
         recipientName:
             json['recipientName'] == null ? undefined : json['recipientName'],
         phone: json['phone'] == null ? undefined : json['phone'],

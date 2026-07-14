@@ -12,16 +12,26 @@
 import { apiConfiguration } from './client';
 import {
     AdminApi,
+    AssistantApi,
     AuthApi,
     CategoriesApi,
+    DeliveryZonesApi,
+    DriverApi,
+    HubHandoverApi,
+    HubInboundApi,
+    HubsApi,
     MarketsApi,
+    NotificationApi,
+    NotificationDeviceApi,
     OrdersApi,
     PricingApi,
     ProductsApi,
     ProfileApi,
     RestaurantCreditApi,
     RestaurantProfileApi,
+    RoutesApi,
     UnitsApi,
+    VehiclesApi,
 } from './generated';
 
 // Re-export the generated models/runtime + client + auth helpers.
@@ -31,13 +41,25 @@ export * from './generated';
 
 // Ready-to-use, pre-configured API singletons.
 export const adminApi = new AdminApi(apiConfiguration);
+export const assistantApi = new AssistantApi(apiConfiguration);
 export const authApi = new AuthApi(apiConfiguration);
 export const categoriesApi = new CategoriesApi(apiConfiguration);
+export const deliveryZonesApi = new DeliveryZonesApi(apiConfiguration);
+export const driverApi = new DriverApi(apiConfiguration);
+export const hubHandoverApi = new HubHandoverApi(apiConfiguration);
+export const hubInboundApi = new HubInboundApi(apiConfiguration);
+export const hubsApi = new HubsApi(apiConfiguration);
 export const marketsApi = new MarketsApi(apiConfiguration);
+export const notificationApi = new NotificationApi(apiConfiguration);
+export const notificationDeviceApi = new NotificationDeviceApi(
+    apiConfiguration
+);
 export const ordersApi = new OrdersApi(apiConfiguration);
 export const pricingApi = new PricingApi(apiConfiguration);
 export const productsApi = new ProductsApi(apiConfiguration);
 export const profileApi = new ProfileApi(apiConfiguration);
 export const restaurantCreditApi = new RestaurantCreditApi(apiConfiguration);
 export const restaurantProfileApi = new RestaurantProfileApi(apiConfiguration);
+export const routesApi = new RoutesApi(apiConfiguration);
 export const unitsApi = new UnitsApi(apiConfiguration);
+export const vehiclesApi = new VehiclesApi(apiConfiguration);

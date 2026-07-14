@@ -23,13 +23,13 @@ export interface ChangePasswordRequest {
      * @type {string}
      * @memberof ChangePasswordRequest
      */
-    currentPassword?: string | null;
+    currentPassword: string;
     /**
      *
      * @type {string}
      * @memberof ChangePasswordRequest
      */
-    newPassword?: string | null;
+    newPassword: string;
 }
 
 /**
@@ -38,6 +38,10 @@ export interface ChangePasswordRequest {
 export function instanceOfChangePasswordRequest(
     value: object
 ): value is ChangePasswordRequest {
+    if (!('currentPassword' in value) || value['currentPassword'] === undefined)
+        return false;
+    if (!('newPassword' in value) || value['newPassword'] === undefined)
+        return false;
     return true;
 }
 
@@ -55,12 +59,8 @@ export function ChangePasswordRequestFromJSONTyped(
         return json;
     }
     return {
-        currentPassword:
-            json['currentPassword'] == null
-                ? undefined
-                : json['currentPassword'],
-        newPassword:
-            json['newPassword'] == null ? undefined : json['newPassword'],
+        currentPassword: json['currentPassword'],
+        newPassword: json['newPassword'],
     };
 }
 

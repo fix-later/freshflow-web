@@ -23,7 +23,7 @@ export interface RefreshRequest {
      * @type {string}
      * @memberof RefreshRequest
      */
-    refreshToken?: string | null;
+    refreshToken: string;
 }
 
 /**
@@ -32,6 +32,8 @@ export interface RefreshRequest {
 export function instanceOfRefreshRequest(
     value: object
 ): value is RefreshRequest {
+    if (!('refreshToken' in value) || value['refreshToken'] === undefined)
+        return false;
     return true;
 }
 
@@ -47,8 +49,7 @@ export function RefreshRequestFromJSONTyped(
         return json;
     }
     return {
-        refreshToken:
-            json['refreshToken'] == null ? undefined : json['refreshToken'],
+        refreshToken: json['refreshToken'],
     };
 }
 

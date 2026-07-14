@@ -23,25 +23,29 @@ export interface VerifyRequest {
      * @type {string}
      * @memberof VerifyRequest
      */
-    identifier?: string | null;
+    identifier: string;
     /**
      *
      * @type {string}
      * @memberof VerifyRequest
      */
-    channel?: string | null;
+    channel: string;
     /**
      *
      * @type {string}
      * @memberof VerifyRequest
      */
-    code?: string | null;
+    code: string;
 }
 
 /**
  * Check if a given object implements the VerifyRequest interface.
  */
 export function instanceOfVerifyRequest(value: object): value is VerifyRequest {
+    if (!('identifier' in value) || value['identifier'] === undefined)
+        return false;
+    if (!('channel' in value) || value['channel'] === undefined) return false;
+    if (!('code' in value) || value['code'] === undefined) return false;
     return true;
 }
 
@@ -57,9 +61,9 @@ export function VerifyRequestFromJSONTyped(
         return json;
     }
     return {
-        identifier: json['identifier'] == null ? undefined : json['identifier'],
-        channel: json['channel'] == null ? undefined : json['channel'],
-        code: json['code'] == null ? undefined : json['code'],
+        identifier: json['identifier'],
+        channel: json['channel'],
+        code: json['code'],
     };
 }
 

@@ -11,6 +11,7 @@ Name | Type
 `contactPerson` | string
 `pickupStart` | string
 `pickupEnd` | string
+`businessLicenseUrl` | string
 
 ## Example
 
@@ -24,6 +25,7 @@ const example = {
   "contactPerson": null,
   "pickupStart": null,
   "pickupEnd": null,
+  "businessLicenseUrl": null,
 } satisfies UpdateRestaurantProfileRequest
 
 console.log(example)

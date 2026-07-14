@@ -23,13 +23,15 @@ export interface LogoutRequest {
      * @type {string}
      * @memberof LogoutRequest
      */
-    refreshToken?: string | null;
+    refreshToken: string;
 }
 
 /**
  * Check if a given object implements the LogoutRequest interface.
  */
 export function instanceOfLogoutRequest(value: object): value is LogoutRequest {
+    if (!('refreshToken' in value) || value['refreshToken'] === undefined)
+        return false;
     return true;
 }
 
@@ -45,8 +47,7 @@ export function LogoutRequestFromJSONTyped(
         return json;
     }
     return {
-        refreshToken:
-            json['refreshToken'] == null ? undefined : json['refreshToken'],
+        refreshToken: json['refreshToken'],
     };
 }
 

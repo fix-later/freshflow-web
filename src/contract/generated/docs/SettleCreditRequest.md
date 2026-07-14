@@ -7,6 +7,8 @@
 Name | Type
 ------------ | -------------
 `amount` | number
+`paymentMethod` | string
+`reference` | string
 `note` | string
 
 ## Example
@@ -17,6 +19,8 @@ import type { SettleCreditRequest } from ''
 // TODO: Update the object below with actual values
 const example = {
   "amount": null,
+  "paymentMethod": null,
+  "reference": null,
   "note": null,
 } satisfies SettleCreditRequest
 
