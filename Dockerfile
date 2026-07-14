@@ -8,6 +8,6 @@ RUN npm run build -- --configuration production
 
 # Stage 2: Serve
 FROM nginx:alpine
-COPY --from=builder /app/dist/fuse /usr/share/nginx/html
+COPY --from=builder /app/dist/fuse/browser /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
