@@ -81,5 +81,5 @@ jobs:
             docker pull ghcr.io/${{ github.repository }}:dev
             docker logout ghcr.io
             docker rm -f freshflow-web || true
-            docker run -d --name freshflow-web --restart unless-stopped -p 80:80 \
+            docker run -d --name freshflow-web --restart unless-stopped -p 127.0.0.1:4300:80 \
               ghcr.io/${{ github.repository }}:dev
