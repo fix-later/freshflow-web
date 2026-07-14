@@ -5,5 +5,5 @@
  */
 export const environment = {
     production: false,
-    apiBaseUrl: 'http://api.freshflow.fishfix.vn',
+    apiBaseUrl: 'https://api.freshflow.fishfix.vn',
 };
