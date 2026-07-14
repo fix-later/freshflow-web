@@ -29,6 +29,7 @@ module.exports = defineConfig([
       "@angular-eslint/no-empty-lifecycle-method": "off",
       "@angular-eslint/no-output-native": "off",
       "@angular-eslint/prefer-inject": "off",
+      "@angular-eslint/prefer-on-push-component-change-detection": "off",
       "@typescript-eslint/array-type": "off",
       "@typescript-eslint/ban-tslint-comment": "off",
       "@typescript-eslint/consistent-generic-constructors": "off",
