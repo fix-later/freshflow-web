@@ -6,7 +6,7 @@
             </h1>
             <p class="text-secondary mt-1">{{ t(resource.subtitle) }}</p>
         </div>
-        <button mat-flat-button color="primary" (click)="openCreate()">
+        <button mat-flat-button color="accent" (click)="openCreate()">
             <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
             {{ t(resource.createLabel) }}
         </button>
@@ -221,7 +221,7 @@
                     </button>
                     <button
                         mat-flat-button
-                        color="primary"
+                        color="accent"
                         type="submit"
                         [disabled]="form.invalid || saving()"
                     >
