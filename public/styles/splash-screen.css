@@ -22,8 +22,40 @@ body fuse-splash-screen {
     visibility: visible;
 }
 
-body:not(.fuse-splash-screen-hidden) {
+/*
+ * While the splash is actually up — before the app is ready, or while the
+ * JS-driven sequence (.ff-splash-active) is still playing — swallow pointer
+ * events so hovers can't reach the app underneath and pop tooltips. The
+ * base rule stays pointer-events: none, so the host element left in the
+ * DOM after the exit fade can never trap clicks.
+ */
+body:not(.fuse-splash-screen-hidden) fuse-splash-screen,
+body fuse-splash-screen.ff-splash-active {
+    pointer-events: auto;
+}
+
+/*
+ * Lock scrolling while the splash is up. The root element (html) propagates
+ * its overflow to the viewport, so the app content sitting under the splash
+ * shows a scrollbar unless html is clamped too — clamping body alone isn't
+ * enough. The lock is unconditional (matching the inlined critical styles in
+ * index.html, which apply from the very first paint).
+ *
+ * Scrolling is released only once the app is ready (.fuse-splash-screen-hidden
+ * on <body>) AND the splash is truly gone (.ff-splash-active cleared from the
+ * <fuse-splash-screen> element). The ready class alone lands while the splash
+ * is still visible/fading, which would flash the page's scrollbars under it.
+ */
+html,
+body {
     overflow: hidden;
+}
+
+html:has(body.fuse-splash-screen-hidden):not(
+        :has(fuse-splash-screen.ff-splash-active)
+    ),
+body.fuse-splash-screen-hidden:not(:has(fuse-splash-screen.ff-splash-active)) {
+    overflow: visible;
 }
 
 /*

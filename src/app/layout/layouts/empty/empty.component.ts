@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
+import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { Subject } from 'rxjs';
 
 @Component({
@@ -14,7 +15,11 @@ import { Subject } from 'rxjs';
     encapsulation: ViewEncapsulation.None,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [FuseLoadingBarComponent, RouterOutlet],
+    imports: [
+        FuseLoadingBarComponent,
+        RouterOutlet,
+        FuseRouteAnimationDirective,
+    ],
 })
 export class EmptyLayoutComponent implements OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();

@@ -40,7 +40,7 @@
                             <!-- Service area tagline -->
                             <span class="flex items-center gap-1.5 font-medium">
                                 <mat-icon
-                                    class="text-primary-400 icon-size-3.5"
+                                    class="text-primary-400 icon-size-5"
                                     [svgIcon]="
                                         'heroicons_outline:building-storefront'
                                     "
@@ -54,7 +54,7 @@
                                 @for (item of topBenefits; track item.text) {
                                     <span class="flex items-center gap-1.5">
                                         <mat-icon
-                                            class="text-primary-400 icon-size-3.5"
+                                            class="text-primary-400 icon-size-5"
                                             [svgIcon]="item.icon"
                                         ></mat-icon>
                                         <span>{{ item.text }}</span>
@@ -68,17 +68,25 @@
 
                             <languages></languages>
 
-                            <button
-                                class="flex items-center gap-1 border-l border-white/20 pl-4 font-medium"
-                                type="button"
-                                [matMenuTriggerFor]="currencyMenu"
-                            >
-                                <span>₫ VND</span>
-                                <mat-icon
-                                    class="text-current icon-size-3"
-                                    [svgIcon]="'heroicons_outline:chevron-down'"
-                                ></mat-icon>
-                            </button>
+                            <ng-container *transloco="let t">
+                                <button
+                                    class="flex items-center gap-1.5 border-l border-white/20 pl-4 font-medium"
+                                    type="button"
+                                    [matMenuTriggerFor]="currencyMenu"
+                                    [matTooltip]="t('header.currency')"
+                                >
+                                    <span>
+                                        <span class="text-primary-400">₫</span>
+                                        VND
+                                    </span>
+                                    <mat-icon
+                                        class="text-current icon-size-4"
+                                        [svgIcon]="
+                                            'heroicons_outline:chevron-down'
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </ng-container>
                             <mat-menu #currencyMenu="matMenu">
                                 <button mat-menu-item type="button">
                                     ₫ VND
@@ -146,7 +154,7 @@
                                 (mouseleave)="megaMenuOpen = false"
                             >
                                 <button
-                                    class="text-default bg-default flex h-12 w-56 items-center justify-between rounded-full px-5 text-base font-semibold hover:bg-hover"
+                                    class="text-default bg-default flex h-12 w-56 items-center justify-between rounded-full px-5 text-base font-semibold transition-all hover:bg-card hover:shadow-md"
                                     type="button"
                                 >
                                     <span>Danh mục</span>
@@ -295,7 +303,7 @@
 
                                 <!-- AI chat -->
                                 <button
-                                    class="flex h-10 w-10 items-center justify-center rounded-full text-primary hover:bg-hover"
+                                    class="text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
                                     type="button"
                                     aria-label="Mua hàng nhanh"
                                     [matTooltip]="'Mua hàng nhanh'"
@@ -479,7 +487,7 @@
     >
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly. -->
         @if (true) {
-            <router-outlet></router-outlet>
+            <router-outlet fuseRouteAnimation></router-outlet>
         }
     </div>
 
@@ -699,8 +707,7 @@
                 <span
                     >Bản quyền &copy; {{ currentYear }}
                     <span class="font-semibold text-primary">FreshFlow</span>.
-                    Bảo lưu mọi quyền.</span
-                >
+                </span>
                 <span class="text-hint">where Food meets Fast</span>
             </div>
         </div>

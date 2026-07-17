@@ -2,6 +2,7 @@ import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
+    Input,
     OnDestroy,
     OnInit,
     ViewEncapsulation,
@@ -11,11 +12,16 @@ import { MatButtonModule } from '@angular/material/button';
 import { DateAdapter } from '@angular/material/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import {
     FuseNavigationService,
     FuseVerticalNavigationComponent,
 } from '@fuse/components/navigation';
-import { AvailableLangs, TranslocoService } from '@jsverse/transloco';
+import {
+    AvailableLangs,
+    TranslocoModule,
+    TranslocoService,
+} from '@jsverse/transloco';
 import { take } from 'rxjs';
 
 @Component({
@@ -25,10 +31,19 @@ import { take } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'languages',
     standalone: true,
-    imports: [MatButtonModule, MatIconModule, MatMenuModule],
+    imports: [
+        MatButtonModule,
+        MatIconModule,
+        MatMenuModule,
+        MatTooltipModule,
+        TranslocoModule,
+    ],
 })
 export class LanguagesComponent implements OnInit, OnDestroy {
     private readonly _dateAdapter = inject(DateAdapter);
+
+    /** Trigger button style: globe + language code, or the active flag only. */
+    @Input() appearance: 'text' | 'flag' = 'text';
 
     availableLangs: AvailableLangs;
     activeLang: string;
@@ -36,6 +51,11 @@ export class LanguagesComponent implements OnInit, OnDestroy {
     readonly langLabels: Record<string, string> = {
         en: 'ENG',
         vi: 'VIE',
+    };
+    /** Flag image codes (public/images/flags/<code>.svg). */
+    readonly flagCodes: Record<string, string> = {
+        en: 'US',
+        vi: 'VN',
     };
 
     /**

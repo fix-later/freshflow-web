@@ -10,3 +10,23 @@
 body {
     font-family: theme('fontFamily.sans');
 }
+
+/**
+ * Theme (dark / light) switch cross-fade.
+ *
+ * AppComponent adds `.theme-transition` to <html> for the duration of a scheme
+ * change, then removes it. While present, every element eases its themeable
+ * colors so the whole page cross-fades between schemes instead of snapping.
+ * Scoped to the switch so it never interferes with normal interaction states.
+ */
+.theme-transition,
+.theme-transition *,
+.theme-transition *::before,
+.theme-transition *::after {
+    transition:
+        background-color 350ms ease,
+        border-color 350ms ease,
+        color 350ms ease,
+        fill 350ms ease,
+        stroke 350ms ease !important;
+}

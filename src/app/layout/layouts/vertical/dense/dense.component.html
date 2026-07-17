@@ -46,7 +46,27 @@
         </div>
         <!-- Components -->
         <div class="ml-auto flex items-center space-x-0.5 pl-2 sm:space-x-2">
-            <languages></languages>
+            <!-- Scheme (dark / light) toggle button -->
+            <ng-container *transloco="let t">
+                <button
+                    mat-icon-button
+                    (click)="toggleScheme()"
+                    [matTooltip]="
+                        scheme === 'dark'
+                            ? t('header.lightMode')
+                            : t('header.darkMode')
+                    "
+                >
+                    <mat-icon
+                        [svgIcon]="
+                            scheme === 'dark'
+                                ? 'heroicons_outline:sun'
+                                : 'heroicons_outline:moon'
+                        "
+                    ></mat-icon>
+                </button>
+            </ng-container>
+            <languages [appearance]="'flag'"></languages>
             <fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
             <search [appearance]="'bar'"></search>
             <shortcuts></shortcuts>
@@ -70,7 +90,7 @@
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly.
              Otherwise, layout changes won't be registered and the view won't be updated! -->
         @if (true) {
-            <router-outlet></router-outlet>
+            <router-outlet fuseRouteAnimation></router-outlet>
         }
     </div>
 
@@ -78,9 +98,10 @@
     <div
         class="bg-card relative z-49 flex h-14 w-full flex-0 items-center justify-start border-t px-4 dark:bg-transparent md:px-6 print:hidden"
     >
-        <span class="text-secondary font-medium"
-            >Fuse &copy; {{ currentYear }}</span
-        >
+        <span class="text-secondary font-medium">
+            Bản quyền &copy; {{ currentYear }}
+            <span class="font-semibold text-primary">FreshFlow</span>.
+        </span>
     </div>
 </div>
 

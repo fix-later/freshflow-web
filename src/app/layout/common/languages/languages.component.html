@@ -1,30 +1,60 @@
-<!-- Button: text form (globe + language code) -->
-<button
-    class="flex items-center gap-1 font-medium"
-    type="button"
-    [matMenuTriggerFor]="languages"
->
-    <mat-icon
-        class="text-current icon-size-4"
-        [svgIcon]="'heroicons_outline:globe-alt'"
-    ></mat-icon>
-    <span>{{ langLabels[activeLang] ?? activeLang.toUpperCase() }}</span>
-    <mat-icon
-        class="text-current icon-size-3"
-        [svgIcon]="'heroicons_outline:chevron-down'"
-    ></mat-icon>
-</button>
-
-<!-- Language menu -->
-<mat-menu [xPosition]="'before'" #languages="matMenu">
-    @for (lang of availableLangs; track trackByFn($index, lang)) {
-        <button mat-menu-item (click)="setActiveLang(lang.id)">
-            <span
-                [class.font-semibold]="lang.id === activeLang"
-                [class.text-primary]="lang.id === activeLang"
-            >
-                {{ lang.label }}
-            </span>
+<ng-container *transloco="let t">
+    <!-- Button: active flag only, or globe + language code -->
+    @if (appearance === 'flag') {
+        <button
+            mat-icon-button
+            type="button"
+            [matMenuTriggerFor]="languages"
+            [matTooltip]="t('header.language')"
+        >
+            <img
+                class="h-4 w-6 rounded-sm object-cover shadow"
+                [src]="
+                    'images/flags/' + (flagCodes[activeLang] ?? 'US') + '.svg'
+                "
+                [alt]="'Flag image for ' + activeLang"
+            />
+        </button>
+    } @else {
+        <button
+            class="flex items-center gap-1.5 font-medium"
+            type="button"
+            [matMenuTriggerFor]="languages"
+            [matTooltip]="t('header.language')"
+        >
+            <mat-icon
+                class="text-primary-400 icon-size-5"
+                [svgIcon]="'heroicons_outline:globe-alt'"
+            ></mat-icon>
+            <span>{{
+                langLabels[activeLang] ?? activeLang.toUpperCase()
+            }}</span>
+            <mat-icon
+                class="text-current icon-size-4"
+                [svgIcon]="'heroicons_outline:chevron-down'"
+            ></mat-icon>
         </button>
     }
-</mat-menu>
+
+    <!-- Language menu -->
+    <mat-menu [xPosition]="'before'" #languages="matMenu">
+        @for (lang of availableLangs; track trackByFn($index, lang)) {
+            <button mat-menu-item (click)="setActiveLang(lang.id)">
+                <span class="flex items-center gap-3">
+                    <img
+                        class="h-4 w-6 rounded-sm object-cover shadow"
+                        [src]="
+                            'images/flags/' +
+                            (flagCodes[lang.id] ?? 'US') +
+                            '.svg'
+                        "
+                        [alt]="'Flag image for ' + lang.id"
+                    />
+                    <span [class.font-semibold]="lang.id === activeLang">
+                        {{ lang.label }}
+                    </span>
+                </span>
+            </button>
+        }
+    </mat-menu>
+</ng-container>
