@@ -179,7 +179,7 @@ export class CatalogAdminService {
     async listMarketProducts(marketId: string): Promise<CrudRow[]> {
         const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
             marketId,
-            pageSize: 200,
+            pageSize: 100,
         });
         return extractList<CrudRow>(await parseJson(res.raw));
     }

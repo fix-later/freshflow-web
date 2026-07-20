@@ -4,6 +4,7 @@ import {
     Component,
     OnInit,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -17,8 +18,11 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { AdminService } from '../admin.service';
+import { AdminService, apiErrorMessage } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+
+/** Role code eligible for market assignments (see ROLE_MATRIX). */
+const MARKET_AGENT_ROLE = 'market_agent';
 
 /**
  * Admin ▸ User detail. There is no `GET /admin/users/{userId}` endpoint, so
@@ -58,6 +62,15 @@ export class UserDetailComponent implements OnInit {
     readonly roles = signal<string[]>([]);
     readonly markets = signal<{ id: string; name: string }[]>([]);
     readonly assignedMarketIds = signal<Set<string>>(new Set());
+
+    /**
+     * Market assignments are only valid for market-agent users (PRD § M3 —
+     * "assign markets to agents"); the backend rejects assigning markets to any
+     * other role with a 422. Gate the picker on the user's saved role.
+     */
+    readonly canAssignMarkets = computed(
+        () => this.user()?.role === MARKET_AGENT_ROLE
+    );
 
     readonly loadingAssignments = signal(false);
     readonly savingRole = signal(false);
@@ -104,7 +117,7 @@ export class UserDetailComponent implements OnInit {
                 this.user.update((u) => (u ? { ...u, role: roleName } : u));
                 this._notify('admin.userDetail.role.success');
             })
-            .catch(() => this._notify('admin.userDetail.actionError'))
+            .catch((err) => this._notifyError(err))
             .finally(() => this.savingRole.set(false));
     }
 
@@ -127,7 +140,7 @@ export class UserDetailComponent implements OnInit {
                         : 'admin.users.deactivate.success'
                 );
             })
-            .catch(() => this._notify('admin.userDetail.actionError'))
+            .catch((err) => this._notifyError(err))
             .finally(() => this.savingActive.set(false));
     }
 
@@ -139,7 +152,7 @@ export class UserDetailComponent implements OnInit {
                 this.user.update((u) => (u ? { ...u, lockedUntil: null } : u));
                 this._notify('admin.users.unlock.success');
             })
-            .catch(() => this._notify('admin.userDetail.actionError'))
+            .catch((err) => this._notifyError(err))
             .finally(() => this.unlocking.set(false));
     }
 
@@ -167,7 +180,7 @@ export class UserDetailComponent implements OnInit {
                 Array.from(this.assignedMarketIds())
             )
             .then(() => this._notify('admin.userDetail.assignments.success'))
-            .catch(() => this._notify('admin.userDetail.actionError'))
+            .catch((err) => this._notifyError(err))
             .finally(() => this.savingAssignments.set(false));
     }
 
@@ -184,5 +197,17 @@ export class UserDetailComponent implements OnInit {
         this._snackBar.open(this._transloco.translate(key), undefined, {
             duration: 3000,
         });
+    }
+
+    /**
+     * Shows the server's own error message when the API rejects an action
+     * (e.g. a 422 business-rule failure on market assignments), falling back to
+     * a generic translated message for network/unknown failures.
+     */
+    private async _notifyError(err: unknown): Promise<void> {
+        const message =
+            (await apiErrorMessage(err)) ??
+            this._transloco.translate('admin.userDetail.actionError');
+        this._snackBar.open(message, undefined, { duration: 5000 });
     }
 }

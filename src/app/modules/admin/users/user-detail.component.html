@@ -136,37 +136,47 @@
                 <h2 class="text-lg font-semibold">
                     {{ t('admin.userDetail.assignments.title') }}
                 </h2>
-                <button
-                    mat-flat-button
-                    color="accent"
-                    type="button"
-                    [disabled]="savingAssignments()"
-                    (click)="saveAssignments()"
-                >
-                    {{ t('admin.userDetail.assignments.save') }}
-                </button>
-            </div>
-
-            @if (loadingAssignments()) {
-                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            }
-
-            @if (!loadingAssignments() && markets().length === 0) {
-                <p class="text-secondary text-sm">
-                    {{ t('admin.userDetail.assignments.empty') }}
-                </p>
-            }
-
-            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
-                @for (market of markets(); track market.id) {
-                    <mat-checkbox
-                        [checked]="isMarketAssigned(market.id)"
-                        (change)="toggleMarket(market.id)"
+                @if (canAssignMarkets()) {
+                    <button
+                        mat-flat-button
+                        color="accent"
+                        type="button"
+                        [disabled]="savingAssignments()"
+                        (click)="saveAssignments()"
                     >
-                        {{ market.name }}
-                    </mat-checkbox>
+                        {{ t('admin.userDetail.assignments.save') }}
+                    </button>
                 }
             </div>
+
+            @if (!canAssignMarkets()) {
+                <p class="text-secondary text-sm">
+                    {{ t('admin.userDetail.assignments.agentOnly') }}
+                </p>
+            } @else {
+                @if (loadingAssignments()) {
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                }
+
+                @if (!loadingAssignments() && markets().length === 0) {
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.userDetail.assignments.empty') }}
+                    </p>
+                }
+
+                <div
+                    class="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3"
+                >
+                    @for (market of markets(); track market.id) {
+                        <mat-checkbox
+                            [checked]="isMarketAssigned(market.id)"
+                            (change)="toggleMarket(market.id)"
+                        >
+                            {{ market.name }}
+                        </mat-checkbox>
+                    }
+                </div>
+            }
         </div>
     </div>
 </div>
