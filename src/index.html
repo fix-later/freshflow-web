@@ -12,6 +12,34 @@
 
         <base href="/" />
 
+        <!-- Critical splash styles: inlined so scrolling is locked from the
+             very first paint, before the external splash-screen.css loads —
+             otherwise the page flashes scrollbars for a few frames. The lock
+             is unconditional so it applies the instant <html> is parsed (a
+             conditional :has(body ...) selector wouldn't match yet, since
+             <body> doesn't exist during head parsing).
+
+             Scrolling is released only once the app is ready (Fuse adds
+             .fuse-splash-screen-hidden to <body>) AND the splash is truly
+             gone (its JS lifecycle clears .ff-splash-active on the
+             <fuse-splash-screen> element). The ready class alone lands while
+             the splash is still visible/fading, which would flash the page's
+             scrollbars underneath it. -->
+        <style>
+            html,
+            body {
+                overflow: hidden;
+            }
+            html:has(body.fuse-splash-screen-hidden):not(
+                    :has(fuse-splash-screen.ff-splash-active)
+                ),
+            body.fuse-splash-screen-hidden:not(
+                    :has(fuse-splash-screen.ff-splash-active)
+                ) {
+                overflow: visible;
+            }
+        </style>
+
         <!-- Favicon -->
         <link rel="icon" type="image/png" href="favicon-16x16.png?v=2" />
         <link rel="icon" type="image/png" href="favicon-32x32.png?v=2" />

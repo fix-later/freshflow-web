@@ -1,7 +1,7 @@
 <div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
     <a
         routerLink="/admin/markets"
-        class="text-secondary mb-4 inline-flex w-fit items-center gap-1 text-sm font-medium hover:text-primary"
+        class="text-secondary mb-4 inline-flex w-fit items-center gap-1 text-sm font-medium hover:text-accent"
     >
         <mat-icon
             class="icon-size-4"
@@ -39,7 +39,7 @@
         </mat-form-field>
         <button
             mat-flat-button
-            color="primary"
+            color="accent"
             type="submit"
             [disabled]="!addForm.value.productId || saving()"
         >

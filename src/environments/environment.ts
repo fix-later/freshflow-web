@@ -11,4 +11,13 @@
 export const environment = {
     production: false,
     apiBaseUrl: 'http://localhost:8080',
+    /**
+     * Goong.io keys (client-side, embedded in the browser build). Left blank so
+     * real keys are never committed — set them in the gitignored
+     * `environment.local.ts` for local dev, or inject at deploy time.
+     * `goongMapsKey` = Maptiles key (map SDK); `goongPlacesKey` = REST key
+     * (Places autocomplete / geocoding).
+     */
+    goongMapsKey: '',
+    goongPlacesKey: '',
 };

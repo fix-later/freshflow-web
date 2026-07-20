@@ -33,6 +33,7 @@ import {
 } from '@fuse/components/navigation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { TranslocoModule } from '@jsverse/transloco';
+import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
@@ -85,6 +86,7 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
         RouterLink,
         RouterLinkActive,
         RouterOutlet,
+        FuseRouteAnimationDirective,
         TranslocoModule,
     ],
 })

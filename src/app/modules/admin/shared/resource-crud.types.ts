@@ -22,7 +22,12 @@ export interface CrudColumn {
     cell: (row: CrudRow) => string;
 }
 
-export type CrudFieldType = 'text' | 'number' | 'textarea' | 'select';
+export type CrudFieldType =
+    | 'text'
+    | 'number'
+    | 'textarea'
+    | 'select'
+    | 'location';
 
 export interface CrudOption {
     value: string;
@@ -36,10 +41,20 @@ export interface CrudField {
     label: string;
     type: CrudFieldType;
     required?: boolean;
+    /** Max string length (`text`/`textarea`) — enforced client-side. */
+    maxLength?: number;
+    /** Minimum numeric value (`number`) — enforced client-side. */
+    min?: number;
     /** Shown only when creating (e.g. an immutable code). */
     createOnly?: boolean;
     /** Options for `type: 'select'`, loaded when the dialog opens. */
     options?: () => Promise<CrudOption[]>;
+    /**
+     * For `type: 'location'`: the control/payload keys the map picker reads and
+     * writes. The location field itself holds no value.
+     */
+    latField?: string;
+    lngField?: string;
 }
 
 export interface CrudRowAction {

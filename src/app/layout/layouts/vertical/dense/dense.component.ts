@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
 import { FuseFullscreenComponent } from '@fuse/components/fullscreen';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
@@ -14,7 +15,10 @@ import {
     FuseNavigationService,
     FuseVerticalNavigationComponent,
 } from '@fuse/components/navigation';
+import { FuseConfig, FuseConfigService } from '@fuse/services/config';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
+import { TranslocoModule } from '@jsverse/transloco';
+import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
@@ -37,6 +41,8 @@ import { Subject, takeUntil } from 'rxjs';
         FuseVerticalNavigationComponent,
         MatButtonModule,
         MatIconModule,
+        MatTooltipModule,
+        TranslocoModule,
         LanguagesComponent,
         FuseFullscreenComponent,
         SearchComponent,
@@ -45,6 +51,7 @@ import { Subject, takeUntil } from 'rxjs';
         NotificationsComponent,
         UserComponent,
         RouterOutlet,
+        FuseRouteAnimationDirective,
         QuickChatComponent,
     ],
 })
@@ -52,6 +59,7 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
     isScreenSmall: boolean;
     navigation: Navigation;
     navigationAppearance: 'default' | 'dense' = 'dense';
+    scheme: 'auto' | 'dark' | 'light';
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -61,6 +69,7 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
         private _activatedRoute: ActivatedRoute,
         private _router: Router,
         private _navigationService: NavigationService,
+        private _fuseConfigService: FuseConfigService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseNavigationService: FuseNavigationService
     ) {}
@@ -84,6 +93,13 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
+        // Subscribe to config changes to track the active scheme
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: FuseConfig) => {
+                this.scheme = config.scheme;
+            });
+
         // Subscribe to navigation data
         this._navigationService.navigation$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -142,5 +158,14 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
     toggleNavigationAppearance(): void {
         this.navigationAppearance =
             this.navigationAppearance === 'default' ? 'dense' : 'default';
+    }
+
+    /**
+     * Toggle between the dark and light schemes
+     */
+    toggleScheme(): void {
+        this._fuseConfigService.config = {
+            scheme: this.scheme === 'dark' ? 'light' : 'dark',
+        };
     }
 }

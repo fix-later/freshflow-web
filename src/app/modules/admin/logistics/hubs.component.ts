@@ -26,7 +26,7 @@ export class HubsComponent {
         title: 'admin.hubs.title',
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
-        searchKeys: ['name', 'address'],
+        searchKeys: ['name', 'address', 'managedByName'],
         columns: [
             {
                 label: 'admin.hubs.name',
@@ -38,7 +38,21 @@ export class HubsComponent {
             },
             {
                 label: 'admin.hubs.capacityKg',
-                cell: (row) => String(row['capacityKg'] ?? ''),
+                cell: (row) =>
+                    row['capacityKg'] != null && row['capacityKg'] !== ''
+                        ? `${row['capacityKg']} kg`
+                        : '',
+            },
+            {
+                label: 'admin.hubs.coordinates',
+                cell: (row) =>
+                    row['latitude'] != null && row['longitude'] != null
+                        ? `${row['latitude']}, ${row['longitude']}`
+                        : '',
+            },
+            {
+                label: 'admin.hubs.managedBy',
+                cell: (row) => String(row['managedByName'] ?? ''),
             },
         ],
         fields: [
@@ -47,24 +61,34 @@ export class HubsComponent {
                 label: 'admin.hubs.name',
                 type: 'text',
                 required: true,
+                maxLength: 200,
             },
-            { name: 'address', label: 'admin.hubs.address', type: 'text' },
+            {
+                name: 'address',
+                label: 'admin.hubs.address',
+                type: 'text',
+                maxLength: 500,
+            },
             {
                 name: 'capacityKg',
                 label: 'admin.hubs.capacityKg',
                 type: 'number',
+                required: true,
+                min: 1,
             },
             {
-                name: 'latitude',
-                label: 'admin.markets.latitude',
-                type: 'number',
+                name: 'managedBy',
+                label: 'admin.hubs.managedBy',
+                type: 'select',
+                options: () => this._logistics.hubManagerOptions(),
             },
             {
-                name: 'longitude',
-                label: 'admin.markets.longitude',
-                type: 'number',
+                name: 'location',
+                label: 'admin.hubs.coordinates',
+                type: 'location',
+                latField: 'latitude',
+                lngField: 'longitude',
             },
-            { name: 'managedBy', label: 'admin.hubs.managedBy', type: 'text' },
         ],
         list: () => this._logistics.listHubs(),
         create: (value) => this._logistics.createHub(value),

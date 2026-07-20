@@ -1,5 +1,10 @@
 import { Injectable } from '@angular/core';
-import { adminApi, marketsApi, restaurantCreditApi } from 'contract';
+import {
+    adminApi,
+    marketsApi,
+    ResponseError,
+    restaurantCreditApi,
+} from 'contract';
 import {
     AdminCreateUserPayload,
     AdminMarketAssignmentEntry,
@@ -160,6 +165,42 @@ export class AdminService {
         const entries = extractList<AdminMarketOption>(body);
         return entries.filter((m): m is AdminMarketOption => !!m?.id);
     }
+}
+
+/**
+ * Extracts a human-readable message from a failed API call.
+ *
+ * Backend errors surface as a {@link ResponseError} whose `response` carries an
+ * RFC 7807 `ProblemDetails` body (`detail`/`title`, or a `errors` validation
+ * map). Returns `undefined` for non-HTTP failures so callers can fall back to a
+ * generic translated message.
+ */
+export async function apiErrorMessage(
+    err: unknown
+): Promise<string | undefined> {
+    if (!(err instanceof ResponseError)) {
+        return undefined;
+    }
+    const body = await parseJson<Record<string, unknown>>(err.response.clone());
+    if (!body) {
+        return undefined;
+    }
+    if (body['errors'] && typeof body['errors'] === 'object') {
+        const messages = Object.values(
+            body['errors'] as Record<string, unknown>
+        )
+            .flatMap((v) => (Array.isArray(v) ? v : [v]))
+            .filter((v): v is string => typeof v === 'string');
+        if (messages.length) {
+            return messages.join(' ');
+        }
+    }
+    for (const key of ['detail', 'title', 'message']) {
+        if (typeof body[key] === 'string' && body[key]) {
+            return body[key] as string;
+        }
+    }
+    return undefined;
 }
 
 /** Parses a JSON body, tolerating an empty (`void`) response. */

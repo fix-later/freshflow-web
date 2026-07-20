@@ -187,7 +187,7 @@ export const appRoutes: Route[] = [
         ],
     },
 
-    // Admin console area — admin role only (classic layout + admin nav).
+    // Admin console area — admin role only (dense layout + admin nav).
     {
         path: '',
         canActivate: [adminOnly],
@@ -195,7 +195,7 @@ export const appRoutes: Route[] = [
         component: LayoutComponent,
         data: {
             area: 'admin',
-            layout: 'classic',
+            layout: 'dense',
         },
         resolve: {
             initialData: initialDataResolver,

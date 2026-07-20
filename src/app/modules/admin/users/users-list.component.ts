@@ -144,6 +144,8 @@ export class UsersListComponent implements OnInit {
         this._dialogRef = this._dialog.open(this._createPanel, {
             width: '28rem',
             maxWidth: 'calc(100vw - 2rem)',
+            maxHeight: '90vh',
+            autoFocus: false,
         });
         this._dialogRef.afterClosed().subscribe(() => {
             this._dialogRef = null;

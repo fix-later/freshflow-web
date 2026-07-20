@@ -8,7 +8,7 @@
                 {{ t('admin.users.subtitle') }}
             </p>
         </div>
-        <button mat-flat-button color="primary" (click)="openCreatePanel()">
+        <button mat-flat-button color="accent" (click)="openCreatePanel()">
             <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
             {{ t('admin.users.create.trigger') }}
         </button>
@@ -95,7 +95,7 @@
                         <td class="px-4 py-3">
                             <button
                                 type="button"
-                                class="text-left font-medium text-primary hover:underline"
+                                class="text-left font-medium text-accent hover:underline"
                                 (click)="openDetail(user)"
                             >
                                 {{ user.email || user.id }}
@@ -202,7 +202,10 @@
 
 <!-- Create user panel -->
 <ng-template #createUserPanel>
-    <div class="flex w-full flex-col p-6" *transloco="let t">
+    <div
+        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
+        *transloco="let t"
+    >
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold">
                 {{ t('admin.users.create.title') }}
@@ -278,7 +281,7 @@
                 </button>
                 <button
                     mat-flat-button
-                    color="primary"
+                    color="accent"
                     type="submit"
                     [disabled]="createForm.invalid || createForm.disabled"
                 >
