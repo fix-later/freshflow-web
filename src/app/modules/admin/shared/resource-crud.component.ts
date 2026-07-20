@@ -52,6 +52,10 @@ import {
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    // The host sits between the routed wrapper (e.g. admin-hubs) and the page
+    // content; make it a full-width flex block so the content stretches the
+    // whole screen instead of shrinking to the default inline host width.
+    host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
         MatDialogModule,
