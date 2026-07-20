@@ -13,18 +13,20 @@
     </div>
 
     @if (resource.searchKeys?.length) {
-        <mat-form-field class="mt-6 w-full max-w-sm" subscriptSizing="dynamic">
-            <mat-label>{{ t('admin.crud.search') }}</mat-label>
-            <input
-                matInput
-                [value]="search()"
-                (input)="onSearch($any($event.target).value)"
-            />
-            <mat-icon
-                matPrefix
-                svgIcon="heroicons_outline:magnifying-glass"
-            ></mat-icon>
-        </mat-form-field>
+        <div class="mt-6 flex flex-wrap items-end gap-4">
+            <mat-form-field class="w-64" subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.crud.search') }}</mat-label>
+                <input
+                    matInput
+                    [value]="search()"
+                    (input)="onSearch($any($event.target).value)"
+                />
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:magnifying-glass"
+                ></mat-icon>
+            </mat-form-field>
+        </div>
     }
 
     @if (loading()) {
@@ -143,7 +145,10 @@
 
 <!-- Create / edit dialog -->
 <ng-template #formDialog>
-    <div class="flex w-full flex-col p-6" *transloco="let t">
+    <div
+        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
+        *transloco="let t"
+    >
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold">
                 {{
@@ -160,58 +165,104 @@
         @if (form) {
             <form
                 [formGroup]="form"
-                class="mt-4 flex flex-col gap-3"
+                [class]="formLayoutClass"
                 (ngSubmit)="save()"
             >
                 @for (field of resource.fields; track field.name) {
                     @if (!(editingId() && field.createOnly)) {
-                        <mat-form-field subscriptSizing="dynamic">
-                            <mat-label>{{ t(field.label) }}</mat-label>
+                        @if (field.type === 'location') {
+                            <app-location-picker
+                                [class]="fieldSpanClass(field)"
+                                [latControl]="controlOf(field.latField ?? '')"
+                                [lngControl]="controlOf(field.lngField ?? '')"
+                            ></app-location-picker>
+                        } @else {
+                            <mat-form-field
+                                subscriptSizing="dynamic"
+                                [class]="fieldSpanClass(field)"
+                            >
+                                <mat-label>{{ t(field.label) }}</mat-label>
 
-                            @switch (field.type) {
-                                @case ('select') {
-                                    <mat-select [formControlName]="field.name">
-                                        @if (!field.required) {
-                                            <mat-option [value]="''"
-                                                >—</mat-option
-                                            >
-                                        }
-                                        @for (
-                                            opt of selectOptions()[field.name];
-                                            track opt.value
-                                        ) {
-                                            <mat-option [value]="opt.value">{{
-                                                opt.label
-                                            }}</mat-option>
-                                        }
-                                    </mat-select>
+                                @switch (field.type) {
+                                    @case ('select') {
+                                        <mat-select
+                                            [formControlName]="field.name"
+                                        >
+                                            @if (!field.required) {
+                                                <mat-option [value]="''"
+                                                    >—</mat-option
+                                                >
+                                            }
+                                            @for (
+                                                opt of selectOptions()[
+                                                    field.name
+                                                ];
+                                                track opt.value
+                                            ) {
+                                                <mat-option
+                                                    [value]="opt.value"
+                                                    >{{ opt.label }}</mat-option
+                                                >
+                                            }
+                                        </mat-select>
+                                    }
+                                    @case ('textarea') {
+                                        <textarea
+                                            matInput
+                                            rows="3"
+                                            [formControlName]="field.name"
+                                        ></textarea>
+                                    }
+                                    @case ('number') {
+                                        <input
+                                            matInput
+                                            type="number"
+                                            [formControlName]="field.name"
+                                        />
+                                    }
+                                    @default {
+                                        <input
+                                            matInput
+                                            [formControlName]="field.name"
+                                        />
+                                    }
                                 }
-                                @case ('textarea') {
-                                    <textarea
-                                        matInput
-                                        rows="3"
-                                        [formControlName]="field.name"
-                                    ></textarea>
+
+                                @if (
+                                    controlOf(field.name)?.hasError('required')
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.required')
+                                    }}</mat-error>
                                 }
-                                @case ('number') {
-                                    <input
-                                        matInput
-                                        type="number"
-                                        [formControlName]="field.name"
-                                    />
+                                @if (
+                                    controlOf(field.name)?.hasError('maxlength')
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.maxLength', {
+                                            max: field.maxLength,
+                                        })
+                                    }}</mat-error>
                                 }
-                                @default {
-                                    <input
-                                        matInput
-                                        [formControlName]="field.name"
-                                    />
+                                @if (controlOf(field.name)?.hasError('min')) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.min', {
+                                            min: field.min,
+                                        })
+                                    }}</mat-error>
                                 }
-                            }
-                        </mat-form-field>
+                            </mat-form-field>
+                        }
                     }
                 }
 
-                <div class="mt-2 flex justify-end gap-2">
+                <div
+                    [class]="
+                        wideDialog
+                            ? 'mt-2 flex justify-end gap-2 sm:col-span-2'
+                            : 'mt-2 flex justify-end gap-2'
+                    "
+                >
                     <button
                         mat-stroked-button
                         type="button"

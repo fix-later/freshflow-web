@@ -30,3 +30,17 @@ body {
         fill 350ms ease,
         stroke 350ms ease !important;
 }
+
+/**
+ * Scroll without a visible scrollbar. Used by dialogs that grow past the
+ * viewport: the body still scrolls, but the track/thumb stay hidden across
+ * Firefox, IE/Edge and WebKit.
+ */
+.no-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE / old Edge */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome / Safari / Edge */
+}

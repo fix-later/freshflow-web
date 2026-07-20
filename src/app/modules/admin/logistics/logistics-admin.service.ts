@@ -1,7 +1,14 @@
 import { Injectable } from '@angular/core';
 import { extractList, parseJson } from 'app/core/api/envelope';
-import { deliveryZonesApi, hubsApi, vehiclesApi } from 'contract';
-import { CrudFormValue, CrudRow } from '../shared/resource-crud.types';
+import { adminApi, deliveryZonesApi, hubsApi, vehiclesApi } from 'contract';
+import {
+    CrudFormValue,
+    CrudOption,
+    CrudRow,
+} from '../shared/resource-crud.types';
+
+/** Role whose users may manage a hub (see ROLE_MATRIX — Hub Staff). */
+const HUB_MANAGER_ROLE = 'hub_staff';
 
 function str(value: unknown): string {
     return value == null ? '' : String(value);
@@ -30,8 +37,43 @@ export class LogisticsAdminService {
     // ---- Hubs -------------------------------------------------------------
 
     async listHubs(): Promise<CrudRow[]> {
-        const res = await hubsApi.apiV1HubsGetRaw({ pageSize: 200 });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        const [res, managers] = await Promise.all([
+            hubsApi.apiV1HubsGetRaw({ pageSize: 200 }),
+            this.hubManagerOptions(),
+        ]);
+        const nameById = new Map(managers.map((m) => [m.value, m.label]));
+        const rows = extractList<CrudRow>(await parseJson(res.raw));
+        // Attach a resolved manager name so the table shows it instead of a UUID.
+        return rows.map((row) => ({
+            ...row,
+            managedByName: row['managedBy']
+                ? nameById.get(String(row['managedBy'])) ??
+                  String(row['managedBy'])
+                : '',
+        }));
+    }
+
+    /** Hub-staff users as `{ value: id, label: email }` for the manager select. */
+    async hubManagerOptions(): Promise<CrudOption[]> {
+        try {
+            const res = await adminApi.apiV1AdminUsersGetRaw({
+                role: HUB_MANAGER_ROLE,
+                pageSize: 100,
+            });
+            const users = extractList<{
+                id?: string;
+                email?: string;
+                fullName?: string;
+            }>(await parseJson(res.raw));
+            return users
+                .filter((u): u is { id: string; email?: string } => !!u.id)
+                .map((u) => ({
+                    value: u.id,
+                    label: u.email || u.id,
+                }));
+        } catch {
+            return [];
+        }
     }
 
     async createHub(value: CrudFormValue): Promise<void> {

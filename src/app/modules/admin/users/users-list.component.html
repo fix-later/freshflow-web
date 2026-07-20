@@ -202,7 +202,10 @@
 
 <!-- Create user panel -->
 <ng-template #createUserPanel>
-    <div class="flex w-full flex-col p-6" *transloco="let t">
+    <div
+        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
+        *transloco="let t"
+    >
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold">
                 {{ t('admin.users.create.title') }}

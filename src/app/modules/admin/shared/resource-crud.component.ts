@@ -31,6 +31,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import {
     CrudField,
     CrudFormValue,
@@ -63,6 +64,7 @@ import {
         MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
+        LocationPickerComponent,
     ],
 })
 export class ResourceCrudComponent implements OnInit {
@@ -100,6 +102,30 @@ export class ResourceCrudComponent implements OnInit {
             )
         );
     });
+
+    /**
+     * Resources with several fields (hubs, markets, products) render the dialog
+     * as a wider two-column grid; simple ones (categories, units) stay a narrow
+     * single column.
+     */
+    get wideDialog(): boolean {
+        return this.resource.fields.length >= 4;
+    }
+
+    /** Container class for the dialog form (grid when wide, else a column). */
+    get formLayoutClass(): string {
+        return this.wideDialog
+            ? 'mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2'
+            : 'mt-4 flex flex-col gap-3';
+    }
+
+    /** Fields that should span both columns (map + multi-line text). */
+    fieldSpanClass(field: CrudField): string {
+        return this.wideDialog &&
+            (field.type === 'location' || field.type === 'textarea')
+            ? 'sm:col-span-2'
+            : '';
+    }
 
     ngOnInit(): void {
         this.load();
@@ -200,8 +226,9 @@ export class ResourceCrudComponent implements OnInit {
 
     private _open(): void {
         this._dialogRef = this._dialog.open(this._formDialog, {
-            width: '30rem',
+            width: this.wideDialog ? '46rem' : '30rem',
             maxWidth: 'calc(100vw - 2rem)',
+            maxHeight: '90vh',
             autoFocus: false,
         });
         this._dialogRef.afterClosed().subscribe(() => (this._dialogRef = null));
@@ -210,6 +237,16 @@ export class ResourceCrudComponent implements OnInit {
     private _buildForm(row: CrudRow | null): FormGroup {
         const controls: Record<string, FormControl> = {};
         for (const field of this.resource.fields) {
+            if (field.type === 'location') {
+                for (const coord of [field.latField, field.lngField]) {
+                    if (coord) {
+                        controls[coord] = new FormControl(
+                            row ? this._coordValue(row, coord) : null
+                        );
+                    }
+                }
+                continue;
+            }
             const value = row
                 ? this._rowValue(row, field)
                 : field.type === 'number'
@@ -217,10 +254,33 @@ export class ResourceCrudComponent implements OnInit {
                   : '';
             controls[field.name] = new FormControl(
                 { value, disabled: !!row && !!field.createOnly },
-                field.required ? [Validators.required] : []
+                this._validatorsFor(field)
             );
         }
         return new FormGroup(controls);
+    }
+
+    private _validatorsFor(field: CrudField) {
+        const validators = [];
+        if (field.required) {
+            validators.push(Validators.required);
+        }
+        if (field.maxLength != null) {
+            validators.push(Validators.maxLength(field.maxLength));
+        }
+        if (field.min != null) {
+            validators.push(Validators.min(field.min));
+        }
+        return validators;
+    }
+
+    private _coordValue(row: CrudRow, key: string): number | null {
+        const raw = row[key];
+        if (raw == null || raw === '') {
+            return null;
+        }
+        const num = Number(raw);
+        return Number.isNaN(num) ? null : num;
     }
 
     private async _loadSelectOptions(): Promise<void> {
@@ -254,6 +314,14 @@ export class ResourceCrudComponent implements OnInit {
         const raw = this.form?.getRawValue() as Record<string, unknown>;
         const out: CrudFormValue = {};
         for (const field of this.resource.fields) {
+            if (field.type === 'location') {
+                for (const coord of [field.latField, field.lngField]) {
+                    if (coord) {
+                        out[coord] = this._toNumberOrNull(raw[coord]);
+                    }
+                }
+                continue;
+            }
             const value = raw[field.name];
             if (field.type === 'number') {
                 const num = Number(value);
@@ -268,6 +336,14 @@ export class ResourceCrudComponent implements OnInit {
             }
         }
         return out;
+    }
+
+    private _toNumberOrNull(value: unknown): number | null {
+        if (value === '' || value == null) {
+            return null;
+        }
+        const num = Number(value);
+        return Number.isNaN(num) ? null : num;
     }
 
     private _notify(key: string): void {

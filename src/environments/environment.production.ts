@@ -9,4 +9,11 @@
 export const environment = {
     production: true,
     apiBaseUrl: 'https://api.freshflow.fishfix.vn',
+    /**
+     * Goong.io keys (client-side, embedded in the browser build). Left blank so
+     * real keys are never committed — inject the production values at deploy
+     * time (CI/secret) or via a local build override.
+     */
+    goongMapsKey: '',
+    goongPlacesKey: '',
 };
