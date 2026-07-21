@@ -36,6 +36,8 @@ const MARKET_AGENT_ROLE = 'market_agent';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    // Full-width flex host so the page fills the screen (see ResourceCrudComponent).
+    host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
         MatCheckboxModule,
@@ -179,7 +181,12 @@ export class UserDetailComponent implements OnInit {
                 this.userId,
                 Array.from(this.assignedMarketIds())
             )
-            .then(() => this._notify('admin.userDetail.assignments.success'))
+            .then(() => {
+                this._notify('admin.userDetail.assignments.success');
+                // The checkboxes show what was submitted; read back what the
+                // server actually kept.
+                this._loadAssignments();
+            })
             .catch((err) => this._notifyError(err))
             .finally(() => this.savingAssignments.set(false));
     }

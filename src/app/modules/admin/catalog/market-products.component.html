@@ -24,8 +24,12 @@
         <mat-form-field class="w-64" subscriptSizing="dynamic">
             <mat-label>{{ t('admin.markets.addProduct') }}</mat-label>
             <mat-select formControlName="productId">
-                @for (opt of productOptions(); track opt.value) {
+                @for (opt of availableProductOptions(); track opt.value) {
                     <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                } @empty {
+                    <mat-option disabled>{{
+                        t('admin.markets.allProductsAdded')
+                    }}</mat-option>
                 }
             </mat-select>
         </mat-form-field>
@@ -58,22 +62,45 @@
                 class="text-secondary border-b text-xs uppercase tracking-wide"
             >
                 <tr>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.products.name') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.markets.price') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.markets.quantity') }}
-                    </th>
+                    @for (
+                        col of [
+                            { key: 'name', label: 'admin.products.name' },
+                            { key: 'price', label: 'admin.markets.price' },
+                            {
+                                key: 'quantity',
+                                label: 'admin.markets.quantity',
+                            },
+                        ];
+                        track col.key
+                    ) {
+                        <th
+                            class="px-4 py-3 font-medium"
+                            [attr.aria-sort]="sort.ariaSort(col.key)"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle(col.key)"
+                            >
+                                {{ t(col.label) }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === col.key"
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon(col.key)
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </th>
+                    }
                     <th class="px-4 py-3 text-right font-medium">
                         {{ t('admin.users.table.actions') }}
                     </th>
                 </tr>
             </thead>
             <tbody>
-                @for (row of rows(); track row.productId) {
+                @for (row of sortedRows(); track row.productId) {
                     <tr class="border-b last:border-0">
                         <td class="px-4 py-3 font-medium">
                             {{ row.name || '—' }}

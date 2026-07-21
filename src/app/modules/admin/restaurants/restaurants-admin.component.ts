@@ -2,6 +2,7 @@ import {
     ChangeDetectionStrategy,
     Component,
     ViewEncapsulation,
+    WritableSignal,
     inject,
     signal,
 } from '@angular/core';
@@ -13,7 +14,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { AdminService } from '../admin.service';
+import { AdminService, apiErrorMessage } from '../admin.service';
 import { AdminRestaurantCredit } from '../admin.types';
 
 /** UUID v4-ish check — good enough to short-circuit obviously malformed input. */
@@ -31,6 +32,8 @@ const UUID_PATTERN =
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    // Full-width flex host so the page fills the screen (see ResourceCrudComponent).
+    host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
         MatFormFieldModule,
@@ -51,6 +54,8 @@ export class RestaurantsAdminComponent {
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
     readonly approving = signal(false);
+    readonly suspending = signal(false);
+    readonly reactivating = signal(false);
     readonly settingLimit = signal(false);
     readonly settling = signal(false);
 
@@ -95,16 +100,61 @@ export class RestaurantsAdminComponent {
     }
 
     approve(): void {
+        this._runLifecycleAction(
+            this.approving,
+            (id) => this._admin.approveRestaurant(id),
+            'admin.restaurants.approve.success'
+        );
+    }
+
+    suspend(): void {
+        this._runLifecycleAction(
+            this.suspending,
+            (id) => this._admin.suspendRestaurant(id),
+            'admin.restaurants.suspend.success'
+        );
+    }
+
+    reactivate(): void {
+        this._runLifecycleAction(
+            this.reactivating,
+            (id) => this._admin.reactivateRestaurant(id),
+            'admin.restaurants.reactivate.success'
+        );
+    }
+
+    /**
+     * Shared runner for the approve/suspend/reactivate buttons: validates the
+     * looked-up id, toggles the button's own busy flag, and reports the outcome.
+     */
+    private _runLifecycleAction(
+        busy: WritableSignal<boolean>,
+        action: (restaurantId: string) => Promise<void>,
+        successKey: string
+    ): void {
         const restaurantId = this._validRestaurantId;
         if (!restaurantId) {
             return;
         }
-        this.approving.set(true);
-        this._admin
-            .approveRestaurant(restaurantId)
-            .then(() => this._notify('admin.restaurants.approve.success'))
-            .catch(() => this._notify('admin.restaurants.actionError'))
-            .finally(() => this.approving.set(false));
+        busy.set(true);
+        action(restaurantId)
+            .then(() => {
+                this._notify(successKey);
+                // Approval/suspension can change the credit record this page is
+                // showing, so refresh it instead of leaving a pre-action value.
+                if (this.credit()) {
+                    this.lookupCredit();
+                }
+            })
+            .catch(async (err) =>
+                this._notifyText(
+                    (await apiErrorMessage(err)) ??
+                        this._transloco.translate(
+                            'admin.restaurants.actionError'
+                        )
+                )
+            )
+            .finally(() => busy.set(false));
     }
 
     setCreditLimit(): void {
@@ -159,8 +209,10 @@ export class RestaurantsAdminComponent {
     }
 
     private _notify(key: string): void {
-        this._snackBar.open(this._transloco.translate(key), undefined, {
-            duration: 3000,
-        });
+        this._notifyText(this._transloco.translate(key));
+    }
+
+    private _notifyText(message: string): void {
+        this._snackBar.open(message, undefined, { duration: 3000 });
     }
 }

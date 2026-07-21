@@ -1,0 +1,161 @@
+<div class="flex max-h-[85vh] w-full flex-col" *transloco="let t">
+    <div class="flex flex-wrap items-center justify-between gap-3 px-6 pt-6">
+        <div>
+            <h2 class="text-xl font-semibold">
+                {{ t('admin.categories.map.title') }}
+            </h2>
+            <p class="text-secondary mt-1 text-sm">
+                {{ t('admin.categories.map.dragHint') }}
+            </p>
+        </div>
+        <div class="flex items-center gap-1">
+            <button
+                mat-icon-button
+                type="button"
+                [attr.aria-label]="t('admin.categories.map.zoomOut')"
+                (click)="zoomOut()"
+            >
+                <mat-icon svgIcon="heroicons_outline:minus"></mat-icon>
+            </button>
+            <button mat-button type="button" (click)="zoomReset()">
+                {{ (zoom() * 100).toFixed(0) }}%
+            </button>
+            <button
+                mat-icon-button
+                type="button"
+                [attr.aria-label]="t('admin.categories.map.zoomIn')"
+                (click)="zoomIn()"
+            >
+                <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+            </button>
+            <button
+                mat-icon-button
+                type="button"
+                [mat-dialog-close]="changed()"
+                [attr.aria-label]="t('admin.categories.map.close')"
+            >
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+    </div>
+
+    @if (saving()) {
+        <mat-progress-bar mode="indeterminate" class="mt-2"></mat-progress-bar>
+    }
+
+    <div class="mt-4 flex-1 overflow-auto border-t px-6 py-4">
+        @if (nodes().length) {
+            <svg
+                #canvas
+                [attr.viewBox]="viewBox()"
+                [attr.width]="canvasWidth()"
+                [attr.height]="canvasHeight()"
+                class="category-map-canvas max-w-none"
+                [class.category-map-dragging]="dragId()"
+                role="img"
+                [attr.aria-label]="t('admin.categories.map.title')"
+                (pointermove)="onPointerMove($event)"
+                (pointerup)="onPointerUp()"
+                (pointercancel)="onPointerUp()"
+            >
+                <!--
+                    Drop band that clears a category's parent. Always reserved
+                    below the tree so the affordance is discoverable, and lit
+                    only while a node that actually has a parent is over it.
+                -->
+                <g
+                    class="category-map-zone"
+                    [class.category-map-zone-active]="
+                        dropTargetId() === ROOT_ZONE
+                    "
+                >
+                    <rect
+                        [attr.x]="rootZone().x"
+                        [attr.y]="rootZone().y"
+                        [attr.width]="rootZone().width"
+                        [attr.height]="rootZone().height"
+                        rx="10"
+                    ></rect>
+                    <text
+                        [attr.x]="rootZone().x + rootZone().width / 2"
+                        [attr.y]="rootZone().y + rootZone().height / 2 + 4"
+                        text-anchor="middle"
+                    >
+                        {{ t('admin.categories.map.rootZone') }}
+                    </text>
+                </g>
+
+                <!-- Connectors sit under the nodes and stay recessive. -->
+                <g fill="none" class="category-map-edge">
+                    @for (edge of edges(); track edge.id) {
+                        <path
+                            [attr.d]="edge.path"
+                            stroke-width="1.5"
+                            [class.category-map-edge-superseded]="
+                                isEdgeSuperseded(edge)
+                            "
+                        ></path>
+                    }
+                </g>
+
+                <!--
+                    Live preview of the link the drop would create, from the
+                    prospective parent to the node being dragged.
+                -->
+                @if (previewEdge(); as preview) {
+                    <path
+                        fill="none"
+                        class="category-map-edge-preview"
+                        [attr.d]="preview"
+                    ></path>
+                }
+
+                @for (node of nodes(); track node.id) {
+                    <g
+                        class="category-map-node"
+                        [class.category-map-node-root]="node.depth === 0"
+                        [class.category-map-node-dragging]="
+                            dragId() === node.id
+                        "
+                        [class.category-map-node-target]="
+                            dropTargetId() === node.id
+                        "
+                        [attr.transform]="dragTransform(node)"
+                        (pointerdown)="onPointerDown(node, $event)"
+                    >
+                        <title>{{ node.title }}</title>
+                        <rect
+                            [attr.x]="node.x"
+                            [attr.y]="node.y"
+                            [attr.width]="nodeWidth"
+                            [attr.height]="nodeHeight"
+                            rx="8"
+                            stroke-width="1"
+                        ></rect>
+                        <text
+                            [attr.x]="node.x + 12"
+                            [attr.y]="node.y + nodeHeight / 2 + 4"
+                            class="category-map-label"
+                        >
+                            {{ node.label }}
+                        </text>
+                        @if (node.childCount) {
+                            <text
+                                [attr.x]="node.x + nodeWidth - 12"
+                                [attr.y]="node.y + nodeHeight / 2 + 4"
+                                text-anchor="end"
+                                class="category-map-count"
+                            >
+                                {{ node.childCount }}
+                            </text>
+                        }
+                    </g>
+                }
+            </svg>
+        } @else {
+            <p class="text-secondary py-8 text-center text-sm">
+                {{ t('admin.categories.map.empty') }}
+            </p>
+        }
+    </div>
+</div>

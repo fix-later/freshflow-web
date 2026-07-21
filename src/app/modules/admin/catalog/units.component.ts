@@ -27,13 +27,16 @@ export class UnitsComponent {
         subtitle: 'admin.units.subtitle',
         createLabel: 'admin.units.create',
         searchKeys: ['name', 'abbreviation'],
+        searchPlaceholder: 'admin.units.searchPlaceholder',
         columns: [
             {
                 label: 'admin.units.name',
+                sortable: true,
                 cell: (row) => String(row['name'] ?? ''),
             },
             {
                 label: 'admin.units.abbreviation',
+                sortable: true,
                 cell: (row) => String(row['abbreviation'] ?? ''),
             },
         ],
@@ -55,6 +58,7 @@ export class UnitsComponent {
         update: (id, value) => this._catalog.updateUnit(id, value),
         remove: (row) => this._catalog.deactivateUnit(row.id),
         removeLabel: 'admin.crud.deactivate',
+        removeIsDeactivate: true,
         removeIcon: 'archive-box-x-mark',
     };
 }

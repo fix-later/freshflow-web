@@ -48,6 +48,30 @@
             ></mat-icon>
             {{ t('admin.restaurants.approve.submit') }}
         </button>
+        <button
+            mat-stroked-button
+            type="button"
+            [disabled]="suspending()"
+            (click)="suspend()"
+        >
+            <mat-icon
+                class="mr-1"
+                svgIcon="heroicons_outline:pause-circle"
+            ></mat-icon>
+            {{ t('admin.restaurants.suspend.submit') }}
+        </button>
+        <button
+            mat-stroked-button
+            type="button"
+            [disabled]="reactivating()"
+            (click)="reactivate()"
+        >
+            <mat-icon
+                class="mr-1"
+                svgIcon="heroicons_outline:play-circle"
+            ></mat-icon>
+            {{ t('admin.restaurants.reactivate.submit') }}
+        </button>
     </form>
 
     @if (loadingCredit()) {
