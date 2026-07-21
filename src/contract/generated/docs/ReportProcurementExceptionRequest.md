@@ -1,24 +1,30 @@
 
-# UpdateCategoryRequest
+# ReportProcurementExceptionRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`marketProductId` | string
+`type` | string
+`reportedQuantity` | number
+`note` | string
+`proofImageUrl` | string
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { ReportProcurementExceptionRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "marketProductId": null,
+  "type": null,
+  "reportedQuantity": null,
+  "note": null,
+  "proofImageUrl": null,
+} satisfies ReportProcurementExceptionRequest
 
 console.log(example)
 
@@ -27,7 +33,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as ReportProcurementExceptionRequest
 console.log(exampleParsed)
 ```
 

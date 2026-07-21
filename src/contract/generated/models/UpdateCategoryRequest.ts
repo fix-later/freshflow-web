@@ -24,6 +24,12 @@ export interface UpdateCategoryRequest {
      * @memberof UpdateCategoryRequest
      */
     name: string;
+    /**
+     *
+     * @type {string}
+     * @memberof UpdateCategoryRequest
+     */
+    parentId?: string | null;
 }
 
 /**
@@ -51,6 +57,7 @@ export function UpdateCategoryRequestFromJSONTyped(
     }
     return {
         name: json['name'],
+        parentId: json['parentId'] == null ? undefined : json['parentId'],
     };
 }
 
@@ -68,5 +75,6 @@ export function UpdateCategoryRequestToJSONTyped(
 
     return {
         name: value['name'],
+        parentId: value['parentId'],
     };
 }

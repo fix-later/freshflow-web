@@ -75,6 +75,13 @@
                             "format": "int32",
                             "default": 20
                         }
+                    },
+                    {
+                        "name": "restaurantStatus",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
                     }
                 ],
                 "responses": {
@@ -216,6 +223,48 @@
                 }
             }
         },
+        "/api/v1/admin/restaurants/{restaurantId}/suspend": {
+            "patch": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "restaurantId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/restaurants/{restaurantId}/reactivate": {
+            "patch": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "restaurantId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/v1/admin/restaurants/{restaurantId}/credit/settle": {
             "post": {
                 "tags": ["Admin"],
@@ -316,6 +365,335 @@
                 }
             }
         },
+        "/api/v1/admin/operational-settings": {
+            "get": {
+                "tags": ["Admin"],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "tags": ["Admin"],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateOperationalSettingsRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateOperationalSettingsRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdateOperationalSettingsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups": {
+            "get": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups/progress": {
+            "get": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups/auto-batch": {
+            "post": {
+                "tags": ["Admin"],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RunAutoBatchRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RunAutoBatchRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RunAutoBatchRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups/{batchId}/manifest": {
+            "post": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups/{batchId}/agent": {
+            "post": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AssignAgentRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AssignAgentRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AssignAgentRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/order-groups/{batchId}/cancel": {
+            "post": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CancelOrderGroupRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CancelOrderGroupRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CancelOrderGroupRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/pricing-settings": {
+            "get": {
+                "tags": ["Admin"],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "tags": ["Admin"],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/admin/audit-logs": {
+            "get": {
+                "tags": ["Admin"],
+                "parameters": [
+                    {
+                        "name": "actorId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "entityType",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
         "/api/v1/admin/users/{userId}/market-assignments": {
             "get": {
                 "tags": ["Admin"],
@@ -368,6 +746,385 @@
                         }
                     }
                 },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/overview": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/price-trends": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "marketProductId",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "uuid"
+                            }
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "interval",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/order-metrics": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "restaurantId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "groupBy",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/procurement-metrics": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "marketId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/hub-throughput": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "hubId",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/delivery-performance": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/demand-heatmap": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/demand-heatmap/time-distribution": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/recent-activities": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "entityType",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "action",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/analytics/export": {
+            "get": {
+                "tags": ["Analytics"],
+                "parameters": [
+                    {
+                        "name": "dataset",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "marketProductId",
+                        "in": "query",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "uuid"
+                            }
+                        }
+                    },
+                    {
+                        "name": "format",
+                        "in": "query",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK"
@@ -1886,6 +2643,75 @@
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/hubs/{hubId}/staff-assignments": {
+            "get": {
+                "tags": ["HubStaffAssignments"],
+                "parameters": [
+                    {
+                        "name": "hubId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            },
+            "put": {
+                "tags": ["HubStaffAssignments"],
+                "parameters": [
+                    {
+                        "name": "hubId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplaceHubStaffAssignmentsRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplaceHubStaffAssignmentsRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReplaceHubStaffAssignmentsRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/hubs/assigned": {
+            "get": {
+                "tags": ["HubStaffAssignments"],
                 "responses": {
                     "200": {
                         "description": "OK"
@@ -4496,6 +5322,106 @@
                 }
             }
         },
+        "/api/v1/orders/{orderId}/advance-status": {
+            "post": {
+                "tags": ["Orders"],
+                "parameters": [
+                    {
+                        "name": "orderId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdvanceOrderStatusRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdvanceOrderStatusRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/AdvanceOrderStatusRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Content",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/orders/{orderId}/receipt": {
             "patch": {
                 "tags": ["Orders"],
@@ -4964,6 +5890,198 @@
                                 }
                             }
                         }
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks": {
+            "get": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 1
+                        }
+                    },
+                    {
+                        "name": "pageSize",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32",
+                            "default": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks/{batchId}": {
+            "get": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks/{batchId}/purchase": {
+            "patch": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConfirmPurchaseRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConfirmPurchaseRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ConfirmPurchaseRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks/{batchId}/handover": {
+            "patch": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HandoverRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HandoverRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/HandoverRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks/{batchId}/exceptions": {
+            "post": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportProcurementExceptionRequest"
+                            }
+                        },
+                        "text/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportProcurementExceptionRequest"
+                            }
+                        },
+                        "application/*+json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/ReportProcurementExceptionRequest"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                }
+            }
+        },
+        "/api/v1/procurement/tasks/{batchId}/exceptions/upload-signature": {
+            "post": {
+                "tags": ["Procurement"],
+                "parameters": [
+                    {
+                        "name": "batchId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
                     }
                 }
             }
@@ -5458,6 +6576,76 @@
             }
         },
         "/api/v1/restaurants/{restaurantId}/credit/statements/{statementId}": {
+            "get": {
+                "tags": ["RestaurantCredit"],
+                "parameters": [
+                    {
+                        "name": "restaurantId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "statementId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "text/plain": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            },
+                            "text/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ProblemDetails"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/restaurants/{restaurantId}/credit/statements/{statementId}/pdf": {
             "get": {
                 "tags": ["RestaurantCredit"],
                 "parameters": [
@@ -6325,6 +7513,28 @@
                 },
                 "additionalProperties": false
             },
+            "AdvanceOrderStatusRequest": {
+                "type": "object",
+                "properties": {
+                    "status": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "AssignAgentRequest": {
+                "required": ["agentUserId"],
+                "type": "object",
+                "properties": {
+                    "agentUserId": {
+                        "minLength": 1,
+                        "type": "string",
+                        "format": "uuid"
+                    }
+                },
+                "additionalProperties": false
+            },
             "AssignRoleRequest": {
                 "required": ["roleName"],
                 "type": "object",
@@ -6435,6 +7645,16 @@
                 },
                 "additionalProperties": false
             },
+            "CancelOrderGroupRequest": {
+                "type": "object",
+                "properties": {
+                    "reason": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "CancelOrderRequest": {
                 "type": "object",
                 "properties": {
@@ -6478,6 +7698,19 @@
                 },
                 "additionalProperties": false
             },
+            "ConfirmPurchaseRequest": {
+                "required": ["lines"],
+                "type": "object",
+                "properties": {
+                    "lines": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/PurchaseLineDto"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
             "CreateCategoryRequest": {
                 "required": ["name"],
                 "type": "object",
@@ -6486,6 +7719,11 @@
                         "maxLength": 200,
                         "minLength": 1,
                         "type": "string"
+                    },
+                    "parentId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
                     }
                 },
                 "additionalProperties": false
@@ -6849,6 +8087,17 @@
                 },
                 "additionalProperties": false
             },
+            "HandoverRequest": {
+                "type": "object",
+                "properties": {
+                    "hubId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "HubInboundItemCommand": {
                 "required": ["marketProductId"],
                 "type": "object",
@@ -6959,6 +8208,30 @@
                     }
                 },
                 "additionalProperties": {}
+            },
+            "PurchaseLineDto": {
+                "required": ["marketProductId"],
+                "type": "object",
+                "properties": {
+                    "marketProductId": {
+                        "minLength": 1,
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "actualQuantity": {
+                        "minimum": 0,
+                        "exclusiveMinimum": true,
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "actualUnitPrice": {
+                        "minimum": 0,
+                        "exclusiveMinimum": true,
+                        "type": "number",
+                        "format": "double"
+                    }
+                },
+                "additionalProperties": false
             },
             "RecordActualQuantityRequest": {
                 "type": "object",
@@ -7183,6 +8456,20 @@
                 },
                 "additionalProperties": false
             },
+            "ReplaceHubStaffAssignmentsRequest": {
+                "required": ["staffUserIds"],
+                "type": "object",
+                "properties": {
+                    "staffUserIds": {
+                        "type": "array",
+                        "items": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                },
+                "additionalProperties": false
+            },
             "ReplaceMarketAssignmentsRequest": {
                 "required": ["marketIds"],
                 "type": "object",
@@ -7234,6 +8521,32 @@
                 },
                 "additionalProperties": false
             },
+            "ReportProcurementExceptionRequest": {
+                "type": "object",
+                "properties": {
+                    "marketProductId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "type": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "reportedQuantity": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "proofImageUrl": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "RequestVerificationRequest": {
                 "required": ["channel", "identifier"],
                 "type": "object",
@@ -7275,6 +8588,25 @@
                             "type": "string",
                             "format": "uuid"
                         },
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
+            "RunAutoBatchRequest": {
+                "type": "object",
+                "properties": {
+                    "targetDate": {
+                        "type": "string",
+                        "format": "date",
+                        "nullable": true
+                    },
+                    "dryRun": {
+                        "type": "boolean",
+                        "nullable": true
+                    },
+                    "force": {
+                        "type": "boolean",
                         "nullable": true
                     }
                 },
@@ -7366,6 +8698,11 @@
                         "maxLength": 200,
                         "minLength": 1,
                         "type": "string"
+                    },
+                    "parentId": {
+                        "type": "string",
+                        "format": "uuid",
+                        "nullable": true
                     }
                 },
                 "additionalProperties": false
@@ -7488,6 +8825,23 @@
                 },
                 "additionalProperties": false
             },
+            "UpdateOperationalSettingsRequest": {
+                "type": "object",
+                "properties": {
+                    "dailyCutoffTime": {
+                        "type": "string",
+                        "format": "time"
+                    },
+                    "batchingEnabled": {
+                        "type": "boolean"
+                    },
+                    "defaultRouteType": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "additionalProperties": false
+            },
             "UpdateOrderItemRequest": {
                 "type": "object",
                 "properties": {
@@ -7496,6 +8850,18 @@
                         "exclusiveMinimum": true,
                         "type": "integer",
                         "format": "int32"
+                    }
+                },
+                "additionalProperties": false
+            },
+            "UpdatePricingSettingsRequest": {
+                "type": "object",
+                "properties": {
+                    "priceAlertThresholdPercent": {
+                        "maximum": 100,
+                        "minimum": 0.01,
+                        "type": "number",
+                        "format": "double"
                     }
                 },
                 "additionalProperties": false
@@ -7683,6 +9049,9 @@
             "name": "Admin"
         },
         {
+            "name": "Analytics"
+        },
+        {
             "name": "Assistant"
         },
         {
@@ -7707,6 +9076,9 @@
             "name": "Hubs"
         },
         {
+            "name": "HubStaffAssignments"
+        },
+        {
             "name": "Markets"
         },
         {
@@ -7720,6 +9092,9 @@
         },
         {
             "name": "Pricing"
+        },
+        {
+            "name": "Procurement"
         },
         {
             "name": "Products"

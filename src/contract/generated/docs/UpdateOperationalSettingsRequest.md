@@ -1,24 +1,26 @@
 
-# UpdateCategoryRequest
+# UpdateOperationalSettingsRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`dailyCutoffTime` | string
+`batchingEnabled` | boolean
+`defaultRouteType` | string
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { UpdateOperationalSettingsRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "dailyCutoffTime": null,
+  "batchingEnabled": null,
+  "defaultRouteType": null,
+} satisfies UpdateOperationalSettingsRequest
 
 console.log(example)
 
@@ -27,7 +29,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as UpdateOperationalSettingsRequest
 console.log(exampleParsed)
 ```
 

@@ -1,24 +1,22 @@
 
-# UpdateCategoryRequest
+# AdvanceOrderStatusRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`status` | string
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { AdvanceOrderStatusRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "status": null,
+} satisfies AdvanceOrderStatusRequest
 
 console.log(example)
 
@@ -27,7 +25,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as AdvanceOrderStatusRequest
 console.log(exampleParsed)
 ```
 

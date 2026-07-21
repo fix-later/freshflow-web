@@ -1,24 +1,22 @@
 
-# UpdateCategoryRequest
+# UpdatePricingSettingsRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`priceAlertThresholdPercent` | number
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { UpdatePricingSettingsRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "priceAlertThresholdPercent": null,
+} satisfies UpdatePricingSettingsRequest
 
 console.log(example)
 
@@ -27,7 +25,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as UpdatePricingSettingsRequest
 console.log(exampleParsed)
 ```
 

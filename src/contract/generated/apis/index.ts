@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export * from './AdminApi';
+export * from './AnalyticsApi';
 export * from './AssistantApi';
 export * from './AuthApi';
 export * from './CategoriesApi';
@@ -9,11 +10,13 @@ export * from './DriverApi';
 export * from './HubHandoverApi';
 export * from './HubInboundApi';
 export * from './HubsApi';
+export * from './HubStaffAssignmentsApi';
 export * from './MarketsApi';
 export * from './NotificationApi';
 export * from './NotificationDeviceApi';
 export * from './OrdersApi';
 export * from './PricingApi';
+export * from './ProcurementApi';
 export * from './ProductsApi';
 export * from './ProfileApi';
 export * from './RestaurantCreditApi';

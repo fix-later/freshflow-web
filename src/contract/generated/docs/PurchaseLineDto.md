@@ -1,24 +1,26 @@
 
-# UpdateCategoryRequest
+# PurchaseLineDto
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`marketProductId` | string
+`actualQuantity` | number
+`actualUnitPrice` | number
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { PurchaseLineDto } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "marketProductId": null,
+  "actualQuantity": null,
+  "actualUnitPrice": null,
+} satisfies PurchaseLineDto
 
 console.log(example)
 
@@ -27,7 +29,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as PurchaseLineDto
 console.log(exampleParsed)
 ```
 

@@ -1,24 +1,26 @@
 
-# UpdateCategoryRequest
+# RunAutoBatchRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`parentId` | string
+`targetDate` | Date
+`dryRun` | boolean
+`force` | boolean
 
 ## Example
 
 ```typescript
-import type { UpdateCategoryRequest } from ''
+import type { RunAutoBatchRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "parentId": null,
-} satisfies UpdateCategoryRequest
+  "targetDate": null,
+  "dryRun": null,
+  "force": null,
+} satisfies RunAutoBatchRequest
 
 console.log(example)
 
@@ -27,7 +29,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateCategoryRequest
+const exampleParsed = JSON.parse(exampleJSON) as RunAutoBatchRequest
 console.log(exampleParsed)
 ```
 
