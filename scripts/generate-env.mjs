@@ -7,10 +7,9 @@
  * how CI injects secrets without a file) and writes
  * `src/environments/env.generated.ts`, which `environment*.ts` import.
  *
- * Runs automatically before start/build/test via the `pre*` npm scripts. It
- * always writes the file, even with no `.env` present, so a fresh clone builds:
- * missing values come out as empty strings and each environment falls back to
- * its own default.
+ * Runs automatically before start/build/test via the `pre*` npm scripts, and
+ * fails the build when a required variable is missing rather than emitting an
+ * empty value that would only surface as a broken request at runtime.
  *
  * Usage:  npm run generate:env
  * Env:    ENV_FILE   path to the env file (default `.env`)
@@ -24,6 +23,14 @@ const outFile = resolve(projectRoot, 'src/environments/env.generated.ts');
 
 /** Keys read into the bundle. Anything else in `.env` is ignored. */
 const KEYS = ['API_BASE_URL', 'GOONG_MAPS_KEY', 'GOONG_PLACES_KEY'];
+
+/**
+ * Keys the app cannot run without. There is no literal fallback for these in
+ * `environment.*.ts`, so an empty value would leave every request pointed at a
+ * relative URL and fail at runtime with nothing pointing at the cause. Fail the
+ * build instead.
+ */
+const REQUIRED = ['API_BASE_URL'];
 
 /**
  * Minimal `KEY=VALUE` parser — enough for this file's shape, and avoids a
@@ -57,21 +64,26 @@ function parseEnv(contents) {
     return out;
 }
 
+const relativeEnvFile = process.env.ENV_FILE ?? '.env';
 const fromFile = existsSync(envFile)
     ? parseEnv(readFileSync(envFile, 'utf8'))
     : {};
-
-if (!existsSync(envFile)) {
-    console.warn(
-        `⚠ No ${process.env.ENV_FILE ?? '.env'} found — generating empty values. ` +
-            'Copy .env.example to .env to configure it.'
-    );
-}
 
 // The real environment wins so CI can inject secrets without writing a file.
 const resolved = Object.fromEntries(
     KEYS.map((key) => [key, process.env[key] ?? fromFile[key] ?? ''])
 );
+
+const missingRequired = REQUIRED.filter((key) => !resolved[key]);
+if (missingRequired.length) {
+    console.error(
+        `✖ Missing required config: ${missingRequired.join(', ')}\n` +
+            (existsSync(envFile)
+                ? `  Set it in ${relativeEnvFile}, or pass it in the environment.`
+                : `  No ${relativeEnvFile} found. Run: cp .env.example .env`)
+    );
+    process.exit(1);
+}
 
 const body = KEYS.map(
     (key) => `    ${key}: ${JSON.stringify(resolved[key])},`
