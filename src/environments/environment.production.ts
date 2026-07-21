@@ -1,19 +1,18 @@
+import { env } from './env.generated';
+
 /**
  * Production environment.
  *
  * Swapped in for `environment.ts` via `fileReplacements` in angular.json for
  * the `production` build configuration (the default target of `ng build`).
- * `apiBaseUrl` is the FreshFlow backend origin read by the generated API
- * client (see `src/contract/client.ts`).
+ *
+ * Values come from `.env` — see `environment.ts`. On CI, set the variables in
+ * the build environment instead of committing a file: the real environment
+ * takes precedence over `.env`, so `GOONG_MAPS_KEY=… npm run build` is enough.
  */
 export const environment = {
     production: true,
-    apiBaseUrl: 'https://api.freshflow.fishfix.vn',
-    /**
-     * Goong.io keys (client-side, embedded in the browser build). Left blank so
-     * real keys are never committed — inject the production values at deploy
-     * time (CI/secret) or via a local build override.
-     */
-    goongMapsKey: '',
-    goongPlacesKey: '',
+    apiBaseUrl: env.API_BASE_URL || 'https://api.freshflow.fishfix.vn',
+    goongMapsKey: env.GOONG_MAPS_KEY,
+    goongPlacesKey: env.GOONG_PLACES_KEY,
 };

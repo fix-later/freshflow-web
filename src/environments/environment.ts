@@ -1,3 +1,5 @@
+import { env } from './env.generated';
+
 /**
  * Base/default environment — swapped out per build configuration via
  * `fileReplacements` in angular.json:
@@ -5,19 +7,18 @@
  *   development → environment.development.ts  (default target of `ng serve`)
  *   local       → environment.local.ts        (gitignored; each dev's backend)
  *
- * Only `apiBaseUrl` is consumed — the backend origin read by the generated
- * API client (see `src/contract/client.ts`).
+ * Values come from `.env` via `env.generated.ts` (written by
+ * `scripts/generate-env.mjs`, which runs before start/build/test). Each entry
+ * falls back to the literal below when the variable is unset, so the app still
+ * builds without a `.env`.
+ *
+ * `apiBaseUrl` is the backend origin read by the generated API client (see
+ * `src/contract/client.ts`); the Goong keys are the map SDK (`goongMapsKey`,
+ * Maptiles) and the Places REST key (`goongPlacesKey`).
  */
 export const environment = {
     production: false,
-    apiBaseUrl: 'http://localhost:8080',
-    /**
-     * Goong.io keys (client-side, embedded in the browser build). Left blank so
-     * real keys are never committed — set them in the gitignored
-     * `environment.local.ts` for local dev, or inject at deploy time.
-     * `goongMapsKey` = Maptiles key (map SDK); `goongPlacesKey` = REST key
-     * (Places autocomplete / geocoding).
-     */
-    goongMapsKey: '',
-    goongPlacesKey: '',
+    apiBaseUrl: env.API_BASE_URL || 'http://localhost:8080',
+    goongMapsKey: env.GOONG_MAPS_KEY,
+    goongPlacesKey: env.GOONG_PLACES_KEY,
 };

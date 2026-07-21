@@ -47,3 +47,23 @@ Thumbs.db
 
 # Local environment overrides (real backend origin / keys — never commit)
 /src/environments/environment.local.ts
+
+# Environment variables — the source of truth for config/secrets.
+# `.env.example` is the committed template; every real .env stays local.
+.env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.staging
+.env.staging.local
+.env.production
+.env.production.local
+!.env.example
+!.env.*.example
+
+# Generated from .env at build time by scripts/generate-env.mjs — contains the
+# resolved values (including secrets), so it must never be committed.
+/src/environments/env.generated.ts
