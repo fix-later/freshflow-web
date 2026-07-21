@@ -1,0 +1,105 @@
+/**
+ * Mind-map marks, bound to the Fuse theme tokens.
+ *
+ * SVG needs `fill`/`stroke`, and the surface tokens (`bg-card`, `border`,
+ * `text-hint`) are hand-written Fuse utilities rather than Tailwind colors —
+ * there is no `fill-card`. So the underlying `--fuse-*-rgb` custom properties
+ * are read directly here, which also keeps the map correct in both themes.
+ */
+.category-map-edge {
+    stroke: rgba(var(--fuse-text-hint-rgb), 0.5);
+}
+
+.category-map-canvas {
+    // Nodes are drag handles; suppress the browser's own text/image dragging.
+    touch-action: none;
+    user-select: none;
+}
+
+.category-map-node {
+    cursor: grab;
+
+    rect {
+        fill: rgb(var(--fuse-bg-card-rgb));
+        stroke: rgba(var(--fuse-border-rgb), 1);
+    }
+}
+
+.category-map-dragging .category-map-node {
+    cursor: grabbing;
+}
+
+/* The node under the pointer: lifted out of the tree, non-interactive. */
+.category-map-node-dragging {
+    opacity: 0.75;
+    pointer-events: none;
+}
+
+/* A valid drop target, highlighted while hovered during a drag. */
+.category-map-node-target rect {
+    fill: rgba(var(--fuse-primary-rgb), 0.18);
+    stroke: rgb(var(--fuse-primary-rgb));
+    stroke-width: 2;
+}
+
+.category-map-node-root rect {
+    fill: rgba(var(--fuse-primary-rgb), 0.12);
+    stroke: rgba(var(--fuse-primary-rgb), 0.5);
+}
+
+.category-map-label {
+    fill: rgb(var(--fuse-text-default-rgb));
+    font-size: 13px;
+}
+
+.category-map-node-root .category-map-label {
+    font-weight: 600;
+}
+
+.category-map-count {
+    fill: rgb(var(--fuse-text-hint-rgb));
+    font-size: 11px;
+}
+
+/* "Clear the parent" drop band, below the tree. */
+.category-map-zone {
+    pointer-events: none;
+
+    rect {
+        fill: none;
+        stroke: rgba(var(--fuse-text-hint-rgb), 0.6);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 5;
+    }
+
+    text {
+        fill: rgb(var(--fuse-text-hint-rgb));
+        font-size: 12px;
+    }
+}
+
+.category-map-zone-active {
+    rect {
+        fill: rgba(var(--fuse-primary-rgb), 0.12);
+        stroke: rgb(var(--fuse-primary-rgb));
+        stroke-dasharray: none;
+    }
+
+    text {
+        fill: rgb(var(--fuse-primary-rgb));
+    }
+}
+
+/* The link the pending drop would replace — faded, not removed, so the node's
+   current position stays legible while a new parent is being chosen. */
+.category-map-edge-superseded {
+    opacity: 0.2;
+}
+
+/* The link the drop would create: brand hue, dashed to read as provisional. */
+.category-map-edge-preview {
+    stroke: rgb(var(--fuse-primary-rgb));
+    stroke-width: 2;
+    stroke-dasharray: 6 4;
+    pointer-events: none;
+}

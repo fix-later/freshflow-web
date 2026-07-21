@@ -39,22 +39,16 @@
                 }}</span>
                 <span>
                     @if (user()?.isActive) {
-                        <span
-                            class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
-                        >
+                        <span class="admin-pill admin-pill-success">
                             {{ t('admin.users.filters.active') }}
                         </span>
                     } @else {
-                        <span
-                            class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-                        >
+                        <span class="admin-pill admin-pill-neutral">
                             {{ t('admin.users.filters.inactive') }}
                         </span>
                     }
                     @if (user()?.lockedUntil) {
-                        <span
-                            class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
-                        >
+                        <span class="admin-pill admin-pill-warning ml-1">
                             {{ t('admin.users.table.locked') }}
                         </span>
                     }

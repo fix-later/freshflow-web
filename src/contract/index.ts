@@ -12,6 +12,7 @@
 import { apiConfiguration } from './client';
 import {
     AdminApi,
+    AnalyticsApi,
     AssistantApi,
     AuthApi,
     CategoriesApi,
@@ -19,12 +20,14 @@ import {
     DriverApi,
     HubHandoverApi,
     HubInboundApi,
+    HubStaffAssignmentsApi,
     HubsApi,
     MarketsApi,
     NotificationApi,
     NotificationDeviceApi,
     OrdersApi,
     PricingApi,
+    ProcurementApi,
     ProductsApi,
     ProfileApi,
     RestaurantCreditApi,
@@ -38,9 +41,11 @@ import {
 export * from './auth';
 export * from './client';
 export * from './generated';
+export * from './raw';
 
 // Ready-to-use, pre-configured API singletons.
 export const adminApi = new AdminApi(apiConfiguration);
+export const analyticsApi = new AnalyticsApi(apiConfiguration);
 export const assistantApi = new AssistantApi(apiConfiguration);
 export const authApi = new AuthApi(apiConfiguration);
 export const categoriesApi = new CategoriesApi(apiConfiguration);
@@ -48,6 +53,9 @@ export const deliveryZonesApi = new DeliveryZonesApi(apiConfiguration);
 export const driverApi = new DriverApi(apiConfiguration);
 export const hubHandoverApi = new HubHandoverApi(apiConfiguration);
 export const hubInboundApi = new HubInboundApi(apiConfiguration);
+export const hubStaffAssignmentsApi = new HubStaffAssignmentsApi(
+    apiConfiguration
+);
 export const hubsApi = new HubsApi(apiConfiguration);
 export const marketsApi = new MarketsApi(apiConfiguration);
 export const notificationApi = new NotificationApi(apiConfiguration);
@@ -56,6 +64,7 @@ export const notificationDeviceApi = new NotificationDeviceApi(
 );
 export const ordersApi = new OrdersApi(apiConfiguration);
 export const pricingApi = new PricingApi(apiConfiguration);
+export const procurementApi = new ProcurementApi(apiConfiguration);
 export const productsApi = new ProductsApi(apiConfiguration);
 export const profileApi = new ProfileApi(apiConfiguration);
 export const restaurantCreditApi = new RestaurantCreditApi(apiConfiguration);

@@ -72,25 +72,49 @@
                 class="text-secondary border-b text-xs uppercase tracking-wide"
             >
                 <tr>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.users.table.email') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.users.table.role') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.users.table.restaurant') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.users.table.status') }}
-                    </th>
-                    <th class="px-4 py-3 font-medium">
+                    @for (
+                        col of [
+                            { key: 'email', label: 'admin.users.table.email' },
+                            { key: 'role', label: 'admin.users.table.role' },
+                            {
+                                key: 'restaurantName',
+                                label: 'admin.users.table.restaurant',
+                            },
+                            {
+                                key: 'status',
+                                label: 'admin.users.table.status',
+                            },
+                        ];
+                        track col.key
+                    ) {
+                        <th
+                            class="px-4 py-3 font-medium"
+                            [attr.aria-sort]="sort.ariaSort(col.key)"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle(col.key)"
+                            >
+                                {{ t(col.label) }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === col.key"
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon(col.key)
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </th>
+                    }
+                    <th class="px-4 py-3 text-right font-medium">
                         {{ t('admin.users.table.actions') }}
                     </th>
                 </tr>
             </thead>
             <tbody>
-                @for (user of users(); track trackById($index, user)) {
+                @for (user of sortedUsers(); track trackById($index, user)) {
                     <tr class="border-b hover:bg-hover last:border-0">
                         <td class="px-4 py-3">
                             <button
@@ -107,28 +131,24 @@
                         </td>
                         <td class="px-4 py-3">
                             @if (user.isActive) {
-                                <span
-                                    class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
-                                >
+                                <span class="admin-pill admin-pill-success">
                                     {{ t('admin.users.filters.active') }}
                                 </span>
                             } @else {
-                                <span
-                                    class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-                                >
+                                <span class="admin-pill admin-pill-neutral">
                                     {{ t('admin.users.filters.inactive') }}
                                 </span>
                             }
                             @if (user.lockedUntil) {
                                 <span
-                                    class="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700"
+                                    class="admin-pill admin-pill-warning ml-1"
                                 >
                                     {{ t('admin.users.table.locked') }}
                                 </span>
                             }
                         </td>
                         <td class="px-4 py-3">
-                            <div class="flex items-center gap-1">
+                            <div class="flex items-center justify-end gap-1">
                                 <button
                                     mat-icon-button
                                     type="button"

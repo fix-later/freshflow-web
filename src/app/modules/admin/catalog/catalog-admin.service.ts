@@ -1,6 +1,18 @@
 import { Injectable } from '@angular/core';
-import { extractList, parseJson } from 'app/core/api/envelope';
-import { categoriesApi, marketsApi, productsApi, unitsApi } from 'contract';
+import {
+    extractList,
+    MAX_PAGE_SIZE,
+    parseJson,
+    unwrapData,
+    withId,
+} from 'app/core/api/envelope';
+import {
+    categoriesApi,
+    marketsApi,
+    productsApi,
+    rawApi,
+    unitsApi,
+} from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -16,6 +28,20 @@ function str(value: unknown): string {
 function optStr(value: unknown): string | null {
     const trimmed = (value == null ? '' : String(value)).trim();
     return trimmed === '' ? null : trimmed;
+}
+
+/**
+ * Signed Cloudinary upload params returned by the backend
+ * `POST /api/v1/products/image/upload-signature` (admin only). The signature is
+ * computed over `folder` + `timestamp`, so those exact params must be forwarded
+ * to Cloudinary alongside the file.
+ */
+interface ProductImageSignature {
+    signature: string;
+    timestamp: number;
+    apiKey: string;
+    cloudName: string;
+    folder: string;
 }
 
 /** Coerce a form value to an optional number (empty/NaN → null). */
@@ -36,23 +62,46 @@ function optNum(value: unknown): number | null {
 export class CatalogAdminService {
     // ---- Categories -------------------------------------------------------
 
-    async listCategories(): Promise<CrudRow[]> {
-        const res = await categoriesApi.apiV1CategoriesGetRaw({
-            activeOnly: false,
-        });
-        return extractList<CrudRow>(await parseJson(res.raw));
+    /**
+     * Categories, each annotated with a resolved `parentName`.
+     *
+     * The spec declares no response schema, and the list body carries only
+     * `parentId` — so the parent's name is resolved by self-joining the same
+     * list (no extra request). A server-sent `parentName` wins if present.
+     */
+    async listCategories(activeOnly = false): Promise<CrudRow[]> {
+        const res = await categoriesApi.apiV1CategoriesGetRaw({ activeOnly });
+        const rows = withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'categoryId'
+        );
+        const nameById = new Map(rows.map((row) => [row.id, str(row['name'])]));
+        return rows.map((row) => ({
+            ...row,
+            parentName:
+                optStr(row['parentName']) ??
+                (row['parentId']
+                    ? nameById.get(String(row['parentId'])) ?? ''
+                    : ''),
+        }));
     }
 
     async createCategory(value: CrudFormValue): Promise<void> {
         await categoriesApi.apiV1CategoriesPost({
-            createCategoryRequest: { name: str(value['name']) },
+            createCategoryRequest: {
+                name: str(value['name']),
+                parentId: optStr(value['parentId']),
+            },
         });
     }
 
     async updateCategory(id: string, value: CrudFormValue): Promise<void> {
         await categoriesApi.apiV1CategoriesIdPut({
             id,
-            updateCategoryRequest: { name: str(value['name']) },
+            updateCategoryRequest: {
+                name: str(value['name']),
+                parentId: optStr(value['parentId']),
+            },
         });
     }
 
@@ -60,11 +109,30 @@ export class CatalogAdminService {
         await categoriesApi.apiV1CategoriesIdDeactivatePatch({ id });
     }
 
+    /**
+     * Reactivates a category through `PUT /categories/{id}`.
+     *
+     * There is no activate endpoint (`PATCH /categories/{id}/activate` answers
+     * 404), so the only route back is the update call with `isActive: true`.
+     * `UpdateCategoryRequest` does not declare `isActive`, and the generated
+     * serialiser would strip it, so this goes out via {@link rawApi}.
+     *
+     * The update replaces the whole record, so the current name and parent are
+     * resent unchanged — omitting them would blank them out.
+     */
+    async activateCategory(row: CrudRow): Promise<void> {
+        await rawApi.send(`/api/v1/categories/${row.id}`, 'PUT', {
+            name: str(row['name']),
+            parentId: optStr(row['parentId']),
+            isActive: true,
+        });
+    }
+
     // ---- Units ------------------------------------------------------------
 
     async listUnits(): Promise<CrudRow[]> {
         const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly: false });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'unitId');
     }
 
     async createUnit(value: CrudFormValue): Promise<void> {
@@ -95,9 +163,12 @@ export class CatalogAdminService {
     async listProducts(): Promise<CrudRow[]> {
         const res = await productsApi.apiV1ProductsGetRaw({
             includeInactive: true,
-            pageSize: 100,
+            pageSize: MAX_PAGE_SIZE,
         });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'productId'
+        );
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {
@@ -128,9 +199,43 @@ export class CatalogAdminService {
         await productsApi.apiV1ProductsIdDeactivatePatch({ id });
     }
 
-    /** Category id/name options for the product form select. */
-    async categoryOptions(): Promise<CrudOption[]> {
-        return this._toOptions(await this.listCategories());
+    /**
+     * Uploads a product image straight to Cloudinary using a short-lived signed
+     * request minted by the backend, and returns the hosted `secure_url` to
+     * store in the product's `imageUrl`.
+     */
+    async uploadProductImage(file: File): Promise<string> {
+        const res =
+            await productsApi.apiV1ProductsImageUploadSignaturePostRaw();
+        const sig = unwrapData<ProductImageSignature>(await parseJson(res.raw));
+        if (!sig?.signature) {
+            throw new Error('Could not obtain an upload signature.');
+        }
+
+        const form = new FormData();
+        form.append('file', file);
+        form.append('api_key', sig.apiKey);
+        form.append('timestamp', String(sig.timestamp));
+        form.append('signature', sig.signature);
+        form.append('folder', sig.folder);
+
+        const upload = await fetch(
+            `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`,
+            { method: 'POST', body: form }
+        );
+        const body = (await upload.json()) as { secure_url?: string };
+        if (!upload.ok || !body.secure_url) {
+            throw new Error('Image upload failed.');
+        }
+        return body.secure_url;
+    }
+
+    /**
+     * Category id/name options. Pass `activeOnly` for pickers/filters that must
+     * not offer deactivated categories.
+     */
+    async categoryOptions(activeOnly = false): Promise<CrudOption[]> {
+        return this._toOptions(await this.listCategories(activeOnly));
     }
 
     /** Unit id/name options for the product form select. */
@@ -142,7 +247,10 @@ export class CatalogAdminService {
 
     async listMarkets(): Promise<CrudRow[]> {
         const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly: false });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'marketId'
+        );
     }
 
     async createMarket(value: CrudFormValue): Promise<void> {
@@ -179,7 +287,7 @@ export class CatalogAdminService {
     async listMarketProducts(marketId: string): Promise<CrudRow[]> {
         const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
             marketId,
-            pageSize: 100,
+            pageSize: MAX_PAGE_SIZE,
         });
         return extractList<CrudRow>(await parseJson(res.raw));
     }

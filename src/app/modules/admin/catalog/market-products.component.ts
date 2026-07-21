@@ -3,6 +3,7 @@ import {
     Component,
     OnInit,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -18,6 +19,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
+import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
 
 interface MarketProductRow {
@@ -42,6 +44,8 @@ function num(value: unknown): number | null {
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    // Full-width flex host so the page fills the screen (see ResourceCrudComponent).
+    host: { class: 'flex flex-auto flex-col' },
     imports: [
         FormsModule,
         MatButtonModule,
@@ -67,9 +71,37 @@ export class MarketProductsComponent implements OnInit {
     readonly marketId = this._route.snapshot.paramMap.get('marketId') ?? '';
 
     readonly rows = signal<MarketProductRow[]>([]);
+
+    /**
+     * Column sort. The price/quantity drafts are keyed by `productId`, not by
+     * row index, so reordering the table never moves a pending edit onto the
+     * wrong product.
+     */
+    readonly sort = new TableSort<MarketProductRow>();
+
+    /** {@link rows} in the active sort order. */
+    readonly sortedRows = computed(() =>
+        this.sort.apply(
+            this.rows(),
+            (row, key) => row[key as keyof MarketProductRow]
+        )
+    );
     readonly loading = signal(false);
     readonly saving = signal(false);
     readonly productOptions = signal<CrudOption[]>([]);
+
+    /**
+     * Products that can still be added to this market — the full catalogue
+     * minus the ones already priced here.
+     *
+     * Derived from {@link rows} rather than filtered once at load, so adding a
+     * product removes it from the picker as soon as the table reloads. Offering
+     * it again would just fail on the server as a duplicate.
+     */
+    readonly availableProductOptions = computed(() => {
+        const taken = new Set(this.rows().map((row) => row.productId));
+        return this.productOptions().filter((opt) => !taken.has(opt.value));
+    });
 
     /** Per-row draft edits, keyed by product id. */
     priceDraft: Record<string, number | null> = {};

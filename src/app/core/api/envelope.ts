@@ -9,6 +9,40 @@
  * `catalog.service.ts` / `admin.service.ts`, centralised for reuse.
  */
 
+/**
+ * Largest `pageSize` the backend accepts on list endpoints.
+ *
+ * Anything above this answers 400, which surfaces as an empty screen rather
+ * than an error the user can act on. Import this instead of writing a literal:
+ * the cap was previously fixed on one screen at a time and the others kept
+ * failing.
+ */
+export const MAX_PAGE_SIZE = 100;
+
+/**
+ * Guarantees every row carries an `id`, reading it from the first key present.
+ *
+ * List bodies are untyped, and the API does not name the identifier uniformly —
+ * hub routes use both `{id}` and `{hubId}`, for instance. Screens then feed
+ * `row.id` straight into a path parameter, so a row that spells it differently
+ * produces `DELETE /hubs/undefined`, or an edit that saves as a brand new
+ * record. Normalising here means every caller can rely on `row.id`.
+ *
+ * Pass the resource's own alternates, e.g. `withId(rows, 'hubId')`.
+ */
+export function withId<T extends Record<string, unknown>>(
+    rows: T[],
+    ...alternateKeys: string[]
+): (T & { id: string })[] {
+    const keys = ['id', ...alternateKeys];
+    return rows.map((row) => {
+        const key = keys.find(
+            (k) => row[k] != null && String(row[k]).trim() !== ''
+        );
+        return { ...row, id: key ? String(row[key]) : '' };
+    });
+}
+
 /** Parses a JSON body, tolerating an empty (`void`) response. */
 export async function parseJson<T>(response: Response): Promise<T | undefined> {
     const text = await response.text();

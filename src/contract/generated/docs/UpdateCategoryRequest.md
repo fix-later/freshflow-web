@@ -7,6 +7,7 @@
 Name | Type
 ------------ | -------------
 `name` | string
+`parentId` | string
 
 ## Example
 
@@ -16,6 +17,7 @@ import type { UpdateCategoryRequest } from ''
 // TODO: Update the object below with actual values
 const example = {
   "name": null,
+  "parentId": null,
 } satisfies UpdateCategoryRequest
 
 console.log(example)

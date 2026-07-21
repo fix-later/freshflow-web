@@ -20,7 +20,9 @@ import {
 } from './auth';
 import {
     Configuration,
+    type FetchParams,
     type Middleware,
+    type RequestContext,
     type ResponseContext,
 } from './generated';
 
@@ -136,6 +138,28 @@ function refreshTokensOnce(): Promise<boolean> {
 }
 
 // -----------------------------------------------------------------------------
+// Freshness middleware
+// -----------------------------------------------------------------------------
+
+/**
+ * Forces every request past the HTTP cache.
+ *
+ * Screens re-fetch their list right after a mutation, and those two GETs share
+ * a URL. Left to the default cache mode the browser may answer the second one
+ * from cache, so the reload succeeds but hands back the pre-mutation rows — the
+ * table (and its per-row actions, which are derived from row state) then
+ * re-renders identically and the write looks like it did nothing.
+ */
+const noCacheMiddleware: Middleware = {
+    async pre(context: RequestContext): Promise<FetchParams> {
+        return {
+            url: context.url,
+            init: { ...context.init, cache: 'no-store' },
+        };
+    },
+};
+
+// -----------------------------------------------------------------------------
 // Error-handling middleware
 // -----------------------------------------------------------------------------
 
@@ -213,5 +237,7 @@ export const apiConfiguration = new Configuration({
         Accept: 'application/json',
         'Content-Type': 'application/json',
     },
-    middleware: [errorMiddleware],
+    // `pre` runs in order, `post` in reverse — errorMiddleware stays last so
+    // its `post` still sees the response first.
+    middleware: [noCacheMiddleware, errorMiddleware],
 });

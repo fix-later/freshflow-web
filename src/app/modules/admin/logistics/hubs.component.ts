@@ -4,6 +4,7 @@ import {
     ViewEncapsulation,
     inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { ResourceCrudComponent } from '../shared/resource-crud.component';
 import { CrudResource } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
@@ -21,23 +22,33 @@ import { LogisticsAdminService } from './logistics-admin.service';
 })
 export class HubsComponent {
     private readonly _logistics = inject(LogisticsAdminService);
+    private readonly _router = inject(Router);
 
     readonly resource: CrudResource = {
         title: 'admin.hubs.title',
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
         searchKeys: ['name', 'address', 'managedByName'],
+        searchPlaceholder: 'admin.hubs.searchPlaceholder',
         columns: [
             {
                 label: 'admin.hubs.name',
+                sortable: true,
                 cell: (row) => String(row['name'] ?? ''),
             },
             {
                 label: 'admin.hubs.address',
+                sortable: true,
                 cell: (row) => String(row['address'] ?? ''),
             },
             {
                 label: 'admin.hubs.capacityKg',
+                sortable: true,
+                // `cell` renders "500 kg"; sort on the bare number.
+                sortValue: (row) =>
+                    row['capacityKg'] == null || row['capacityKg'] === ''
+                        ? null
+                        : Number(row['capacityKg']),
                 cell: (row) =>
                     row['capacityKg'] != null && row['capacityKg'] !== ''
                         ? `${row['capacityKg']} kg`
@@ -52,6 +63,7 @@ export class HubsComponent {
             },
             {
                 label: 'admin.hubs.managedBy',
+                sortable: true,
                 cell: (row) => String(row['managedByName'] ?? ''),
             },
         ],
@@ -96,5 +108,16 @@ export class HubsComponent {
         remove: (row) => this._logistics.deleteHub(row.id),
         removeLabel: 'admin.crud.delete',
         removeIcon: 'trash',
+        rowActions: [
+            {
+                icon: 'user-group',
+                tooltip: 'admin.hubStaff.manage',
+                run: (row) =>
+                    void this._router.navigate(
+                        ['/admin/hubs', row.id, 'staff'],
+                        { state: { hubName: String(row['name'] ?? '') } }
+                    ),
+            },
+        ],
     };
 }

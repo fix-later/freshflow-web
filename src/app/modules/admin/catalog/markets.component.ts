@@ -29,17 +29,21 @@ export class MarketsComponent {
         subtitle: 'admin.markets.subtitle',
         createLabel: 'admin.markets.create',
         searchKeys: ['name', 'location', 'address'],
+        searchPlaceholder: 'admin.markets.searchPlaceholder',
         columns: [
             {
                 label: 'admin.markets.name',
+                sortable: true,
                 cell: (row) => String(row['name'] ?? ''),
             },
             {
                 label: 'admin.markets.location',
+                sortable: true,
                 cell: (row) => String(row['location'] ?? ''),
             },
             {
                 label: 'admin.markets.address',
+                sortable: true,
                 cell: (row) => String(row['address'] ?? ''),
             },
         ],
@@ -88,6 +92,7 @@ export class MarketsComponent {
         update: (id, value) => this._catalog.updateMarket(id, value),
         remove: (row) => this._catalog.deactivateMarket(row.id),
         removeLabel: 'admin.crud.deactivate',
+        removeIsDeactivate: true,
         removeIcon: 'archive-box-x-mark',
     };
 }

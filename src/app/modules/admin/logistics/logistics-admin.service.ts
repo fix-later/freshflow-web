@@ -1,6 +1,18 @@
 import { Injectable } from '@angular/core';
-import { extractList, parseJson } from 'app/core/api/envelope';
-import { adminApi, deliveryZonesApi, hubsApi, vehiclesApi } from 'contract';
+import {
+    extractList,
+    MAX_PAGE_SIZE,
+    parseJson,
+    unwrapData,
+    withId,
+} from 'app/core/api/envelope';
+import {
+    adminApi,
+    deliveryZonesApi,
+    hubsApi,
+    hubStaffAssignmentsApi,
+    vehiclesApi,
+} from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -9,6 +21,11 @@ import {
 
 /** Role whose users may manage a hub (see ROLE_MATRIX — Hub Staff). */
 const HUB_MANAGER_ROLE = 'hub_staff';
+
+/** A hub staff assignment — bare user id or an object wrapping one. */
+type HubStaffAssignmentEntry =
+    | string
+    | { userId?: string; staffUserId?: string; id?: string };
 
 function str(value: unknown): string {
     return value == null ? '' : String(value);
@@ -38,14 +55,19 @@ export class LogisticsAdminService {
 
     async listHubs(): Promise<CrudRow[]> {
         const [res, managers] = await Promise.all([
-            hubsApi.apiV1HubsGetRaw({ pageSize: 200 }),
+            hubsApi.apiV1HubsGetRaw({ pageSize: MAX_PAGE_SIZE }),
             this.hubManagerOptions(),
         ]);
         const nameById = new Map(managers.map((m) => [m.value, m.label]));
-        const rows = extractList<CrudRow>(await parseJson(res.raw));
-        // Attach a resolved manager name so the table shows it instead of a UUID.
+        // Hub routes name the key both ways (`/hubs/{id}` but
+        // `/hubs/{hubId}/...`), so accept either as the row identifier.
+        const rows = withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'hubId'
+        );
         return rows.map((row) => ({
             ...row,
+            // Attach a resolved manager name so the table shows it, not a UUID.
             managedByName: row['managedBy']
                 ? nameById.get(String(row['managedBy'])) ??
                   String(row['managedBy'])
@@ -58,7 +80,7 @@ export class LogisticsAdminService {
         try {
             const res = await adminApi.apiV1AdminUsersGetRaw({
                 role: HUB_MANAGER_ROLE,
-                pageSize: 100,
+                pageSize: MAX_PAGE_SIZE,
             });
             const users = extractList<{
                 id?: string;
@@ -107,13 +129,62 @@ export class LogisticsAdminService {
         await hubsApi.apiV1HubsIdDelete({ id });
     }
 
+    /**
+     * A hub's display name, for screens reached by deep link.
+     *
+     * The staff page normally gets the name from the row the list passed via
+     * router state, but that is gone after a reload — falling back to this
+     * keeps the heading from showing a bare UUID.
+     */
+    async getHubName(id: string): Promise<string> {
+        const res = await hubsApi.apiV1HubsIdGetRaw({ id });
+        const hub = unwrapData<{ name?: string }>(await parseJson(res.raw));
+        return str(hub?.name);
+    }
+
+    // ---- Hub staff assignments -------------------------------------------
+
+    /**
+     * Ids of the hub-staff users rostered to a hub. The list body is untyped,
+     * so accept both a bare id array and `{ userId | id }` objects.
+     */
+    async listHubStaffAssignments(hubId: string): Promise<string[]> {
+        const res =
+            await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsGetRaw({
+                hubId,
+            });
+        const entries = extractList<HubStaffAssignmentEntry>(
+            await parseJson(res.raw)
+        );
+        return entries
+            .map((entry) =>
+                typeof entry === 'string'
+                    ? entry
+                    : entry.userId ?? entry.staffUserId ?? entry.id
+            )
+            .filter((id): id is string => !!id);
+    }
+
+    async replaceHubStaffAssignments(
+        hubId: string,
+        staffUserIds: string[]
+    ): Promise<void> {
+        await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsPut({
+            hubId,
+            replaceHubStaffAssignmentsRequest: { staffUserIds },
+        });
+    }
+
     // ---- Vehicles ---------------------------------------------------------
 
     async listVehicles(): Promise<CrudRow[]> {
         const res = await vehiclesApi.apiV1LogisticsVehiclesGetRaw({
-            pageSize: 200,
+            pageSize: MAX_PAGE_SIZE,
         });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'vehicleId'
+        );
     }
 
     async createVehicle(value: CrudFormValue): Promise<void> {
@@ -147,7 +218,11 @@ export class LogisticsAdminService {
         const res = await deliveryZonesApi.apiV1LogisticsDeliveryZonesGetRaw({
             activeOnly: false,
         });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'zoneId',
+            'deliveryZoneId'
+        );
     }
 
     async createZone(value: CrudFormValue): Promise<void> {

@@ -1,0 +1,203 @@
+<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
+    <h1 class="text-3xl font-bold tracking-tight">
+        {{ t('admin.orderGroups.title') }}
+    </h1>
+    <p class="text-secondary mt-1">{{ t('admin.orderGroups.subtitle') }}</p>
+
+    <!-- Auto-batch -->
+    <form
+        [formGroup]="batchForm"
+        class="bg-card mt-6 flex flex-wrap items-center gap-4 rounded-2xl border p-6"
+        (ngSubmit)="runAutoBatch()"
+    >
+        <h2 class="w-full text-lg font-semibold">
+            {{ t('admin.orderGroups.autoBatch.title') }}
+        </h2>
+        <mat-form-field class="w-56" subscriptSizing="dynamic">
+            <mat-label>{{
+                t('admin.orderGroups.autoBatch.targetDate')
+            }}</mat-label>
+            <input matInput type="date" formControlName="targetDate" />
+        </mat-form-field>
+        <mat-checkbox formControlName="dryRun">
+            {{ t('admin.orderGroups.autoBatch.dryRun') }}
+        </mat-checkbox>
+        <mat-checkbox formControlName="force">
+            {{ t('admin.orderGroups.autoBatch.force') }}
+        </mat-checkbox>
+        <button
+            mat-flat-button
+            color="accent"
+            type="submit"
+            [disabled]="batching()"
+        >
+            <mat-icon
+                class="mr-1"
+                svgIcon="heroicons_outline:rectangle-group"
+            ></mat-icon>
+            {{ t('admin.orderGroups.autoBatch.submit') }}
+        </button>
+    </form>
+
+    @if (dryRunResult(); as preview) {
+        <div class="bg-card mt-4 overflow-x-auto rounded-2xl border p-6">
+            <h3 class="mb-2 font-semibold">
+                {{ t('admin.orderGroups.autoBatch.dryRunTitle') }}
+            </h3>
+            <pre class="text-secondary whitespace-pre-wrap text-xs">{{
+                preview
+            }}</pre>
+        </div>
+    }
+
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
+    }
+
+    <!-- Batches -->
+    <div class="bg-card mt-4 overflow-x-auto rounded-2xl border">
+        <table class="w-full min-w-[880px] text-left text-sm">
+            <thead
+                class="text-secondary border-b text-xs uppercase tracking-wide"
+            >
+                <tr>
+                    @for (
+                        col of [
+                            {
+                                key: 'batch',
+                                label: 'admin.orderGroups.table.batch',
+                            },
+                            {
+                                key: 'marketName',
+                                label: 'admin.orderGroups.table.market',
+                            },
+                            {
+                                key: 'status',
+                                label: 'admin.orderGroups.table.status',
+                            },
+                            {
+                                key: 'orderCount',
+                                label: 'admin.orderGroups.table.orders',
+                            },
+                        ];
+                        track col.key
+                    ) {
+                        <th
+                            class="px-4 py-3 font-medium"
+                            [attr.aria-sort]="sort.ariaSort(col.key)"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle(col.key)"
+                            >
+                                {{ t(col.label) }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === col.key"
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon(col.key)
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </th>
+                    }
+                    <!-- Agent is an inline picker, not sortable text. -->
+                    <th class="px-4 py-3 font-medium">
+                        {{ t('admin.orderGroups.table.agent') }}
+                    </th>
+                    <th class="px-4 py-3 text-right font-medium">
+                        {{ t('admin.orderGroups.table.actions') }}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (group of sortedGroups(); track trackById($index, group)) {
+                    <tr class="border-b hover:bg-hover last:border-0">
+                        <td class="px-4 py-3 font-medium">
+                            {{ group.batchNumber || batchIdOf(group) }}
+                        </td>
+                        <td class="px-4 py-3">{{ group.marketName || '—' }}</td>
+                        <td class="px-4 py-3">
+                            <span
+                                class="bg-hover rounded-full px-2 py-0.5 text-xs font-medium"
+                            >
+                                {{ group.status || '—' }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3">{{ group.orderCount ?? '—' }}</td>
+                        <td class="px-4 py-3">
+                            <mat-form-field
+                                class="w-56"
+                                subscriptSizing="dynamic"
+                            >
+                                <mat-label>{{
+                                    t('admin.orderGroups.assignAgent.label')
+                                }}</mat-label>
+                                <mat-select
+                                    [value]="group.agentId || ''"
+                                    (selectionChange)="
+                                        assignAgent(group, $event.value)
+                                    "
+                                >
+                                    @for (agent of agents(); track agent.id) {
+                                        <mat-option [value]="agent.id">{{
+                                            agent.email || agent.id
+                                        }}</mat-option>
+                                    }
+                                </mat-select>
+                            </mat-form-field>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center justify-end gap-1">
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.orderGroups.manifest.tooltip')
+                                    "
+                                    (click)="generateManifest(group)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:document-text"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.orderGroups.cancel.tooltip')
+                                    "
+                                    (click)="cancel(group)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:x-circle"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                } @empty {
+                    <tr>
+                        <td
+                            class="text-secondary px-4 py-8 text-center"
+                            colspan="6"
+                        >
+                            {{ t('admin.orderGroups.empty') }}
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <mat-paginator
+        class="mt-2"
+        [length]="totalCount()"
+        [pageIndex]="pageIndex()"
+        [pageSize]="pageSize()"
+        [pageSizeOptions]="[10, 20, 50]"
+        (page)="onPageChange($event)"
+    ></mat-paginator>
+</div>

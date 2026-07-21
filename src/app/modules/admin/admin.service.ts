@@ -1,14 +1,30 @@
 import { Injectable } from '@angular/core';
 import {
+    extractList,
+    extractTotal,
+    MAX_PAGE_SIZE,
+    parseJson,
+    unwrapData,
+    withId,
+} from 'app/core/api/envelope';
+import {
     adminApi,
     marketsApi,
     ResponseError,
     restaurantCreditApi,
 } from 'contract';
 import {
+    AdminAuditLogFilters,
+    AdminAuditLogRow,
+    AdminAuditLogsResult,
+    AdminAutoBatchPayload,
     AdminCreateUserPayload,
     AdminMarketAssignmentEntry,
     AdminMarketOption,
+    AdminOperationalSettings,
+    AdminOrderGroupRow,
+    AdminOrderGroupsResult,
+    AdminPricingSettings,
     AdminRestaurantCredit,
     AdminRoleEntry,
     AdminSetCreditLimitPayload,
@@ -17,6 +33,9 @@ import {
     AdminUserRow,
     AdminUsersResult,
 } from './admin.types';
+
+/** Role eligible to be assigned a procurement batch (see ROLE_MATRIX). */
+const MARKET_AGENT_ROLE = 'market_agent';
 
 /**
  * Admin console data access — backed by the generated OpenAPI client.
@@ -43,7 +62,7 @@ export class AdminService {
             pageSize: filters.pageSize,
         });
         const body = await parseJson<unknown>(res.raw);
-        const users = extractList<AdminUserRow>(body);
+        const users = withId<AdminUserRow>(extractList(body), 'userId');
         const totalCount = extractTotal(body) ?? users.length;
         return { users, totalCount };
     }
@@ -120,6 +139,18 @@ export class AdminService {
         });
     }
 
+    async suspendRestaurant(restaurantId: string): Promise<void> {
+        await adminApi.apiV1AdminRestaurantsRestaurantIdSuspendPatchRaw({
+            restaurantId,
+        });
+    }
+
+    async reactivateRestaurant(restaurantId: string): Promise<void> {
+        await adminApi.apiV1AdminRestaurantsRestaurantIdReactivatePatchRaw({
+            restaurantId,
+        });
+    }
+
     async setCreditLimit(
         restaurantId: string,
         payload: AdminSetCreditLimitPayload
@@ -153,6 +184,138 @@ export class AdminService {
         } catch {
             return null;
         }
+    }
+
+    // -------------------------------------------------------------------
+    // Platform settings
+    // -------------------------------------------------------------------
+
+    async getOperationalSettings(): Promise<AdminOperationalSettings> {
+        const res = await adminApi.apiV1AdminOperationalSettingsGetRaw();
+        return (
+            unwrapData<AdminOperationalSettings>(await parseJson(res.raw)) ?? {}
+        );
+    }
+
+    async updateOperationalSettings(
+        payload: AdminOperationalSettings
+    ): Promise<void> {
+        await adminApi.apiV1AdminOperationalSettingsPutRaw({
+            updateOperationalSettingsRequest: payload,
+        });
+    }
+
+    async getPricingSettings(): Promise<AdminPricingSettings> {
+        const res = await adminApi.apiV1AdminPricingSettingsGetRaw();
+        return unwrapData<AdminPricingSettings>(await parseJson(res.raw)) ?? {};
+    }
+
+    async updatePricingSettings(payload: AdminPricingSettings): Promise<void> {
+        await adminApi.apiV1AdminPricingSettingsPutRaw({
+            updatePricingSettingsRequest: payload,
+        });
+    }
+
+    // -------------------------------------------------------------------
+    // Order groups (procurement batching)
+    // -------------------------------------------------------------------
+
+    async getOrderGroups(
+        page = 1,
+        pageSize = 25
+    ): Promise<AdminOrderGroupsResult> {
+        const res = await adminApi.apiV1AdminOrderGroupsGetRaw({
+            page,
+            pageSize,
+        });
+        const body = await parseJson<unknown>(res.raw);
+        // Batch routes use {batchId}; the list may key it either way.
+        const groups = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
+        return { groups, totalCount: extractTotal(body) ?? groups.length };
+    }
+
+    /** Live batching progress for a day, optionally narrowed to one status. */
+    async getOrderGroupProgress(
+        date?: string,
+        status?: string
+    ): Promise<AdminOrderGroupRow[]> {
+        const res = await adminApi.apiV1AdminOrderGroupsProgressGetRaw({
+            date: date ? new Date(date) : undefined,
+            status: status || undefined,
+        });
+        return withId<AdminOrderGroupRow>(
+            extractList(await parseJson(res.raw)),
+            'batchId'
+        );
+    }
+
+    /**
+     * Runs auto-batching. `dryRun` asks the backend to report what it *would*
+     * group without persisting, so the admin can preview before committing.
+     */
+    async runAutoBatch(payload: AdminAutoBatchPayload = {}): Promise<unknown> {
+        const res = await adminApi.apiV1AdminOrderGroupsAutoBatchPostRaw({
+            runAutoBatchRequest: {
+                targetDate: payload.targetDate
+                    ? new Date(payload.targetDate)
+                    : null,
+                dryRun: payload.dryRun ?? null,
+                force: payload.force ?? null,
+            },
+        });
+        return unwrapData<unknown>(await parseJson(res.raw));
+    }
+
+    /** Market-agent users, for the "assign agent" picker on a batch. */
+    async getAgentOptions(): Promise<AdminUserRow[]> {
+        const { users } = await this.getUsers({
+            role: MARKET_AGENT_ROLE,
+            isActive: true,
+            pageSize: MAX_PAGE_SIZE,
+        });
+        return users.filter((user) => !!user.id);
+    }
+
+    async generateManifest(batchId: string): Promise<void> {
+        await adminApi.apiV1AdminOrderGroupsBatchIdManifestPostRaw({ batchId });
+    }
+
+    async assignBatchAgent(
+        batchId: string,
+        agentUserId: string
+    ): Promise<void> {
+        await adminApi.apiV1AdminOrderGroupsBatchIdAgentPostRaw({
+            batchId,
+            assignAgentRequest: { agentUserId },
+        });
+    }
+
+    async cancelOrderGroup(batchId: string, reason?: string): Promise<void> {
+        await adminApi.apiV1AdminOrderGroupsBatchIdCancelPostRaw({
+            batchId,
+            cancelOrderGroupRequest: { reason: reason || null },
+        });
+    }
+
+    // -------------------------------------------------------------------
+    // Audit logs
+    // -------------------------------------------------------------------
+
+    async getAuditLogs(
+        filters: AdminAuditLogFilters = {}
+    ): Promise<AdminAuditLogsResult> {
+        const res = await adminApi.apiV1AdminAuditLogsGetRaw({
+            actorId: filters.actorId || undefined,
+            action: filters.action || undefined,
+            entityType: filters.entityType || undefined,
+            from: filters.from ? new Date(filters.from) : undefined,
+            to: filters.to ? new Date(filters.to) : undefined,
+            page: filters.page,
+            pageSize: filters.pageSize,
+        });
+        const body = await parseJson<unknown>(res.raw);
+        const entries = extractList<AdminAuditLogRow>(body);
+        return { entries, totalCount: extractTotal(body) ?? entries.length };
     }
 
     // -------------------------------------------------------------------
@@ -199,63 +362,6 @@ export async function apiErrorMessage(
         if (typeof body[key] === 'string' && body[key]) {
             return body[key] as string;
         }
-    }
-    return undefined;
-}
-
-/** Parses a JSON body, tolerating an empty (`void`) response. */
-async function parseJson<T>(response: Response): Promise<T | undefined> {
-    const text = await response.text();
-    if (!text) {
-        return undefined;
-    }
-    try {
-        return JSON.parse(text) as T;
-    } catch {
-        return undefined;
-    }
-}
-
-/**
- * Returns the first array found in an untyped list response, guaranteeing an
- * array so consumers (and `@for`) never receive a non-iterable value.
- *
- * Handles a bare array, common envelope keys (`items`/`data`/`results`/`value`)
- * and one level of nesting (e.g. a .NET `Result<T>` shape
- * `{ data: { items: [...] } }`). Unknown shapes degrade to an empty list.
- */
-function extractList<T>(body: unknown): T[] {
-    if (Array.isArray(body)) {
-        return body as T[];
-    }
-    if (!body || typeof body !== 'object') {
-        return [];
-    }
-    const record = body as Record<string, unknown>;
-    for (const key of ['items', 'data', 'results', 'value']) {
-        if (Array.isArray(record[key])) {
-            return record[key] as T[];
-        }
-    }
-    if (record['data'] && typeof record['data'] === 'object') {
-        return extractList<T>(record['data']);
-    }
-    return [];
-}
-
-/** Reads a total-count value from a list envelope, if the backend sends one. */
-function extractTotal(body: unknown): number | undefined {
-    if (!body || typeof body !== 'object') {
-        return undefined;
-    }
-    const record = body as Record<string, unknown>;
-    for (const key of ['totalCount', 'total', 'totalItems', 'count']) {
-        if (typeof record[key] === 'number') {
-            return record[key] as number;
-        }
-    }
-    if (record['data'] && typeof record['data'] === 'object') {
-        return extractTotal(record['data']);
     }
     return undefined;
 }

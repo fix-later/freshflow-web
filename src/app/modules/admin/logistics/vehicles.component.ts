@@ -27,17 +27,25 @@ export class VehiclesComponent {
         subtitle: 'admin.vehicles.subtitle',
         createLabel: 'admin.vehicles.create',
         searchKeys: ['plateNumber', 'vehicleType'],
+        searchPlaceholder: 'admin.vehicles.searchPlaceholder',
         columns: [
             {
                 label: 'admin.vehicles.plateNumber',
+                sortable: true,
                 cell: (row) => String(row['plateNumber'] ?? ''),
             },
             {
                 label: 'admin.vehicles.vehicleType',
+                sortable: true,
                 cell: (row) => String(row['vehicleType'] ?? ''),
             },
             {
                 label: 'admin.vehicles.capacityKg',
+                sortable: true,
+                sortValue: (row) =>
+                    row['capacityKg'] == null || row['capacityKg'] === ''
+                        ? null
+                        : Number(row['capacityKg']),
                 cell: (row) => String(row['capacityKg'] ?? ''),
             },
         ],

@@ -27,13 +27,16 @@ export class DeliveryZonesComponent {
         subtitle: 'admin.zones.subtitle',
         createLabel: 'admin.zones.create',
         searchKeys: ['code', 'name'],
+        searchPlaceholder: 'admin.zones.searchPlaceholder',
         columns: [
             {
                 label: 'admin.zones.code',
+                sortable: true,
                 cell: (row) => String(row['code'] ?? ''),
             },
             {
                 label: 'admin.zones.name',
+                sortable: true,
                 cell: (row) => String(row['name'] ?? ''),
             },
         ],

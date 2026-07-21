@@ -17,6 +17,10 @@ import {
     AddOrderItemRequestToJSON,
 } from '../models/AddOrderItemRequest';
 import {
+    type AdvanceOrderStatusRequest,
+    AdvanceOrderStatusRequestToJSON,
+} from '../models/AdvanceOrderStatusRequest';
+import {
     type CancelOrderRequest,
     CancelOrderRequestToJSON,
 } from '../models/CancelOrderRequest';
@@ -68,6 +72,11 @@ export interface ApiV1OrdersHistoryGetRequest {
     sort?: string;
     page?: number;
     pageSize?: number;
+}
+
+export interface ApiV1OrdersOrderIdAdvanceStatusPostRequest {
+    orderId: string;
+    advanceOrderStatusRequest?: AdvanceOrderStatusRequest;
 }
 
 export interface ApiV1OrdersOrderIdCancelPatchRequest {
@@ -325,6 +334,78 @@ export class OrdersApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1OrdersHistoryGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1OrdersOrderIdAdvanceStatusPost without sending the request
+     */
+    async apiV1OrdersOrderIdAdvanceStatusPostRequestOpts(
+        requestParameters: ApiV1OrdersOrderIdAdvanceStatusPostRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['orderId'] == null) {
+            throw new runtime.RequiredError(
+                'orderId',
+                'Required parameter "orderId" was null or undefined when calling apiV1OrdersOrderIdAdvanceStatusPost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/orders/{orderId}/advance-status`;
+        urlPath = urlPath.replace(
+            '{orderId}',
+            encodeURIComponent(String(requestParameters['orderId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: AdvanceOrderStatusRequestToJSON(
+                requestParameters['advanceOrderStatusRequest']
+            ),
+        };
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdAdvanceStatusPostRaw(
+        requestParameters: ApiV1OrdersOrderIdAdvanceStatusPostRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1OrdersOrderIdAdvanceStatusPostRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdAdvanceStatusPost(
+        requestParameters: ApiV1OrdersOrderIdAdvanceStatusPostRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1OrdersOrderIdAdvanceStatusPostRaw(
+            requestParameters,
+            initOverrides
+        );
     }
 
     /**

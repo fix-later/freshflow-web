@@ -6,6 +6,7 @@ import {
     TemplateRef,
     ViewChild,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -35,6 +36,8 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import { CoalescedTask } from '../shared/coalesced-task';
+import { TableSort } from '../shared/table-sort';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -45,6 +48,9 @@ const DEFAULT_PAGE_SIZE = 20;
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    // Full-width flex host so the page stretches the whole screen instead of
+    // shrinking to the default inline host width (matches ResourceCrudComponent).
+    host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
         MatDialogModule,
@@ -74,6 +80,21 @@ export class UsersListComponent implements OnInit {
     private _dialogRef: MatDialogRef<unknown> | null = null;
 
     readonly users = signal<AdminUserRow[]>([]);
+
+    /**
+     * Column sort for the users table.
+     *
+     * `GET /admin/users` takes no sort parameter, so this orders the page
+     * currently loaded rather than the whole result set.
+     */
+    readonly sort = new TableSort<AdminUserRow>();
+
+    /** {@link users} in the active sort order. */
+    readonly sortedUsers = computed(() =>
+        this.sort.apply(this.users(), (user, key) =>
+            key === 'status' ? user.isActive !== false : (user[key] as string)
+        )
+    );
     readonly totalCount = signal(0);
     readonly loading = signal(false);
     readonly roles = signal<string[]>([]);
@@ -214,29 +235,33 @@ export class UsersListComponent implements OnInit {
         return user.id;
     }
 
+    /** Refreshes the list; overlapping calls collapse into one request. */
     private _load(): void {
+        this._loadTask.trigger();
+    }
+
+    private readonly _loadTask = new CoalescedTask(async () => {
         this.loading.set(true);
         const raw = this.filterForm.getRawValue();
-        this._admin
-            .getUsers({
+        try {
+            const result = await this._admin.getUsers({
                 search: raw.search || undefined,
                 role: raw.role || undefined,
                 isActive:
                     raw.isActive === '' ? undefined : raw.isActive === 'true',
                 page: this.pageIndex() + 1,
                 pageSize: this.pageSize(),
-            })
-            .then((result) => {
-                this.users.set(result.users);
-                this.totalCount.set(result.totalCount);
-            })
-            .catch(() => {
-                this.users.set([]);
-                this.totalCount.set(0);
-                this._notify('admin.users.loadError');
-            })
-            .finally(() => this.loading.set(false));
-    }
+            });
+            this.users.set(result.users);
+            this.totalCount.set(result.totalCount);
+        } catch {
+            this.users.set([]);
+            this.totalCount.set(0);
+            this._notify('admin.users.loadError');
+        } finally {
+            this.loading.set(false);
+        }
+    });
 
     private _loadRoles(): void {
         this._admin

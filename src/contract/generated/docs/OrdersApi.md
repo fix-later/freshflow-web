@@ -6,6 +6,7 @@ All URIs are relative to *http://localhost*
 |------------- | ------------- | -------------|
 | [**apiV1OrdersGet**](OrdersApi.md#apiv1ordersget) | **GET** /api/v1/orders |  |
 | [**apiV1OrdersHistoryGet**](OrdersApi.md#apiv1ordershistoryget) | **GET** /api/v1/orders/history |  |
+| [**apiV1OrdersOrderIdAdvanceStatusPost**](OrdersApi.md#apiv1ordersorderidadvancestatuspost) | **POST** /api/v1/orders/{orderId}/advance-status |  |
 | [**apiV1OrdersOrderIdCancelPatch**](OrdersApi.md#apiv1ordersorderidcancelpatch) | **PATCH** /api/v1/orders/{orderId}/cancel |  |
 | [**apiV1OrdersOrderIdConfirmPost**](OrdersApi.md#apiv1ordersorderidconfirmpost) | **POST** /api/v1/orders/{orderId}/confirm |  |
 | [**apiV1OrdersOrderIdConfirmPreviewGet**](OrdersApi.md#apiv1ordersorderidconfirmpreviewget) | **GET** /api/v1/orders/{orderId}/confirm-preview |  |
@@ -201,6 +202,81 @@ example().catch(console.error);
 | **200** | OK |  -  |
 | **400** | Bad Request |  -  |
 | **403** | Forbidden |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1OrdersOrderIdAdvanceStatusPost
+
+> apiV1OrdersOrderIdAdvanceStatusPost(orderId, advanceOrderStatusRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  OrdersApi,
+} from '';
+import type { ApiV1OrdersOrderIdAdvanceStatusPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new OrdersApi(config);
+
+  const body = {
+    // string
+    orderId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // AdvanceOrderStatusRequest (optional)
+    advanceOrderStatusRequest: ...,
+  } satisfies ApiV1OrdersOrderIdAdvanceStatusPostRequest;
+
+  try {
+    const data = await api.apiV1OrdersOrderIdAdvanceStatusPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **orderId** | `string` |  | [Defaults to `undefined`] |
+| **advanceOrderStatusRequest** | [AdvanceOrderStatusRequest](AdvanceOrderStatusRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: `text/plain`, `application/json`, `text/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+| **404** | Not Found |  -  |
+| **409** | Conflict |  -  |
+| **422** | Unprocessable Content |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

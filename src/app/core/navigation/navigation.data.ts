@@ -117,6 +117,29 @@ const NAVIGATION: AreaNavItem[] = [
         ],
     },
     {
+        id: 'admin.operations',
+        title: 'Vận hành',
+        subtitle: 'Gom đơn & cấu hình',
+        type: 'group',
+        area: 'admin',
+        children: [
+            {
+                id: 'admin-order-groups',
+                title: 'Gom đơn',
+                type: 'basic',
+                icon: 'heroicons_outline:rectangle-group',
+                link: '/admin/order-groups',
+            },
+            {
+                id: 'admin-settings',
+                title: 'Cấu hình hệ thống',
+                type: 'basic',
+                icon: 'heroicons_outline:cog-6-tooth',
+                link: '/admin/settings',
+            },
+        ],
+    },
+    {
         id: 'admin.catalog',
         title: 'Danh mục',
         subtitle: 'Sản phẩm & chợ đầu mối',

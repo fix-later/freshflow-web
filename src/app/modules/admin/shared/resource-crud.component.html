@@ -6,26 +6,77 @@
             </h1>
             <p class="text-secondary mt-1">{{ t(resource.subtitle) }}</p>
         </div>
-        <button mat-flat-button color="accent" (click)="openCreate()">
-            <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
-            {{ t(resource.createLabel) }}
-        </button>
+        <div class="flex flex-wrap items-center gap-2">
+            @for (action of resource.headerActions; track action.label) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="action.run(rows(), reload)"
+                >
+                    <mat-icon
+                        class="mr-1"
+                        [svgIcon]="'heroicons_outline:' + action.icon"
+                    ></mat-icon>
+                    {{ t(action.label) }}
+                </button>
+            }
+            <button mat-flat-button color="accent" (click)="openCreate()">
+                <mat-icon
+                    svgIcon="heroicons_outline:plus"
+                    class="mr-1"
+                ></mat-icon>
+                {{ t(resource.createLabel) }}
+            </button>
+        </div>
     </div>
 
-    @if (resource.searchKeys?.length) {
+    @if (resource.searchKeys?.length || resource.filters?.length) {
         <div class="mt-6 flex flex-wrap items-end gap-4">
-            <mat-form-field class="w-64" subscriptSizing="dynamic">
-                <mat-label>{{ t('admin.crud.search') }}</mat-label>
-                <input
-                    matInput
-                    [value]="search()"
-                    (input)="onSearch($any($event.target).value)"
-                />
-                <mat-icon
-                    matPrefix
-                    svgIcon="heroicons_outline:magnifying-glass"
-                ></mat-icon>
-            </mat-form-field>
+            @if (resource.searchKeys?.length) {
+                <mat-form-field class="w-64" subscriptSizing="dynamic">
+                    <mat-label>{{ t('admin.crud.search') }}</mat-label>
+                    <input
+                        matInput
+                        [value]="search()"
+                        [placeholder]="
+                            resource.searchPlaceholder
+                                ? t(resource.searchPlaceholder)
+                                : ''
+                        "
+                        (input)="onSearch($any($event.target).value)"
+                    />
+                    <mat-icon
+                        matPrefix
+                        svgIcon="heroicons_outline:magnifying-glass"
+                    ></mat-icon>
+                </mat-form-field>
+            }
+
+            @for (filter of resource.filters; track filter.name) {
+                <mat-form-field class="w-56" subscriptSizing="dynamic">
+                    <mat-label>{{ t(filter.label) }}</mat-label>
+                    <mat-icon
+                        matPrefix
+                        svgIcon="heroicons_outline:funnel"
+                    ></mat-icon>
+                    <mat-select
+                        [value]="filterValues()[filter.name] ?? ''"
+                        (selectionChange)="onFilterChange(filter, $event.value)"
+                    >
+                        <mat-option [value]="''">{{
+                            t('admin.crud.filterAll')
+                        }}</mat-option>
+                        @for (
+                            opt of filterOptions()[filter.name];
+                            track opt.value
+                        ) {
+                            <mat-option [value]="opt.value">{{
+                                opt.label
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
         </div>
     }
 
@@ -40,12 +91,56 @@
             >
                 <tr>
                     @for (col of resource.columns; track col.label) {
-                        <th class="px-4 py-3 font-medium">
-                            {{ t(col.label) }}
+                        <th
+                            class="px-4 py-3 font-medium"
+                            [attr.aria-sort]="
+                                col.sortable ? sort.ariaSort(col.label) : null
+                            "
+                        >
+                            @if (col.sortable) {
+                                <button
+                                    type="button"
+                                    class="admin-sort-header"
+                                    (click)="sort.toggle(col.label)"
+                                >
+                                    {{ t(col.label) }}
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-accent]="
+                                            sort.key() === col.label
+                                        "
+                                        [svgIcon]="
+                                            'heroicons_outline:' +
+                                            sort.icon(col.label)
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            } @else {
+                                {{ t(col.label) }}
+                            }
                         </th>
                     }
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.users.filters.status') }}
+                    <th
+                        class="px-4 py-3 font-medium"
+                        [attr.aria-sort]="sort.ariaSort(STATUS_SORT_KEY)"
+                    >
+                        <button
+                            type="button"
+                            class="admin-sort-header"
+                            (click)="sort.toggle(STATUS_SORT_KEY)"
+                        >
+                            {{ t('admin.users.filters.status') }}
+                            <mat-icon
+                                class="icon-size-4"
+                                [class.text-accent]="
+                                    sort.key() === STATUS_SORT_KEY
+                                "
+                                [svgIcon]="
+                                    'heroicons_outline:' +
+                                    sort.icon(STATUS_SORT_KEY)
+                                "
+                            ></mat-icon>
+                        </button>
                     </th>
                     <th class="px-4 py-3 text-right font-medium">
                         {{ t('admin.users.table.actions') }}
@@ -53,24 +148,39 @@
                 </tr>
             </thead>
             <tbody>
-                @for (row of filteredRows(); track row.id) {
+                @for (row of pagedRows(); track row.id) {
                     <tr class="border-b hover:bg-hover last:border-0">
                         @for (col of resource.columns; track col.label) {
                             <td class="px-4 py-3">
-                                {{ col.cell(row) || '—' }}
+                                @if (col.image) {
+                                    @if (col.cell(row)) {
+                                        <img
+                                            [src]="col.cell(row)"
+                                            [alt]="t(col.label)"
+                                            class="h-10 w-10 rounded-lg object-cover"
+                                        />
+                                    } @else {
+                                        <div
+                                            class="text-secondary bg-hover flex h-10 w-10 items-center justify-center rounded-lg"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                svgIcon="heroicons_outline:photo"
+                                            ></mat-icon>
+                                        </div>
+                                    }
+                                } @else {
+                                    {{ col.cell(row) || '—' }}
+                                }
                             </td>
                         }
                         <td class="px-4 py-3">
                             @if (row.isActive === false) {
-                                <span
-                                    class="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600"
-                                >
+                                <span class="admin-pill admin-pill-neutral">
                                     {{ t('admin.users.filters.inactive') }}
                                 </span>
                             } @else {
-                                <span
-                                    class="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700"
-                                >
+                                <span class="admin-pill admin-pill-success">
                                     {{ t('admin.users.filters.active') }}
                                 </span>
                             }
@@ -106,21 +216,26 @@
                                     ></mat-icon>
                                 </button>
                                 @if (resource.remove) {
+                                    <!--
+                                        On an inactive row this becomes a
+                                        restore action where the resource can
+                                        reactivate, and stays disabled where it
+                                        cannot (no endpoint that direction).
+                                    -->
                                     <button
                                         mat-icon-button
                                         type="button"
-                                        [matTooltip]="
-                                            t(
-                                                resource.removeLabel ??
-                                                    'admin.crud.remove'
-                                            )
+                                        [disabled]="
+                                            isAlreadyInactive(row) &&
+                                            !isReactivate(row)
                                         "
+                                        [matTooltip]="t(removeTooltipFor(row))"
                                         (click)="remove(row)"
                                     >
                                         <mat-icon
                                             [svgIcon]="
                                                 'heroicons_outline:' +
-                                                (resource.removeIcon ?? 'trash')
+                                                removeIconFor(row)
                                             "
                                         ></mat-icon>
                                     </button>
@@ -141,6 +256,17 @@
             </tbody>
         </table>
     </div>
+
+    @if (filteredRows().length > pageSize()) {
+        <mat-paginator
+            class="mt-2"
+            [length]="filteredRows().length"
+            [pageIndex]="pageIndex()"
+            [pageSize]="pageSize()"
+            [pageSizeOptions]="[10, 20, 50]"
+            (page)="onPageChange($event)"
+        ></mat-paginator>
+    }
 </div>
 
 <!-- Create / edit dialog -->
@@ -152,7 +278,7 @@
         <div class="flex items-center justify-between">
             <h2 class="text-xl font-semibold">
                 {{
-                    editingId()
+                    editing()
                         ? t('admin.crud.editTitle')
                         : t(resource.createLabel)
                 }}
@@ -169,13 +295,139 @@
                 (ngSubmit)="save()"
             >
                 @for (field of resource.fields; track field.name) {
-                    @if (!(editingId() && field.createOnly)) {
+                    @if (isFieldVisible(field)) {
                         @if (field.type === 'location') {
                             <app-location-picker
                                 [class]="fieldSpanClass(field)"
                                 [latControl]="controlOf(field.latField ?? '')"
                                 [lngControl]="controlOf(field.lngField ?? '')"
                             ></app-location-picker>
+                        } @else if (field.type === 'image') {
+                            <div
+                                [class]="fieldSpanClass(field)"
+                                class="flex flex-col gap-1.5"
+                            >
+                                <span
+                                    class="text-secondary text-sm font-medium"
+                                >
+                                    {{ t(field.label) }}
+                                </span>
+
+                                <!-- Dropzone / preview card -->
+                                <div
+                                    class="group relative flex h-44 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors"
+                                    [class.border-primary]="
+                                        dragOver()[field.name]
+                                    "
+                                    [class.bg-primary-50]="
+                                        dragOver()[field.name]
+                                    "
+                                    [class.dark:bg-primary-900]="
+                                        dragOver()[field.name]
+                                    "
+                                    (dragover)="onDragOver(field, $event)"
+                                    (dragleave)="onDragLeave(field)"
+                                    (drop)="onImageDropped(field, $event)"
+                                >
+                                    @if (controlOf(field.name)?.value) {
+                                        <!-- Existing image + hover actions -->
+                                        <img
+                                            [src]="controlOf(field.name)?.value"
+                                            [alt]="t(field.label)"
+                                            class="h-full w-full object-contain"
+                                        />
+                                        <div
+                                            class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                                        >
+                                            <button
+                                                mat-mini-fab
+                                                type="button"
+                                                color="accent"
+                                                [matTooltip]="
+                                                    t('admin.crud.image.change')
+                                                "
+                                                [disabled]="
+                                                    uploading()[field.name]
+                                                "
+                                                (click)="imageInput.click()"
+                                            >
+                                                <mat-icon
+                                                    svgIcon="heroicons_outline:arrow-path"
+                                                ></mat-icon>
+                                            </button>
+                                            <button
+                                                mat-mini-fab
+                                                type="button"
+                                                color="warn"
+                                                [matTooltip]="
+                                                    t('admin.crud.image.remove')
+                                                "
+                                                [disabled]="
+                                                    uploading()[field.name]
+                                                "
+                                                (click)="clearImage(field)"
+                                            >
+                                                <mat-icon
+                                                    svgIcon="heroicons_outline:trash"
+                                                ></mat-icon>
+                                            </button>
+                                        </div>
+                                    } @else {
+                                        <!-- Empty state: click to browse -->
+                                        <button
+                                            type="button"
+                                            class="text-secondary flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:text-primary"
+                                            [disabled]="uploading()[field.name]"
+                                            (click)="imageInput.click()"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-10"
+                                                svgIcon="heroicons_outline:cloud-arrow-up"
+                                            ></mat-icon>
+                                            <span class="text-sm font-medium">
+                                                {{
+                                                    t('admin.crud.image.upload')
+                                                }}
+                                            </span>
+                                            <span
+                                                class="text-secondary text-xs"
+                                            >
+                                                {{ t('admin.crud.image.hint') }}
+                                            </span>
+                                        </button>
+                                    }
+
+                                    <!-- Uploading overlay -->
+                                    @if (uploading()[field.name]) {
+                                        <div
+                                            class="bg-card/80 absolute inset-0 flex flex-col items-center justify-center gap-2 backdrop-blur-sm"
+                                        >
+                                            <mat-progress-spinner
+                                                mode="indeterminate"
+                                                [diameter]="36"
+                                                color="primary"
+                                            ></mat-progress-spinner>
+                                            <span
+                                                class="text-secondary text-xs font-medium"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.crud.image.uploading'
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+
+                                <input
+                                    #imageInput
+                                    type="file"
+                                    accept="image/*"
+                                    class="hidden"
+                                    (change)="onImagePicked(field, imageInput)"
+                                />
+                            </div>
                         } @else {
                             <mat-form-field
                                 subscriptSizing="dynamic"
@@ -187,22 +439,77 @@
                                     @case ('select') {
                                         <mat-select
                                             [formControlName]="field.name"
+                                            (opened)="
+                                                field.searchable &&
+                                                    focusOptionSearch()
+                                            "
                                         >
+                                            @if (field.searchable) {
+                                                <!--
+                                                    Filter box pinned to the top
+                                                    of the panel. Key events are
+                                                    stopped so typing doesn't hit
+                                                    mat-select's own typeahead
+                                                    (which would jump the
+                                                    highlighted option and close
+                                                    the panel on space/enter).
+                                                -->
+                                                <div
+                                                    class="bg-card sticky top-0 z-10 px-3 pb-2 pt-1"
+                                                    (click)="
+                                                        $event.stopPropagation()
+                                                    "
+                                                    (keydown)="
+                                                        $event.stopPropagation()
+                                                    "
+                                                >
+                                                    <input
+                                                        type="text"
+                                                        class="admin-option-search w-full rounded-lg border px-3 py-2 text-sm"
+                                                        [placeholder]="
+                                                            t(
+                                                                'admin.crud.optionSearch'
+                                                            )
+                                                        "
+                                                        [value]="
+                                                            optionSearch()[
+                                                                field.name
+                                                            ] ?? ''
+                                                        "
+                                                        (input)="
+                                                            onOptionSearch(
+                                                                field,
+                                                                $any(
+                                                                    $event.target
+                                                                ).value
+                                                            )
+                                                        "
+                                                    />
+                                                </div>
+                                            }
                                             @if (!field.required) {
                                                 <mat-option [value]="''"
                                                     >—</mat-option
                                                 >
                                             }
                                             @for (
-                                                opt of selectOptions()[
-                                                    field.name
-                                                ];
+                                                opt of visibleOptions(field);
                                                 track opt.value
                                             ) {
                                                 <mat-option
                                                     [value]="opt.value"
                                                     >{{ opt.label }}</mat-option
                                                 >
+                                            } @empty {
+                                                <p
+                                                    class="text-secondary px-4 py-3 text-sm"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.crud.optionSearchEmpty'
+                                                        )
+                                                    }}
+                                                </p>
                                             }
                                         </mat-select>
                                     }
@@ -274,7 +581,7 @@
                         mat-flat-button
                         color="accent"
                         type="submit"
-                        [disabled]="form.invalid || saving()"
+                        [disabled]="form.invalid || saving() || anyUploading"
                     >
                         {{ t('admin.crud.save') }}
                     </button>

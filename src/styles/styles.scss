@@ -44,3 +44,49 @@ body {
 .no-scrollbar::-webkit-scrollbar {
     display: none; /* Chrome / Safari / Edge */
 }
+
+/**
+ * Admin status pills.
+ *
+ * Per `specs/design/TOKENS.md`, status colors are semantic (success → primary
+ * green, warning → amber, error → warn red) and must resolve per theme — the
+ * admin tables previously hardcoded light-only Tailwind steps (`bg-green-100` +
+ * `text-green-700`), which washed out on the dark card surface. These bind to
+ * the theme palettes and carry their own dark steps.
+ */
+.admin-pill {
+    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+}
+
+.admin-pill-success {
+    @apply bg-primary-100 text-primary-800;
+}
+
+.dark .admin-pill-success {
+    @apply bg-primary-900 text-primary-100;
+}
+
+.admin-pill-neutral {
+    @apply text-secondary bg-hover;
+}
+
+.admin-pill-warning {
+    @apply bg-amber-100 text-amber-800;
+}
+
+.dark .admin-pill-warning {
+    @apply bg-amber-900 text-amber-100;
+}
+
+/**
+ * Sortable table header. Renders as the header text it replaces (inheriting the
+ * thead's uppercase/tracking treatment) plus a trailing direction indicator,
+ * so a sortable column reads no louder than a fixed one until it is active.
+ */
+.admin-sort-header {
+    @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors;
+}
+
+.admin-sort-header:hover {
+    @apply text-default bg-hover;
+}

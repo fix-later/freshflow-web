@@ -38,6 +38,11 @@ export interface ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetReque
     statementId: string;
 }
 
+export interface ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequest {
+    restaurantId: string;
+    statementId: string;
+}
+
 export interface ApiV1RestaurantsRestaurantIdCreditTransactionsGetRequest {
     restaurantId: string;
     cursor?: string;
@@ -337,6 +342,84 @@ export class RestaurantCreditApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGet without sending the request
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequestOpts(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['restaurantId'] == null) {
+            throw new runtime.RequiredError(
+                'restaurantId',
+                'Required parameter "restaurantId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGet().'
+            );
+        }
+
+        if (requestParameters['statementId'] == null) {
+            throw new runtime.RequiredError(
+                'statementId',
+                'Required parameter "statementId" was null or undefined when calling apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/{restaurantId}/credit/statements/{statementId}/pdf`;
+        urlPath = urlPath.replace(
+            '{restaurantId}',
+            encodeURIComponent(String(requestParameters['restaurantId']))
+        );
+        urlPath = urlPath.replace(
+            '{statementId}',
+            encodeURIComponent(String(requestParameters['statementId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRaw(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGet(
+        requestParameters: ApiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRaw(
             requestParameters,
             initOverrides
         );
