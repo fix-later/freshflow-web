@@ -80,7 +80,10 @@ if (missingRequired.length) {
         `✖ Missing required config: ${missingRequired.join(', ')}\n` +
             (existsSync(envFile)
                 ? `  Set it in ${relativeEnvFile}, or pass it in the environment.`
-                : `  No ${relativeEnvFile} found. Run: cp .env.example .env`)
+                : `  No ${relativeEnvFile} found.\n` +
+                  `  Locally:  cp .env.example .env\n` +
+                  `  In CI/Docker: pass it in the environment ` +
+                  `(docker build --build-arg API_BASE_URL=…).`)
     );
     process.exit(1);
 }
