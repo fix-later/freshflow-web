@@ -77,6 +77,21 @@
                     </mat-select>
                 </mat-form-field>
             }
+
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    class="mb-1"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon
+                        class="mr-1"
+                        svgIcon="heroicons_outline:x-mark"
+                    ></mat-icon>
+                    {{ t('admin.crud.clearFilters') }}
+                </button>
+            }
         </div>
     }
 

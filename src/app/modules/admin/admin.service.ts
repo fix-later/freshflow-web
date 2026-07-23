@@ -7,18 +7,16 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import {
-    adminApi,
-    marketsApi,
-    ResponseError,
-    restaurantCreditApi,
-} from 'contract';
+import { adminApi, marketsApi, restaurantCreditApi } from 'contract';
 import {
     AdminAuditLogFilters,
     AdminAuditLogRow,
     AdminAuditLogsResult,
     AdminAutoBatchPayload,
     AdminCreateUserPayload,
+    AdminCreditStatement,
+    AdminCreditTransaction,
+    AdminGenerateStatementPayload,
     AdminMarketAssignmentEntry,
     AdminMarketOption,
     AdminOperationalSettings,
@@ -186,6 +184,70 @@ export class AdminService {
         }
     }
 
+    /** Monthly credit statements, newest first (best-effort; empty on failure). */
+    async getCreditStatements(
+        restaurantId: string
+    ): Promise<AdminCreditStatement[]> {
+        try {
+            const res =
+                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
+                    { restaurantId, pageSize: MAX_PAGE_SIZE }
+                );
+            return withId<AdminCreditStatement>(
+                extractList(await parseJson(res.raw)),
+                'statementId'
+            );
+        } catch {
+            return [];
+        }
+    }
+
+    /** Generates (or regenerates) the statement for a given year/month. */
+    async generateCreditStatement(
+        restaurantId: string,
+        payload: AdminGenerateStatementPayload
+    ): Promise<void> {
+        await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRaw(
+            {
+                restaurantId,
+                generateStatementRequest: {
+                    year: payload.year,
+                    month: payload.month,
+                },
+            }
+        );
+    }
+
+    /** Fetches a statement PDF as a Blob for download / preview. */
+    async getStatementPdf(
+        restaurantId: string,
+        statementId: string
+    ): Promise<Blob> {
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRaw(
+                { restaurantId, statementId }
+            );
+        return res.raw.blob();
+    }
+
+    /** Credit ledger entries, newest first (best-effort; empty on failure). */
+    async getCreditTransactions(
+        restaurantId: string
+    ): Promise<AdminCreditTransaction[]> {
+        try {
+            const res =
+                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw(
+                    { restaurantId, pageSize: MAX_PAGE_SIZE }
+                );
+            return withId<AdminCreditTransaction>(
+                extractList(await parseJson(res.raw)),
+                'transactionId'
+            );
+        } catch {
+            return [];
+        }
+    }
+
     // -------------------------------------------------------------------
     // Platform settings
     // -------------------------------------------------------------------
@@ -331,37 +393,10 @@ export class AdminService {
 }
 
 /**
- * Extracts a human-readable message from a failed API call.
- *
- * Backend errors surface as a {@link ResponseError} whose `response` carries an
- * RFC 7807 `ProblemDetails` body (`detail`/`title`, or a `errors` validation
- * map). Returns `undefined` for non-HTTP failures so callers can fall back to a
- * generic translated message.
+ * Re-exported from the shared api layer, where it now also reads the typed
+ * {@link ApiError} subclasses (401/403/5xx) — not just {@link ResponseError} —
+ * so RBAC/permission rejections surface their backend reason too. Kept exported
+ * here so existing `import { apiErrorMessage } from '../admin.service'` callers
+ * are unaffected.
  */
-export async function apiErrorMessage(
-    err: unknown
-): Promise<string | undefined> {
-    if (!(err instanceof ResponseError)) {
-        return undefined;
-    }
-    const body = await parseJson<Record<string, unknown>>(err.response.clone());
-    if (!body) {
-        return undefined;
-    }
-    if (body['errors'] && typeof body['errors'] === 'object') {
-        const messages = Object.values(
-            body['errors'] as Record<string, unknown>
-        )
-            .flatMap((v) => (Array.isArray(v) ? v : [v]))
-            .filter((v): v is string => typeof v === 'string');
-        if (messages.length) {
-            return messages.join(' ');
-        }
-    }
-    for (const key of ['detail', 'title', 'message']) {
-        if (typeof body[key] === 'string' && body[key]) {
-            return body[key] as string;
-        }
-    }
-    return undefined;
-}
+export { apiErrorMessage } from 'app/core/api/envelope';

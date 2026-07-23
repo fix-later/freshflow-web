@@ -195,4 +195,197 @@
             </button>
         </form>
     </div>
+
+    @if (lookedUp()) {
+        <!-- Credit statements -->
+        <section class="mt-6">
+            <div class="flex flex-wrap items-end justify-between gap-4">
+                <h2 class="text-lg font-semibold">
+                    {{ t('admin.restaurants.statements.title') }}
+                </h2>
+                <form
+                    [formGroup]="generateForm"
+                    class="flex flex-wrap items-end gap-2"
+                    (ngSubmit)="generateStatement()"
+                >
+                    <mat-form-field class="w-28" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.restaurants.statements.year')
+                        }}</mat-label>
+                        <input matInput type="number" formControlName="year" />
+                    </mat-form-field>
+                    <mat-form-field class="w-24" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.restaurants.statements.month')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            min="1"
+                            max="12"
+                            formControlName="month"
+                        />
+                    </mat-form-field>
+                    <button
+                        mat-flat-button
+                        color="accent"
+                        type="submit"
+                        [disabled]="generateForm.invalid || generating()"
+                    >
+                        <mat-icon
+                            class="mr-1"
+                            svgIcon="heroicons_outline:document-plus"
+                        ></mat-icon>
+                        {{ t('admin.restaurants.statements.generateSubmit') }}
+                    </button>
+                </form>
+            </div>
+
+            <div class="bg-card mt-3 overflow-x-auto rounded-2xl border">
+                <table class="w-full min-w-[640px] text-left text-sm">
+                    <thead
+                        class="text-secondary border-b text-xs uppercase tracking-wide"
+                    >
+                        <tr>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.statements.period') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.statements.opening') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.statements.closing') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.statements.charges') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.statements.payments') }}
+                            </th>
+                            <th class="px-4 py-3 text-right font-medium">
+                                {{ t('admin.users.table.actions') }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (s of statements(); track trackById($index, s)) {
+                            <tr class="border-b hover:bg-hover last:border-0">
+                                <td class="px-4 py-3">
+                                    {{ s.month ?? '—' }}/{{ s.year ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ s.openingBalance ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ s.closingBalance ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ s.totalCharges ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ s.totalPayments ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [matTooltip]="
+                                            t(
+                                                'admin.restaurants.statements.pdf'
+                                            )
+                                        "
+                                        [disabled]="pdfBusyId() === s.id"
+                                        (click)="downloadStatementPdf(s.id)"
+                                    >
+                                        <mat-icon
+                                            svgIcon="heroicons_outline:arrow-down-tray"
+                                        ></mat-icon>
+                                    </button>
+                                </td>
+                            </tr>
+                        } @empty {
+                            <tr>
+                                <td
+                                    class="text-secondary px-4 py-8 text-center"
+                                    colspan="6"
+                                >
+                                    {{
+                                        t('admin.restaurants.statements.empty')
+                                    }}
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Credit transactions -->
+        <section class="mt-6">
+            <h2 class="text-lg font-semibold">
+                {{ t('admin.restaurants.transactions.title') }}
+            </h2>
+            <div class="bg-card mt-3 overflow-x-auto rounded-2xl border">
+                <table class="w-full min-w-[640px] text-left text-sm">
+                    <thead
+                        class="text-secondary border-b text-xs uppercase tracking-wide"
+                    >
+                        <tr>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.transactions.date') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.transactions.type') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{ t('admin.restaurants.transactions.amount') }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{
+                                    t('admin.restaurants.transactions.balance')
+                                }}
+                            </th>
+                            <th class="px-4 py-3 font-medium">
+                                {{
+                                    t(
+                                        'admin.restaurants.transactions.description'
+                                    )
+                                }}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @for (x of transactions(); track trackById($index, x)) {
+                            <tr class="border-b hover:bg-hover last:border-0">
+                                <td class="px-4 py-3">
+                                    {{ x.createdAt ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">{{ x.type ?? '—' }}</td>
+                                <td class="px-4 py-3">{{ x.amount ?? '—' }}</td>
+                                <td class="px-4 py-3">
+                                    {{ x.balanceAfter ?? '—' }}
+                                </td>
+                                <td class="px-4 py-3">
+                                    {{ x.description ?? '—' }}
+                                </td>
+                            </tr>
+                        } @empty {
+                            <tr>
+                                <td
+                                    class="text-secondary px-4 py-8 text-center"
+                                    colspan="5"
+                                >
+                                    {{
+                                        t(
+                                            'admin.restaurants.transactions.empty'
+                                        )
+                                    }}
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
 </div>

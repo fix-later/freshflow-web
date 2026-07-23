@@ -33,6 +33,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { apiErrorMessage } from 'app/core/api/envelope';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { CoalescedTask } from './coalesced-task';
 import {
@@ -137,6 +138,13 @@ export class ResourceCrudComponent implements OnInit {
         });
     });
 
+    /** True when a search term or any page-level filter is currently applied. */
+    readonly hasActiveFilters = computed(
+        () =>
+            this.search().trim() !== '' ||
+            Object.values(this.filterValues()).some((v) => v)
+    );
+
     /** Column sort state, applied after filtering and before pagination. */
     readonly sort = new TableSort<CrudRow>();
 
@@ -226,9 +234,9 @@ export class ResourceCrudComponent implements OnInit {
         this.loading.set(true);
         try {
             await this._fetchRows();
-        } catch {
+        } catch (err) {
             this.rows.set([]);
-            this._notify('admin.crud.loadError');
+            await this._notifyError(err, 'admin.crud.loadError');
         } finally {
             this.loading.set(false);
         }
@@ -268,8 +276,8 @@ export class ResourceCrudComponent implements OnInit {
                     ? 'admin.crud.reactivateIgnored'
                     : 'admin.crud.reactivateSuccess'
             );
-        } catch {
-            this._notify('admin.crud.saveError');
+        } catch (err) {
+            await this._notifyError(err, 'admin.crud.saveError');
         } finally {
             this.saving.set(false);
         }
@@ -285,6 +293,13 @@ export class ResourceCrudComponent implements OnInit {
             ...state,
             [filter.name]: value,
         }));
+        this.pageIndex.set(0);
+    }
+
+    /** Resets the search box and every page-level filter to "all". */
+    clearFilters(): void {
+        this.search.set('');
+        this.filterValues.set({});
         this.pageIndex.set(0);
     }
 
@@ -375,7 +390,7 @@ export class ResourceCrudComponent implements OnInit {
                 this.closeDialog();
                 this.load();
             })
-            .catch(() => this._notify('admin.crud.saveError'))
+            .catch((err) => this._notifyError(err, 'admin.crud.saveError'))
             .finally(() => this.saving.set(false));
     }
 
@@ -453,7 +468,7 @@ export class ResourceCrudComponent implements OnInit {
                     this._notify('admin.crud.removeSuccess');
                     this.load();
                 })
-                .catch(() => this._notify('admin.crud.saveError'));
+                .catch((err) => this._notifyError(err, 'admin.crud.saveError'));
         });
     }
 
@@ -570,7 +585,9 @@ export class ResourceCrudComponent implements OnInit {
         field
             .upload(file)
             .then((url) => this.controlOf(field.name)?.setValue(url))
-            .catch(() => this._notify('admin.crud.image.uploadError'))
+            .catch((err) =>
+                this._notifyError(err, 'admin.crud.image.uploadError')
+            )
             .finally(() => this._setUploading(field.name, false));
     }
 
@@ -708,5 +725,20 @@ export class ResourceCrudComponent implements OnInit {
         this._snackBar.open(this._transloco.translate(key), undefined, {
             duration: 3000,
         });
+    }
+
+    /**
+     * Shows the backend's rejection reason when it sent one (permission denied,
+     * validation, conflict…), falling back to a translated generic message when
+     * it didn't. Errors linger longer than successes so the reason can be read.
+     */
+    private async _notifyError(
+        err: unknown,
+        fallbackKey: string
+    ): Promise<void> {
+        const message =
+            (await apiErrorMessage(err)) ??
+            this._transloco.translate(fallbackKey);
+        this._snackBar.open(message, undefined, { duration: 6000 });
     }
 }

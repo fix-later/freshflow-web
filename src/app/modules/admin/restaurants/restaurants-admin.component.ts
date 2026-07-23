@@ -13,9 +13,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AdminService, apiErrorMessage } from '../admin.service';
-import { AdminRestaurantCredit } from '../admin.types';
+import {
+    AdminCreditStatement,
+    AdminCreditTransaction,
+    AdminRestaurantCredit,
+} from '../admin.types';
 
 /** UUID v4-ish check — good enough to short-circuit obviously malformed input. */
 const UUID_PATTERN =
@@ -41,6 +46,7 @@ const UUID_PATTERN =
         MatInputModule,
         MatProgressBarModule,
         MatSnackBarModule,
+        MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
@@ -58,6 +64,15 @@ export class RestaurantsAdminComponent {
     readonly reactivating = signal(false);
     readonly settingLimit = signal(false);
     readonly settling = signal(false);
+
+    /** True once a valid restaurant id has been looked up (reveals the ledger). */
+    readonly lookedUp = signal(false);
+    readonly statements = signal<AdminCreditStatement[]>([]);
+    readonly transactions = signal<AdminCreditTransaction[]>([]);
+    readonly loadingLedger = signal(false);
+    readonly generating = signal(false);
+    /** Statement id whose PDF is currently being fetched, or null. */
+    readonly pdfBusyId = signal<string | null>(null);
 
     readonly lookupForm = this._formBuilder.nonNullable.group({
         restaurantId: [
@@ -78,6 +93,17 @@ export class RestaurantsAdminComponent {
         note: [''],
     });
 
+    readonly generateForm = this._formBuilder.nonNullable.group({
+        year: [
+            new Date().getFullYear(),
+            [Validators.required, Validators.min(2000)],
+        ],
+        month: [
+            new Date().getMonth() + 1,
+            [Validators.required, Validators.min(1), Validators.max(12)],
+        ],
+    });
+
     get restaurantId(): string {
         return this.lookupForm.getRawValue().restaurantId;
     }
@@ -92,11 +118,82 @@ export class RestaurantsAdminComponent {
         if (!restaurantId) {
             return;
         }
+        this.lookedUp.set(true);
         this.loadingCredit.set(true);
         this._admin
             .getRestaurantCredit(restaurantId)
             .then((credit) => this.credit.set(credit))
             .finally(() => this.loadingCredit.set(false));
+        this._loadLedger(restaurantId);
+    }
+
+    /** Loads the statements + transactions for the looked-up restaurant. */
+    private _loadLedger(restaurantId: string): void {
+        this.loadingLedger.set(true);
+        Promise.all([
+            this._admin.getCreditStatements(restaurantId),
+            this._admin.getCreditTransactions(restaurantId),
+        ])
+            .then(([statements, transactions]) => {
+                this.statements.set(statements);
+                this.transactions.set(transactions);
+            })
+            .finally(() => this.loadingLedger.set(false));
+    }
+
+    generateStatement(): void {
+        const restaurantId = this._validRestaurantId;
+        if (!restaurantId || this.generateForm.invalid) {
+            this.generateForm.markAllAsTouched();
+            return;
+        }
+        const { year, month } = this.generateForm.getRawValue();
+        this.generating.set(true);
+        this._admin
+            .generateCreditStatement(restaurantId, { year, month })
+            .then(() => {
+                this._notify('admin.restaurants.statements.generateSuccess');
+                this._loadLedger(restaurantId);
+            })
+            .catch(async (err) =>
+                this._notifyText(
+                    (await apiErrorMessage(err)) ??
+                        this._transloco.translate(
+                            'admin.restaurants.actionError'
+                        )
+                )
+            )
+            .finally(() => this.generating.set(false));
+    }
+
+    /** Fetches a statement's PDF and opens it in a new tab. */
+    downloadStatementPdf(statementId: string): void {
+        const restaurantId = this._validRestaurantId;
+        if (!restaurantId) {
+            return;
+        }
+        this.pdfBusyId.set(statementId);
+        this._admin
+            .getStatementPdf(restaurantId, statementId)
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                window.open(url, '_blank');
+                // Revoke later so the opened tab has time to render the PDF.
+                setTimeout(() => URL.revokeObjectURL(url), 60000);
+            })
+            .catch(async (err) =>
+                this._notifyText(
+                    (await apiErrorMessage(err)) ??
+                        this._transloco.translate(
+                            'admin.restaurants.actionError'
+                        )
+                )
+            )
+            .finally(() => this.pdfBusyId.set(null));
+    }
+
+    trackById(_: number, row: { id: string }): string {
+        return row.id;
     }
 
     approve(): void {

@@ -1,0 +1,28 @@
+<div class="restaurant-profile flex flex-col" *transloco="let t">
+    <!-- Page header -->
+    <div class="bg-card border-b px-6 py-8 sm:px-10">
+        <div class="mx-auto w-full max-w-3xl">
+            <h1 class="text-3xl font-extrabold tracking-tight">
+                {{ t('restaurantProfile.title') }}
+            </h1>
+            <p class="text-secondary mt-1">
+                {{ t('restaurantProfile.subtitle') }}
+            </p>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex-auto px-6 py-8 sm:px-10">
+        <div class="mx-auto flex w-full max-w-3xl flex-col gap-8">
+            <section class="bg-card rounded-2xl p-6 shadow sm:p-8">
+                <h2 class="mb-1 text-xl font-semibold">
+                    {{ t('restaurantProfile.profile.sectionTitle') }}
+                </h2>
+                <p class="text-secondary mb-6 text-sm">
+                    {{ t('restaurantProfile.profile.sectionSubtitle') }}
+                </p>
+                <business-profile-form></business-profile-form>
+            </section>
+        </div>
+    </div>
+</div>

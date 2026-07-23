@@ -36,6 +36,15 @@ const NAVIGATION: AreaNavItem[] = [
         area: 'storefront',
     },
     {
+        id: 'profile',
+        title: 'Hồ sơ nhà hàng',
+        type: 'basic',
+        icon: 'heroicons_outline:building-storefront',
+        link: '/profile',
+        area: 'storefront',
+        roles: ['restaurant'],
+    },
+    {
         id: 'learn',
         title: 'Tìm hiểu FreshFlow',
         type: 'collapsable',

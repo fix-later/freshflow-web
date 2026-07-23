@@ -6,13 +6,7 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import {
-    categoriesApi,
-    marketsApi,
-    productsApi,
-    rawApi,
-    unitsApi,
-} from 'contract';
+import { categoriesApi, marketsApi, productsApi, unitsApi } from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -110,22 +104,13 @@ export class CatalogAdminService {
     }
 
     /**
-     * Reactivates a category through `PUT /categories/{id}`.
-     *
-     * There is no activate endpoint (`PATCH /categories/{id}/activate` answers
-     * 404), so the only route back is the update call with `isActive: true`.
-     * `UpdateCategoryRequest` does not declare `isActive`, and the generated
-     * serialiser would strip it, so this goes out via {@link rawApi}.
-     *
-     * The update replaces the whole record, so the current name and parent are
-     * resent unchanged — omitting them would blank them out.
+     * Reactivates a category through the dedicated
+     * `PATCH /categories/{id}/activate` endpoint (added to the backend API).
+     * Replaces the earlier `PUT` + `isActive: true` workaround, which the server
+     * ignored (the update body has no `isActive`), leaving the row inactive.
      */
     async activateCategory(row: CrudRow): Promise<void> {
-        await rawApi.send(`/api/v1/categories/${row.id}`, 'PUT', {
-            name: str(row['name']),
-            parentId: optStr(row['parentId']),
-            isActive: true,
-        });
+        await categoriesApi.apiV1CategoriesIdActivatePatch({ id: row.id });
     }
 
     // ---- Units ------------------------------------------------------------

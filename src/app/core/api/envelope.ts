@@ -8,6 +8,7 @@
  * an `@for` never receives a non-iterable. Mirrors the parsing in
  * `catalog.service.ts` / `admin.service.ts`, centralised for reuse.
  */
+import { ApiError, ResponseError } from 'contract';
 
 /**
  * Largest `pageSize` the backend accepts on list endpoints.
@@ -41,6 +42,58 @@ export function withId<T extends Record<string, unknown>>(
         );
         return { ...row, id: key ? String(row[key]) : '' };
     });
+}
+
+/**
+ * Extracts a human-readable reason from a failed API call, so a backend
+ * rejection can be shown to the user instead of a generic "something went
+ * wrong".
+ *
+ * Two error shapes carry a response:
+ *  - the generated {@link ResponseError} (thrown for 4xx the middleware lets
+ *    through — 400/404/409/422), and
+ *  - the typed {@link ApiError} subclasses the client middleware throws for
+ *    401/403/5xx ({@link PermissionError} etc.). These are the "the backend did
+ *    not allow it" cases whose reason was previously dropped.
+ *
+ * The body is read as RFC 7807 `ProblemDetails` (`detail`/`title`, or an
+ * `errors` validation map) with `message`/`error` as fallbacks. Returns
+ * `undefined` for non-HTTP failures or a bodiless response, so callers fall
+ * back to their own translated message.
+ */
+export async function apiErrorMessage(
+    err: unknown
+): Promise<string | undefined> {
+    const response =
+        err instanceof ResponseError
+            ? err.response
+            : err instanceof ApiError
+              ? err.response
+              : undefined;
+    if (!response) {
+        return undefined;
+    }
+    const body = await parseJson<Record<string, unknown>>(response.clone());
+    if (!body) {
+        return undefined;
+    }
+    if (body['errors'] && typeof body['errors'] === 'object') {
+        const messages = Object.values(
+            body['errors'] as Record<string, unknown>
+        )
+            .flatMap((v) => (Array.isArray(v) ? v : [v]))
+            .filter((v): v is string => typeof v === 'string');
+        if (messages.length) {
+            return messages.join(' ');
+        }
+    }
+    for (const key of ['detail', 'title', 'message', 'error']) {
+        const value = body[key];
+        if (typeof value === 'string' && value.trim()) {
+            return value;
+        }
+    }
+    return undefined;
 }
 
 /** Parses a JSON body, tolerating an empty (`void`) response. */

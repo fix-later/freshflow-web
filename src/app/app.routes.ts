@@ -120,6 +120,11 @@ export const appRoutes: Route[] = [
                 loadChildren: () => import('app/modules/shop/shop.routes'),
             },
             {
+                path: 'profile',
+                loadChildren: () =>
+                    import('app/modules/restaurant/profile.routes'),
+            },
+            {
                 path: 'wishlist',
                 loadChildren: () =>
                     import('app/modules/wishlist/wishlist.routes'),
