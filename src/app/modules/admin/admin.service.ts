@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractPagination,
     extractTotal,
     fetchAllCursor,
     parseJson,
@@ -61,8 +62,13 @@ export class AdminService {
         });
         const body = await parseJson<unknown>(res.raw);
         const users = withId<AdminUserRow>(extractList(body), 'userId');
-        const totalCount = extractTotal(body) ?? users.length;
-        return { users, totalCount };
+        const p = extractPagination(body);
+        return {
+            users,
+            totalCount: p?.total ?? extractTotal(body) ?? users.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     async createUser(payload: AdminCreateUserPayload): Promise<void> {
@@ -412,7 +418,13 @@ export class AdminService {
         const body = await parseJson<unknown>(res.raw);
         // Batch routes use {batchId}; the list may key it either way.
         const groups = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
-        return { groups, totalCount: extractTotal(body) ?? groups.length };
+        const p = extractPagination(body);
+        return {
+            groups,
+            totalCount: p?.total ?? extractTotal(body) ?? groups.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     /** Live batching progress for a day, optionally narrowed to one status. */
@@ -497,7 +509,13 @@ export class AdminService {
         });
         const body = await parseJson<unknown>(res.raw);
         const entries = extractList<AdminAuditLogRow>(body);
-        return { entries, totalCount: extractTotal(body) ?? entries.length };
+        const p = extractPagination(body);
+        return {
+            entries,
+            totalCount: p?.total ?? extractTotal(body) ?? entries.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     // -------------------------------------------------------------------

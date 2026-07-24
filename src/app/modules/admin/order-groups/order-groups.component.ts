@@ -329,12 +329,20 @@ export class OrderGroupsComponent implements OnInit {
     private readonly _loadTask = new CoalescedTask(async () => {
         this.loading.set(true);
         try {
-            const { groups, totalCount } = await this._admin.getOrderGroups(
-                this.pageIndex() + 1,
-                this.pageSize()
-            );
+            const { groups, totalCount, page, pageSize } =
+                await this._admin.getOrderGroups(
+                    this.pageIndex() + 1,
+                    this.pageSize()
+                );
             this.groups.set(groups);
             this.totalCount.set(totalCount);
+            // Track the page/size the backend actually returned.
+            if (page) {
+                this.pageIndex.set(page - 1);
+            }
+            if (pageSize) {
+                this.pageSize.set(pageSize);
+            }
         } catch {
             this.groups.set([]);
             this.totalCount.set(0);

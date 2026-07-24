@@ -523,6 +523,12 @@ export class RestaurantsAdminComponent implements OnInit {
             });
             this.users.set(result.users);
             this.totalCount.set(result.totalCount);
+            if (result.page) {
+                this.pageIndex.set(result.page - 1);
+            }
+            if (result.pageSize) {
+                this.pageSize.set(result.pageSize);
+            }
             const id = this.selectedId();
             if (id && !result.users.some((u) => u.id === id)) {
                 this.closeDetails();

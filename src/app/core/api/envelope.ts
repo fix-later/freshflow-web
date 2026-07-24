@@ -236,19 +236,91 @@ export function extractList<T>(body: unknown): T[] {
     return [];
 }
 
+/** Offset pagination as the backend reports it (all fields optional). */
+export interface PageInfo {
+    /** Total matching rows across all pages. */
+    total?: number;
+    /** 1-based page number of this response. */
+    page?: number;
+    pageSize?: number;
+}
+
+/** First numeric value among `keys` on `record`, else `undefined`. */
+function firstNumber(
+    record: Record<string, unknown>,
+    keys: string[]
+): number | undefined {
+    for (const key of keys) {
+        if (typeof record[key] === 'number') {
+            return record[key] as number;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Reads the `{ total, page, pageSize }` block from a list envelope, wherever
+ * the backend puts it — a `pagination` or `meta` wrapper, or the top level —
+ * tolerating the common key aliases. Drive the paginator from this (page-based)
+ * rather than inferring page count from a running total.
+ */
+export function extractPagination(body: unknown): PageInfo | undefined {
+    if (!body || typeof body !== 'object') {
+        return undefined;
+    }
+    const record = body as Record<string, unknown>;
+    for (const wrapper of ['pagination', 'meta']) {
+        const inner = record[wrapper];
+        if (inner && typeof inner === 'object') {
+            const info = readPageInfo(inner as Record<string, unknown>);
+            if (info) {
+                return info;
+            }
+        }
+    }
+    const top = readPageInfo(record);
+    if (top) {
+        return top;
+    }
+    if (record['data'] && typeof record['data'] === 'object') {
+        return extractPagination(record['data']);
+    }
+    return undefined;
+}
+
+function readPageInfo(record: Record<string, unknown>): PageInfo | undefined {
+    const total = firstNumber(record, ['total', 'totalCount', 'totalItems']);
+    const page = firstNumber(record, ['page', 'pageNumber', 'currentPage']);
+    const pageSize = firstNumber(record, ['pageSize', 'perPage', 'limit']);
+    if (total === undefined && page === undefined && pageSize === undefined) {
+        return undefined;
+    }
+    return { total, page, pageSize };
+}
+
 /** Reads a total-count value from a list envelope, if the backend sends one. */
 export function extractTotal(body: unknown): number | undefined {
     if (!body || typeof body !== 'object') {
         return undefined;
     }
     const record = body as Record<string, unknown>;
-    for (const key of ['totalCount', 'total', 'totalItems', 'count']) {
-        if (typeof record[key] === 'number') {
-            return record[key] as number;
-        }
+    const direct = firstNumber(record, [
+        'totalCount',
+        'total',
+        'totalItems',
+        'count',
+    ]);
+    if (direct !== undefined) {
+        return direct;
     }
-    if (record['data'] && typeof record['data'] === 'object') {
-        return extractTotal(record['data']);
+    for (const wrapper of ['pagination', 'meta', 'data']) {
+        const inner = record[wrapper];
+        if (inner && typeof inner === 'object') {
+            const found = extractTotal(inner);
+            if (found !== undefined) {
+                return found;
+            }
+        }
     }
     return undefined;
 }

@@ -35,6 +35,9 @@ export interface AdminUsersPage {
 export interface AdminUsersResult {
     users: AdminUserRow[];
     totalCount: number;
+    /** 1-based page and size the backend echoed back (for page tracking). */
+    page?: number;
+    pageSize?: number;
 }
 
 /** A role as returned by `GET /api/v1/admin/roles` — string or `{ name }`. */
@@ -122,6 +125,8 @@ export interface AdminAuditLogRow {
 export interface AdminAuditLogsResult {
     entries: AdminAuditLogRow[];
     totalCount: number;
+    page?: number;
+    pageSize?: number;
 }
 
 /** A procurement batch row from `GET /admin/order-groups`. */
@@ -144,6 +149,8 @@ export interface AdminOrderGroupRow {
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];
     totalCount: number;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface AdminAutoBatchPayload {
