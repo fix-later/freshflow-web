@@ -252,3 +252,94 @@ export function extractTotal(body: unknown): number | undefined {
     }
     return undefined;
 }
+
+/**
+ * Reads the opaque `nextCursor` from a cursor-paginated list envelope. Looks in
+ * `meta.nextCursor` (the documented location) and the common fallbacks, so it
+ * tolerates the couple of body shapes the backend uses. Returns `undefined`
+ * when there is no further page — treat that as "stop".
+ */
+export function extractNextCursor(body: unknown): string | undefined {
+    if (!body || typeof body !== 'object') {
+        return undefined;
+    }
+    const record = body as Record<string, unknown>;
+    const meta = record['meta'];
+    if (meta && typeof meta === 'object') {
+        const cursor = (meta as Record<string, unknown>)['nextCursor'];
+        if (typeof cursor === 'string' && cursor) {
+            return cursor;
+        }
+    }
+    for (const key of ['nextCursor', 'cursor']) {
+        if (typeof record[key] === 'string' && record[key]) {
+            return record[key] as string;
+        }
+    }
+    if (record['data'] && typeof record['data'] === 'object') {
+        return extractNextCursor(record['data']);
+    }
+    return undefined;
+}
+
+/**
+ * Safety cap on the pagination loops below: at {@link MAX_PAGE_SIZE} rows/page
+ * this is 100k rows, far beyond any admin list, and stops a misbehaving cursor
+ * from looping forever.
+ */
+const MAX_PAGES = 1000;
+
+/**
+ * Fetches every page of an **offset-paginated** list (`page`/`pageSize`) and
+ * concatenates the raw rows (apply {@link withId} yourself if needed). The
+ * backend caps `pageSize` at {@link MAX_PAGE_SIZE}, so a single request only
+ * returns the first page. `fetchPage` returns the raw `Response` for a 1-based
+ * page. Stops on a short page or once the reported total is reached.
+ */
+export async function fetchAllOffset<T>(
+    fetchPage: (page: number, pageSize: number) => Promise<Response>
+): Promise<T[]> {
+    const pageSize = MAX_PAGE_SIZE;
+    const all: T[] = [];
+    for (let page = 1; page <= MAX_PAGES; page++) {
+        const body = await parseJson(await fetchPage(page, pageSize));
+        const rows = extractList<T>(body);
+        all.push(...rows);
+        const total = extractTotal(body);
+        if (rows.length < pageSize || (total != null && all.length >= total)) {
+            break;
+        }
+    }
+    return all;
+}
+
+/**
+ * Fetches every page of a **cursor-paginated** list and concatenates the raw
+ * rows. `fetchPage` receives the cursor to request (`undefined` for the first
+ * page). Follows `nextCursor` until it is absent — so if the backend doesn't
+ * return one, this stops after the first page (identical to a single fetch, no
+ * regression) rather than looping. Also guards against a non-advancing cursor.
+ */
+export async function fetchAllCursor<T>(
+    fetchPage: (
+        cursor: string | undefined,
+        pageSize: number
+    ) => Promise<Response>
+): Promise<T[]> {
+    const pageSize = MAX_PAGE_SIZE;
+    const all: T[] = [];
+    const seen = new Set<string>();
+    let cursor: string | undefined;
+    for (let i = 0; i < MAX_PAGES; i++) {
+        const body = await parseJson(await fetchPage(cursor, pageSize));
+        const rows = extractList<T>(body);
+        all.push(...rows);
+        const next = extractNextCursor(body);
+        if (!next || rows.length < pageSize || seen.has(next)) {
+            break;
+        }
+        seen.add(next);
+        cursor = next;
+    }
+    return all;
+}

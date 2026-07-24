@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import {
     extractList,
     extractTotal,
+    fetchAllCursor,
     MAX_PAGE_SIZE,
     parseJson,
     unwrapData,
@@ -65,6 +66,30 @@ export class AdminService {
         return { users, totalCount };
     }
 
+    /**
+     * Every user matching `filters`, following the offset pagination to the end
+     * (the per-page cap would otherwise stop at {@link MAX_PAGE_SIZE}). Used by
+     * the pickers that must see the whole set, not a first page.
+     */
+    private async _getAllUsers(
+        filters: AdminUserFilters
+    ): Promise<AdminUserRow[]> {
+        const pageSize = MAX_PAGE_SIZE;
+        const all: AdminUserRow[] = [];
+        for (let page = 1; page <= 1000; page++) {
+            const { users, totalCount } = await this.getUsers({
+                ...filters,
+                page,
+                pageSize,
+            });
+            all.push(...users);
+            if (users.length < pageSize || all.length >= totalCount) {
+                break;
+            }
+        }
+        return all;
+    }
+
     async createUser(payload: AdminCreateUserPayload): Promise<void> {
         await adminApi.apiV1AdminUsersPostRaw({
             createUserCommand: payload,
@@ -120,11 +145,9 @@ export class AdminService {
         agents: AdminUserRow[];
         agentsByMarket: Map<string, AdminUserRow>;
     }> {
-        const { users } = await this.getUsers({
-            role: MARKET_AGENT_ROLE,
-            pageSize: MAX_PAGE_SIZE,
-        });
-        const agents = users.filter((u) => !!u.id);
+        const agents = (
+            await this._getAllUsers({ role: MARKET_AGENT_ROLE })
+        ).filter((u) => !!u.id);
         const pairs = await Promise.all(
             agents.map(async (agent) => ({
                 agent,
@@ -262,14 +285,17 @@ export class AdminService {
         restaurantId: string
     ): Promise<AdminCreditStatement[]> {
         try {
-            const res =
-                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
-                    { restaurantId, pageSize: MAX_PAGE_SIZE }
-                );
-            return withId<AdminCreditStatement>(
-                extractList(await parseJson(res.raw)),
-                'statementId'
+            const rows = await fetchAllCursor<AdminCreditStatement>(
+                (cursor, pageSize) =>
+                    restaurantCreditApi
+                        .apiV1RestaurantsRestaurantIdCreditStatementsGetRaw({
+                            restaurantId,
+                            cursor,
+                            pageSize,
+                        })
+                        .then((res) => res.raw)
             );
+            return withId<AdminCreditStatement>(rows, 'statementId');
         } catch {
             return [];
         }
@@ -308,14 +334,17 @@ export class AdminService {
         restaurantId: string
     ): Promise<AdminCreditTransaction[]> {
         try {
-            const res =
-                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw(
-                    { restaurantId, pageSize: MAX_PAGE_SIZE }
-                );
-            return withId<AdminCreditTransaction>(
-                extractList(await parseJson(res.raw)),
-                'transactionId'
+            const rows = await fetchAllCursor<AdminCreditTransaction>(
+                (cursor, pageSize) =>
+                    restaurantCreditApi
+                        .apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw({
+                            restaurantId,
+                            cursor,
+                            pageSize,
+                        })
+                        .then((res) => res.raw)
             );
+            return withId<AdminCreditTransaction>(rows, 'transactionId');
         } catch {
             return [];
         }
@@ -403,12 +432,12 @@ export class AdminService {
 
     /** Market-agent users, for the "assign agent" picker on a batch. */
     async getAgentOptions(): Promise<AdminUserRow[]> {
-        const { users } = await this.getUsers({
-            role: MARKET_AGENT_ROLE,
-            isActive: true,
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return users.filter((user) => !!user.id);
+        return (
+            await this._getAllUsers({
+                role: MARKET_AGENT_ROLE,
+                isActive: true,
+            })
+        ).filter((user) => !!user.id);
     }
 
     async generateManifest(batchId: string): Promise<void> {

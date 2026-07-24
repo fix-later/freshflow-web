@@ -104,7 +104,9 @@ export class ProductsComponent implements OnInit {
     /** Image URL shown in the enlarged-preview dialog. */
     readonly previewImageUrl = signal('');
     readonly search = signal('');
-    readonly categoryFilter = signal('');
+    /** Page-level category filter (parent → child cascade, like the dialog). */
+    readonly filterParentId = signal('');
+    readonly filterChildId = signal('');
     readonly pageIndex = signal(0);
     readonly pageSize = signal(10);
     readonly selectedId = signal<string | null>(null);
@@ -113,8 +115,6 @@ export class ProductsComponent implements OnInit {
     readonly flashMessage = signal<'success' | 'error' | null>(null);
     readonly sort = new TableSort<CrudRow>();
     readonly unitOptions = signal<CrudOption[]>([]);
-    /** Active categories only — for the page filter dropdown. */
-    readonly filterCategoryOptions = signal<CrudOption[]>([]);
 
     /** All active categories (carry `parentId`) — feed the cascade selects. */
     readonly activeCategoryRows = signal<CrudRow[]>([]);
@@ -137,6 +137,10 @@ export class ProductsComponent implements OnInit {
     );
     readonly editChildOptions = computed(() =>
         this._childOptions(this.editParentId())
+    );
+    /** Sub-categories of the parent chosen in the page filter. */
+    readonly filterChildOptions = computed(() =>
+        this._childOptions(this.filterParentId())
     );
 
     readonly selectedForm = new FormGroup({
@@ -168,7 +172,8 @@ export class ProductsComponent implements OnInit {
 
     readonly filteredRows = computed(() => {
         const term = this.search().trim();
-        const categoryId = this.categoryFilter();
+        const parent = this.filterParentId();
+        const child = this.filterChildId();
 
         // Only active products are listed; soft-deleted ones are hidden.
         return this.rows().filter((row) => {
@@ -177,9 +182,7 @@ export class ProductsComponent implements OnInit {
             }
             const matchesSearch =
                 !term || includesFolded(String(row['name'] ?? ''), term);
-            const matchesCategory =
-                !categoryId || String(row['categoryId'] ?? '') === categoryId;
-            return matchesSearch && matchesCategory;
+            return matchesSearch && this._matchesCategory(row, parent, child);
         });
     });
 
@@ -201,8 +204,31 @@ export class ProductsComponent implements OnInit {
     });
 
     readonly hasActiveFilters = computed(
-        () => this.search().trim() !== '' || this.categoryFilter() !== ''
+        () =>
+            this.search().trim() !== '' ||
+            this.filterParentId() !== '' ||
+            this.filterChildId() !== ''
     );
+
+    /**
+     * Category match for the page filter: a chosen sub-category matches exactly;
+     * a chosen parent matches products in the parent itself or any of its
+     * children; no selection matches everything.
+     */
+    private _matchesCategory(
+        row: CrudRow,
+        parent: string,
+        child: string
+    ): boolean {
+        const catId = String(row['categoryId'] ?? '');
+        if (child) {
+            return catId === child;
+        }
+        if (!parent) {
+            return true;
+        }
+        return catId === parent || this._parentOf(catId) === parent;
+    }
 
     ngOnInit(): void {
         this.load();
@@ -235,15 +261,29 @@ export class ProductsComponent implements OnInit {
         this.closeDetails();
     }
 
-    onCategoryFilter(value: string): void {
-        this.categoryFilter.set(value);
+    /** Pick a parent filter → reset the sub-category filter so it re-narrows. */
+    onFilterParentChange(id: string): void {
+        this.filterParentId.set(id);
+        this.filterChildId.set('');
+        this.pageIndex.set(0);
+        this.closeDetails();
+    }
+
+    /** Pick a sub-category filter → auto-fill its parent (like the dialog). */
+    onFilterChildChange(id: string): void {
+        this.filterChildId.set(id);
+        const parent = this._parentOf(id);
+        if (parent) {
+            this.filterParentId.set(parent);
+        }
         this.pageIndex.set(0);
         this.closeDetails();
     }
 
     clearFilters(): void {
         this.search.set('');
-        this.categoryFilter.set('');
+        this.filterParentId.set('');
+        this.filterChildId.set('');
         this.pageIndex.set(0);
         this.closeDetails();
     }
@@ -600,16 +640,9 @@ export class ProductsComponent implements OnInit {
             ]);
             this.unitOptions.set(units);
             this.activeCategoryRows.set(activeCategories);
-            this.filterCategoryOptions.set(
-                activeCategories.map((c) => ({
-                    value: c.id,
-                    label: String(c['name'] ?? ''),
-                }))
-            );
         } catch {
             this.unitOptions.set([]);
             this.activeCategoryRows.set([]);
-            this.filterCategoryOptions.set([]);
         }
     }
 

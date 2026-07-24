@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
-    MAX_PAGE_SIZE,
+    fetchAllCursor,
+    fetchAllOffset,
     parseJson,
     unwrapData,
     withId,
@@ -54,17 +55,18 @@ export class LogisticsAdminService {
     // ---- Hubs -------------------------------------------------------------
 
     async listHubs(): Promise<CrudRow[]> {
-        const [res, managers] = await Promise.all([
-            hubsApi.apiV1HubsGetRaw({ pageSize: MAX_PAGE_SIZE }),
+        const [rawRows, managers] = await Promise.all([
+            fetchAllCursor<CrudRow>((cursor, pageSize) =>
+                hubsApi
+                    .apiV1HubsGetRaw({ cursor, pageSize })
+                    .then((res) => res.raw)
+            ),
             this.hubManagerOptions(),
         ]);
         const nameById = new Map(managers.map((m) => [m.value, m.label]));
         // Hub routes name the key both ways (`/hubs/{id}` but
         // `/hubs/{hubId}/...`), so accept either as the row identifier.
-        const rows = withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'hubId'
-        );
+        const rows = withId<CrudRow>(rawRows, 'hubId');
         return rows.map((row) => ({
             ...row,
             // Attach a resolved manager name so the table shows it, not a UUID.
@@ -78,15 +80,19 @@ export class LogisticsAdminService {
     /** Hub-staff users as `{ value: id, label: email }` for the manager select. */
     async hubManagerOptions(): Promise<CrudOption[]> {
         try {
-            const res = await adminApi.apiV1AdminUsersGetRaw({
-                role: HUB_MANAGER_ROLE,
-                pageSize: MAX_PAGE_SIZE,
-            });
-            const users = extractList<{
+            const users = await fetchAllOffset<{
                 id?: string;
                 email?: string;
                 fullName?: string;
-            }>(await parseJson(res.raw));
+            }>((page, pageSize) =>
+                adminApi
+                    .apiV1AdminUsersGetRaw({
+                        role: HUB_MANAGER_ROLE,
+                        page,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+            );
             return users
                 .filter((u): u is { id: string; email?: string } => !!u.id)
                 .map((u) => ({
@@ -178,13 +184,12 @@ export class LogisticsAdminService {
     // ---- Vehicles ---------------------------------------------------------
 
     async listVehicles(): Promise<CrudRow[]> {
-        const res = await vehiclesApi.apiV1LogisticsVehiclesGetRaw({
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'vehicleId'
+        const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            vehiclesApi
+                .apiV1LogisticsVehiclesGetRaw({ cursor, pageSize })
+                .then((res) => res.raw)
         );
+        return withId<CrudRow>(rows, 'vehicleId');
     }
 
     async createVehicle(value: CrudFormValue): Promise<void> {

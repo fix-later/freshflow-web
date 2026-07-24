@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
-    extractTotal,
-    MAX_PAGE_SIZE,
+    fetchAllCursor,
+    fetchAllOffset,
     parseJson,
     unwrapData,
     withId,
@@ -153,27 +153,12 @@ export class CatalogAdminService {
      * total) is reached.
      */
     async listProducts(): Promise<CrudRow[]> {
-        const pageSize = MAX_PAGE_SIZE;
-        const all: CrudRow[] = [];
-        for (let page = 1; ; page++) {
-            const res = await productsApi.apiV1ProductsGetRaw({
-                includeInactive: true,
-                page,
-                pageSize,
-            });
-            const body = await parseJson(res.raw);
-            const rows = withId<CrudRow>(extractList(body), 'productId');
-            all.push(...rows);
-            const total = extractTotal(body);
-            const done =
-                rows.length < pageSize ||
-                (total != null && all.length >= total) ||
-                page >= 100; // safety cap: 100 pages × 100 = 10k products
-            if (done) {
-                break;
-            }
-        }
-        return all;
+        const rows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            productsApi
+                .apiV1ProductsGetRaw({ includeInactive: true, page, pageSize })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rows, 'productId');
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {
@@ -293,11 +278,15 @@ export class CatalogAdminService {
     // ---- Market products (pricing) ---------------------------------------
 
     async listMarketProducts(marketId: string): Promise<CrudRow[]> {
-        const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
-            marketId,
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            marketsApi
+                .apiV1MarketsMarketIdProductsGetRaw({
+                    marketId,
+                    cursor,
+                    pageSize,
+                })
+                .then((res) => res.raw)
+        );
     }
 
     async addMarketProduct(

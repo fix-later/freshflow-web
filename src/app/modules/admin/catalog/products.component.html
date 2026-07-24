@@ -56,19 +56,42 @@
                 class="fuse-mat-dense w-56"
                 subscriptSizing="dynamic"
             >
-                <mat-label>{{ t('admin.products.filterCategory') }}</mat-label>
+                <mat-label>{{ t('admin.products.parentCategory') }}</mat-label>
                 <mat-icon
                     matPrefix
                     svgIcon="heroicons_outline:funnel"
                 ></mat-icon>
                 <mat-select
-                    [value]="categoryFilter()"
-                    (selectionChange)="onCategoryFilter($event.value)"
+                    [value]="filterParentId()"
+                    (selectionChange)="onFilterParentChange($event.value)"
                 >
                     <mat-option [value]="''">{{
                         t('admin.crud.filterAll')
                     }}</mat-option>
-                    @for (opt of filterCategoryOptions(); track opt.value) {
+                    @for (opt of parentCategoryOptions(); track opt.value) {
+                        <mat-option [value]="opt.value">{{
+                            opt.label
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-56"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.products.childCategory') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="filterChildId()"
+                    (selectionChange)="onFilterChildChange($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (opt of filterChildOptions(); track opt.value) {
                         <mat-option [value]="opt.value">{{
                             opt.label
                         }}</mat-option>
