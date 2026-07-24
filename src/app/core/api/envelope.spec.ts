@@ -1,4 +1,5 @@
-import { withId } from './envelope';
+import { PermissionError, ResponseError } from 'contract';
+import { apiErrorMessage, readApiError, withId } from './envelope';
 
 /**
  * Every screen feeds `row.id` into a path parameter, so a row that arrives
@@ -54,5 +55,124 @@ describe('withId', () => {
         const input = [{ hubId: 'h1' }];
         withId(input, 'hubId');
         expect(input[0]).toEqual({ hubId: 'h1' });
+    });
+});
+
+/**
+ * A backend rejection must reach the user with its reason. The reason lives in
+ * the response body of either the generated `ResponseError` (4xx) or the typed
+ * `ApiError` subclasses the client throws for 401/403/5xx — both must be read.
+ */
+describe('apiErrorMessage', () => {
+    function response(body: unknown, status = 400): Response {
+        return new Response(JSON.stringify(body), { status });
+    }
+
+    it('reads the ProblemDetails "detail" from a ResponseError', async () => {
+        const err = new ResponseError(
+            response({ detail: 'Order already batched.' }, 409),
+            'failed'
+        );
+        expect(await apiErrorMessage(err)).toBe('Order already batched.');
+    });
+
+    it('reads the reason from a typed PermissionError (403)', async () => {
+        const err = new PermissionError(
+            response({ detail: 'Restaurant not approved yet.' }, 403)
+        );
+        expect(await apiErrorMessage(err)).toBe('Restaurant not approved yet.');
+    });
+
+    it('joins a validation "errors" map', async () => {
+        const err = new ResponseError(
+            response({ errors: { name: ['Name is required.'] } }, 422),
+            'failed'
+        );
+        expect(await apiErrorMessage(err)).toBe('Name is required.');
+    });
+
+    it('falls back through title/message/error', async () => {
+        const err = new ResponseError(response({ title: 'Conflict' }), 'x');
+        expect(await apiErrorMessage(err)).toBe('Conflict');
+    });
+
+    it('returns undefined for a non-HTTP error', async () => {
+        expect(await apiErrorMessage(new Error('boom'))).toBeUndefined();
+    });
+
+    it('returns undefined when the body carries no usable message', async () => {
+        const err = new ResponseError(response({ foo: 'bar' }), 'x');
+        expect(await apiErrorMessage(err)).toBeUndefined();
+    });
+
+    it('reads the FreshFlow envelope message', async () => {
+        const err = new ResponseError(
+            response(
+                {
+                    success: false,
+                    error: {
+                        code: 'ALREADY_APPROVED',
+                        message: 'The restaurant is already active.',
+                    },
+                },
+                409
+            ),
+            'failed'
+        );
+        expect(await apiErrorMessage(err)).toBe(
+            'The restaurant is already active.'
+        );
+    });
+
+    it('joins FreshFlow envelope field details', async () => {
+        const err = new ResponseError(
+            response(
+                {
+                    success: false,
+                    error: {
+                        code: 'VALIDATION_ERROR',
+                        message: 'One or more fields failed validation.',
+                        details: [{ field: 'price', message: 'Must be > 0' }],
+                    },
+                },
+                400
+            ),
+            'failed'
+        );
+        // Field-level detail takes precedence over the summary message.
+        expect(await apiErrorMessage(err)).toBe('Must be > 0');
+    });
+});
+
+/**
+ * The backend's machine-readable `code` drives the localized message a screen
+ * shows, so it must survive both body shapes.
+ */
+describe('readApiError', () => {
+    function response(body: unknown, status = 400): Response {
+        return new Response(JSON.stringify(body), { status });
+    }
+
+    it('reads code + message from the FreshFlow envelope', async () => {
+        const err = new ResponseError(
+            response(
+                {
+                    success: false,
+                    error: {
+                        code: 'EMAIL_ALREADY_EXISTS',
+                        message: 'Email already registered.',
+                    },
+                },
+                409
+            ),
+            'failed'
+        );
+        const info = await readApiError(err);
+        expect(info?.code).toBe('EMAIL_ALREADY_EXISTS');
+        expect(info?.message).toBe('Email already registered.');
+    });
+
+    it('returns undefined for a non-HTTP error', async () => {
+        expect(await readApiError(new Error('boom'))).toBeUndefined();
     });
 });

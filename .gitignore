@@ -45,6 +45,9 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Local Fuse theme reference — never push to the repo
+/fuse-demo-v20.0.0/
+
 # Local environment overrides (real backend origin / keys — never commit)
 /src/environments/environment.local.ts
 

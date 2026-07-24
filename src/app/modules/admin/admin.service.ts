@@ -7,18 +7,16 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import {
-    adminApi,
-    marketsApi,
-    ResponseError,
-    restaurantCreditApi,
-} from 'contract';
+import { adminApi, marketsApi, restaurantCreditApi } from 'contract';
 import {
     AdminAuditLogFilters,
     AdminAuditLogRow,
     AdminAuditLogsResult,
     AdminAutoBatchPayload,
     AdminCreateUserPayload,
+    AdminCreditStatement,
+    AdminCreditTransaction,
+    AdminGenerateStatementPayload,
     AdminMarketAssignmentEntry,
     AdminMarketOption,
     AdminOperationalSettings,
@@ -114,6 +112,79 @@ export class AdminService {
         });
     }
 
+    /**
+     * Loads every `market_agent` user and their market-assignments, then
+     * builds marketId → agent for the markets table.
+     */
+    async getMarketAgentsWithAssignments(): Promise<{
+        agents: AdminUserRow[];
+        agentsByMarket: Map<string, AdminUserRow>;
+    }> {
+        const { users } = await this.getUsers({
+            role: MARKET_AGENT_ROLE,
+            pageSize: MAX_PAGE_SIZE,
+        });
+        const agents = users.filter((u) => !!u.id);
+        const pairs = await Promise.all(
+            agents.map(async (agent) => ({
+                agent,
+                markets: await this.getMarketAssignments(agent.id),
+            }))
+        );
+        const agentsByMarket = new Map<string, AdminUserRow>();
+        for (const { agent, markets } of pairs) {
+            for (const marketId of markets) {
+                agentsByMarket.set(marketId, agent);
+            }
+        }
+        return { agents, agentsByMarket };
+    }
+
+    /**
+     * Resolves which market-agent (if any) currently holds each market, by
+     * reading every agent's assignment list. There is no market→agent GET.
+     */
+    async getAgentsByMarketId(): Promise<Map<string, AdminUserRow>> {
+        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
+        return agentsByMarket;
+    }
+
+    /**
+     * Makes `agentUserId` the sole agent for `marketId` (or clears the
+     * assignment when `agentUserId` is null) via market-assignments PUT.
+     * Other agents that held this market lose it; the chosen agent keeps
+     * their other markets.
+     */
+    async setMarketAgent(
+        marketId: string,
+        agentUserId: string | null
+    ): Promise<void> {
+        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
+        const previous = agentsByMarket.get(marketId);
+
+        if (previous?.id === agentUserId) {
+            return;
+        }
+
+        if (previous) {
+            const markets = await this.getMarketAssignments(previous.id);
+            await this.replaceMarketAssignments(
+                previous.id,
+                markets.filter((id) => id !== marketId)
+            );
+        }
+
+        if (agentUserId) {
+            const markets = await this.getMarketAssignments(agentUserId);
+            if (!markets.includes(marketId)) {
+                await this.replaceMarketAssignments(agentUserId, [
+                    ...markets,
+                    marketId,
+                ]);
+            }
+        }
+    }
+
     // -------------------------------------------------------------------
     // Roles
     // -------------------------------------------------------------------
@@ -183,6 +254,70 @@ export class AdminService {
             return (await parseJson<AdminRestaurantCredit>(res.raw)) ?? null;
         } catch {
             return null;
+        }
+    }
+
+    /** Monthly credit statements, newest first (best-effort; empty on failure). */
+    async getCreditStatements(
+        restaurantId: string
+    ): Promise<AdminCreditStatement[]> {
+        try {
+            const res =
+                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
+                    { restaurantId, pageSize: MAX_PAGE_SIZE }
+                );
+            return withId<AdminCreditStatement>(
+                extractList(await parseJson(res.raw)),
+                'statementId'
+            );
+        } catch {
+            return [];
+        }
+    }
+
+    /** Generates (or regenerates) the statement for a given year/month. */
+    async generateCreditStatement(
+        restaurantId: string,
+        payload: AdminGenerateStatementPayload
+    ): Promise<void> {
+        await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRaw(
+            {
+                restaurantId,
+                generateStatementRequest: {
+                    year: payload.year,
+                    month: payload.month,
+                },
+            }
+        );
+    }
+
+    /** Fetches a statement PDF as a Blob for download / preview. */
+    async getStatementPdf(
+        restaurantId: string,
+        statementId: string
+    ): Promise<Blob> {
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRaw(
+                { restaurantId, statementId }
+            );
+        return res.raw.blob();
+    }
+
+    /** Credit ledger entries, newest first (best-effort; empty on failure). */
+    async getCreditTransactions(
+        restaurantId: string
+    ): Promise<AdminCreditTransaction[]> {
+        try {
+            const res =
+                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw(
+                    { restaurantId, pageSize: MAX_PAGE_SIZE }
+                );
+            return withId<AdminCreditTransaction>(
+                extractList(await parseJson(res.raw)),
+                'transactionId'
+            );
+        } catch {
+            return [];
         }
     }
 
@@ -331,37 +466,10 @@ export class AdminService {
 }
 
 /**
- * Extracts a human-readable message from a failed API call.
- *
- * Backend errors surface as a {@link ResponseError} whose `response` carries an
- * RFC 7807 `ProblemDetails` body (`detail`/`title`, or a `errors` validation
- * map). Returns `undefined` for non-HTTP failures so callers can fall back to a
- * generic translated message.
+ * Re-exported from the shared api layer, where it now also reads the typed
+ * {@link ApiError} subclasses (401/403/5xx) — not just {@link ResponseError} —
+ * so RBAC/permission rejections surface their backend reason too. Kept exported
+ * here so existing `import { apiErrorMessage } from '../admin.service'` callers
+ * are unaffected.
  */
-export async function apiErrorMessage(
-    err: unknown
-): Promise<string | undefined> {
-    if (!(err instanceof ResponseError)) {
-        return undefined;
-    }
-    const body = await parseJson<Record<string, unknown>>(err.response.clone());
-    if (!body) {
-        return undefined;
-    }
-    if (body['errors'] && typeof body['errors'] === 'object') {
-        const messages = Object.values(
-            body['errors'] as Record<string, unknown>
-        )
-            .flatMap((v) => (Array.isArray(v) ? v : [v]))
-            .filter((v): v is string => typeof v === 'string');
-        if (messages.length) {
-            return messages.join(' ');
-        }
-    }
-    for (const key of ['detail', 'title', 'message']) {
-        if (typeof body[key] === 'string' && body[key]) {
-            return body[key] as string;
-        }
-    }
-    return undefined;
-}
+export { apiErrorMessage } from 'app/core/api/envelope';

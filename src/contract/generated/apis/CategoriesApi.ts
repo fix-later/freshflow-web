@@ -26,6 +26,10 @@ export interface ApiV1CategoriesGetRequest {
     activeOnly?: boolean;
 }
 
+export interface ApiV1CategoriesIdActivatePatchRequest {
+    id: string;
+}
+
 export interface ApiV1CategoriesIdDeactivatePatchRequest {
     id: string;
 }
@@ -100,6 +104,73 @@ export class CategoriesApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1CategoriesGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1CategoriesIdActivatePatch without sending the request
+     */
+    async apiV1CategoriesIdActivatePatchRequestOpts(
+        requestParameters: ApiV1CategoriesIdActivatePatchRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1CategoriesIdActivatePatch().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/categories/{id}/activate`;
+        urlPath = urlPath.replace(
+            '{id}',
+            encodeURIComponent(String(requestParameters['id']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'PATCH',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1CategoriesIdActivatePatchRaw(
+        requestParameters: ApiV1CategoriesIdActivatePatchRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1CategoriesIdActivatePatchRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1CategoriesIdActivatePatch(
+        requestParameters: ApiV1CategoriesIdActivatePatchRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1CategoriesIdActivatePatchRaw(
+            requestParameters,
+            initOverrides
+        );
     }
 
     /**

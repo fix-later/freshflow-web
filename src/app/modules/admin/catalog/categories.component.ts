@@ -61,6 +61,7 @@ export class CategoriesComponent {
         title: 'admin.categories.title',
         subtitle: 'admin.categories.subtitle',
         createLabel: 'admin.categories.create',
+        inlineDetail: false,
         searchKeys: ['name', 'parentName'],
         searchPlaceholder: 'admin.categories.searchPlaceholder',
         filters: [
@@ -83,6 +84,30 @@ export class CategoriesComponent {
                     value === TOP_LEVEL
                         ? !row['parentId']
                         : String(row['parentId'] ?? '') === value,
+            },
+            {
+                name: 'status',
+                label: 'admin.users.filters.status',
+                // Fixed active/inactive choices — the same test the table's
+                // status pill uses, so a row missing the field counts as active.
+                options: async () => [
+                    {
+                        value: 'active',
+                        label: this._transloco.translate(
+                            'admin.users.filters.active'
+                        ),
+                    },
+                    {
+                        value: 'inactive',
+                        label: this._transloco.translate(
+                            'admin.users.filters.inactive'
+                        ),
+                    },
+                ],
+                match: (row, value) =>
+                    value === 'inactive'
+                        ? row.isActive === false
+                        : row.isActive !== false,
             },
         ],
         columns: [

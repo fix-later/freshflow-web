@@ -8,7 +8,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ActivatedRoute, Router, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { FuseFullscreenComponent } from '@fuse/components/fullscreen';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
 import {
@@ -22,11 +22,8 @@ import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
-import { MessagesComponent } from 'app/layout/common/messages/messages.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
-import { QuickChatComponent } from 'app/layout/common/quick-chat/quick-chat.component';
 import { SearchComponent } from 'app/layout/common/search/search.component';
-import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -46,17 +43,40 @@ import { Subject, takeUntil } from 'rxjs';
         LanguagesComponent,
         FuseFullscreenComponent,
         SearchComponent,
-        ShortcutsComponent,
-        MessagesComponent,
         NotificationsComponent,
         UserComponent,
         RouterOutlet,
         FuseRouteAnimationDirective,
-        QuickChatComponent,
+    ],
+    styles: [
+        `
+            /*
+              Dense nav stays appearance="dense" on hover — Fuse only adds
+              .fuse-vertical-navigation-hover while expanding. Swap the mark
+              for the primary wordmark to match the pinned-open state.
+            */
+            fuse-vertical-navigation.fuse-vertical-navigation-appearance-dense.fuse-vertical-navigation-hover {
+                .admin-dense-logo-header {
+                    justify-content: flex-start;
+                    padding-left: 1.5rem;
+                    padding-right: 1.5rem;
+                }
+
+                .admin-dense-logo-mark {
+                    display: none !important;
+                }
+
+                .admin-dense-logo-primary {
+                    display: block !important;
+                }
+            }
+        `,
     ],
 })
 export class DenseLayoutComponent implements OnInit, OnDestroy {
-    isScreenSmall: boolean;
+    isScreenSmall = false;
+    /** Sidebar open state — independent of theme/scheme toggles. */
+    navigationOpened = true;
     navigation: Navigation;
     navigationAppearance: 'default' | 'dense' = 'dense';
     scheme: 'auto' | 'dark' | 'light';
@@ -66,17 +86,11 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
      * Constructor
      */
     constructor(
-        private _activatedRoute: ActivatedRoute,
-        private _router: Router,
         private _navigationService: NavigationService,
         private _fuseConfigService: FuseConfigService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseNavigationService: FuseNavigationService
     ) {}
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Accessors
-    // -----------------------------------------------------------------------------------------------------
 
     /**
      * Getter for current year
@@ -84,10 +98,6 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
     get currentYear(): number {
         return new Date().getFullYear();
     }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
 
     /**
      * On init
@@ -107,17 +117,18 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
                 this.navigation = navigation;
             });
 
-        // Subscribe to media changes
+        // Sync sidebar / appearance only when the breakpoint actually changes —
+        // not when light/dark scheme flips (that would reset a collapsed sidebar).
         this._fuseMediaWatcherService.onMediaChange$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(({ matchingAliases }) => {
-                // Check if the screen is small
-                this.isScreenSmall = !matchingAliases.includes('md');
-
-                // Change the navigation appearance
-                this.navigationAppearance = this.isScreenSmall
-                    ? 'default'
-                    : 'dense';
+                const isSmall = !matchingAliases.includes('md');
+                if (isSmall === this.isScreenSmall) {
+                    return;
+                }
+                this.isScreenSmall = isSmall;
+                this.navigationOpened = !isSmall;
+                this.navigationAppearance = isSmall ? 'default' : 'dense';
             });
     }
 
@@ -125,29 +136,20 @@ export class DenseLayoutComponent implements OnInit, OnDestroy {
      * On destroy
      */
     ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
-
     /**
      * Toggle navigation
-     *
-     * @param name
      */
     toggleNavigation(name: string): void {
-        // Get the navigation
         const navigation =
             this._fuseNavigationService.getComponent<FuseVerticalNavigationComponent>(
                 name
             );
 
         if (navigation) {
-            // Toggle the opened status
             navigation.toggle();
         }
     }

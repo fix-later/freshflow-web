@@ -160,3 +160,40 @@ export interface AdminRestaurantCredit {
     availableCredit?: number;
     [key: string]: unknown;
 }
+
+/**
+ * A monthly credit statement row
+ * (`GET /restaurants/{id}/credit/statements`, untyped envelope).
+ */
+export interface AdminCreditStatement {
+    id: string;
+    year?: number;
+    month?: number;
+    openingBalance?: number;
+    closingBalance?: number;
+    totalCharges?: number;
+    totalPayments?: number;
+    generatedAt?: string;
+    [key: string]: unknown;
+}
+
+/**
+ * A single credit ledger entry
+ * (`GET /restaurants/{id}/credit/transactions`, untyped envelope).
+ */
+export interface AdminCreditTransaction {
+    id: string;
+    createdAt?: string;
+    type?: string;
+    amount?: number;
+    balanceAfter?: number;
+    description?: string;
+    reference?: string;
+    [key: string]: unknown;
+}
+
+/** Period selector for generating a statement (`POST .../credit/statements/generate`). */
+export interface AdminGenerateStatementPayload {
+    year: number;
+    month: number;
+}

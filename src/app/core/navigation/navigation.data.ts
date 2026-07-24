@@ -36,6 +36,15 @@ const NAVIGATION: AreaNavItem[] = [
         area: 'storefront',
     },
     {
+        id: 'profile',
+        title: 'Hồ sơ nhà hàng',
+        type: 'basic',
+        icon: 'heroicons_outline:building-storefront',
+        link: '/profile',
+        area: 'storefront',
+        roles: ['restaurant'],
+    },
+    {
         id: 'learn',
         title: 'Tìm hiểu FreshFlow',
         type: 'collapsable',
@@ -78,7 +87,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.dashboards',
         title: 'Tổng quan',
-        subtitle: 'Bảng điều khiển quản trị',
         type: 'group',
         area: 'admin',
         children: [
@@ -96,7 +104,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.management',
         title: 'Quản lý',
-        subtitle: 'Tài khoản & nhà hàng',
         type: 'group',
         area: 'admin',
         children: [
@@ -119,7 +126,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.operations',
         title: 'Vận hành',
-        subtitle: 'Gom đơn & cấu hình',
         type: 'group',
         area: 'admin',
         children: [
@@ -142,7 +148,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.catalog',
         title: 'Danh mục',
-        subtitle: 'Sản phẩm & chợ đầu mối',
         type: 'group',
         area: 'admin',
         children: [
@@ -179,7 +184,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.logistics',
         title: 'Giao vận',
-        subtitle: 'Hub, phương tiện & vùng giao',
         type: 'group',
         area: 'admin',
         children: [
@@ -209,7 +213,6 @@ const NAVIGATION: AreaNavItem[] = [
     {
         id: 'admin.links',
         title: 'Liên kết',
-        subtitle: 'Đi tới khu vực khác',
         type: 'group',
         area: 'admin',
         children: [

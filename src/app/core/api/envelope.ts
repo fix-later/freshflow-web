@@ -8,6 +8,7 @@
  * an `@for` never receives a non-iterable. Mirrors the parsing in
  * `catalog.service.ts` / `admin.service.ts`, centralised for reuse.
  */
+import { ApiError, ResponseError } from 'contract';
 
 /**
  * Largest `pageSize` the backend accepts on list endpoints.
@@ -41,6 +42,152 @@ export function withId<T extends Record<string, unknown>>(
         );
         return { ...row, id: key ? String(row[key]) : '' };
     });
+}
+
+/**
+ * Structured view of a failed API call, normalised across the two body shapes
+ * the backend can send (see {@link readApiError}).
+ */
+export interface ApiErrorInfo {
+    /** HTTP status of the response, so callers can localize by category. */
+    status?: number;
+    /** Machine-readable code, e.g. `EMAIL_ALREADY_EXISTS` (when present). */
+    code?: string;
+    /** Human-readable message from the server (may be untranslated). */
+    message?: string;
+    /** Per-field validation messages, keyed by field name. */
+    fieldErrors?: Record<string, string>;
+}
+
+/**
+ * Reads the response body from a failed API call into a normalised
+ * {@link ApiErrorInfo}, so callers can react to the backend's own `code`
+ * (mapping it to a localized message) and surface field-level detail.
+ *
+ * Two error shapes carry a response:
+ *  - the generated {@link ResponseError} (4xx the middleware lets through —
+ *    400/404/409/422), and
+ *  - the typed {@link ApiError} subclasses thrown for 401/403/5xx
+ *    ({@link PermissionError} etc.).
+ *
+ * Two body shapes are understood:
+ *  - the FreshFlow envelope `{ error: { code, message, details:[{field,message}] } }`
+ *    (see `docs/04-api-design.md` §1.3), and
+ *  - RFC 7807 `ProblemDetails` (`detail`/`title`, an `errors` validation map,
+ *    with `message`/`error` as fallbacks).
+ *
+ * Returns `undefined` for a non-HTTP failure or a bodiless response.
+ */
+export async function readApiError(
+    err: unknown
+): Promise<ApiErrorInfo | undefined> {
+    const response =
+        err instanceof ResponseError
+            ? err.response
+            : err instanceof ApiError
+              ? err.response
+              : undefined;
+    if (!response) {
+        return undefined;
+    }
+    const status = response.status || undefined;
+    const body = await parseJson<Record<string, unknown>>(response.clone());
+    if (!body) {
+        // A bodiless rejection (common for 401/403/404/5xx) still tells us the
+        // category via its status, so the caller can localize by that.
+        return { status };
+    }
+
+    // FreshFlow envelope: { success:false, error:{ code, message, details:[…] } }.
+    const envelope = body['error'];
+    if (envelope && typeof envelope === 'object') {
+        const e = envelope as Record<string, unknown>;
+        const info: ApiErrorInfo = { status };
+        if (typeof e['code'] === 'string') {
+            info.code = e['code'];
+        }
+        if (typeof e['message'] === 'string' && e['message'].trim()) {
+            info.message = e['message'];
+        }
+        const fieldErrors = detailsToFieldErrors(e['details']);
+        if (fieldErrors) {
+            info.fieldErrors = fieldErrors;
+        }
+        return info;
+    }
+
+    // RFC 7807 ProblemDetails.
+    const info: ApiErrorInfo = { status };
+    if (typeof body['code'] === 'string') {
+        info.code = body['code'];
+    }
+    if (body['errors'] && typeof body['errors'] === 'object') {
+        const map: Record<string, string> = {};
+        for (const [field, value] of Object.entries(
+            body['errors'] as Record<string, unknown>
+        )) {
+            const msg = (Array.isArray(value) ? value : [value])
+                .filter((v): v is string => typeof v === 'string')
+                .join(' ');
+            if (msg.trim()) {
+                map[field] = msg;
+            }
+        }
+        if (Object.keys(map).length) {
+            info.fieldErrors = map;
+        }
+    }
+    for (const key of ['detail', 'title', 'message', 'error']) {
+        const value = body[key];
+        if (typeof value === 'string' && value.trim()) {
+            info.message = value;
+            break;
+        }
+    }
+    return info;
+}
+
+/** Reads a `details: [{ field, message }]` array into a `{ field: message }` map. */
+function detailsToFieldErrors(
+    details: unknown
+): Record<string, string> | undefined {
+    if (!Array.isArray(details)) {
+        return undefined;
+    }
+    const map: Record<string, string> = {};
+    for (const entry of details) {
+        if (entry && typeof entry === 'object') {
+            const field = (entry as Record<string, unknown>)['field'];
+            const message = (entry as Record<string, unknown>)['message'];
+            if (typeof field === 'string' && typeof message === 'string') {
+                map[field] = message;
+            }
+        }
+    }
+    return Object.keys(map).length ? map : undefined;
+}
+
+/**
+ * Extracts a human-readable reason from a failed API call, so a backend
+ * rejection can be shown to the user instead of a generic "something went
+ * wrong". Field-level validation detail takes precedence over the summary
+ * message. Returns `undefined` when nothing usable is present, so callers can
+ * fall back to their own translated message.
+ */
+export async function apiErrorMessage(
+    err: unknown
+): Promise<string | undefined> {
+    const info = await readApiError(err);
+    if (!info) {
+        return undefined;
+    }
+    if (info.fieldErrors) {
+        const joined = Object.values(info.fieldErrors).join(' ');
+        if (joined.trim()) {
+            return joined;
+        }
+    }
+    return info.message?.trim() ? info.message : undefined;
 }
 
 /** Parses a JSON body, tolerating an empty (`void`) response. */

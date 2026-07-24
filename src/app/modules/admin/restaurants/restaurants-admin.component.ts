@@ -1,30 +1,67 @@
+import { DecimalPipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
+    OnInit,
+    TemplateRef,
+    ViewChild,
     ViewEncapsulation,
-    WritableSignal,
+    computed,
     inject,
     signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import {
+    FormBuilder,
+    FormGroupDirective,
+    ReactiveFormsModule,
+    Validators,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import {
+    MatDialog,
+    MatDialogModule,
+    MatDialogRef,
+} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { AdminService, apiErrorMessage } from '../admin.service';
-import { AdminRestaurantCredit } from '../admin.types';
+import { describeApiError } from 'app/core/api/error-codes';
+import {
+    EMAIL_MAX_LENGTH,
+    passwordStrengthValidator,
+    phoneNumberValidator,
+} from 'app/core/api/validators';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
+import { AdminService } from '../admin.service';
+import { AdminRestaurantCredit, AdminUserRow } from '../admin.types';
+import { CoalescedTask } from '../shared/coalesced-task';
+import { TableSort } from '../shared/table-sort';
 
-/** UUID v4-ish check — good enough to short-circuit obviously malformed input. */
-const UUID_PATTERN =
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DEFAULT_PAGE_SIZE = 20;
+const RESTAURANT_ROLE = 'restaurant';
+const RESTAURANT_NAME_MAX_LENGTH = 200;
+const PHONE_MAX_LENGTH = 20;
+
+type RestaurantAction =
+    | 'approve'
+    | 'suspend'
+    | 'reactivate'
+    | 'creditLimit'
+    | 'settle';
 
 /**
- * Admin ▸ Restaurants. There is no `GET /admin/restaurants` list endpoint,
- * so the admin looks up a restaurant by pasting its id and drives approval
- * and credit operations directly against it.
+ * Admin ▸ Restaurants — inventory list of `restaurant` users.
+ * Row actions map 1:1 to admin restaurant APIs (approve / suspend /
+ * reactivate / credit limit / settle). Detail panel is profile + credit snapshot.
  */
 @Component({
     selector: 'admin-restaurants-admin',
@@ -32,37 +69,133 @@ const UUID_PATTERN =
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    // Full-width flex host so the page fills the screen (see ResourceCrudComponent).
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        DecimalPipe,
         MatButtonModule,
+        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
+        MatPaginatorModule,
         MatProgressBarModule,
+        MatSelectModule,
         MatSnackBarModule,
+        MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
+    styles: [
+        `
+            .restaurants-grid {
+                grid-template-columns:
+                    minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(0, 1fr)
+                    minmax(0, 0.9fr) auto auto;
+            }
+        `,
+    ],
 })
-export class RestaurantsAdminComponent {
+export class RestaurantsAdminComponent implements OnInit {
+    protected readonly expandOnEnter = expandOnEnter;
+    protected readonly collapseOnLeave = collapseOnLeave;
+
+    @ViewChild('createRestaurantPanel')
+    private _createPanel!: TemplateRef<unknown>;
+
     private readonly _admin = inject(AdminService);
+    private readonly _dialog = inject(MatDialog);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
+    private readonly _destroyRef = inject(DestroyRef);
 
+    private _dialogRef: MatDialogRef<unknown> | null = null;
+
+    readonly users = signal<AdminUserRow[]>([]);
+    readonly sort = new TableSort<AdminUserRow>();
+    readonly sortedUsers = computed(() =>
+        this.sort.apply(this.users(), (user, key) =>
+            key === 'status' ? user.isActive !== false : (user[key] as string)
+        )
+    );
+    readonly totalCount = signal(0);
+    readonly loading = signal(false);
+    readonly pageIndex = signal(0);
+    readonly pageSize = signal(DEFAULT_PAGE_SIZE);
+
+    readonly selectedId = signal<string | null>(null);
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
-    readonly approving = signal(false);
-    readonly suspending = signal(false);
-    readonly reactivating = signal(false);
-    readonly settingLimit = signal(false);
-    readonly settling = signal(false);
 
-    readonly lookupForm = this._formBuilder.nonNullable.group({
-        restaurantId: [
+    /** Which row + API action is currently in flight. */
+    readonly busyAction = signal<{
+        userId: string;
+        kind: RestaurantAction;
+    } | null>(null);
+
+    /** User targeted by credit limit / settle dialogs. */
+    readonly actionUser = signal<AdminUserRow | null>(null);
+
+    readonly selectedUser = computed(() => {
+        const id = this.selectedId();
+        return id ? this.users().find((u) => u.id === id) ?? null : null;
+    });
+
+    /** True when credit snapshot already has a limit value. */
+    readonly hasCreditLimit = computed(() => {
+        const limit = this.credit()?.creditLimit;
+        return limit != null && !Number.isNaN(Number(limit));
+    });
+
+    /** Reveals the credit-limit input after "activate credit limit". */
+    readonly editingCreditLimit = signal(false);
+
+    /** Save is only for setting an initial credit limit from the detail panel. */
+    needsCreditLimitSave(): boolean {
+        return !this.hasCreditLimit() && this.editingCreditLimit();
+    }
+
+    startEditingCreditLimit(): void {
+        this.editingCreditLimit.set(true);
+        if (!this.creditLimitForm.controls.creditLimit.value) {
+            this.creditLimitForm.patchValue({ creditLimit: 0 });
+        }
+    }
+
+    readonly filterForm = this._formBuilder.nonNullable.group({
+        search: [''],
+        isActive: [''],
+    });
+
+    private readonly _filterValues = toSignal(this.filterForm.valueChanges, {
+        initialValue: this.filterForm.getRawValue(),
+    });
+
+    readonly hasActiveFilters = computed(() => {
+        const v = this._filterValues();
+        return (v.search ?? '').trim() !== '' || !!(v.isActive ?? '');
+    });
+
+    readonly createForm = this._formBuilder.nonNullable.group({
+        email: [
             '',
-            [Validators.required, Validators.pattern(UUID_PATTERN)],
+            [
+                Validators.required,
+                Validators.email,
+                Validators.maxLength(EMAIL_MAX_LENGTH),
+            ],
+        ],
+        password: ['', [Validators.required, passwordStrengthValidator]],
+        restaurantName: [
+            '',
+            [
+                Validators.required,
+                Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH),
+            ],
+        ],
+        phone: [
+            '',
+            [phoneNumberValidator, Validators.maxLength(PHONE_MAX_LENGTH)],
         ],
     });
 
@@ -78,93 +211,187 @@ export class RestaurantsAdminComponent {
         note: [''],
     });
 
-    get restaurantId(): string {
-        return this.lookupForm.getRawValue().restaurantId;
+    ngOnInit(): void {
+        this._load();
+
+        this.filterForm.valueChanges
+            .pipe(
+                debounceTime(300),
+                distinctUntilChanged(
+                    (a, b) => JSON.stringify(a) === JSON.stringify(b)
+                ),
+                takeUntilDestroyed(this._destroyRef)
+            )
+            .subscribe(() => {
+                this.pageIndex.set(0);
+                this.closeDetails();
+                this._load();
+            });
     }
 
-    private get _validRestaurantId(): string | null {
-        this.lookupForm.markAllAsTouched();
-        return this.lookupForm.valid ? this.restaurantId : null;
+    onPageChange(event: PageEvent): void {
+        this.pageIndex.set(event.pageIndex);
+        this.pageSize.set(event.pageSize);
+        this.closeDetails();
+        this._load();
     }
 
-    lookupCredit(): void {
-        const restaurantId = this._validRestaurantId;
-        if (!restaurantId) {
+    clearFilters(): void {
+        this.filterForm.reset({ search: '', isActive: '' });
+    }
+
+    isActionBusy(user: AdminUserRow, kind: RestaurantAction): boolean {
+        const busy = this.busyAction();
+        return !!busy && busy.userId === user.id && busy.kind === kind;
+    }
+
+    anyActionBusy(user: AdminUserRow): boolean {
+        const busy = this.busyAction();
+        return !!busy && busy.userId === user.id;
+    }
+
+    toggleDetails(user: AdminUserRow): void {
+        if (this.selectedId() === user.id) {
+            this.closeDetails();
             return;
         }
-        this.loadingCredit.set(true);
-        this._admin
-            .getRestaurantCredit(restaurantId)
-            .then((credit) => this.credit.set(credit))
-            .finally(() => this.loadingCredit.set(false));
+        this.selectedId.set(user.id);
+        this._loadCreditSnapshot(user.restaurantId ?? null);
     }
 
-    approve(): void {
-        this._runLifecycleAction(
-            this.approving,
+    closeDetails(): void {
+        this.selectedId.set(null);
+        this.credit.set(null);
+        this.editingCreditLimit.set(false);
+    }
+
+    openCreatePanel(): void {
+        if (!this._createPanel || this._dialogRef) {
+            return;
+        }
+        this.closeDetails();
+        this.createForm.reset({
+            email: '',
+            password: '',
+            restaurantName: '',
+            phone: '',
+        });
+        this._dialogRef = this._dialog.open(this._createPanel, {
+            autoFocus: false,
+            maxWidth: '100vw',
+        });
+        this._dialogRef.afterClosed().subscribe(() => {
+            this._dialogRef = null;
+            this.createForm.enable();
+        });
+    }
+
+    closeCreatePanel(): void {
+        this._dialogRef?.close();
+    }
+
+    createRestaurant(ngForm: FormGroupDirective): void {
+        if (this.createForm.invalid) {
+            this.createForm.markAllAsTouched();
+            return;
+        }
+        const value = this.createForm.getRawValue();
+        this.createForm.disable();
+        this._admin
+            .createUser({
+                email: value.email.trim(),
+                password: value.password,
+                role: RESTAURANT_ROLE,
+                marketId: null,
+                restaurantName: value.restaurantName.trim() || null,
+                phone: value.phone.trim() || null,
+            })
+            .then(() => {
+                this._notify('admin.restaurants.create.success');
+                this.closeCreatePanel();
+                this.pageIndex.set(0);
+                this._load();
+            })
+            .catch(async (err) => {
+                this.createForm.enable();
+                this._notifyText(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.create.error'
+                    )
+                );
+            })
+            .finally(() => ngForm.form.markAsPristine());
+    }
+
+    approve(user: AdminUserRow): void {
+        this._runRestaurantAction(
+            user,
+            'approve',
             (id) => this._admin.approveRestaurant(id),
             'admin.restaurants.approve.success'
         );
     }
 
-    suspend(): void {
-        this._runLifecycleAction(
-            this.suspending,
+    suspend(user: AdminUserRow): void {
+        this._runRestaurantAction(
+            user,
+            'suspend',
             (id) => this._admin.suspendRestaurant(id),
             'admin.restaurants.suspend.success'
         );
     }
 
-    reactivate(): void {
-        this._runLifecycleAction(
-            this.reactivating,
+    reactivate(user: AdminUserRow): void {
+        this._runRestaurantAction(
+            user,
+            'reactivate',
             (id) => this._admin.reactivateRestaurant(id),
             'admin.restaurants.reactivate.success'
         );
     }
 
-    /**
-     * Shared runner for the approve/suspend/reactivate buttons: validates the
-     * looked-up id, toggles the button's own busy flag, and reports the outcome.
-     */
-    private _runLifecycleAction(
-        busy: WritableSignal<boolean>,
-        action: (restaurantId: string) => Promise<void>,
-        successKey: string
-    ): void {
-        const restaurantId = this._validRestaurantId;
-        if (!restaurantId) {
+    openSettleDialog(user: AdminUserRow, template: TemplateRef<unknown>): void {
+        if (!user.restaurantId) {
+            this._notify('admin.restaurants.noRestaurantId');
             return;
         }
-        busy.set(true);
-        action(restaurantId)
-            .then(() => {
-                this._notify(successKey);
-                // Approval/suspension can change the credit record this page is
-                // showing, so refresh it instead of leaving a pre-action value.
-                if (this.credit()) {
-                    this.lookupCredit();
-                }
-            })
-            .catch(async (err) =>
-                this._notifyText(
-                    (await apiErrorMessage(err)) ??
-                        this._transloco.translate(
-                            'admin.restaurants.actionError'
-                        )
-                )
-            )
-            .finally(() => busy.set(false));
+        if (this._dialogRef) {
+            return;
+        }
+        this.actionUser.set(user);
+        this.settleForm.reset({
+            amount: 0,
+            paymentMethod: '',
+            reference: '',
+            note: '',
+        });
+        this._dialogRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._dialogRef.afterClosed().subscribe(() => {
+            this._dialogRef = null;
+            this.actionUser.set(null);
+        });
     }
 
-    setCreditLimit(): void {
-        const restaurantId = this._validRestaurantId;
+    closeActionDialog(): void {
+        this._dialogRef?.close();
+    }
+
+    saveCreditLimit(user: AdminUserRow): void {
+        const restaurantId = user.restaurantId;
         if (!restaurantId || this.creditLimitForm.invalid) {
             this.creditLimitForm.markAllAsTouched();
             return;
         }
+        if (this.hasCreditLimit()) {
+            return;
+        }
         const { creditLimit, note } = this.creditLimitForm.getRawValue();
-        this.settingLimit.set(true);
+        this.busyAction.set({ userId: user.id, kind: 'creditLimit' });
         this._admin
             .setCreditLimit(restaurantId, {
                 creditLimit,
@@ -172,21 +399,22 @@ export class RestaurantsAdminComponent {
             })
             .then(() => {
                 this._notify('admin.restaurants.creditLimit.success');
-                this.lookupCredit();
+                this._loadCreditSnapshot(restaurantId);
             })
-            .catch(() => this._notify('admin.restaurants.actionError'))
-            .finally(() => this.settingLimit.set(false));
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
     }
 
     settleCredit(): void {
-        const restaurantId = this._validRestaurantId;
-        if (!restaurantId || this.settleForm.invalid) {
+        const user = this.actionUser();
+        const restaurantId = user?.restaurantId;
+        if (!user || !restaurantId || this.settleForm.invalid) {
             this.settleForm.markAllAsTouched();
             return;
         }
         const { amount, paymentMethod, reference, note } =
             this.settleForm.getRawValue();
-        this.settling.set(true);
+        this.busyAction.set({ userId: user.id, kind: 'settle' });
         this._admin
             .settleCredit(restaurantId, {
                 amount,
@@ -196,23 +424,133 @@ export class RestaurantsAdminComponent {
             })
             .then(() => {
                 this._notify('admin.restaurants.settle.success');
-                this.settleForm.reset({
-                    amount: 0,
-                    paymentMethod: '',
-                    reference: '',
+                this.closeActionDialog();
+                if (this.selectedId() === user.id) {
+                    this._loadCreditSnapshot(restaurantId);
+                }
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
+    }
+
+    passwordRuleFailing(rule: string): boolean {
+        const control = this.createForm.controls.password;
+        if (!control.value) {
+            return true;
+        }
+        const strength = control.errors?.['passwordStrength'] as
+            | Record<string, boolean>
+            | undefined;
+        return strength ? !!strength[rule] : false;
+    }
+
+    trackById(_: number, row: { id: string }): string {
+        return row.id;
+    }
+
+    private _runRestaurantAction(
+        user: AdminUserRow,
+        kind: RestaurantAction,
+        action: (restaurantId: string) => Promise<void>,
+        successKey: string
+    ): void {
+        const restaurantId = user.restaurantId;
+        if (!restaurantId) {
+            this._notify('admin.restaurants.noRestaurantId');
+            return;
+        }
+        this.busyAction.set({ userId: user.id, kind });
+        action(restaurantId)
+            .then(() => {
+                this._notify(successKey);
+                if (kind === 'suspend') {
+                    this._patchUser(user.id, { isActive: false });
+                } else if (kind === 'reactivate') {
+                    this._patchUser(user.id, { isActive: true });
+                }
+                if (this.selectedId() === user.id) {
+                    this._loadCreditSnapshot(restaurantId);
+                }
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
+    }
+
+    private _patchUser(id: string, patch: Partial<AdminUserRow>): void {
+        this.users.update((list) =>
+            list.map((u) => (u.id === id ? { ...u, ...patch } : u))
+        );
+    }
+
+    private _loadCreditSnapshot(restaurantId: string | null): void {
+        this.credit.set(null);
+        this.editingCreditLimit.set(false);
+        this.creditLimitForm.reset({ creditLimit: 0, note: '' });
+        if (!restaurantId) {
+            return;
+        }
+        this.loadingCredit.set(true);
+        this._admin
+            .getRestaurantCredit(restaurantId)
+            .then((credit) => {
+                this.credit.set(credit);
+                this.creditLimitForm.reset({
+                    creditLimit:
+                        credit?.creditLimit != null
+                            ? Number(credit.creditLimit) || 0
+                            : 0,
                     note: '',
                 });
-                this.lookupCredit();
             })
-            .catch(() => this._notify('admin.restaurants.actionError'))
-            .finally(() => this.settling.set(false));
+            .finally(() => this.loadingCredit.set(false));
     }
+
+    private _load(): void {
+        this._loadTask.trigger();
+    }
+
+    private readonly _loadTask = new CoalescedTask(async () => {
+        this.loading.set(true);
+        const raw = this.filterForm.getRawValue();
+        try {
+            const result = await this._admin.getUsers({
+                search: raw.search || undefined,
+                role: RESTAURANT_ROLE,
+                isActive:
+                    raw.isActive === '' ? undefined : raw.isActive === 'true',
+                page: this.pageIndex() + 1,
+                pageSize: this.pageSize(),
+            });
+            this.users.set(result.users);
+            this.totalCount.set(result.totalCount);
+            const id = this.selectedId();
+            if (id && !result.users.some((u) => u.id === id)) {
+                this.closeDetails();
+            }
+        } catch {
+            this.users.set([]);
+            this.totalCount.set(0);
+            this._notify('admin.restaurants.loadError');
+        } finally {
+            this.loading.set(false);
+        }
+    });
 
     private _notify(key: string): void {
         this._notifyText(this._transloco.translate(key));
     }
 
     private _notifyText(message: string): void {
-        this._snackBar.open(message, undefined, { duration: 3000 });
+        this._snackBar.open(message, undefined, { duration: 5000 });
+    }
+
+    private async _notifyError(err: unknown): Promise<void> {
+        this._notifyText(
+            await describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'admin.restaurants.actionError'
+            )
+        );
     }
 }

@@ -1,0 +1,562 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-8 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="min-w-0">
+            <div class="text-4xl font-extrabold tracking-tight">
+                {{ t('admin.markets.title') }}
+            </div>
+        </div>
+        <div class="mt-6 flex min-w-0 shrink items-center sm:ml-4 sm:mt-0">
+            <mat-form-field
+                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                    autocomplete="off"
+                    [value]="search()"
+                    [placeholder]="t('admin.markets.searchPlaceholder')"
+                    (input)="onSearch($any($event.target).value)"
+                />
+            </mat-form-field>
+            <button
+                class="ml-4"
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="openCreate(createDialog)"
+            >
+                <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                <span class="ml-2 mr-1">{{ t('admin.markets.create') }}</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+        >
+            @if (filteredRows().length > 0) {
+                <div class="grid">
+                    <!-- Header -->
+                    <div
+                        class="markets-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        <div [attr.aria-sort]="sort.ariaSort('name')">
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('name')"
+                            >
+                                {{ t('admin.markets.name') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'name'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' + sort.icon('name')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden sm:block"
+                            [attr.aria-sort]="sort.ariaSort('location')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('location')"
+                            >
+                                {{ t('admin.markets.location') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'location'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('location')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden md:block"
+                            [attr.aria-sort]="sort.ariaSort('address')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('address')"
+                            >
+                                {{ t('admin.markets.address') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'address'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('address')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div [attr.aria-sort]="sort.ariaSort('agent')">
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('agent')"
+                            >
+                                {{ t('admin.markets.agent') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'agent'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('agent')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div>{{ t('admin.markets.pricing') }}</div>
+                        <div class="text-right">
+                            {{ t('admin.markets.details') }}
+                        </div>
+                    </div>
+
+                    <!-- Rows -->
+                    @for (row of pagedRows(); track row.id) {
+                        <div
+                            class="markets-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
+                        >
+                            <div class="min-w-0 truncate font-medium">
+                                {{ row['name'] || '—' }}
+                                @if (isInactive(row)) {
+                                    <span
+                                        class="admin-pill admin-pill-neutral ml-2"
+                                    >
+                                        {{ t('admin.users.filters.inactive') }}
+                                    </span>
+                                }
+                            </div>
+                            <div class="hidden truncate sm:block">
+                                {{ row['location'] || '—' }}
+                            </div>
+                            <div class="hidden truncate md:block">
+                                {{ row['address'] || '—' }}
+                            </div>
+                            <div class="min-w-0">
+                                <button
+                                    class="h-7 min-h-7 max-w-full truncate px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [matTooltip]="t('admin.markets.agent')"
+                                    (click)="openAgentDialog(row, agentDialog)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:user"
+                                    ></mat-icon>
+                                    <span class="ml-1 truncate">{{
+                                        agentLabel(row) ||
+                                            t('admin.markets.agentNone')
+                                    }}</span>
+                                </button>
+                            </div>
+                            <div>
+                                <button
+                                    class="h-7 min-h-7 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [matTooltip]="t('admin.markets.pricing')"
+                                    (click)="openPricing(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:currency-dollar"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                            <div class="flex justify-end">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="toggleDetails(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            selectedId() === row.id
+                                                ? 'heroicons_solid:chevron-up'
+                                                : 'heroicons_solid:chevron-down'
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (selectedId() === row.id) {
+                            <div
+                                class="overflow-hidden shadow-lg"
+                                (animate.enter)="expandOnEnter($event)"
+                                (animate.leave)="collapseOnLeave($event)"
+                            >
+                                <form
+                                    class="flex w-full flex-col"
+                                    [formGroup]="selectedForm"
+                                    (ngSubmit)="updateSelected()"
+                                >
+                                    <div
+                                        class="flex flex-col gap-6 p-6 md:flex-row md:p-8"
+                                    >
+                                        <div
+                                            class="flex w-full flex-col md:w-1/2"
+                                        >
+                                            <mat-form-field class="w-full">
+                                                <mat-label>{{
+                                                    t('admin.markets.name')
+                                                }}</mat-label>
+                                                <input
+                                                    matInput
+                                                    formControlName="name"
+                                                />
+                                                @if (
+                                                    selectedForm.controls.name
+                                                        .touched &&
+                                                    selectedForm.controls.name.hasError(
+                                                        'required'
+                                                    )
+                                                ) {
+                                                    <mat-error>{{
+                                                        t(
+                                                            'admin.crud.errors.required'
+                                                        )
+                                                    }}</mat-error>
+                                                }
+                                            </mat-form-field>
+                                            <mat-form-field class="w-full">
+                                                <mat-label>{{
+                                                    t('admin.markets.location')
+                                                }}</mat-label>
+                                                <input
+                                                    matInput
+                                                    formControlName="location"
+                                                />
+                                            </mat-form-field>
+                                            <mat-form-field class="w-full">
+                                                <mat-label>{{
+                                                    t('admin.markets.address')
+                                                }}</mat-label>
+                                                <input
+                                                    matInput
+                                                    formControlName="address"
+                                                />
+                                            </mat-form-field>
+                                        </div>
+                                        <div
+                                            class="flex w-full flex-col md:w-1/2"
+                                        >
+                                            <span
+                                                class="text-secondary mb-2 text-sm font-medium"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.markets.coordinates'
+                                                    )
+                                                }}
+                                            </span>
+                                            <app-location-picker
+                                                [latControl]="
+                                                    selectedForm.controls
+                                                        .latitude
+                                                "
+                                                [lngControl]="
+                                                    selectedForm.controls
+                                                        .longitude
+                                                "
+                                            ></app-location-picker>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
+                                    >
+                                        <button
+                                            class="-ml-2"
+                                            mat-button
+                                            color="warn"
+                                            type="button"
+                                            [disabled]="
+                                                isInactive(row) || saving()
+                                            "
+                                            (click)="deactivateSelected()"
+                                        >
+                                            {{ t('admin.crud.deactivate') }}
+                                        </button>
+                                        <div class="flex items-center gap-3">
+                                            @if (flashMessage(); as flash) {
+                                                <div
+                                                    class="mr-1 flex items-center"
+                                                >
+                                                    @if (flash === 'success') {
+                                                        <mat-icon
+                                                            class="text-green-500"
+                                                            svgIcon="heroicons_outline:check"
+                                                        ></mat-icon>
+                                                        <span class="ml-2">{{
+                                                            t(
+                                                                'admin.crud.updateSuccess'
+                                                            )
+                                                        }}</span>
+                                                    }
+                                                    @if (flash === 'error') {
+                                                        <mat-icon
+                                                            class="text-red-500"
+                                                            svgIcon="heroicons_outline:x-mark"
+                                                        ></mat-icon>
+                                                        <span class="ml-2">{{
+                                                            t(
+                                                                'admin.crud.saveError'
+                                                            )
+                                                        }}</span>
+                                                    }
+                                                </div>
+                                            }
+                                            <button
+                                                mat-flat-button
+                                                color="primary"
+                                                type="submit"
+                                                [disabled]="saving()"
+                                            >
+                                                {{ t('admin.crud.save') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (filteredRows().length > pageSize()) {
+                    <mat-paginator
+                        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                        [class.pointer-events-none]="loading()"
+                        [length]="filteredRows().length"
+                        [pageIndex]="pageIndex()"
+                        [pageSize]="pageSize()"
+                        [pageSizeOptions]="[5, 10, 25, 100]"
+                        [showFirstLastButtons]="true"
+                        (page)="onPageChange($event)"
+                    ></mat-paginator>
+                }
+            } @else if (!loading()) {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.crud.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Create dialog (new markets only; edit is inline detail) -->
+<ng-template #createDialog>
+    <div
+        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
+        *transloco="let t"
+    >
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold">
+                {{ t('admin.markets.create') }}
+            </h2>
+            <button mat-icon-button type="button" (click)="closeCreate()">
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        <form
+            class="mt-4 flex flex-col gap-1"
+            [formGroup]="createForm"
+            (ngSubmit)="saveCreate()"
+        >
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.markets.name') }}</mat-label>
+                <input matInput formControlName="name" />
+                @if (
+                    createForm.controls.name.touched &&
+                    createForm.controls.name.hasError('required')
+                ) {
+                    <mat-error>{{ t('admin.crud.errors.required') }}</mat-error>
+                }
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.markets.location') }}</mat-label>
+                <input matInput formControlName="location" />
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.markets.address') }}</mat-label>
+                <input matInput formControlName="address" />
+            </mat-form-field>
+            <app-location-picker
+                [latControl]="createForm.controls.latitude"
+                [lngControl]="createForm.controls.longitude"
+            ></app-location-picker>
+
+            <div class="mt-4 flex justify-end gap-2">
+                <button mat-button type="button" (click)="closeCreate()">
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving()"
+                >
+                    {{ t('admin.crud.save') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>
+
+<!-- Assign market agent -->
+<ng-template #agentDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.markets.agentDialog.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeAgentDialog()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <form
+            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+            [formGroup]="agentForm"
+            (ngSubmit)="saveAgentAssignment()"
+        >
+            @if (agentDialogMarket(); as market) {
+                <div class="mb-1 text-base font-medium">
+                    {{ market['name'] || '—' }}
+                </div>
+                <div class="text-secondary mb-6 text-sm">
+                    {{ market['location'] || market['address'] || '' }}
+                </div>
+
+                <div class="mb-6">
+                    <div class="mb-2 text-sm font-medium">
+                        {{ t('admin.markets.agentDialog.current') }}
+                    </div>
+                    @if (agentFor(market); as agent) {
+                        <div
+                            class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm"
+                        >
+                            <span class="text-secondary">{{
+                                t('admin.userDetail.profile.email')
+                            }}</span>
+                            <span class="min-w-0 break-all">{{
+                                agent.email || '—'
+                            }}</span>
+                            <span class="text-secondary">{{
+                                t('admin.userDetail.profile.phone')
+                            }}</span>
+                            <span>{{ agent.phone || '—' }}</span>
+                        </div>
+                    } @else {
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.markets.agentNone') }}
+                        </div>
+                    }
+                </div>
+            }
+
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.markets.agentDialog.select')
+                }}</mat-label>
+                <mat-select formControlName="agentUserId">
+                    <mat-option value="">{{
+                        t('admin.markets.agentNone')
+                    }}</mat-option>
+                    @for (agent of agentOptions(); track agent.id) {
+                        <mat-option [value]="agent.id">{{
+                            agent.email || agent.id
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <button
+                    class="-ml-2"
+                    mat-button
+                    color="warn"
+                    type="button"
+                    [disabled]="
+                        agentDialogSaving() ||
+                        (!agentForm.controls.agentUserId.value &&
+                            !(
+                                agentDialogMarket() &&
+                                agentFor(agentDialogMarket()!)
+                            ))
+                    "
+                    (click)="clearAgentAssignment()"
+                >
+                    {{ t('admin.markets.agentDialog.clear') }}
+                </button>
+                <div class="flex items-center gap-3">
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="closeAgentDialog()"
+                    >
+                        {{ t('admin.crud.cancel') }}
+                    </button>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="submit"
+                        [disabled]="agentDialogSaving()"
+                    >
+                        {{ t('admin.markets.agentDialog.save') }}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</ng-template>

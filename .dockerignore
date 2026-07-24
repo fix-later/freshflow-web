@@ -3,3 +3,11 @@ dist
 .git
 .github
 *.md
+
+# Never copy real config into an image layer — values are passed as build args
+# (see Dockerfile). The template is harmless but has no use in the build.
+.env
+.env.*
+!.env.example
+src/environments/env.generated.ts
+src/environments/environment.local.ts

@@ -16,7 +16,8 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { AdminService, apiErrorMessage } from '../admin.service';
+import { describeApiError } from 'app/core/api/error-codes';
+import { AdminService } from '../admin.service';
 import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
 
 /**
@@ -162,9 +163,11 @@ export class AdminSettingsComponent implements OnInit {
     }
 
     private async _notifyError(err: unknown): Promise<void> {
-        const message =
-            (await apiErrorMessage(err)) ??
-            this._transloco.translate('admin.settings.error');
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            'admin.settings.error'
+        );
         this._snackBar.open(message, undefined, { duration: 5000 });
     }
 }

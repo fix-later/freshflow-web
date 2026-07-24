@@ -1,0 +1,681 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.products.title') }}
+                </div>
+            </div>
+            <div class="flex min-w-0 shrink items-center gap-3">
+                <mat-form-field
+                    class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        matPrefix
+                        svgIcon="heroicons_solid:magnifying-glass"
+                    ></mat-icon>
+                    <input
+                        matInput
+                        class="overflow-hidden text-ellipsis whitespace-nowrap"
+                        autocomplete="off"
+                        [value]="search()"
+                        [placeholder]="t('admin.products.searchPlaceholder')"
+                        (input)="onSearch($any($event.target).value)"
+                    />
+                </mat-form-field>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    (click)="openCreate(createDialog)"
+                >
+                    <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.products.create')
+                    }}</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="mt-6 flex flex-wrap items-end gap-3">
+            <mat-form-field
+                class="fuse-mat-dense w-56"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.products.filterCategory') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="categoryFilter()"
+                    (selectionChange)="onCategoryFilter($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (opt of filterCategoryOptions(); track opt.value) {
+                        <mat-option [value]="opt.value">{{
+                            opt.label
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-44"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.products.filterStatus') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="statusFilter()"
+                    (selectionChange)="onStatusFilter($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    <mat-option value="active">{{
+                        t('admin.users.filters.active')
+                    }}</mat-option>
+                    <mat-option value="inactive">{{
+                        t('admin.users.filters.inactive')
+                    }}</mat-option>
+                </mat-select>
+            </mat-form-field>
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.crud.clearFilters')
+                    }}</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+        >
+            @if (filteredRows().length > 0) {
+                <div class="grid">
+                    <!-- Header -->
+                    <div
+                        class="products-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        <div>{{ t('admin.products.image') }}</div>
+                        <div [attr.aria-sort]="sort.ariaSort('name')">
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('name')"
+                            >
+                                {{ t('admin.products.name') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'name'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' + sort.icon('name')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden sm:block"
+                            [attr.aria-sort]="sort.ariaSort('category')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('category')"
+                            >
+                                {{ t('admin.products.category') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'category'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('category')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden md:block"
+                            [attr.aria-sort]="sort.ariaSort('unit')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('unit')"
+                            >
+                                {{ t('admin.products.unit') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'unit'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' + sort.icon('unit')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div class="text-right">
+                            {{ t('admin.products.details') }}
+                        </div>
+                    </div>
+
+                    <!-- Rows -->
+                    @for (row of pagedRows(); track row.id) {
+                        <div
+                            class="products-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
+                        >
+                            <div>
+                                @if (row['imageUrl']) {
+                                    <img
+                                        [src]="row['imageUrl']"
+                                        [alt]="row['name']"
+                                        class="h-12 w-12 rounded-lg border object-cover"
+                                    />
+                                } @else {
+                                    <div
+                                        class="text-secondary bg-hover flex h-12 w-12 items-center justify-center rounded-lg border text-center text-[0.625rem] font-semibold uppercase leading-none"
+                                    >
+                                        {{ t('admin.products.noThumb') }}
+                                    </div>
+                                }
+                            </div>
+                            <div class="min-w-0 truncate font-medium">
+                                {{ row['name'] || '—' }}
+                                @if (isInactive(row)) {
+                                    <span
+                                        class="admin-pill admin-pill-neutral ml-2"
+                                    >
+                                        {{ t('admin.users.filters.inactive') }}
+                                    </span>
+                                }
+                            </div>
+                            <div class="hidden truncate sm:block">
+                                {{ row['categoryName'] || '—' }}
+                            </div>
+                            <div class="hidden truncate md:block">
+                                {{ unitLabel(row) || '—' }}
+                            </div>
+                            <div class="flex justify-end">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="toggleDetails(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            selectedId() === row.id
+                                                ? 'heroicons_solid:chevron-up'
+                                                : 'heroicons_solid:chevron-down'
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (selectedId() === row.id) {
+                            <div
+                                class="overflow-hidden shadow-lg"
+                                (animate.enter)="expandOnEnter($event)"
+                                (animate.leave)="collapseOnLeave($event)"
+                            >
+                                <form
+                                    class="flex w-full flex-col"
+                                    [formGroup]="selectedForm"
+                                    (ngSubmit)="updateSelected()"
+                                >
+                                    <div
+                                        class="flex flex-col gap-6 p-6 md:flex-row md:p-8"
+                                    >
+                                        <!-- Image -->
+                                        <div
+                                            class="flex w-full flex-col md:w-72"
+                                        >
+                                            <span
+                                                class="text-secondary mb-2 text-sm font-medium"
+                                            >
+                                                {{
+                                                    t('admin.products.imageUrl')
+                                                }}
+                                            </span>
+                                            <div
+                                                class="group relative flex h-44 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors"
+                                                [class.border-primary]="
+                                                    dragOver()
+                                                "
+                                                [class.bg-primary-50]="
+                                                    dragOver()
+                                                "
+                                                (dragover)="onDragOver($event)"
+                                                (dragleave)="onDragLeave()"
+                                                (drop)="onImageDropped($event)"
+                                            >
+                                                @if (
+                                                    selectedForm.controls
+                                                        .imageUrl.value
+                                                ) {
+                                                    <img
+                                                        class="h-full w-full object-contain"
+                                                        [src]="
+                                                            selectedForm
+                                                                .controls
+                                                                .imageUrl.value
+                                                        "
+                                                        [alt]="
+                                                            t(
+                                                                'admin.products.imageUrl'
+                                                            )
+                                                        "
+                                                    />
+                                                    <div
+                                                        class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                                                    >
+                                                        <button
+                                                            mat-mini-fab
+                                                            type="button"
+                                                            color="accent"
+                                                            [matTooltip]="
+                                                                t(
+                                                                    'admin.crud.image.change'
+                                                                )
+                                                            "
+                                                            [disabled]="
+                                                                uploading()
+                                                            "
+                                                            (click)="
+                                                                imageInput.click()
+                                                            "
+                                                        >
+                                                            <mat-icon
+                                                                svgIcon="heroicons_outline:arrow-path"
+                                                            ></mat-icon>
+                                                        </button>
+                                                        <button
+                                                            mat-mini-fab
+                                                            type="button"
+                                                            color="warn"
+                                                            [matTooltip]="
+                                                                t(
+                                                                    'admin.crud.image.remove'
+                                                                )
+                                                            "
+                                                            [disabled]="
+                                                                uploading()
+                                                            "
+                                                            (click)="
+                                                                clearImage()
+                                                            "
+                                                        >
+                                                            <mat-icon
+                                                                svgIcon="heroicons_outline:trash"
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                } @else {
+                                                    <button
+                                                        type="button"
+                                                        class="text-secondary flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center hover:text-primary"
+                                                        [disabled]="uploading()"
+                                                        (click)="
+                                                            imageInput.click()
+                                                        "
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-10"
+                                                            svgIcon="heroicons_outline:cloud-arrow-up"
+                                                        ></mat-icon>
+                                                        <span
+                                                            class="text-sm font-medium"
+                                                            >{{
+                                                                t(
+                                                                    'admin.crud.image.upload'
+                                                                )
+                                                            }}</span
+                                                        >
+                                                        <span
+                                                            class="text-secondary text-xs"
+                                                            >{{
+                                                                t(
+                                                                    'admin.crud.image.hint'
+                                                                )
+                                                            }}</span
+                                                        >
+                                                    </button>
+                                                }
+                                                @if (uploading()) {
+                                                    <div
+                                                        class="bg-card/80 absolute inset-0 flex flex-col items-center justify-center gap-2 backdrop-blur-sm"
+                                                    >
+                                                        <mat-progress-spinner
+                                                            mode="indeterminate"
+                                                            [diameter]="36"
+                                                            color="primary"
+                                                        ></mat-progress-spinner>
+                                                        <span
+                                                            class="text-secondary text-xs font-medium"
+                                                            >{{
+                                                                t(
+                                                                    'admin.crud.image.uploading'
+                                                                )
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                }
+                                            </div>
+                                            <input
+                                                #imageInput
+                                                class="hidden"
+                                                type="file"
+                                                accept="image/*"
+                                                (change)="onImagePicked($event)"
+                                            />
+                                        </div>
+
+                                        <!-- Fields -->
+                                        <div
+                                            class="flex w-full flex-auto flex-col"
+                                        >
+                                            <mat-form-field class="w-full">
+                                                <mat-label>{{
+                                                    t('admin.products.name')
+                                                }}</mat-label>
+                                                <input
+                                                    matInput
+                                                    formControlName="name"
+                                                />
+                                                @if (
+                                                    selectedForm.controls.name
+                                                        .touched &&
+                                                    selectedForm.controls.name.hasError(
+                                                        'required'
+                                                    )
+                                                ) {
+                                                    <mat-error>{{
+                                                        t(
+                                                            'admin.crud.errors.required'
+                                                        )
+                                                    }}</mat-error>
+                                                }
+                                            </mat-form-field>
+                                            <div
+                                                class="flex flex-col gap-0 sm:flex-row sm:gap-4"
+                                            >
+                                                <mat-form-field
+                                                    class="w-full sm:w-1/2"
+                                                >
+                                                    <mat-label>{{
+                                                        t('admin.products.unit')
+                                                    }}</mat-label>
+                                                    <mat-select
+                                                        formControlName="unitId"
+                                                    >
+                                                        @for (
+                                                            opt of unitOptions();
+                                                            track opt.value
+                                                        ) {
+                                                            <mat-option
+                                                                [value]="
+                                                                    opt.value
+                                                                "
+                                                                >{{
+                                                                    opt.label
+                                                                }}</mat-option
+                                                            >
+                                                        }
+                                                    </mat-select>
+                                                    @if (
+                                                        selectedForm.controls
+                                                            .unitId.touched &&
+                                                        selectedForm.controls.unitId.hasError(
+                                                            'required'
+                                                        )
+                                                    ) {
+                                                        <mat-error>{{
+                                                            t(
+                                                                'admin.crud.errors.required'
+                                                            )
+                                                        }}</mat-error>
+                                                    }
+                                                </mat-form-field>
+                                                <mat-form-field
+                                                    class="w-full sm:w-1/2"
+                                                >
+                                                    <mat-label>{{
+                                                        t(
+                                                            'admin.products.category'
+                                                        )
+                                                    }}</mat-label>
+                                                    <mat-select
+                                                        formControlName="categoryId"
+                                                    >
+                                                        <mat-option [value]="''"
+                                                            >—</mat-option
+                                                        >
+                                                        @for (
+                                                            opt of categoryOptions();
+                                                            track opt.value
+                                                        ) {
+                                                            <mat-option
+                                                                [value]="
+                                                                    opt.value
+                                                                "
+                                                                >{{
+                                                                    opt.label
+                                                                }}</mat-option
+                                                            >
+                                                        }
+                                                    </mat-select>
+                                                </mat-form-field>
+                                            </div>
+                                            <mat-form-field class="w-full">
+                                                <mat-label>{{
+                                                    t(
+                                                        'admin.products.description'
+                                                    )
+                                                }}</mat-label>
+                                                <textarea
+                                                    matInput
+                                                    rows="3"
+                                                    formControlName="description"
+                                                ></textarea>
+                                            </mat-form-field>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
+                                    >
+                                        <button
+                                            class="-ml-2"
+                                            mat-button
+                                            color="warn"
+                                            type="button"
+                                            [disabled]="
+                                                isInactive(row) || saving()
+                                            "
+                                            (click)="deactivateSelected()"
+                                        >
+                                            {{ t('admin.crud.deactivate') }}
+                                        </button>
+                                        <div class="flex items-center gap-3">
+                                            @if (flashMessage(); as flash) {
+                                                <div
+                                                    class="mr-1 flex items-center"
+                                                >
+                                                    @if (flash === 'success') {
+                                                        <mat-icon
+                                                            class="text-green-500"
+                                                            svgIcon="heroicons_outline:check"
+                                                        ></mat-icon>
+                                                        <span class="ml-2">{{
+                                                            t(
+                                                                'admin.crud.updateSuccess'
+                                                            )
+                                                        }}</span>
+                                                    }
+                                                    @if (flash === 'error') {
+                                                        <mat-icon
+                                                            class="text-red-500"
+                                                            svgIcon="heroicons_outline:x-mark"
+                                                        ></mat-icon>
+                                                        <span class="ml-2">{{
+                                                            t(
+                                                                'admin.crud.saveError'
+                                                            )
+                                                        }}</span>
+                                                    }
+                                                </div>
+                                            }
+                                            <button
+                                                mat-flat-button
+                                                color="primary"
+                                                type="submit"
+                                                [disabled]="
+                                                    saving() || uploading()
+                                                "
+                                            >
+                                                {{ t('admin.crud.save') }}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        }
+                    }
+                </div>
+
+                @if (filteredRows().length > pageSize()) {
+                    <mat-paginator
+                        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                        [class.pointer-events-none]="loading()"
+                        [length]="filteredRows().length"
+                        [pageIndex]="pageIndex()"
+                        [pageSize]="pageSize()"
+                        [pageSizeOptions]="[5, 10, 25, 100]"
+                        [showFirstLastButtons]="true"
+                        (page)="onPageChange($event)"
+                    ></mat-paginator>
+                }
+            } @else if (!loading()) {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.crud.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Create dialog -->
+<ng-template #createDialog>
+    <div
+        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
+        *transloco="let t"
+    >
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold">
+                {{ t('admin.products.create') }}
+            </h2>
+            <button mat-icon-button type="button" (click)="closeCreate()">
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        <form
+            class="mt-4 flex flex-col gap-1"
+            [formGroup]="createForm"
+            (ngSubmit)="saveCreate()"
+        >
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.products.name') }}</mat-label>
+                <input matInput formControlName="name" />
+                @if (
+                    createForm.controls.name.touched &&
+                    createForm.controls.name.hasError('required')
+                ) {
+                    <mat-error>{{ t('admin.crud.errors.required') }}</mat-error>
+                }
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.products.unit') }}</mat-label>
+                <mat-select formControlName="unitId">
+                    @for (opt of unitOptions(); track opt.value) {
+                        <mat-option [value]="opt.value">{{
+                            opt.label
+                        }}</mat-option>
+                    }
+                </mat-select>
+                @if (
+                    createForm.controls.unitId.touched &&
+                    createForm.controls.unitId.hasError('required')
+                ) {
+                    <mat-error>{{ t('admin.crud.errors.required') }}</mat-error>
+                }
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.products.category') }}</mat-label>
+                <mat-select formControlName="categoryId">
+                    <mat-option [value]="''">—</mat-option>
+                    @for (opt of categoryOptions(); track opt.value) {
+                        <mat-option [value]="opt.value">{{
+                            opt.label
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field class="w-full">
+                <mat-label>{{ t('admin.products.description') }}</mat-label>
+                <textarea
+                    matInput
+                    rows="3"
+                    formControlName="description"
+                ></textarea>
+            </mat-form-field>
+
+            <div class="mt-4 flex justify-end gap-2">
+                <button mat-button type="button" (click)="closeCreate()">
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving()"
+                >
+                    {{ t('admin.crud.save') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>
