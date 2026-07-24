@@ -76,10 +76,9 @@ import { CatalogAdminService } from './catalog-admin.service';
 
                 @screen sm {
                     /* name | location | agent | pricing | details */
-                    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(
-                            0,
-                            1fr
-                        ) auto auto;
+                    grid-template-columns:
+                        minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)
+                        auto auto;
                 }
 
                 @screen md {
