@@ -153,6 +153,37 @@ export interface AdminAutoBatchPayload {
     force?: boolean | null;
 }
 
+/** One batch created (or, on a dry run, that would be created) by auto-batch. */
+export interface AdminAutoBatchBatch {
+    orderGroupId?: string | null;
+    deliveryZone?: string | null;
+    sourceMarketId?: string | null;
+    sourceMarketName?: string | null;
+    orderIds?: string[] | null;
+    [key: string]: unknown;
+}
+
+/** An order the run skipped, with the reason code (e.g. `ALREADY_BATCHED`). */
+export interface AdminAutoBatchSkipped {
+    orderId?: string | null;
+    reason?: string | null;
+    [key: string]: unknown;
+}
+
+/** Result of `POST /admin/order-groups/auto-batch` (see doc §4.2). */
+export interface AdminAutoBatchResult {
+    targetDate?: string | null;
+    dryRun?: boolean | null;
+    createdBatchCount?: number | null;
+    batchedOrderCount?: number | null;
+    skippedOrderCount?: number | null;
+    batches?: AdminAutoBatchBatch[] | null;
+    skippedOrders?: AdminAutoBatchSkipped[] | null;
+    triggeredBy?: string | null;
+    triggeredAt?: string | null;
+    [key: string]: unknown;
+}
+
 /** Flexible restaurant credit snapshot (`GET /restaurants/{id}/credit`, untyped). */
 export interface AdminRestaurantCredit {
     creditLimit?: number;

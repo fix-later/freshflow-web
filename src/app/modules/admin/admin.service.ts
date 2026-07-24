@@ -13,6 +13,7 @@ import {
     AdminAuditLogRow,
     AdminAuditLogsResult,
     AdminAutoBatchPayload,
+    AdminAutoBatchResult,
     AdminCreateUserPayload,
     AdminCreditStatement,
     AdminCreditTransaction,
@@ -433,7 +434,9 @@ export class AdminService {
      * Runs auto-batching. `dryRun` asks the backend to report what it *would*
      * group without persisting, so the admin can preview before committing.
      */
-    async runAutoBatch(payload: AdminAutoBatchPayload = {}): Promise<unknown> {
+    async runAutoBatch(
+        payload: AdminAutoBatchPayload = {}
+    ): Promise<AdminAutoBatchResult> {
         const res = await adminApi.apiV1AdminOrderGroupsAutoBatchPostRaw({
             runAutoBatchRequest: {
                 targetDate: payload.targetDate
@@ -443,7 +446,7 @@ export class AdminService {
                 force: payload.force ?? null,
             },
         });
-        return unwrapData<unknown>(await parseJson(res.raw));
+        return unwrapData<AdminAutoBatchResult>(await parseJson(res.raw)) ?? {};
     }
 
     /** Market-agent users, for the "assign agent" picker on a batch. */
