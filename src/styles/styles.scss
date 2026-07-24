@@ -87,6 +87,25 @@ body {
     @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors;
 }
 
+/**
+ * Checkbox hover/focus/press state layer. Material tints the unselected ripple
+ * with a dark on-surface colour, so hovering an unchecked box shows a heavy grey
+ * circle. Tint the whole state layer (and the click ripple) with the brand
+ * primary so hover reads smooth and on-brand, matching the checked state.
+ */
+.mat-mdc-checkbox.mat-primary {
+    --mdc-checkbox-unselected-hover-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-focus-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-unselected-pressed-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-selected-hover-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-selected-focus-state-layer-color: var(--fuse-primary);
+    --mdc-checkbox-selected-pressed-state-layer-color: var(--fuse-primary);
+
+    .mat-ripple-element {
+        background-color: var(--fuse-primary);
+    }
+}
+
 .admin-sort-header:hover {
     @apply text-default bg-hover;
 }
