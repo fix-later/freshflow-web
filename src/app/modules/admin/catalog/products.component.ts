@@ -34,6 +34,11 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
@@ -104,17 +109,21 @@ export class ProductsComponent implements OnInit {
     /** Image URL shown in the enlarged-preview dialog. */
     readonly previewImageUrl = signal('');
     readonly search = signal('');
-    readonly categoryFilter = signal('');
+    /** Page-level category filter (parent → child cascade, like the dialog). */
+    readonly filterParentId = signal('');
+    readonly filterChildId = signal('');
     readonly pageIndex = signal(0);
-    readonly pageSize = signal(10);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
+    /** Total matching products across all pages (from the server). */
+    readonly totalCount = signal(0);
+    /** Debounce handle for the server-side search box. */
+    private _searchTimer?: ReturnType<typeof setTimeout>;
     readonly selectedId = signal<string | null>(null);
     /** Full row backing the edit dialog (for read-only meta: status/dates/id). */
     readonly selectedRow = signal<CrudRow | null>(null);
     readonly flashMessage = signal<'success' | 'error' | null>(null);
     readonly sort = new TableSort<CrudRow>();
     readonly unitOptions = signal<CrudOption[]>([]);
-    /** Active categories only — for the page filter dropdown. */
-    readonly filterCategoryOptions = signal<CrudOption[]>([]);
 
     /** All active categories (carry `parentId`) — feed the cascade selects. */
     readonly activeCategoryRows = signal<CrudRow[]>([]);
@@ -137,6 +146,10 @@ export class ProductsComponent implements OnInit {
     );
     readonly editChildOptions = computed(() =>
         this._childOptions(this.editParentId())
+    );
+    /** Sub-categories of the parent chosen in the page filter. */
+    readonly filterChildOptions = computed(() =>
+        this._childOptions(this.filterParentId())
     );
 
     readonly selectedForm = new FormGroup({
@@ -166,25 +179,13 @@ export class ProductsComponent implements OnInit {
         description: new FormControl('', { nonNullable: true }),
     });
 
-    readonly filteredRows = computed(() => {
-        const term = this.search().trim();
-        const categoryId = this.categoryFilter();
-
-        // Only active products are listed; soft-deleted ones are hidden.
-        return this.rows().filter((row) => {
-            if (row['isDeleted'] === true) {
-                return false;
-            }
-            const matchesSearch =
-                !term || includesFolded(String(row['name'] ?? ''), term);
-            const matchesCategory =
-                !categoryId || String(row['categoryId'] ?? '') === categoryId;
-            return matchesSearch && matchesCategory;
-        });
-    });
-
+    /**
+     * The current server page in the active client-side sort order. Search,
+     * category filtering and paging are done by the backend (one page loaded at
+     * a time); sorting reorders the loaded page.
+     */
     readonly sortedRows = computed(() =>
-        this.sort.apply(this.filteredRows(), (row, key) => {
+        this.sort.apply(this.rows(), (row, key) => {
             if (key === 'category') {
                 return String(row['categoryName'] ?? '');
             }
@@ -195,13 +196,11 @@ export class ProductsComponent implements OnInit {
         })
     );
 
-    readonly pagedRows = computed(() => {
-        const start = this.pageIndex() * this.pageSize();
-        return this.sortedRows().slice(start, start + this.pageSize());
-    });
-
     readonly hasActiveFilters = computed(
-        () => this.search().trim() !== '' || this.categoryFilter() !== ''
+        () =>
+            this.search().trim() !== '' ||
+            this.filterParentId() !== '' ||
+            this.filterChildId() !== ''
     );
 
     ngOnInit(): void {
@@ -209,20 +208,27 @@ export class ProductsComponent implements OnInit {
         void this._loadOptions();
     }
 
+    /** Loads the current page from the server (search / category / page). */
     load(): void {
         this.loading.set(true);
+        const categoryId =
+            this.filterChildId() || this.filterParentId() || undefined;
         this._catalog
-            .listProducts()
-            .then((rows) => {
+            .listProducts({
+                page: toApiPage(this.pageIndex()),
+                pageSize: this.pageSize(),
+                search: this.search().trim() || undefined,
+                categoryId,
+            })
+            .then(({ rows, total, page, pageSize }) => {
                 this.rows.set(rows);
-                const id = this.selectedId();
-                if (id && !rows.some((r) => r.id === id)) {
-                    this.closeDetails();
-                } else if (id) {
-                    const row = rows.find((r) => r.id === id);
-                    if (row) {
-                        this._patchSelected(row);
-                    }
+                this.totalCount.set(total);
+                // Track the page/size the backend actually returned.
+                if (page) {
+                    this.pageIndex.set(toPageIndex(page));
+                }
+                if (pageSize) {
+                    this.pageSize.set(pageSize);
                 }
             })
             .catch((err) => void this._notifyError(err, 'admin.crud.loadError'))
@@ -231,26 +237,48 @@ export class ProductsComponent implements OnInit {
 
     onSearch(value: string): void {
         this.search.set(value);
-        this.pageIndex.set(0);
-        this.closeDetails();
+        // Debounce so typing doesn't fire a request per keystroke.
+        clearTimeout(this._searchTimer);
+        this._searchTimer = setTimeout(() => {
+            this.pageIndex.set(0);
+            this.closeDetails();
+            this.load();
+        }, 350);
     }
 
-    onCategoryFilter(value: string): void {
-        this.categoryFilter.set(value);
+    /** Pick a parent filter → reset the sub-category filter so it re-narrows. */
+    onFilterParentChange(id: string): void {
+        this.filterParentId.set(id);
+        this.filterChildId.set('');
         this.pageIndex.set(0);
         this.closeDetails();
+        this.load();
+    }
+
+    /** Pick a sub-category filter → auto-fill its parent (like the dialog). */
+    onFilterChildChange(id: string): void {
+        this.filterChildId.set(id);
+        const parent = this._parentOf(id);
+        if (parent) {
+            this.filterParentId.set(parent);
+        }
+        this.pageIndex.set(0);
+        this.closeDetails();
+        this.load();
     }
 
     clearFilters(): void {
         this.search.set('');
-        this.categoryFilter.set('');
+        this.filterParentId.set('');
+        this.filterChildId.set('');
         this.pageIndex.set(0);
         this.closeDetails();
+        this.load();
     }
 
+    /** Sort reorders the current page only (server owns paging). */
     onSort(key: string): void {
         this.sort.toggle(key);
-        this.pageIndex.set(0);
         this.closeDetails();
     }
 
@@ -258,6 +286,7 @@ export class ProductsComponent implements OnInit {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
         this.closeDetails();
+        this.load();
     }
 
     openEdit(row: CrudRow, template: TemplateRef<unknown>): void {
@@ -600,16 +629,9 @@ export class ProductsComponent implements OnInit {
             ]);
             this.unitOptions.set(units);
             this.activeCategoryRows.set(activeCategories);
-            this.filterCategoryOptions.set(
-                activeCategories.map((c) => ({
-                    value: c.id,
-                    label: String(c['name'] ?? ''),
-                }))
-            );
         } catch {
             this.unitOptions.set([]);
             this.activeCategoryRows.set([]);
-            this.filterCategoryOptions.set([]);
         }
     }
 

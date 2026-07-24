@@ -48,7 +48,7 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
         <div class="flex flex-col gap-2" *transloco="let t">
             <!-- Place search -->
             <mat-form-field subscriptSizing="dynamic">
-                <mat-label>{{ t('maps.searchLabel') }}</mat-label>
+                <mat-label>{{ t(searchLabelKey) }}</mat-label>
                 <mat-icon
                     matPrefix
                     class="ml-2 mr-1"
@@ -100,33 +100,48 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
                 </div>
             }
 
-            <!-- Manual entry -->
-            <div class="flex gap-2">
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{ t('maps.latitude') }}</mat-label>
-                    <input
-                        matInput
-                        type="number"
-                        step="any"
-                        [formControl]="latControl"
-                    />
-                </mat-form-field>
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{ t('maps.longitude') }}</mat-label>
-                    <input
-                        matInput
-                        type="number"
-                        step="any"
-                        [formControl]="lngControl"
-                    />
-                </mat-form-field>
-            </div>
+            <!-- Manual entry (optional — hidden when address search owns the coords) -->
+            @if (showManualCoords) {
+                <div class="flex gap-2">
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{ t('maps.latitude') }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            step="any"
+                            [formControl]="latControl"
+                        />
+                    </mat-form-field>
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{ t('maps.longitude') }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            step="any"
+                            [formControl]="lngControl"
+                        />
+                    </mat-form-field>
+                </div>
+            }
         </div>
     `,
 })
 export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     @Input({ required: true }) latControl!: FormControl;
     @Input({ required: true }) lngControl!: FormControl;
+    /**
+     * Optional control the search box is bound to (two-way). Pass the market's
+     * address here so the saved address seeds the search — one field feeds both
+     * geocoding and the stored address, instead of typing it twice.
+     */
+    @Input() queryControl?: FormControl;
+    /** i18n key for the search field label (default: generic "search place"). */
+    @Input() searchLabelKey = 'maps.searchLabel';
+    /**
+     * When false, hides the manual lat/lng number inputs (address search + map
+     * still write coordinates). Used when a single address field owns the pick.
+     */
+    @Input() showManualCoords = true;
     @ViewChild('mapContainer') private _mapContainer?: ElementRef<HTMLElement>;
 
     private readonly _goong = inject(GoongMapService);
@@ -156,6 +171,19 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     }
 
     ngAfterViewInit(): void {
+        // Seed the search box from the bound control (e.g. a saved address) and
+        // keep it in sync when the parent resets the form.
+        if (this.queryControl) {
+            this.query.set(String(this.queryControl.value ?? ''));
+            this._subs.add(
+                this.queryControl.valueChanges.subscribe((value) => {
+                    const text = String(value ?? '');
+                    if (text !== this.query()) {
+                        this.query.set(text);
+                    }
+                })
+            );
+        }
         // React to manual edits: move the marker to match typed coordinates.
         this._subs.add(
             this.latControl.valueChanges.subscribe(() => this._syncMarker())
@@ -173,12 +201,14 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
 
     onSearch(value: string): void {
         this.query.set(value);
+        this.queryControl?.setValue(value, { emitEvent: false });
         this.showSuggestions.set(true);
         this._search$.next(value);
     }
 
     async pickSuggestion(s: GoongPlaceSuggestion): Promise<void> {
         this.query.set(s.description);
+        this.queryControl?.setValue(s.description, { emitEvent: false });
         this.suggestions.set([]);
         this.showSuggestions.set(false);
         const loc = await this._goong.placeDetail(s.placeId);

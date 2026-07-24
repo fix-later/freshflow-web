@@ -52,15 +52,15 @@
                 </div>
 
                 <div
-                    class="mt-6 flex flex-wrap items-center gap-3 sm:ml-2 sm:mt-0"
+                    class="mt-6 flex flex-wrap items-end gap-3 sm:ml-2 sm:mt-0"
                 >
                     <form
-                        class="flex flex-wrap items-center gap-2"
+                        class="flex flex-wrap items-end gap-3"
                         [formGroup]="rangeForm"
                         (ngSubmit)="reload()"
                     >
                         <mat-form-field
-                            class="fuse-mat-dense w-36"
+                            class="fuse-mat-dense w-40"
                             subscriptSizing="dynamic"
                         >
                             <mat-label>{{
@@ -68,22 +68,36 @@
                             }}</mat-label>
                             <input
                                 matInput
-                                type="date"
+                                [matDatepicker]="fromPicker"
                                 formControlName="from"
                             />
+                            <mat-datepicker-toggle
+                                matIconSuffix
+                                [for]="fromPicker"
+                            ></mat-datepicker-toggle>
+                            <mat-datepicker #fromPicker></mat-datepicker>
                         </mat-form-field>
                         <mat-form-field
-                            class="fuse-mat-dense w-36"
+                            class="fuse-mat-dense w-40"
                             subscriptSizing="dynamic"
                         >
                             <mat-label>{{ t('admin.analytics.to') }}</mat-label>
-                            <input matInput type="date" formControlName="to" />
+                            <input
+                                matInput
+                                [matDatepicker]="toPicker"
+                                formControlName="to"
+                            />
+                            <mat-datepicker-toggle
+                                matIconSuffix
+                                [for]="toPicker"
+                            ></mat-datepicker-toggle>
+                            <mat-datepicker #toPicker></mat-datepicker>
                         </mat-form-field>
                         <button
                             mat-flat-button
                             color="primary"
                             type="submit"
-                            [disabled]="loading()"
+                            [disabled]="loading() || rangeForm.invalid"
                         >
                             <mat-icon
                                 class="icon-size-5"
@@ -94,19 +108,6 @@
                             }}</span>
                         </button>
                     </form>
-                    <a
-                        mat-flat-button
-                        color="accent"
-                        routerLink="/admin/settings"
-                    >
-                        <mat-icon
-                            class="icon-size-5"
-                            svgIcon="heroicons_solid:cog-8-tooth"
-                        ></mat-icon>
-                        <span class="ml-2">{{
-                            t('admin.dashboard.settings.title')
-                        }}</span>
-                    </a>
                 </div>
             </div>
         </div>

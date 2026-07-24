@@ -6,12 +6,10 @@ import { MarketsComponent } from './catalog/markets.component';
 import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
 import { DeliveryZonesComponent } from './logistics/delivery-zones.component';
-import { HubStaffComponent } from './logistics/hub-staff.component';
 import { HubsComponent } from './logistics/hubs.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
-import { AdminSettingsComponent } from './settings/settings.component';
 import { UsersListComponent } from './users/users-list.component';
 
 export default [
@@ -55,10 +53,6 @@ export default [
         component: HubsComponent,
     },
     {
-        path: 'hubs/:hubId/staff',
-        component: HubStaffComponent,
-    },
-    {
         path: 'vehicles',
         component: VehiclesComponent,
     },
@@ -66,14 +60,9 @@ export default [
         path: 'delivery-zones',
         component: DeliveryZonesComponent,
     },
-    // Procurement batching (M5)
+    // Procurement batching (M5) — settings dialog opens from this screen
     {
         path: 'order-groups',
         component: OrderGroupsComponent,
-    },
-    // Platform configuration (M13)
-    {
-        path: 'settings',
-        component: AdminSettingsComponent,
     },
 ] as Routes;

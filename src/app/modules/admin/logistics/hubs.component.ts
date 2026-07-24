@@ -4,9 +4,8 @@ import {
     ViewEncapsulation,
     inject,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { ResourceCrudComponent } from '../shared/resource-crud.component';
-import { CrudResource } from '../shared/resource-crud.types';
+import { CrudResource, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 
 /** Admin ▸ Logistics ▸ Hubs — hub master data (M8, admin = Full). */
@@ -22,7 +21,6 @@ import { LogisticsAdminService } from './logistics-admin.service';
 })
 export class HubsComponent {
     private readonly _logistics = inject(LogisticsAdminService);
-    private readonly _router = inject(Router);
 
     readonly resource: CrudResource = {
         title: 'admin.hubs.title',
@@ -34,16 +32,19 @@ export class HubsComponent {
             {
                 label: 'admin.hubs.name',
                 sortable: true,
+                width: 'minmax(0, 1.2fr)',
                 cell: (row) => String(row['name'] ?? ''),
             },
             {
                 label: 'admin.hubs.address',
                 sortable: true,
+                width: 'minmax(0, 1.4fr)',
                 cell: (row) => String(row['address'] ?? ''),
             },
             {
                 label: 'admin.hubs.capacityKg',
                 sortable: true,
+                width: '7.5rem',
                 // `cell` renders "500 kg"; sort on the bare number.
                 sortValue: (row) =>
                     row['capacityKg'] == null || row['capacityKg'] === ''
@@ -55,16 +56,24 @@ export class HubsComponent {
                         : '',
             },
             {
-                label: 'admin.hubs.coordinates',
-                cell: (row) =>
-                    row['latitude'] != null && row['longitude'] != null
-                        ? `${row['latitude']}, ${row['longitude']}`
-                        : '',
-            },
-            {
                 label: 'admin.hubs.managedBy',
                 sortable: true,
+                width: 'minmax(0, 1fr)',
                 cell: (row) => String(row['managedByName'] ?? ''),
+                // Same assignable-user button + dialog as markets' agent.
+                assign: {
+                    idKey: 'managedBy',
+                    noneLabel: 'admin.hubs.managerNone',
+                    dialogTitle: 'admin.hubs.managerDialog.title',
+                    dialogCurrent: 'admin.hubs.managerDialog.current',
+                    dialogSelect: 'admin.hubs.managerDialog.select',
+                    dialogClear: 'admin.hubs.managerDialog.clear',
+                    dialogSave: 'admin.hubs.managerDialog.save',
+                    dialogSuccess: 'admin.hubs.managerDialog.success',
+                    dialogError: 'admin.hubs.managerDialog.error',
+                    options: () => this._logistics.hubManagerOptions(),
+                    save: (row, userId) => this._saveManager(row, userId),
+                },
             },
         ],
         fields: [
@@ -76,12 +85,6 @@ export class HubsComponent {
                 maxLength: 200,
             },
             {
-                name: 'address',
-                label: 'admin.hubs.address',
-                type: 'text',
-                maxLength: 500,
-            },
-            {
                 name: 'capacityKg',
                 label: 'admin.hubs.capacityKg',
                 type: 'number',
@@ -89,17 +92,13 @@ export class HubsComponent {
                 min: 1,
             },
             {
-                name: 'managedBy',
-                label: 'admin.hubs.managedBy',
-                type: 'select',
-                options: () => this._logistics.hubManagerOptions(),
-            },
-            {
+                // One address search input → writes address + lat/lng (markets pattern).
                 name: 'location',
-                label: 'admin.hubs.coordinates',
+                label: 'admin.hubs.address',
                 type: 'location',
                 latField: 'latitude',
                 lngField: 'longitude',
+                addressField: 'address',
             },
         ],
         list: () => this._logistics.listHubs(),
@@ -108,16 +107,29 @@ export class HubsComponent {
         remove: (row) => this._logistics.deleteHub(row.id),
         removeLabel: 'admin.crud.delete',
         removeIcon: 'trash',
-        rowActions: [
-            {
-                icon: 'user-group',
-                tooltip: 'admin.hubStaff.manage',
-                run: (row) =>
-                    void this._router.navigate(
-                        ['/admin/hubs', row.id, 'staff'],
-                        { state: { hubName: String(row['name'] ?? '') } }
-                    ),
-            },
-        ],
     };
+
+    /** PATCH managedBy while keeping the rest of the hub payload intact. */
+    private _saveManager(row: CrudRow, userId: string | null): Promise<void> {
+        return this._logistics.updateHub(row.id, {
+            name: String(row['name'] ?? ''),
+            address:
+                row['address'] == null || row['address'] === ''
+                    ? null
+                    : String(row['address']),
+            latitude:
+                row['latitude'] == null || row['latitude'] === ''
+                    ? null
+                    : Number(row['latitude']),
+            longitude:
+                row['longitude'] == null || row['longitude'] === ''
+                    ? null
+                    : Number(row['longitude']),
+            capacityKg:
+                row['capacityKg'] == null || row['capacityKg'] === ''
+                    ? null
+                    : Number(row['capacityKg']),
+            managedBy: userId,
+        });
+    }
 }

@@ -1,8 +1,9 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractPagination,
     extractTotal,
-    MAX_PAGE_SIZE,
+    fetchAllCursor,
     parseJson,
     unwrapData,
     withId,
@@ -13,11 +14,11 @@ import {
     AdminAuditLogRow,
     AdminAuditLogsResult,
     AdminAutoBatchPayload,
+    AdminAutoBatchResult,
     AdminCreateUserPayload,
     AdminCreditStatement,
     AdminCreditTransaction,
     AdminGenerateStatementPayload,
-    AdminMarketAssignmentEntry,
     AdminMarketOption,
     AdminOperationalSettings,
     AdminOrderGroupRow,
@@ -61,8 +62,13 @@ export class AdminService {
         });
         const body = await parseJson<unknown>(res.raw);
         const users = withId<AdminUserRow>(extractList(body), 'userId');
-        const totalCount = extractTotal(body) ?? users.length;
-        return { users, totalCount };
+        const p = extractPagination(body);
+        return {
+            users,
+            totalCount: p?.total ?? extractTotal(body) ?? users.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     async createUser(payload: AdminCreateUserPayload): Promise<void> {
@@ -94,11 +100,53 @@ export class AdminService {
             { userId }
         );
         const body = await parseJson<unknown>(res.raw);
-        const entries = extractList<AdminMarketAssignmentEntry>(body);
-        return entries
-            .map((entry) =>
-                typeof entry === 'string' ? entry : entry.marketId ?? entry.id
-            )
+        const data = unwrapData<unknown>(body) ?? body;
+        return this._assignmentMarketIds(data);
+    }
+
+    /**
+     * Pulls the assigned market ids out of the (untyped) market-assignments
+     * body, tolerating both a bare array and an object wrapper that names the
+     * array `marketIds` / `markets` / `assignments` / `items`, and entries that
+     * are either plain id strings or objects.
+     */
+    private _assignmentMarketIds(data: unknown): string[] {
+        let list: unknown[] = [];
+        if (Array.isArray(data)) {
+            list = data;
+        } else if (data && typeof data === 'object') {
+            const record = data as Record<string, unknown>;
+            for (const key of [
+                'marketIds',
+                'markets',
+                'assignments',
+                'items',
+                'results',
+                'value',
+                'data',
+            ]) {
+                if (Array.isArray(record[key])) {
+                    list = record[key] as unknown[];
+                    break;
+                }
+            }
+        }
+        return list
+            .map((entry) => {
+                if (typeof entry === 'string') {
+                    return entry;
+                }
+                if (entry && typeof entry === 'object') {
+                    const e = entry as Record<string, unknown>;
+                    const value =
+                        e['marketId'] ??
+                        e['marketID'] ??
+                        e['market_id'] ??
+                        e['id'];
+                    return typeof value === 'string' ? value : null;
+                }
+                return null;
+            })
             .filter((id): id is string => !!id);
     }
 
@@ -120,10 +168,7 @@ export class AdminService {
         agents: AdminUserRow[];
         agentsByMarket: Map<string, AdminUserRow>;
     }> {
-        const { users } = await this.getUsers({
-            role: MARKET_AGENT_ROLE,
-            pageSize: MAX_PAGE_SIZE,
-        });
+        const { users } = await this.getUsers({ role: MARKET_AGENT_ROLE });
         const agents = users.filter((u) => !!u.id);
         const pairs = await Promise.all(
             agents.map(async (agent) => ({
@@ -157,23 +202,24 @@ export class AdminService {
      */
     async setMarketAgent(
         marketId: string,
-        agentUserId: string | null
+        agentUserId: string | null,
+        previousAgentId: string | null = null
     ): Promise<void> {
-        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
-        const previous = agentsByMarket.get(marketId);
-
-        if (previous?.id === agentUserId) {
+        const previous = previousAgentId || null;
+        if (previous === (agentUserId || null)) {
             return;
         }
 
+        // Drop the market from the previous agent's assignment list.
         if (previous) {
-            const markets = await this.getMarketAssignments(previous.id);
+            const markets = await this.getMarketAssignments(previous);
             await this.replaceMarketAssignments(
-                previous.id,
+                previous,
                 markets.filter((id) => id !== marketId)
             );
         }
 
+        // Add the market to the new agent's assignment list.
         if (agentUserId) {
             const markets = await this.getMarketAssignments(agentUserId);
             if (!markets.includes(marketId)) {
@@ -262,14 +308,17 @@ export class AdminService {
         restaurantId: string
     ): Promise<AdminCreditStatement[]> {
         try {
-            const res =
-                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
-                    { restaurantId, pageSize: MAX_PAGE_SIZE }
-                );
-            return withId<AdminCreditStatement>(
-                extractList(await parseJson(res.raw)),
-                'statementId'
+            const rows = await fetchAllCursor<AdminCreditStatement>(
+                (cursor, pageSize) =>
+                    restaurantCreditApi
+                        .apiV1RestaurantsRestaurantIdCreditStatementsGetRaw({
+                            restaurantId,
+                            cursor,
+                            pageSize,
+                        })
+                        .then((res) => res.raw)
             );
+            return withId<AdminCreditStatement>(rows, 'statementId');
         } catch {
             return [];
         }
@@ -308,14 +357,17 @@ export class AdminService {
         restaurantId: string
     ): Promise<AdminCreditTransaction[]> {
         try {
-            const res =
-                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw(
-                    { restaurantId, pageSize: MAX_PAGE_SIZE }
-                );
-            return withId<AdminCreditTransaction>(
-                extractList(await parseJson(res.raw)),
-                'transactionId'
+            const rows = await fetchAllCursor<AdminCreditTransaction>(
+                (cursor, pageSize) =>
+                    restaurantCreditApi
+                        .apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw({
+                            restaurantId,
+                            cursor,
+                            pageSize,
+                        })
+                        .then((res) => res.raw)
             );
+            return withId<AdminCreditTransaction>(rows, 'transactionId');
         } catch {
             return [];
         }
@@ -357,7 +409,7 @@ export class AdminService {
 
     async getOrderGroups(
         page = 1,
-        pageSize = 25
+        pageSize = 10
     ): Promise<AdminOrderGroupsResult> {
         const res = await adminApi.apiV1AdminOrderGroupsGetRaw({
             page,
@@ -366,7 +418,13 @@ export class AdminService {
         const body = await parseJson<unknown>(res.raw);
         // Batch routes use {batchId}; the list may key it either way.
         const groups = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
-        return { groups, totalCount: extractTotal(body) ?? groups.length };
+        const p = extractPagination(body);
+        return {
+            groups,
+            totalCount: p?.total ?? extractTotal(body) ?? groups.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     /** Live batching progress for a day, optionally narrowed to one status. */
@@ -388,7 +446,9 @@ export class AdminService {
      * Runs auto-batching. `dryRun` asks the backend to report what it *would*
      * group without persisting, so the admin can preview before committing.
      */
-    async runAutoBatch(payload: AdminAutoBatchPayload = {}): Promise<unknown> {
+    async runAutoBatch(
+        payload: AdminAutoBatchPayload = {}
+    ): Promise<AdminAutoBatchResult> {
         const res = await adminApi.apiV1AdminOrderGroupsAutoBatchPostRaw({
             runAutoBatchRequest: {
                 targetDate: payload.targetDate
@@ -398,7 +458,7 @@ export class AdminService {
                 force: payload.force ?? null,
             },
         });
-        return unwrapData<unknown>(await parseJson(res.raw));
+        return unwrapData<AdminAutoBatchResult>(await parseJson(res.raw)) ?? {};
     }
 
     /** Market-agent users, for the "assign agent" picker on a batch. */
@@ -406,7 +466,6 @@ export class AdminService {
         const { users } = await this.getUsers({
             role: MARKET_AGENT_ROLE,
             isActive: true,
-            pageSize: MAX_PAGE_SIZE,
         });
         return users.filter((user) => !!user.id);
     }
@@ -450,7 +509,13 @@ export class AdminService {
         });
         const body = await parseJson<unknown>(res.raw);
         const entries = extractList<AdminAuditLogRow>(body);
-        return { entries, totalCount: extractTotal(body) ?? entries.length };
+        const p = extractPagination(body);
+        return {
+            entries,
+            totalCount: p?.total ?? extractTotal(body) ?? entries.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
     }
 
     // -------------------------------------------------------------------

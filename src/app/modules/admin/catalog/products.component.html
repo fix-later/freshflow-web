@@ -56,19 +56,42 @@
                 class="fuse-mat-dense w-56"
                 subscriptSizing="dynamic"
             >
-                <mat-label>{{ t('admin.products.filterCategory') }}</mat-label>
+                <mat-label>{{ t('admin.products.parentCategory') }}</mat-label>
                 <mat-icon
                     matPrefix
                     svgIcon="heroicons_outline:funnel"
                 ></mat-icon>
                 <mat-select
-                    [value]="categoryFilter()"
-                    (selectionChange)="onCategoryFilter($event.value)"
+                    [value]="filterParentId()"
+                    (selectionChange)="onFilterParentChange($event.value)"
                 >
                     <mat-option [value]="''">{{
                         t('admin.crud.filterAll')
                     }}</mat-option>
-                    @for (opt of filterCategoryOptions(); track opt.value) {
+                    @for (opt of parentCategoryOptions(); track opt.value) {
+                        <mat-option [value]="opt.value">{{
+                            opt.label
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-56"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.products.childCategory') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="filterChildId()"
+                    (selectionChange)="onFilterChildChange($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (opt of filterChildOptions(); track opt.value) {
                         <mat-option [value]="opt.value">{{
                             opt.label
                         }}</mat-option>
@@ -95,7 +118,7 @@
         <div
             class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
         >
-            @if (filteredRows().length > 0) {
+            @if (rows().length > 0) {
                 <div class="grid">
                     <!-- Header -->
                     <div
@@ -165,7 +188,7 @@
                     </div>
 
                     <!-- Rows -->
-                    @for (row of pagedRows(); track row.id) {
+                    @for (row of sortedRows(); track row.id) {
                         <div
                             class="products-grid grid items-center gap-x-8 gap-y-0 border-b px-6 py-3 md:px-8"
                         >
@@ -232,14 +255,14 @@
                     }
                 </div>
 
-                @if (filteredRows().length > pageSize()) {
+                @if (totalCount() > 0) {
                     <mat-paginator
                         class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
                         [class.pointer-events-none]="loading()"
-                        [length]="filteredRows().length"
+                        [length]="totalCount()"
                         [pageIndex]="pageIndex()"
                         [pageSize]="pageSize()"
-                        [pageSizeOptions]="[5, 10, 25, 100]"
+                        [pageSizeOptions]="[10, 20, 50]"
                         [showFirstLastButtons]="true"
                         (page)="onPageChange($event)"
                     ></mat-paginator>

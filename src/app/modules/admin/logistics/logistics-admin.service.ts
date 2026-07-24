@@ -1,18 +1,14 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
-    MAX_PAGE_SIZE,
+    extractPagination,
+    extractTotal,
+    fetchAllCursor,
+    fetchAllOffset,
     parseJson,
-    unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import {
-    adminApi,
-    deliveryZonesApi,
-    hubsApi,
-    hubStaffAssignmentsApi,
-    vehiclesApi,
-} from 'contract';
+import { adminApi, deliveryZonesApi, hubsApi, vehiclesApi } from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -21,11 +17,6 @@ import {
 
 /** Role whose users may manage a hub (see ROLE_MATRIX — Hub Staff). */
 const HUB_MANAGER_ROLE = 'hub_staff';
-
-/** A hub staff assignment — bare user id or an object wrapping one. */
-type HubStaffAssignmentEntry =
-    | string
-    | { userId?: string; staffUserId?: string; id?: string };
 
 function str(value: unknown): string {
     return value == null ? '' : String(value);
@@ -54,17 +45,18 @@ export class LogisticsAdminService {
     // ---- Hubs -------------------------------------------------------------
 
     async listHubs(): Promise<CrudRow[]> {
-        const [res, managers] = await Promise.all([
-            hubsApi.apiV1HubsGetRaw({ pageSize: MAX_PAGE_SIZE }),
+        const [rawRows, managers] = await Promise.all([
+            fetchAllCursor<CrudRow>((cursor, pageSize) =>
+                hubsApi
+                    .apiV1HubsGetRaw({ cursor, pageSize })
+                    .then((res) => res.raw)
+            ),
             this.hubManagerOptions(),
         ]);
         const nameById = new Map(managers.map((m) => [m.value, m.label]));
         // Hub routes name the key both ways (`/hubs/{id}` but
         // `/hubs/{hubId}/...`), so accept either as the row identifier.
-        const rows = withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'hubId'
-        );
+        const rows = withId<CrudRow>(rawRows, 'hubId');
         return rows.map((row) => ({
             ...row,
             // Attach a resolved manager name so the table shows it, not a UUID.
@@ -78,15 +70,19 @@ export class LogisticsAdminService {
     /** Hub-staff users as `{ value: id, label: email }` for the manager select. */
     async hubManagerOptions(): Promise<CrudOption[]> {
         try {
-            const res = await adminApi.apiV1AdminUsersGetRaw({
-                role: HUB_MANAGER_ROLE,
-                pageSize: MAX_PAGE_SIZE,
-            });
-            const users = extractList<{
+            const users = await fetchAllOffset<{
                 id?: string;
                 email?: string;
                 fullName?: string;
-            }>(await parseJson(res.raw));
+            }>((page, pageSize) =>
+                adminApi
+                    .apiV1AdminUsersGetRaw({
+                        role: HUB_MANAGER_ROLE,
+                        page,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+            );
             return users
                 .filter((u): u is { id: string; email?: string } => !!u.id)
                 .map((u) => ({
@@ -129,62 +125,15 @@ export class LogisticsAdminService {
         await hubsApi.apiV1HubsIdDelete({ id });
     }
 
-    /**
-     * A hub's display name, for screens reached by deep link.
-     *
-     * The staff page normally gets the name from the row the list passed via
-     * router state, but that is gone after a reload — falling back to this
-     * keeps the heading from showing a bare UUID.
-     */
-    async getHubName(id: string): Promise<string> {
-        const res = await hubsApi.apiV1HubsIdGetRaw({ id });
-        const hub = unwrapData<{ name?: string }>(await parseJson(res.raw));
-        return str(hub?.name);
-    }
-
-    // ---- Hub staff assignments -------------------------------------------
-
-    /**
-     * Ids of the hub-staff users rostered to a hub. The list body is untyped,
-     * so accept both a bare id array and `{ userId | id }` objects.
-     */
-    async listHubStaffAssignments(hubId: string): Promise<string[]> {
-        const res =
-            await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsGetRaw({
-                hubId,
-            });
-        const entries = extractList<HubStaffAssignmentEntry>(
-            await parseJson(res.raw)
-        );
-        return entries
-            .map((entry) =>
-                typeof entry === 'string'
-                    ? entry
-                    : entry.userId ?? entry.staffUserId ?? entry.id
-            )
-            .filter((id): id is string => !!id);
-    }
-
-    async replaceHubStaffAssignments(
-        hubId: string,
-        staffUserIds: string[]
-    ): Promise<void> {
-        await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsPut({
-            hubId,
-            replaceHubStaffAssignmentsRequest: { staffUserIds },
-        });
-    }
-
     // ---- Vehicles ---------------------------------------------------------
 
     async listVehicles(): Promise<CrudRow[]> {
-        const res = await vehiclesApi.apiV1LogisticsVehiclesGetRaw({
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'vehicleId'
+        const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            vehiclesApi
+                .apiV1LogisticsVehiclesGetRaw({ cursor, pageSize })
+                .then((res) => res.raw)
         );
+        return withId<CrudRow>(rows, 'vehicleId');
     }
 
     async createVehicle(value: CrudFormValue): Promise<void> {
@@ -214,15 +163,49 @@ export class LogisticsAdminService {
 
     // ---- Delivery zones ---------------------------------------------------
 
+    /** All zones (pages to completion) for pickers. */
     async listZones(): Promise<CrudRow[]> {
+        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            deliveryZonesApi
+                .apiV1LogisticsDeliveryZonesGetRaw({
+                    activeOnly: false,
+                    page,
+                    pageSize,
+                })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rawRows, 'zoneId', 'deliveryZoneId');
+    }
+
+    /** One offset page of delivery zones for the admin table. */
+    async listZonesPage(query: {
+        page: number;
+        pageSize: number;
+        activeOnly?: boolean;
+    }): Promise<{
+        rows: CrudRow[];
+        total: number;
+        page?: number;
+        pageSize?: number;
+    }> {
         const res = await deliveryZonesApi.apiV1LogisticsDeliveryZonesGetRaw({
-            activeOnly: false,
+            activeOnly: query.activeOnly ?? false,
+            page: query.page,
+            pageSize: query.pageSize,
         });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(
+            extractList(body),
             'zoneId',
             'deliveryZoneId'
         );
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
     }
 
     async createZone(value: CrudFormValue): Promise<void> {

@@ -1,8 +1,10 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractPagination,
     extractTotal,
-    MAX_PAGE_SIZE,
+    fetchAllCursor,
+    fetchAllOffset,
     parseJson,
     unwrapData,
     withId,
@@ -13,6 +15,37 @@ import {
     CrudOption,
     CrudRow,
 } from '../shared/resource-crud.types';
+
+/** Server-side page of products (one page loaded at a time). */
+export interface ProductsPage {
+    rows: CrudRow[];
+    total: number;
+    page?: number;
+    pageSize?: number;
+}
+
+/** Offset page for catalog master-data tables (categories, units, markets). */
+export interface CatalogPage {
+    rows: CrudRow[];
+    total: number;
+    page?: number;
+    pageSize?: number;
+}
+
+/** Query for a single products page. */
+export interface ProductsQuery {
+    page: number;
+    pageSize: number;
+    search?: string;
+    categoryId?: string;
+}
+
+/** Query for a catalog master-data page. */
+export interface CatalogPageQuery {
+    page: number;
+    pageSize: number;
+    activeOnly?: boolean;
+}
 
 /** Coerce a form value to a required (non-empty) string. */
 function str(value: unknown): string {
@@ -58,18 +91,19 @@ export class CatalogAdminService {
     // ---- Categories -------------------------------------------------------
 
     /**
-     * Categories, each annotated with a resolved `parentName`.
-     *
-     * The spec declares no response schema, and the list body carries only
-     * `parentId` — so the parent's name is resolved by self-joining the same
-     * list (no extra request). A server-sent `parentName` wins if present.
+     * All categories in one request (BE has no offset pagination), each
+     * annotated with a resolved `parentName`. The admin table paginates
+     * client-side from this list.
      */
     async listCategories(activeOnly = false): Promise<CrudRow[]> {
         const res = await categoriesApi.apiV1CategoriesGetRaw({ activeOnly });
-        const rows = withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'categoryId'
+        const body = await parseJson(res.raw);
+        return this._withCategoryParentNames(
+            withId<CrudRow>(extractList(body), 'categoryId')
         );
+    }
+
+    private _withCategoryParentNames(rows: CrudRow[]): CrudRow[] {
         const nameById = new Map(rows.map((row) => [row.id, str(row['name'])]));
         return rows.map((row) => ({
             ...row,
@@ -116,9 +150,14 @@ export class CatalogAdminService {
 
     // ---- Units ------------------------------------------------------------
 
+    /**
+     * All units in one request (BE has no offset pagination). The admin table
+     * paginates client-side from this list.
+     */
     async listUnits(activeOnly = false): Promise<CrudRow[]> {
         const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'unitId');
+        const body = await parseJson(res.raw);
+        return withId<CrudRow>(extractList(body), 'unitId');
     }
 
     async createUnit(value: CrudFormValue): Promise<void> {
@@ -147,33 +186,47 @@ export class CatalogAdminService {
     // ---- Products ---------------------------------------------------------
 
     /**
-     * All products, following the offset pagination to completion — the API
-     * caps `pageSize` at {@link MAX_PAGE_SIZE}, so a single request would miss
-     * anything past the first 100. Loops until a short page (or the reported
-     * total) is reached.
+     * One server-side page of products. Search and category filtering are sent
+     * to the backend (`search`/`category`) so only the current page is loaded,
+     * keeping the frontend light. Only active products are returned
+     * (`includeInactive: false`).
      */
-    async listProducts(): Promise<CrudRow[]> {
-        const pageSize = MAX_PAGE_SIZE;
-        const all: CrudRow[] = [];
-        for (let page = 1; ; page++) {
-            const res = await productsApi.apiV1ProductsGetRaw({
-                includeInactive: true,
-                page,
-                pageSize,
-            });
-            const body = await parseJson(res.raw);
-            const rows = withId<CrudRow>(extractList(body), 'productId');
-            all.push(...rows);
-            const total = extractTotal(body);
-            const done =
-                rows.length < pageSize ||
-                (total != null && all.length >= total) ||
-                page >= 100; // safety cap: 100 pages × 100 = 10k products
-            if (done) {
-                break;
-            }
-        }
-        return all;
+    async listProducts(query: ProductsQuery): Promise<ProductsPage> {
+        const res = await productsApi.apiV1ProductsGetRaw({
+            includeInactive: false,
+            page: query.page,
+            pageSize: query.pageSize,
+            search: query.search || undefined,
+            category: query.categoryId || undefined,
+        });
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(extractList(body), 'productId');
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
+    }
+
+    /**
+     * All active products as id/name options for pickers (e.g. adding a product
+     * to a market). Pickers need the whole set, so this pages to completion —
+     * unlike {@link listProducts}, which loads one page for the table.
+     */
+    async productOptions(): Promise<CrudOption[]> {
+        const rows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            productsApi
+                .apiV1ProductsGetRaw({ includeInactive: false, page, pageSize })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rows, 'productId')
+            .filter((row) => !!row.id)
+            .map((row) => ({
+                value: row.id,
+                label: String(row['name'] ?? ''),
+            }));
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {
@@ -253,12 +306,36 @@ export class CatalogAdminService {
 
     // ---- Markets ----------------------------------------------------------
 
+    /** All markets (pages to completion) for pickers. */
     async listMarkets(): Promise<CrudRow[]> {
-        const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly: false });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'marketId'
+        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            marketsApi
+                .apiV1MarketsGetRaw({
+                    activeOnly: false,
+                    page,
+                    pageSize,
+                })
+                .then((res) => res.raw)
         );
+        return withId<CrudRow>(rawRows, 'marketId');
+    }
+
+    /** One offset page of markets for the admin table. */
+    async listMarketsPage(query: CatalogPageQuery): Promise<CatalogPage> {
+        const res = await marketsApi.apiV1MarketsGetRaw({
+            activeOnly: query.activeOnly ?? false,
+            page: query.page,
+            pageSize: query.pageSize,
+        });
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(extractList(body), 'marketId');
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
     }
 
     async createMarket(value: CrudFormValue): Promise<void> {
@@ -293,11 +370,15 @@ export class CatalogAdminService {
     // ---- Market products (pricing) ---------------------------------------
 
     async listMarketProducts(marketId: string): Promise<CrudRow[]> {
-        const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
-            marketId,
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return extractList<CrudRow>(await parseJson(res.raw));
+        return fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            marketsApi
+                .apiV1MarketsMarketIdProductsGetRaw({
+                    marketId,
+                    cursor,
+                    pageSize,
+                })
+                .then((res) => res.raw)
+        );
     }
 
     async addMarketProduct(

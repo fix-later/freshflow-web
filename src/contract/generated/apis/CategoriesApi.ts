@@ -24,6 +24,8 @@ import * as runtime from '../runtime';
 
 export interface ApiV1CategoriesGetRequest {
     activeOnly?: boolean;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface ApiV1CategoriesIdActivatePatchRequest {
@@ -61,6 +63,14 @@ export class CategoriesApi extends runtime.BaseAPI {
 
         if (requestParameters['activeOnly'] != null) {
             queryParameters['activeOnly'] = requestParameters['activeOnly'];
+        }
+
+        if (requestParameters['page'] != null) {
+            queryParameters['page'] = requestParameters['page'];
+        }
+
+        if (requestParameters['pageSize'] != null) {
+            queryParameters['pageSize'] = requestParameters['pageSize'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

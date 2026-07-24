@@ -15,6 +15,29 @@ export interface CrudRow {
 /** Form value emitted by the create/edit dialog (per field name). */
 export type CrudFormValue = Record<string, string | number | null>;
 
+/**
+ * Markets-style “assign user” cell: stroked button + dialog to pick / clear a
+ * related user (hub manager, market agent, …).
+ */
+export interface CrudAssignColumn {
+    /** Current assignee id key on the row (e.g. `managedBy`). */
+    idKey: string;
+    /** i18n key when no user is assigned. */
+    noneLabel: string;
+    /** i18n keys for the assign dialog chrome. */
+    dialogTitle: string;
+    dialogCurrent: string;
+    dialogSelect: string;
+    dialogClear: string;
+    dialogSave: string;
+    dialogSuccess: string;
+    dialogError: string;
+    /** Options for the select (value = user id, label = email/name). */
+    options: () => Promise<CrudOption[]>;
+    /** Persist the assignment (`userId` null clears). */
+    save: (row: CrudRow, userId: string | null) => Promise<void>;
+}
+
 export interface CrudColumn {
     /** i18n key for the header cell — also the column's sort key. */
     label: string;
@@ -22,6 +45,12 @@ export interface CrudColumn {
     cell: (row: CrudRow) => string;
     /** Render the cell as a thumbnail whose `src` is `cell(row)`. */
     image?: boolean;
+    /**
+     * CSS grid track for this column (e.g. `7rem`, `minmax(0, 1.2fr)`).
+     * Prefer fixed tracks for short numeric/action columns so header and body
+     * grids stay aligned (`auto` sizes differently per row).
+     */
+    width?: string;
     /** Makes the header a sort toggle. */
     sortable?: boolean;
     /**
@@ -30,6 +59,11 @@ export interface CrudColumn {
      * otherwise sort lexically. Defaults to `cell(row)`.
      */
     sortValue?: (row: CrudRow) => string | number | null;
+    /**
+     * When set, the cell renders an assignable-user button (markets agent
+     * pattern) instead of plain text. {@link cell} still supplies the label.
+     */
+    assign?: CrudAssignColumn;
 }
 
 export type CrudFieldType =
@@ -78,6 +112,12 @@ export interface CrudField {
      */
     latField?: string;
     lngField?: string;
+    /**
+     * For `type: 'location'`: optional address control bound to the picker’s
+     * search box so choosing a place writes both the address string and lat/lng
+     * (no separate address text field).
+     */
+    addressField?: string;
 }
 
 /**
@@ -169,9 +209,28 @@ export interface CrudResource {
     /** Extra page-level buttons shown beside "Create" (e.g. "view map"). */
     headerActions?: CrudHeaderAction[];
     /**
+     * When set, forces the create dialog wide/narrow shell. Default: wide when
+     * there are ≥4 fields or any location/image field (hubs / markets pattern).
+     */
+    wideForm?: boolean;
+    /**
      * When `false`, rows use edit/remove action buttons + a dialog instead of
      * the expandable detail panel. Prefer for resources with only a couple of
      * fields (e.g. categories). Default `true` (markets inventory pattern).
      */
     inlineDetail?: boolean;
+    /**
+     * Server offset page loader. When set, the table sends `page` / `pageSize`
+     * on each paginator change and uses `total` for MatPaginator length.
+     * {@link list} is still used for pickers / header actions that need all rows.
+     */
+    listPage?: (query: { page: number; pageSize: number }) => Promise<CrudPage>;
+}
+
+/** One server-side page for {@link CrudResource.listPage}. */
+export interface CrudPage {
+    rows: CrudRow[];
+    total: number;
+    page?: number;
+    pageSize?: number;
 }

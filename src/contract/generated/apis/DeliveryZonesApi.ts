@@ -24,6 +24,8 @@ import * as runtime from '../runtime';
 
 export interface ApiV1LogisticsDeliveryZonesGetRequest {
     activeOnly?: boolean;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface ApiV1LogisticsDeliveryZonesIdDeleteRequest {
@@ -57,6 +59,14 @@ export class DeliveryZonesApi extends runtime.BaseAPI {
 
         if (requestParameters['activeOnly'] != null) {
             queryParameters['active_only'] = requestParameters['activeOnly'];
+        }
+
+        if (requestParameters['page'] != null) {
+            queryParameters['page'] = requestParameters['page'];
+        }
+
+        if (requestParameters['pageSize'] != null) {
+            queryParameters['pageSize'] = requestParameters['pageSize'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

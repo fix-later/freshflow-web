@@ -84,11 +84,40 @@ body {
  * so a sortable column reads no louder than a fixed one until it is active.
  */
 .admin-sort-header {
-    @apply -mx-1 inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors;
+    @apply -mx-1 inline-flex max-w-full items-center gap-1 rounded px-1 py-0.5 text-left transition-colors;
 }
 
 .admin-sort-header:hover {
     @apply text-default bg-hover;
+}
+
+/**
+ * Assignable-user cell button (markets agent / hub manager). Material’s
+ * default inline-flex sizes to content — force a full-column flex box so the
+ * email label can ellipsis instead of blowing out the grid track.
+ */
+.agent-btn {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    align-items: center;
+}
+
+.agent-btn .mdc-button__label {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+}
+
+.agent-btn .agent-label {
+    min-width: 0;
+    flex: 1 1 0%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
 }
 
 /**

@@ -42,10 +42,15 @@ import {
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const AGENT_ROLES = ['market_agent', 'kiosk_staff'];
 const RESTAURANT_ROLE = 'restaurant';
 const RESTAURANT_NAME_MAX_LENGTH = 200;
@@ -395,11 +400,17 @@ export class UsersListComponent implements OnInit {
                 role: raw.role || undefined,
                 isActive:
                     raw.isActive === '' ? undefined : raw.isActive === 'true',
-                page: this.pageIndex() + 1,
+                page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });
             this.users.set(result.users);
             this.totalCount.set(result.totalCount);
+            if (result.page) {
+                this.pageIndex.set(toPageIndex(result.page));
+            }
+            if (result.pageSize) {
+                this.pageSize.set(result.pageSize);
+            }
             const id = this.selectedId();
             if (id && !result.users.some((u) => u.id === id)) {
                 this.closeDetails();

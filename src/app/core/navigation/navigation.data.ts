@@ -136,13 +136,6 @@ const NAVIGATION: AreaNavItem[] = [
                 icon: 'heroicons_outline:rectangle-group',
                 link: '/admin/order-groups',
             },
-            {
-                id: 'admin-settings',
-                title: 'Cấu hình hệ thống',
-                type: 'basic',
-                icon: 'heroicons_outline:cog-6-tooth',
-                link: '/admin/settings',
-            },
         ],
     },
     {

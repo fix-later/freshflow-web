@@ -35,6 +35,9 @@ export interface AdminUsersPage {
 export interface AdminUsersResult {
     users: AdminUserRow[];
     totalCount: number;
+    /** 1-based page and size the backend echoed back (for page tracking). */
+    page?: number;
+    pageSize?: number;
 }
 
 /** A role as returned by `GET /api/v1/admin/roles` — string or `{ name }`. */
@@ -122,6 +125,8 @@ export interface AdminAuditLogRow {
 export interface AdminAuditLogsResult {
     entries: AdminAuditLogRow[];
     totalCount: number;
+    page?: number;
+    pageSize?: number;
 }
 
 /** A procurement batch row from `GET /admin/order-groups`. */
@@ -144,6 +149,8 @@ export interface AdminOrderGroupRow {
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];
     totalCount: number;
+    page?: number;
+    pageSize?: number;
 }
 
 export interface AdminAutoBatchPayload {
@@ -151,6 +158,37 @@ export interface AdminAutoBatchPayload {
     targetDate?: string | null;
     dryRun?: boolean | null;
     force?: boolean | null;
+}
+
+/** One batch created (or, on a dry run, that would be created) by auto-batch. */
+export interface AdminAutoBatchBatch {
+    orderGroupId?: string | null;
+    deliveryZone?: string | null;
+    sourceMarketId?: string | null;
+    sourceMarketName?: string | null;
+    orderIds?: string[] | null;
+    [key: string]: unknown;
+}
+
+/** An order the run skipped, with the reason code (e.g. `ALREADY_BATCHED`). */
+export interface AdminAutoBatchSkipped {
+    orderId?: string | null;
+    reason?: string | null;
+    [key: string]: unknown;
+}
+
+/** Result of `POST /admin/order-groups/auto-batch` (see doc §4.2). */
+export interface AdminAutoBatchResult {
+    targetDate?: string | null;
+    dryRun?: boolean | null;
+    createdBatchCount?: number | null;
+    batchedOrderCount?: number | null;
+    skippedOrderCount?: number | null;
+    batches?: AdminAutoBatchBatch[] | null;
+    skippedOrders?: AdminAutoBatchSkipped[] | null;
+    triggeredBy?: string | null;
+    triggeredAt?: string | null;
+    [key: string]: unknown;
 }
 
 /** Flexible restaurant credit snapshot (`GET /restaurants/{id}/credit`, untyped). */

@@ -116,17 +116,8 @@ export class MarketProductsComponent implements OnInit {
     ngOnInit(): void {
         this.load();
         this._catalog
-            .listProducts()
-            .then((products) =>
-                this.productOptions.set(
-                    products
-                        .filter((p) => !!p.id)
-                        .map((p) => ({
-                            value: p.id,
-                            label: String(p['name'] ?? ''),
-                        }))
-                )
-            )
+            .productOptions()
+            .then((options) => this.productOptions.set(options))
             .catch(() => this.productOptions.set([]));
     }
 

@@ -25,13 +25,20 @@ import { mockApiServices } from 'app/mock-api';
 import { firstValueFrom } from 'rxjs';
 import { TranslocoHttpLoader } from './core/transloco/transloco.http-loader';
 
-/** Material + Luxon display formats — dd/MM/yyyy matches Vietnamese convention. */
+/**
+ * Material + Luxon formats — dd/MM/yyyy for dates (VI), HH:mm for times.
+ * Time keys are required by MatTimepicker (`display.timeInput`,
+ * `display.timeOptionLabel`, `parse.timeInput`).
+ */
 const VI_DATE_FORMATS = {
     parse: {
         dateInput: 'dd/MM/yyyy',
+        timeInput: 'HH:mm',
     },
     display: {
         dateInput: 'dd/MM/yyyy',
+        timeInput: 'HH:mm',
+        timeOptionLabel: 'HH:mm',
         monthYearLabel: 'MMMM yyyy',
         dateA11yLabel: 'DD',
         monthYearA11yLabel: 'MMMM yyyy',

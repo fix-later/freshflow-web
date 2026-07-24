@@ -37,6 +37,12 @@ import { LocationPickerComponent } from 'app/core/maps/location-picker.component
 import { includesFolded } from 'app/core/util/text-search';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    ADMIN_PAGE_SIZE_OPTIONS,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
@@ -71,21 +77,22 @@ import { CatalogAdminService } from './catalog-admin.service';
     styles: [
         `
             .markets-grid {
-                /* name | agent | pricing | details */
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+                /* name | agent | pricing | details — fixed action cols so the
+                   header and each row (separate grids) line up. */
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 7rem 5rem;
 
                 @screen sm {
                     /* name | location | agent | pricing | details */
                     grid-template-columns:
-                        minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)
-                        auto auto;
+                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        7rem 5rem;
                 }
 
                 @screen md {
                     /* name | location | address | agent | pricing | details */
                     grid-template-columns:
-                        minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.25fr)
-                        minmax(0, 1fr) auto auto;
+                        minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.2fr)
+                        minmax(10rem, 1fr) 7rem 5rem;
                 }
             }
         `,
@@ -116,7 +123,9 @@ export class MarketsComponent implements OnInit {
     readonly saving = signal(false);
     readonly search = signal('');
     readonly pageIndex = signal(0);
-    readonly pageSize = signal(10);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
+    readonly totalCount = signal(0);
+    readonly pageSizeOptions = ADMIN_PAGE_SIZE_OPTIONS;
     readonly selectedId = signal<string | null>(null);
     readonly flashMessage = signal<'success' | 'error' | null>(null);
     readonly sort = new TableSort<CrudRow>();
@@ -177,10 +186,7 @@ export class MarketsComponent implements OnInit {
         })
     );
 
-    readonly pagedRows = computed(() => {
-        const start = this.pageIndex() * this.pageSize();
-        return this.sortedRows().slice(start, start + this.pageSize());
-    });
+    readonly pagedRows = computed(() => this.sortedRows());
 
     ngOnInit(): void {
         this.load();
@@ -189,21 +195,32 @@ export class MarketsComponent implements OnInit {
     load(): void {
         this.loading.set(true);
         Promise.all([
-            this._catalog.listMarkets(),
+            this._catalog.listMarketsPage({
+                page: toApiPage(this.pageIndex()),
+                pageSize: this.pageSize(),
+                activeOnly: false,
+            }),
             this._admin.getMarketAgentsWithAssignments().catch(() => ({
                 agents: [] as AdminUserRow[],
                 agentsByMarket: new Map<string, AdminUserRow>(),
             })),
         ])
-            .then(([rows, { agents, agentsByMarket }]) => {
-                this.rows.set(rows);
+            .then(([page, { agents, agentsByMarket }]) => {
+                this.rows.set(page.rows);
+                this.totalCount.set(page.total);
+                if (page.page) {
+                    this.pageIndex.set(toPageIndex(page.page));
+                }
+                if (page.pageSize) {
+                    this.pageSize.set(page.pageSize);
+                }
                 this.agentOptions.set(agents);
                 this.agentsByMarket.set(agentsByMarket);
                 const id = this.selectedId();
-                if (id && !rows.some((r) => r.id === id)) {
+                if (id && !page.rows.some((r) => r.id === id)) {
                     this.closeDetails();
                 } else if (id) {
-                    const row = rows.find((r) => r.id === id);
+                    const row = page.rows.find((r) => r.id === id);
                     if (row) {
                         this._patchSelected(row);
                     }
@@ -256,10 +273,11 @@ export class MarketsComponent implements OnInit {
             return;
         }
         const agentUserId = this.agentForm.getRawValue().agentUserId || null;
+        const previousAgentId = this.agentFor(market)?.id ?? null;
 
         this.agentDialogSaving.set(true);
         this._admin
-            .setMarketAgent(market.id, agentUserId)
+            .setMarketAgent(market.id, agentUserId, previousAgentId)
             .then(() => {
                 this._notify('admin.markets.agentDialog.success');
                 this.closeAgentDialog();
@@ -292,6 +310,7 @@ export class MarketsComponent implements OnInit {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
         this.closeDetails();
+        this.load();
     }
 
     toggleDetails(row: CrudRow): void {

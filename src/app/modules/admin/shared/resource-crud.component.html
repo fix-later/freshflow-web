@@ -223,6 +223,25 @@
                                             </div>
                                         }
                                     </div>
+                                } @else if (col.assign) {
+                                    <div class="min-w-0">
+                                        <button
+                                            class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
+                                            mat-stroked-button
+                                            type="button"
+                                            [matTooltip]="col.cell(row)"
+                                            (click)="openAssignDialog(row, col)"
+                                        >
+                                            <mat-icon
+                                                class="flex-shrink-0 icon-size-5"
+                                                svgIcon="heroicons_outline:user"
+                                            ></mat-icon>
+                                            <span class="agent-label ml-1">{{
+                                                col.cell(row) ||
+                                                    t(col.assign.noneLabel)
+                                            }}</span>
+                                        </button>
+                                    </div>
                                 } @else {
                                     <div
                                         class="min-w-0 truncate"
@@ -440,14 +459,14 @@
                     }
                 </div>
 
-                @if (filteredRows().length > pageSize()) {
+                @if (showPaginator()) {
                     <mat-paginator
                         class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
                         [class.pointer-events-none]="loading()"
-                        [length]="filteredRows().length"
+                        [length]="paginatorLength()"
                         [pageIndex]="pageIndex()"
                         [pageSize]="pageSize()"
-                        [pageSizeOptions]="[5, 10, 25, 100]"
+                        [pageSizeOptions]="pageSizeOptions"
                         [showFirstLastButtons]="true"
                         (page)="onPageChange($event)"
                     ></mat-paginator>
@@ -522,131 +541,120 @@
     </div>
 </ng-template>
 
-<!-- Shared field controls for create dialog + inline detail -->
+<!-- Assign user (hub manager / similar) — markets agent pattern -->
+<ng-template #assignDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        @if (assignDialogColumn()?.assign; as assign) {
+            <div
+                class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
+            >
+                <div class="text-lg font-medium">
+                    {{ t(assign.dialogTitle) }}
+                </div>
+                <button
+                    mat-icon-button
+                    type="button"
+                    [tabIndex]="-1"
+                    (click)="closeAssignDialog()"
+                >
+                    <mat-icon
+                        class="text-current"
+                        svgIcon="heroicons_outline:x-mark"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            <form
+                class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+                [formGroup]="assignForm"
+                (ngSubmit)="saveAssign()"
+            >
+                @if (assignDialogRow(); as row) {
+                    <div class="mb-1 text-base font-medium">
+                        {{ row['name'] || '—' }}
+                    </div>
+                    <div class="text-secondary mb-6 text-sm">
+                        {{ row['address'] || '' }}
+                    </div>
+
+                    <div class="mb-6">
+                        <div class="mb-2 text-sm font-medium">
+                            {{ t(assign.dialogCurrent) }}
+                        </div>
+                        @if (assignDialogColumn()?.cell(row); as label) {
+                            <div class="text-sm">{{ label }}</div>
+                        } @else {
+                            <div class="text-secondary text-sm">
+                                {{ t(assign.noneLabel) }}
+                            </div>
+                        }
+                    </div>
+                }
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{ t(assign.dialogSelect) }}</mat-label>
+                    <mat-select formControlName="userId">
+                        <mat-option value="">{{
+                            t(assign.noneLabel)
+                        }}</mat-option>
+                        @for (opt of assignDialogOptions(); track opt.value) {
+                            <mat-option [value]="opt.value">{{
+                                opt.label
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                <div
+                    class="mt-6 flex flex-wrap items-center justify-between gap-3"
+                >
+                    <button
+                        class="-ml-2"
+                        mat-button
+                        color="warn"
+                        type="button"
+                        [disabled]="
+                            assignDialogSaving() ||
+                            (!assignForm.controls.userId.value &&
+                                !assignCurrentId())
+                        "
+                        (click)="clearAssignSelection()"
+                    >
+                        {{ t(assign.dialogClear) }}
+                    </button>
+                    <div class="flex items-center gap-3">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="closeAssignDialog()"
+                        >
+                            {{ t('admin.crud.cancel') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="submit"
+                            [disabled]="assignDialogSaving()"
+                        >
+                            {{ t(assign.dialogSave) }}
+                        </button>
+                    </div>
+                </div>
+            </form>
+        }
+    </div>
+</ng-template>
+
+<!-- Shared field controls for create dialog + inline detail (markets layout) -->
 <ng-template #crudFields>
     <ng-container *transloco="let t">
-        @for (field of resource.fields; track field.name) {
-            @if (isFieldVisible(field)) {
-                @if (field.type === 'location') {
-                    <div [class]="fieldSpanClass(field)">
-                        <span
-                            class="text-secondary mb-2 block text-sm font-medium"
-                        >
-                            {{ t(field.label) }}
-                        </span>
-                        <app-location-picker
-                            [latControl]="controlOf(field.latField ?? '')"
-                            [lngControl]="controlOf(field.lngField ?? '')"
-                        ></app-location-picker>
-                    </div>
-                } @else if (field.type === 'image') {
-                    <div
-                        [class]="fieldSpanClass(field)"
-                        class="flex flex-col gap-1.5"
-                    >
-                        <span class="text-secondary text-sm font-medium">
-                            {{ t(field.label) }}
-                        </span>
-
-                        <div
-                            class="group relative flex h-44 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors"
-                            [class.border-primary]="dragOver()[field.name]"
-                            [class.bg-primary-50]="dragOver()[field.name]"
-                            [class.dark:bg-primary-900]="dragOver()[field.name]"
-                            (dragover)="onDragOver(field, $event)"
-                            (dragleave)="onDragLeave(field)"
-                            (drop)="onImageDropped(field, $event)"
-                        >
-                            @if (controlOf(field.name)?.value) {
-                                <img
-                                    [src]="controlOf(field.name)?.value"
-                                    [alt]="t(field.label)"
-                                    class="h-full w-full object-contain"
-                                />
-                                <div
-                                    class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
-                                >
-                                    <button
-                                        mat-mini-fab
-                                        type="button"
-                                        color="primary"
-                                        [matTooltip]="
-                                            t('admin.crud.image.change')
-                                        "
-                                        [disabled]="uploading()[field.name]"
-                                        (click)="imageInput.click()"
-                                    >
-                                        <mat-icon
-                                            svgIcon="heroicons_outline:arrow-path"
-                                        ></mat-icon>
-                                    </button>
-                                    <button
-                                        mat-mini-fab
-                                        type="button"
-                                        color="warn"
-                                        [matTooltip]="
-                                            t('admin.crud.image.remove')
-                                        "
-                                        [disabled]="uploading()[field.name]"
-                                        (click)="clearImage(field)"
-                                    >
-                                        <mat-icon
-                                            svgIcon="heroicons_outline:trash"
-                                        ></mat-icon>
-                                    </button>
-                                </div>
-                            } @else {
-                                <button
-                                    type="button"
-                                    class="text-secondary flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:text-primary"
-                                    [disabled]="uploading()[field.name]"
-                                    (click)="imageInput.click()"
-                                >
-                                    <mat-icon
-                                        class="icon-size-10"
-                                        svgIcon="heroicons_outline:cloud-arrow-up"
-                                    ></mat-icon>
-                                    <span class="text-sm font-medium">
-                                        {{ t('admin.crud.image.upload') }}
-                                    </span>
-                                    <span class="text-secondary text-xs">
-                                        {{ t('admin.crud.image.hint') }}
-                                    </span>
-                                </button>
-                            }
-
-                            @if (uploading()[field.name]) {
-                                <div
-                                    class="bg-card/80 absolute inset-0 flex flex-col items-center justify-center gap-2 backdrop-blur-sm"
-                                >
-                                    <mat-progress-spinner
-                                        mode="indeterminate"
-                                        [diameter]="36"
-                                        color="primary"
-                                    ></mat-progress-spinner>
-                                    <span
-                                        class="text-secondary text-xs font-medium"
-                                    >
-                                        {{ t('admin.crud.image.uploading') }}
-                                    </span>
-                                </div>
-                            }
-                        </div>
-
-                        <input
-                            #imageInput
-                            type="file"
-                            accept="image/*"
-                            class="hidden"
-                            (change)="onImagePicked(field, imageInput)"
-                        />
-                    </div>
-                } @else {
-                    <mat-form-field
-                        class="w-full"
-                        subscriptSizing="dynamic"
-                        [class]="fieldSpanClass(field)"
-                    >
+        @if (scalarFields.length) {
+            <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
+                @for (field of scalarFields; track field.name) {
+                    <mat-form-field class="w-full min-w-0 sm:flex-1">
                         <mat-label>{{ t(field.label) }}</mat-label>
 
                         @switch (field.type) {
@@ -707,13 +715,6 @@
                                     }
                                 </mat-select>
                             }
-                            @case ('textarea') {
-                                <textarea
-                                    matInput
-                                    rows="3"
-                                    [formControlName]="field.name"
-                                ></textarea>
-                            }
                             @case ('number') {
                                 <input
                                     matInput
@@ -750,6 +751,138 @@
                         }
                     </mat-form-field>
                 }
+            </div>
+        }
+
+        @for (field of blockFields; track field.name) {
+            @if (field.type === 'location') {
+                <app-location-picker
+                    [latControl]="controlOf(field.latField ?? '')"
+                    [lngControl]="controlOf(field.lngField ?? '')"
+                    [queryControl]="
+                        field.addressField
+                            ? controlOf(field.addressField)
+                            : undefined
+                    "
+                    [searchLabelKey]="field.label"
+                    [showManualCoords]="!field.addressField"
+                ></app-location-picker>
+            } @else if (field.type === 'image') {
+                <div class="flex flex-col gap-1.5">
+                    <span class="text-secondary text-sm font-medium">
+                        {{ t(field.label) }}
+                    </span>
+
+                    <div
+                        class="group relative flex h-44 w-full items-center justify-center overflow-hidden rounded-xl border-2 border-dashed transition-colors"
+                        [class.border-primary]="dragOver()[field.name]"
+                        [class.bg-primary-50]="dragOver()[field.name]"
+                        [class.dark:bg-primary-900]="dragOver()[field.name]"
+                        (dragover)="onDragOver(field, $event)"
+                        (dragleave)="onDragLeave(field)"
+                        (drop)="onImageDropped(field, $event)"
+                    >
+                        @if (controlOf(field.name)?.value) {
+                            <img
+                                [src]="controlOf(field.name)?.value"
+                                [alt]="t(field.label)"
+                                class="h-full w-full object-contain"
+                            />
+                            <div
+                                class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100"
+                            >
+                                <button
+                                    mat-mini-fab
+                                    type="button"
+                                    color="primary"
+                                    [matTooltip]="t('admin.crud.image.change')"
+                                    [disabled]="uploading()[field.name]"
+                                    (click)="imageInput.click()"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:arrow-path"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-mini-fab
+                                    type="button"
+                                    color="warn"
+                                    [matTooltip]="t('admin.crud.image.remove')"
+                                    [disabled]="uploading()[field.name]"
+                                    (click)="clearImage(field)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:trash"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        } @else {
+                            <button
+                                type="button"
+                                class="text-secondary flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center transition-colors hover:text-primary"
+                                [disabled]="uploading()[field.name]"
+                                (click)="imageInput.click()"
+                            >
+                                <mat-icon
+                                    class="icon-size-10"
+                                    svgIcon="heroicons_outline:cloud-arrow-up"
+                                ></mat-icon>
+                                <span class="text-sm font-medium">
+                                    {{ t('admin.crud.image.upload') }}
+                                </span>
+                                <span class="text-secondary text-xs">
+                                    {{ t('admin.crud.image.hint') }}
+                                </span>
+                            </button>
+                        }
+
+                        @if (uploading()[field.name]) {
+                            <div
+                                class="bg-card/80 absolute inset-0 flex flex-col items-center justify-center gap-2 backdrop-blur-sm"
+                            >
+                                <mat-progress-spinner
+                                    mode="indeterminate"
+                                    [diameter]="36"
+                                    color="primary"
+                                ></mat-progress-spinner>
+                                <span
+                                    class="text-secondary text-xs font-medium"
+                                >
+                                    {{ t('admin.crud.image.uploading') }}
+                                </span>
+                            </div>
+                        }
+                    </div>
+
+                    <input
+                        #imageInput
+                        type="file"
+                        accept="image/*"
+                        class="hidden"
+                        (change)="onImagePicked(field, imageInput)"
+                    />
+                </div>
+            } @else if (field.type === 'textarea') {
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{ t(field.label) }}</mat-label>
+                    <textarea
+                        matInput
+                        rows="3"
+                        [formControlName]="field.name"
+                    ></textarea>
+                    @if (controlOf(field.name)?.hasError('required')) {
+                        <mat-error>{{
+                            t('admin.crud.errors.required')
+                        }}</mat-error>
+                    }
+                    @if (controlOf(field.name)?.hasError('maxlength')) {
+                        <mat-error>{{
+                            t('admin.crud.errors.maxLength', {
+                                max: field.maxLength,
+                            })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
             }
         }
     </ng-container>

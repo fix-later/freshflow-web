@@ -1,99 +1,141 @@
-<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
-    <h1 class="text-3xl font-bold tracking-tight">
-        {{ t('admin.settings.title') }}
-    </h1>
-
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="mt-6"></mat-progress-bar>
-    }
-
-    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <!-- Operational settings -->
-        <form
-            [formGroup]="operationalForm"
-            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
-            (ngSubmit)="saveOperational()"
-        >
-            <h2 class="text-lg font-semibold">
-                {{ t('admin.settings.operational.title') }}
-            </h2>
-            <p class="text-secondary text-sm">
-                {{ t('admin.settings.operational.description') }}
-            </p>
-
-            <mat-form-field subscriptSizing="dynamic">
-                <mat-label>{{
-                    t('admin.settings.operational.dailyCutoffTime')
-                }}</mat-label>
-                <input matInput type="time" formControlName="dailyCutoffTime" />
-            </mat-form-field>
-
-            <mat-form-field subscriptSizing="dynamic">
-                <mat-label>{{
-                    t('admin.settings.operational.defaultRouteType')
-                }}</mat-label>
-                <mat-select formControlName="defaultRouteType">
-                    <mat-option value="">{{
-                        t('admin.settings.operational.noRouteType')
-                    }}</mat-option>
-                    @for (type of routeTypes(); track type) {
-                        <mat-option [value]="type">{{ type }}</mat-option>
-                    }
-                </mat-select>
-            </mat-form-field>
-
-            <mat-checkbox formControlName="batchingEnabled">
-                {{ t('admin.settings.operational.batchingEnabled') }}
-            </mat-checkbox>
-
-            <button
-                mat-flat-button
-                color="accent"
-                type="submit"
-                class="self-end"
-                [disabled]="operationalForm.invalid || savingOperational()"
-            >
-                {{ t('admin.settings.save') }}
-            </button>
-        </form>
-
-        <!-- Pricing settings -->
-        <form
-            [formGroup]="pricingForm"
-            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
-            (ngSubmit)="savePricing()"
-        >
-            <h2 class="text-lg font-semibold">
-                {{ t('admin.settings.pricing.title') }}
-            </h2>
-            <p class="text-secondary text-sm">
-                {{ t('admin.settings.pricing.description') }}
-            </p>
-
-            <mat-form-field subscriptSizing="dynamic">
-                <mat-label>{{
-                    t('admin.settings.pricing.thresholdPercent')
-                }}</mat-label>
-                <input
-                    matInput
-                    type="number"
-                    min="0.01"
-                    max="100"
-                    step="0.01"
-                    formControlName="priceAlertThresholdPercent"
-                />
-                <span matTextSuffix>%</span>
-            </mat-form-field>
-
-            <button
-                mat-flat-button
-                color="accent"
-                type="submit"
-                class="self-end"
-                [disabled]="pricingForm.invalid || savingPricing()"
-            >
-                {{ t('admin.settings.save') }}
-            </button>
-        </form>
+<div
+    class="-m-6 flex max-h-[90vh] flex-col md:w-160 md:min-w-160"
+    *transloco="let t"
+>
+    <div
+        class="relative flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+    >
+        @if (loading() || saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="min-w-0">
+            <div class="text-lg font-medium">
+                {{ t('admin.settings.title') }}
+            </div>
+            <div class="text-secondary truncate text-sm">
+                {{ t('admin.settings.subtitle') }}
+            </div>
+        </div>
+        <button mat-icon-button type="button" [tabIndex]="-1" (click)="close()">
+            <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+        </button>
     </div>
+
+    <form
+        class="flex flex-auto flex-col overflow-y-auto"
+        [formGroup]="form"
+        (ngSubmit)="save()"
+    >
+        <div class="flex flex-col gap-6 p-6 sm:p-8">
+            <!-- Operational -->
+            <div class="flex flex-col gap-4">
+                <div>
+                    <div class="text-base font-semibold">
+                        {{ t('admin.settings.operational.title') }}
+                    </div>
+                    <p class="text-secondary mt-1 text-sm">
+                        {{ t('admin.settings.operational.description') }}
+                    </p>
+                </div>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.settings.operational.dailyCutoffTime')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        [matTimepicker]="cutoffPicker"
+                        formControlName="dailyCutoffTime"
+                    />
+                    <mat-timepicker-toggle
+                        matIconSuffix
+                        [for]="cutoffPicker"
+                    ></mat-timepicker-toggle>
+                    <mat-timepicker
+                        #cutoffPicker
+                        interval="15m"
+                    ></mat-timepicker>
+                    @if (
+                        form.controls.dailyCutoffTime.hasError('required') ||
+                        form.controls.dailyCutoffTime.hasError(
+                            'matTimepickerParse'
+                        )
+                    ) {
+                        <mat-error>{{
+                            t('admin.settings.operational.timeRequired')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.settings.operational.defaultRouteType')
+                    }}</mat-label>
+                    <mat-select formControlName="defaultRouteType">
+                        <mat-option value="">{{
+                            t('admin.settings.operational.noRouteType')
+                        }}</mat-option>
+                        @for (type of routeTypes(); track type) {
+                            <mat-option [value]="type">{{ type }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-checkbox
+                    class="my-1"
+                    formControlName="batchingEnabled"
+                    [color]="'primary'"
+                >
+                    {{ t('admin.settings.operational.batchingEnabled') }}
+                </mat-checkbox>
+            </div>
+
+            <div class="border-t"></div>
+
+            <!-- Pricing -->
+            <div class="flex flex-col gap-4">
+                <div>
+                    <div class="text-base font-semibold">
+                        {{ t('admin.settings.pricing.title') }}
+                    </div>
+                    <p class="text-secondary mt-1 text-sm">
+                        {{ t('admin.settings.pricing.description') }}
+                    </p>
+                </div>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.settings.pricing.thresholdPercent')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="number"
+                        min="0.01"
+                        max="100"
+                        step="0.01"
+                        formControlName="priceAlertThresholdPercent"
+                    />
+                    <span matTextSuffix>%</span>
+                </mat-form-field>
+            </div>
+        </div>
+
+        <div
+            class="flex flex-0 justify-end gap-3 border-t bg-gray-50 px-6 py-4 dark:bg-transparent sm:px-8"
+        >
+            <button mat-stroked-button type="button" (click)="close()">
+                {{ t('admin.crud.cancel') }}
+            </button>
+            <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="form.invalid || saving() || loading()"
+            >
+                {{ t('admin.settings.save') }}
+            </button>
+        </div>
+    </form>
 </div>
