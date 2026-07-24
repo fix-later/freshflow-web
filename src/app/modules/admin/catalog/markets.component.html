@@ -175,13 +175,10 @@
                                         class="flex-shrink-0 icon-size-5"
                                         svgIcon="heroicons_outline:user"
                                     ></mat-icon>
-                                    <span
-                                        class="ml-1 min-w-0 flex-1 truncate text-left"
-                                        >{{
-                                            agentLabel(row) ||
-                                                t('admin.markets.agentNone')
-                                        }}</span
-                                    >
+                                    <span class="agent-label ml-1">{{
+                                        agentLabel(row) ||
+                                            t('admin.markets.agentNone')
+                                    }}</span>
                                 </button>
                             </div>
                             <div>

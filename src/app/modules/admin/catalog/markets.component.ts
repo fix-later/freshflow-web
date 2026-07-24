@@ -90,11 +90,29 @@ import { CatalogAdminService } from './catalog-admin.service';
                 }
             }
 
-            /* Force the agent button to be a real flex box (Material defaults to
-               inline-flex, which lets the email overflow instead of truncating). */
+            /* Force the agent button to be a real, width-constrained flex box
+               (Material defaults to content-sized inline-flex) and let the email
+               label shrink + ellipsis instead of overflowing the column. */
             .agent-btn {
                 display: flex !important;
+                width: 100%;
+                min-width: 0;
+                max-width: 100%;
                 align-items: center;
+            }
+            .agent-btn .mdc-button__label {
+                display: flex;
+                min-width: 0;
+                flex: 1 1 0%;
+                overflow: hidden;
+            }
+            .agent-btn .agent-label {
+                min-width: 0;
+                flex: 1 1 0%;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                text-align: left;
             }
         `,
     ],
