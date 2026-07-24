@@ -11,6 +11,14 @@ jobs:
     name: Lint, Test & Build
     runs-on: ubuntu-latest
 
+    # generate-env.mjs bakes these into the bundle and fails without
+    # API_BASE_URL. It is a public backend origin (ships to the browser), so a
+    # committed fallback is fine; a repo secret/variable overrides it when set.
+    env:
+      API_BASE_URL: ${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
+      GOONG_MAPS_KEY: ${{ secrets.GOONG_MAPS_KEY }}
+      GOONG_PLACES_KEY: ${{ secrets.GOONG_PLACES_KEY }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -63,6 +71,10 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/${{ github.repository }}:dev
+          build-args: |
+            API_BASE_URL=${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
+            GOONG_MAPS_KEY=${{ secrets.GOONG_MAPS_KEY }}
+            GOONG_PLACES_KEY=${{ secrets.GOONG_PLACES_KEY }}
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
