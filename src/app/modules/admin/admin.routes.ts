@@ -12,7 +12,6 @@ import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
 import { AdminSettingsComponent } from './settings/settings.component';
-import { UserDetailComponent } from './users/user-detail.component';
 import { UsersListComponent } from './users/users-list.component';
 
 export default [
@@ -24,10 +23,6 @@ export default [
     {
         path: 'users',
         component: UsersListComponent,
-    },
-    {
-        path: 'users/:userId',
-        component: UserDetailComponent,
     },
     {
         path: 'restaurants',

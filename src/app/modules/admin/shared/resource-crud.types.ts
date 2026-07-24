@@ -168,4 +168,10 @@ export interface CrudResource {
     rowActions?: CrudRowAction[];
     /** Extra page-level buttons shown beside "Create" (e.g. "view map"). */
     headerActions?: CrudHeaderAction[];
+    /**
+     * When `false`, rows use edit/remove action buttons + a dialog instead of
+     * the expandable detail panel. Prefer for resources with only a couple of
+     * fields (e.g. categories). Default `true` (markets inventory pattern).
+     */
+    inlineDetail?: boolean;
 }

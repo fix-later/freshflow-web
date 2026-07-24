@@ -90,3 +90,25 @@ body {
 .admin-sort-header:hover {
     @apply text-default bg-hover;
 }
+
+/**
+ * Header search fields use `fuse-mat-dense`, which sets the Material infix to
+ * a fixed 88px width — placeholders then clip mid-glyph. Widen the infix and
+ * ellipsize overflow (including while focused).
+ */
+.admin-header-search {
+    .mat-mdc-form-field-flex {
+        min-width: 0;
+    }
+
+    .mat-mdc-form-field-infix {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+
+    .mat-mdc-input-element {
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+}

@@ -14,7 +14,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from '../admin.service';
+import { describeApiError } from 'app/core/api/error-codes';
 import { CrudOption } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 
@@ -123,8 +123,11 @@ export class HubStaffComponent implements OnInit {
             })
             .catch(async (err) =>
                 this._notify(
-                    (await apiErrorMessage(err)) ??
-                        this._transloco.translate('admin.hubStaff.saveError')
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.hubStaff.saveError'
+                    )
                 )
             )
             .finally(() => this.saving.set(false));

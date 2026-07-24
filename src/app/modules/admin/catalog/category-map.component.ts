@@ -15,7 +15,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from '../admin.service';
+import { describeApiError } from 'app/core/api/error-codes';
 import { CrudRow } from '../shared/resource-crud.types';
 import { CatalogAdminService } from './catalog-admin.service';
 
@@ -504,8 +504,11 @@ export class CategoryMapComponent {
             );
         } catch (err) {
             this._notify(
-                (await apiErrorMessage(err)) ??
-                    this._transloco.translate('admin.categories.map.moveError')
+                await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.categories.map.moveError'
+                )
             );
         } finally {
             this.saving.set(false);

@@ -1,162 +1,618 @@
-<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
-    <h1 class="text-3xl font-bold tracking-tight">
-        {{ t('admin.restaurants.title') }}
-    </h1>
-    <p class="text-secondary mt-2">
-        {{ t('admin.restaurants.subtitle') }}
-    </p>
-
-    <!-- Lookup -->
-    <form
-        [formGroup]="lookupForm"
-        class="bg-card mt-6 flex flex-wrap items-end gap-4 rounded-2xl border p-6"
-        (ngSubmit)="lookupCredit()"
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-8 sm:flex-row sm:items-center sm:justify-between md:px-8"
     >
-        <mat-form-field class="min-w-96 flex-1" subscriptSizing="dynamic">
-            <mat-label>{{ t('admin.restaurants.lookup.label') }}</mat-label>
-            <input
-                matInput
-                formControlName="restaurantId"
-                [placeholder]="t('admin.restaurants.lookup.placeholder')"
-            />
-            @if (
-                lookupForm.get('restaurantId')?.invalid &&
-                lookupForm.get('restaurantId')?.touched
-            ) {
-                <mat-error>{{
-                    t('admin.restaurants.lookup.invalid')
-                }}</mat-error>
-            }
-        </mat-form-field>
-        <button mat-stroked-button type="submit" [disabled]="loadingCredit()">
-            <mat-icon
-                class="mr-1"
-                svgIcon="heroicons_outline:magnifying-glass"
-            ></mat-icon>
-            {{ t('admin.restaurants.lookup.submit') }}
-        </button>
-        <button
-            mat-flat-button
-            color="accent"
-            type="button"
-            [disabled]="approving()"
-            (click)="approve()"
-        >
-            <mat-icon
-                class="mr-1"
-                svgIcon="heroicons_outline:check-badge"
-            ></mat-icon>
-            {{ t('admin.restaurants.approve.submit') }}
-        </button>
-        <button
-            mat-stroked-button
-            type="button"
-            [disabled]="suspending()"
-            (click)="suspend()"
-        >
-            <mat-icon
-                class="mr-1"
-                svgIcon="heroicons_outline:pause-circle"
-            ></mat-icon>
-            {{ t('admin.restaurants.suspend.submit') }}
-        </button>
-        <button
-            mat-stroked-button
-            type="button"
-            [disabled]="reactivating()"
-            (click)="reactivate()"
-        >
-            <mat-icon
-                class="mr-1"
-                svgIcon="heroicons_outline:play-circle"
-            ></mat-icon>
-            {{ t('admin.restaurants.reactivate.submit') }}
-        </button>
-    </form>
-
-    @if (loadingCredit()) {
-        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
-    }
-
-    @if (credit()) {
-        <div
-            class="bg-card mt-4 flex flex-wrap gap-6 rounded-2xl border p-6 text-sm"
-        >
-            <div>
-                <span class="text-secondary block">{{
-                    t('admin.restaurants.credit.limit')
-                }}</span>
-                <span class="text-lg font-semibold">{{
-                    credit()?.creditLimit ?? '—'
-                }}</span>
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
-            <div>
-                <span class="text-secondary block">{{
-                    t('admin.restaurants.credit.balance')
-                }}</span>
-                <span class="text-lg font-semibold">{{
-                    credit()?.currentBalance ?? '—'
-                }}</span>
-            </div>
-            <div>
-                <span class="text-secondary block">{{
-                    t('admin.restaurants.credit.available')
-                }}</span>
-                <span class="text-lg font-semibold">{{
-                    credit()?.availableCredit ?? '—'
-                }}</span>
+        }
+        <div class="min-w-0">
+            <div class="text-4xl font-extrabold tracking-tight">
+                {{ t('admin.restaurants.title') }}
             </div>
         </div>
-    }
-
-    <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <!-- Set credit limit -->
         <form
-            [formGroup]="creditLimitForm"
-            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
-            (ngSubmit)="setCreditLimit()"
+            [formGroup]="filterForm"
+            class="mt-6 flex min-w-0 shrink flex-wrap items-center gap-3 sm:ml-4 sm:mt-0"
         >
-            <h2 class="text-lg font-semibold">
-                {{ t('admin.restaurants.creditLimit.title') }}
-            </h2>
-            <mat-form-field subscriptSizing="dynamic">
-                <mat-label>{{
-                    t('admin.restaurants.creditLimit.amount')
-                }}</mat-label>
+            <mat-form-field
+                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
                 <input
                     matInput
-                    type="number"
-                    min="0"
-                    formControlName="creditLimit"
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                    autocomplete="off"
+                    formControlName="search"
+                    [placeholder]="
+                        t('admin.restaurants.filters.searchPlaceholder')
+                    "
                 />
             </mat-form-field>
-            <mat-form-field subscriptSizing="dynamic">
+
+            <mat-form-field
+                class="fuse-mat-dense w-40"
+                subscriptSizing="dynamic"
+            >
                 <mat-label>{{
-                    t('admin.restaurants.creditLimit.note')
+                    t('admin.restaurants.filters.status')
                 }}</mat-label>
-                <input matInput formControlName="note" />
+                <mat-select formControlName="isActive">
+                    <mat-option value="">{{
+                        t('admin.restaurants.filters.allStatuses')
+                    }}</mat-option>
+                    <mat-option value="true">{{
+                        t('admin.users.filters.active')
+                    }}</mat-option>
+                    <mat-option value="false">{{
+                        t('admin.users.filters.inactive')
+                    }}</mat-option>
+                </mat-select>
             </mat-form-field>
+
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.users.filters.clear')
+                    }}</span>
+                </button>
+            }
+
             <button
                 mat-flat-button
-                color="accent"
-                type="submit"
-                class="self-end"
-                [disabled]="creditLimitForm.invalid || settingLimit()"
+                color="primary"
+                class="shrink-0"
+                type="button"
+                (click)="openCreatePanel()"
             >
-                {{ t('admin.restaurants.creditLimit.submit') }}
+                <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                <span class="ml-2 mr-1">{{
+                    t('admin.restaurants.create.trigger')
+                }}</span>
             </button>
         </form>
+    </div>
 
-        <!-- Settle credit -->
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+        >
+            @if (sortedUsers().length > 0) {
+                <div class="grid">
+                    <div
+                        class="restaurants-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        @for (
+                            col of [
+                                {
+                                    key: 'restaurantName',
+                                    label: 'admin.restaurants.table.restaurant',
+                                },
+                                {
+                                    key: 'email',
+                                    label: 'admin.restaurants.table.email',
+                                },
+                                {
+                                    key: 'phone',
+                                    label: 'admin.restaurants.table.phone',
+                                },
+                                {
+                                    key: 'status',
+                                    label: 'admin.restaurants.table.status',
+                                },
+                            ];
+                            track col.key
+                        ) {
+                            <div [attr.aria-sort]="sort.ariaSort(col.key)">
+                                <button
+                                    type="button"
+                                    class="admin-sort-header"
+                                    (click)="sort.toggle(col.key)"
+                                >
+                                    {{ t(col.label) }}
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-accent]="
+                                            sort.key() === col.key
+                                        "
+                                        [svgIcon]="
+                                            'heroicons_outline:' +
+                                            sort.icon(col.key)
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
+                        <div class="text-right">
+                            {{ t('admin.restaurants.table.actions') }}
+                        </div>
+                        <div class="text-right">
+                            {{ t('admin.crud.details') }}
+                        </div>
+                    </div>
+
+                    @for (
+                        user of sortedUsers();
+                        track trackById($index, user)
+                    ) {
+                        <div
+                            class="restaurants-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                        >
+                            <div class="min-w-0 truncate font-medium">
+                                {{
+                                    user.restaurantName ||
+                                        t('admin.restaurants.unnamed')
+                                }}
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ user.email || user.id }}
+                            </div>
+                            <div class="truncate">{{ user.phone || '—' }}</div>
+                            <div>
+                                @if (user.isActive) {
+                                    <span class="admin-pill admin-pill-success">
+                                        {{ t('admin.users.filters.active') }}
+                                    </span>
+                                } @else {
+                                    <span class="admin-pill admin-pill-neutral">
+                                        {{ t('admin.users.filters.inactive') }}
+                                    </span>
+                                }
+                            </div>
+
+                            <!-- Approve + settle (limit / suspend live in detail) -->
+                            <div class="flex justify-end gap-1">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="
+                                        !user.restaurantId ||
+                                        anyActionBusy(user)
+                                    "
+                                    [matTooltip]="
+                                        t('admin.restaurants.approve.submit')
+                                    "
+                                    (click)="approve(user)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:check-badge"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="
+                                        !user.restaurantId ||
+                                        anyActionBusy(user)
+                                    "
+                                    [matTooltip]="
+                                        t('admin.restaurants.settle.title')
+                                    "
+                                    (click)="
+                                        openSettleDialog(user, settleDialog)
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:credit-card"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+
+                            <div class="flex justify-end">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="toggleDetails(user)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            selectedId() === user.id
+                                                ? 'heroicons_solid:chevron-up'
+                                                : 'heroicons_solid:chevron-down'
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (selectedId() === user.id) {
+                            <div
+                                class="overflow-hidden shadow-lg"
+                                (animate.enter)="expandOnEnter($event)"
+                                (animate.leave)="collapseOnLeave($event)"
+                            >
+                                <div class="flex w-full flex-col">
+                                    <!-- Profile -->
+                                    <div
+                                        class="flex flex-col gap-6 p-6 md:flex-row md:items-stretch md:gap-10 md:p-8"
+                                    >
+                                        <div
+                                            class="flex min-w-0 flex-1 flex-col justify-center gap-3"
+                                        >
+                                            <div
+                                                class="text-secondary text-sm font-medium uppercase tracking-wide"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.userDetail.profile.title'
+                                                    )
+                                                }}
+                                            </div>
+                                            <div
+                                                class="text-2xl font-semibold tracking-tight"
+                                            >
+                                                {{
+                                                    user.restaurantName ||
+                                                        t(
+                                                            'admin.restaurants.unnamed'
+                                                        )
+                                                }}
+                                            </div>
+                                            <div
+                                                class="flex flex-col gap-1 text-sm"
+                                            >
+                                                <div
+                                                    class="flex min-w-0 items-center gap-2"
+                                                >
+                                                    <mat-icon
+                                                        class="text-hint icon-size-5"
+                                                        svgIcon="heroicons_outline:envelope"
+                                                    ></mat-icon>
+                                                    <span
+                                                        class="min-w-0 break-all"
+                                                        >{{
+                                                            user.email || '—'
+                                                        }}</span
+                                                    >
+                                                </div>
+                                                <div
+                                                    class="flex min-w-0 items-center gap-2"
+                                                >
+                                                    <mat-icon
+                                                        class="text-hint icon-size-5"
+                                                        svgIcon="heroicons_outline:phone"
+                                                    ></mat-icon>
+                                                    <span>{{
+                                                        user.phone || '—'
+                                                    }}</span>
+                                                </div>
+                                            </div>
+                                            <div
+                                                class="mt-1 flex flex-wrap items-center gap-2"
+                                            >
+                                                @if (user.isActive) {
+                                                    <span
+                                                        class="admin-pill admin-pill-success"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.users.filters.active'
+                                                            )
+                                                        }}
+                                                    </span>
+                                                } @else {
+                                                    <span
+                                                        class="admin-pill admin-pill-neutral"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.users.filters.inactive'
+                                                            )
+                                                        }}
+                                                    </span>
+                                                }
+                                                @if (user.restaurantId) {
+                                                    <span
+                                                        class="text-secondary font-mono text-xs"
+                                                    >
+                                                        {{ user.restaurantId }}
+                                                    </span>
+                                                } @else {
+                                                    <span
+                                                        class="text-secondary text-xs"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.restaurants.noRestaurantId'
+                                                            )
+                                                        }}
+                                                    </span>
+                                                }
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="bg-default flex min-w-0 flex-[1.4] flex-col justify-center gap-4 rounded-2xl border p-5 md:min-w-0 md:max-w-2xl"
+                                            [formGroup]="creditLimitForm"
+                                        >
+                                            <div
+                                                class="text-secondary text-sm font-medium"
+                                            >
+                                                {{
+                                                    t(
+                                                        'admin.restaurants.credit.snapshot'
+                                                    )
+                                                }}
+                                            </div>
+                                            @if (loadingCredit()) {
+                                                <mat-progress-bar
+                                                    mode="indeterminate"
+                                                ></mat-progress-bar>
+                                            } @else {
+                                                <div
+                                                    class="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
+                                                >
+                                                    <div class="min-w-0">
+                                                        <div
+                                                            class="text-secondary text-xs"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.restaurants.credit.limit'
+                                                                )
+                                                            }}
+                                                        </div>
+                                                        @if (hasCreditLimit()) {
+                                                            <div
+                                                                class="mt-1 text-lg font-semibold tabular-nums"
+                                                            >
+                                                                {{
+                                                                    credit()!
+                                                                        .creditLimit
+                                                                        | number
+                                                                            : '1.0-0'
+                                                                }}₫
+                                                            </div>
+                                                        } @else if (
+                                                            editingCreditLimit()
+                                                        ) {
+                                                            <mat-form-field
+                                                                class="fuse-mat-dense mt-1 w-full"
+                                                                subscriptSizing="dynamic"
+                                                            >
+                                                                <input
+                                                                    matInput
+                                                                    type="number"
+                                                                    min="0"
+                                                                    formControlName="creditLimit"
+                                                                    [placeholder]="
+                                                                        t(
+                                                                            'admin.restaurants.creditLimit.amount'
+                                                                        )
+                                                                    "
+                                                                />
+                                                                <span
+                                                                    class="text-secondary"
+                                                                    matTextSuffix
+                                                                    >₫</span
+                                                                >
+                                                            </mat-form-field>
+                                                        } @else {
+                                                            <button
+                                                                class="mt-2 h-8 min-h-8 px-3 text-sm leading-6"
+                                                                mat-stroked-button
+                                                                type="button"
+                                                                [disabled]="
+                                                                    !user.restaurantId
+                                                                "
+                                                                (click)="
+                                                                    startEditingCreditLimit()
+                                                                "
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.restaurants.creditLimit.activate'
+                                                                    )
+                                                                }}
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                    <div>
+                                                        <div
+                                                            class="text-secondary text-xs"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.restaurants.credit.balance'
+                                                                )
+                                                            }}
+                                                        </div>
+                                                        <div
+                                                            class="mt-1 text-lg font-semibold tabular-nums"
+                                                        >
+                                                            @if (
+                                                                credit()
+                                                                    ?.currentBalance !==
+                                                                    null &&
+                                                                credit()
+                                                                    ?.currentBalance !==
+                                                                    undefined
+                                                            ) {
+                                                                {{
+                                                                    credit()!
+                                                                        .currentBalance
+                                                                        | number
+                                                                            : '1.0-0'
+                                                                }}₫
+                                                            } @else {
+                                                                —
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div
+                                                            class="text-secondary text-xs"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.restaurants.credit.available'
+                                                                )
+                                                            }}
+                                                        </div>
+                                                        <div
+                                                            class="mt-1 text-lg font-semibold tabular-nums"
+                                                        >
+                                                            @if (
+                                                                credit()
+                                                                    ?.availableCredit !==
+                                                                    null &&
+                                                                credit()
+                                                                    ?.availableCredit !==
+                                                                    undefined
+                                                            ) {
+                                                                {{
+                                                                    credit()!
+                                                                        .availableCredit
+                                                                        | number
+                                                                            : '1.0-0'
+                                                                }}₫
+                                                            } @else {
+                                                                —
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
+                                    >
+                                        @if (user.isActive) {
+                                            <button
+                                                class="-ml-2"
+                                                mat-button
+                                                color="warn"
+                                                type="button"
+                                                [disabled]="
+                                                    !user.restaurantId ||
+                                                    anyActionBusy(user)
+                                                "
+                                                (click)="suspend(user)"
+                                            >
+                                                {{ t('admin.crud.deactivate') }}
+                                            </button>
+                                        } @else {
+                                            <button
+                                                class="-ml-2"
+                                                mat-button
+                                                type="button"
+                                                [disabled]="
+                                                    !user.restaurantId ||
+                                                    anyActionBusy(user)
+                                                "
+                                                (click)="reactivate(user)"
+                                            >
+                                                {{ t('admin.crud.reactivate') }}
+                                            </button>
+                                        }
+                                        <button
+                                            mat-flat-button
+                                            color="primary"
+                                            type="button"
+                                            [disabled]="
+                                                !user.restaurantId ||
+                                                !needsCreditLimitSave() ||
+                                                creditLimitForm.invalid ||
+                                                isActionBusy(
+                                                    user,
+                                                    'creditLimit'
+                                                )
+                                            "
+                                            (click)="saveCreditLimit(user)"
+                                        >
+                                            {{ t('admin.crud.save') }}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <mat-paginator
+                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="[10, 20, 50]"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
+            } @else if (!loading()) {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.restaurants.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Settle credit -->
+<ng-template #settleDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.restaurants.settle.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeActionDialog()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
         <form
+            class="flex flex-auto flex-col gap-3 overflow-y-auto p-6 sm:p-8"
             [formGroup]="settleForm"
-            class="bg-card flex flex-col gap-3 rounded-2xl border p-6"
             (ngSubmit)="settleCredit()"
         >
-            <h2 class="text-lg font-semibold">
-                {{ t('admin.restaurants.settle.title') }}
-            </h2>
-            <mat-form-field subscriptSizing="dynamic">
+            @if (actionUser(); as target) {
+                <div class="text-secondary mb-2 text-sm">
+                    {{
+                        target.restaurantName ||
+                            target.email ||
+                            t('admin.restaurants.unnamed')
+                    }}
+                </div>
+            }
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.restaurants.settle.amount')
                 }}</mat-label>
@@ -168,224 +624,206 @@
                     formControlName="amount"
                 />
             </mat-form-field>
-            <mat-form-field subscriptSizing="dynamic">
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.restaurants.settle.paymentMethod')
                 }}</mat-label>
                 <input matInput formControlName="paymentMethod" />
             </mat-form-field>
-            <mat-form-field subscriptSizing="dynamic">
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.restaurants.settle.reference')
                 }}</mat-label>
                 <input matInput formControlName="reference" />
             </mat-form-field>
-            <mat-form-field subscriptSizing="dynamic">
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{ t('admin.restaurants.settle.note') }}</mat-label>
                 <input matInput formControlName="note" />
             </mat-form-field>
-            <button
-                mat-flat-button
-                color="accent"
-                type="submit"
-                class="self-end"
-                [disabled]="settleForm.invalid || settling()"
-            >
-                {{ t('admin.restaurants.settle.submit') }}
-            </button>
+            <div class="mt-4 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeActionDialog()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="
+                        settleForm.invalid ||
+                        (actionUser() && isActionBusy(actionUser()!, 'settle'))
+                    "
+                >
+                    {{ t('admin.restaurants.settle.submit') }}
+                </button>
+            </div>
         </form>
     </div>
+</ng-template>
 
-    @if (lookedUp()) {
-        <!-- Credit statements -->
-        <section class="mt-6">
-            <div class="flex flex-wrap items-end justify-between gap-4">
-                <h2 class="text-lg font-semibold">
-                    {{ t('admin.restaurants.statements.title') }}
-                </h2>
-                <form
-                    [formGroup]="generateForm"
-                    class="flex flex-wrap items-end gap-2"
-                    (ngSubmit)="generateStatement()"
-                >
-                    <mat-form-field class="w-28" subscriptSizing="dynamic">
-                        <mat-label>{{
-                            t('admin.restaurants.statements.year')
-                        }}</mat-label>
-                        <input matInput type="number" formControlName="year" />
-                    </mat-form-field>
-                    <mat-form-field class="w-24" subscriptSizing="dynamic">
-                        <mat-label>{{
-                            t('admin.restaurants.statements.month')
-                        }}</mat-label>
-                        <input
-                            matInput
-                            type="number"
-                            min="1"
-                            max="12"
-                            formControlName="month"
-                        />
-                    </mat-form-field>
-                    <button
-                        mat-flat-button
-                        color="accent"
-                        type="submit"
-                        [disabled]="generateForm.invalid || generating()"
-                    >
-                        <mat-icon
-                            class="mr-1"
-                            svgIcon="heroicons_outline:document-plus"
-                        ></mat-icon>
-                        {{ t('admin.restaurants.statements.generateSubmit') }}
-                    </button>
-                </form>
+<!-- Create restaurant user dialog -->
+<ng-template #createRestaurantPanel>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.restaurants.create.title') }}
             </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeCreatePanel()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
 
-            <div class="bg-card mt-3 overflow-x-auto rounded-2xl border">
-                <table class="w-full min-w-[640px] text-left text-sm">
-                    <thead
-                        class="text-secondary border-b text-xs uppercase tracking-wide"
-                    >
-                        <tr>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.statements.period') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.statements.opening') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.statements.closing') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.statements.charges') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.statements.payments') }}
-                            </th>
-                            <th class="px-4 py-3 text-right font-medium">
-                                {{ t('admin.users.table.actions') }}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (s of statements(); track trackById($index, s)) {
-                            <tr class="border-b hover:bg-hover last:border-0">
-                                <td class="px-4 py-3">
-                                    {{ s.month ?? '—' }}/{{ s.year ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ s.openingBalance ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ s.closingBalance ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ s.totalCharges ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ s.totalPayments ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <button
-                                        mat-icon-button
-                                        type="button"
-                                        [matTooltip]="
-                                            t(
-                                                'admin.restaurants.statements.pdf'
-                                            )
-                                        "
-                                        [disabled]="pdfBusyId() === s.id"
-                                        (click)="downloadStatementPdf(s.id)"
-                                    >
-                                        <mat-icon
-                                            svgIcon="heroicons_outline:arrow-down-tray"
-                                        ></mat-icon>
-                                    </button>
-                                </td>
-                            </tr>
-                        } @empty {
-                            <tr>
-                                <td
-                                    class="text-secondary px-4 py-8 text-center"
-                                    colspan="6"
-                                >
-                                    {{
-                                        t('admin.restaurants.statements.empty')
-                                    }}
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        <form
+            #createNgForm="ngForm"
+            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+            [formGroup]="createForm"
+            (ngSubmit)="createRestaurant(createNgForm)"
+        >
+            <div class="flex flex-col gap-3">
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{ t('admin.users.create.email') }}</mat-label>
+                    <input
+                        matInput
+                        type="email"
+                        formControlName="email"
+                        required
+                    />
+                    @if (createForm.controls.email.hasError('required')) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.emailRequired')
+                        }}</mat-error>
+                    } @else if (createForm.controls.email.hasError('email')) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.emailInvalid')
+                        }}</mat-error>
+                    } @else if (
+                        createForm.controls.email.hasError('maxlength')
+                    ) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.emailMax')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
 
-        <!-- Credit transactions -->
-        <section class="mt-6">
-            <h2 class="text-lg font-semibold">
-                {{ t('admin.restaurants.transactions.title') }}
-            </h2>
-            <div class="bg-card mt-3 overflow-x-auto rounded-2xl border">
-                <table class="w-full min-w-[640px] text-left text-sm">
-                    <thead
-                        class="text-secondary border-b text-xs uppercase tracking-wide"
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.users.create.password')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="password"
+                        formControlName="password"
+                        required
+                    />
+                    @if (createForm.controls.password.hasError('required')) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.passwordRequired')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                @if (
+                    createForm.controls.password.value ||
+                    createForm.controls.password.touched
+                ) {
+                    <ul
+                        class="text-secondary -mt-1 flex flex-col gap-1 text-xs"
                     >
-                        <tr>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.transactions.date') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.transactions.type') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{ t('admin.restaurants.transactions.amount') }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
-                                {{
-                                    t('admin.restaurants.transactions.balance')
-                                }}
-                            </th>
-                            <th class="px-4 py-3 font-medium">
+                        @for (
+                            rule of [
+                                { key: 'minLength', label: 'minLength' },
+                                { key: 'uppercase', label: 'uppercase' },
+                                { key: 'digit', label: 'digit' },
+                                { key: 'special', label: 'special' },
+                            ];
+                            track rule.key
+                        ) {
+                            <li
+                                class="flex items-center gap-1.5"
+                                [class.text-red-500]="
+                                    passwordRuleFailing(rule.key)
+                                "
+                                [class.text-green-600]="
+                                    !passwordRuleFailing(rule.key)
+                                "
+                            >
+                                <mat-icon
+                                    class="icon-size-3.5"
+                                    [svgIcon]="
+                                        passwordRuleFailing(rule.key)
+                                            ? 'heroicons_mini:x-mark'
+                                            : 'heroicons_mini:check'
+                                    "
+                                ></mat-icon>
                                 {{
                                     t(
-                                        'admin.restaurants.transactions.description'
+                                        'admin.users.create.password.' +
+                                            rule.label
                                     )
                                 }}
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @for (x of transactions(); track trackById($index, x)) {
-                            <tr class="border-b hover:bg-hover last:border-0">
-                                <td class="px-4 py-3">
-                                    {{ x.createdAt ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">{{ x.type ?? '—' }}</td>
-                                <td class="px-4 py-3">{{ x.amount ?? '—' }}</td>
-                                <td class="px-4 py-3">
-                                    {{ x.balanceAfter ?? '—' }}
-                                </td>
-                                <td class="px-4 py-3">
-                                    {{ x.description ?? '—' }}
-                                </td>
-                            </tr>
-                        } @empty {
-                            <tr>
-                                <td
-                                    class="text-secondary px-4 py-8 text-center"
-                                    colspan="5"
-                                >
-                                    {{
-                                        t(
-                                            'admin.restaurants.transactions.empty'
-                                        )
-                                    }}
-                                </td>
-                            </tr>
+                            </li>
                         }
-                    </tbody>
-                </table>
+                    </ul>
+                }
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.users.create.restaurantName')
+                    }}</mat-label>
+                    <input matInput formControlName="restaurantName" required />
+                    @if (
+                        createForm.controls.restaurantName.hasError('required')
+                    ) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.restaurantRequired')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{ t('admin.users.create.phone') }}</mat-label>
+                    <input matInput formControlName="phone" />
+                    @if (createForm.controls.phone.hasError('phoneNumber')) {
+                        <mat-error>{{
+                            t('admin.users.create.errors.phoneInvalid')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
             </div>
-        </section>
-    }
-</div>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeCreatePanel()"
+                >
+                    {{ t('admin.users.create.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="createForm.disabled"
+                >
+                    {{ t('admin.restaurants.create.submit') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>

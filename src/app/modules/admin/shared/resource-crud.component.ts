@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -31,10 +32,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from 'app/core/api/envelope';
+import { describeApiError } from 'app/core/api/error-codes';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
+import { includesFolded } from 'app/core/util/text-search';
 import { CoalescedTask } from './coalesced-task';
 import {
     CrudField,
@@ -47,10 +50,10 @@ import {
 import { TableSort } from './table-sort';
 
 /**
- * Config-driven admin master-data screen: renders the list, a client-side
- * search, a create/edit dialog built from `resource.fields`, and remove/row
- * actions. One component backs every simple CRUD resource (categories, units,
- * products, hubs, vehicles, delivery zones) so they stay consistent.
+ * Config-driven admin master-data screen in the markets inventory pattern:
+ * searchable list, optional filters, expandable inline detail editor, and a
+ * create dialog. One component backs categories, units, hubs, vehicles, and
+ * delivery zones so they stay consistent with Quản lý chợ.
  */
 @Component({
     selector: 'admin-resource-crud',
@@ -63,6 +66,7 @@ import { TableSort } from './table-sort';
     // whole screen instead of shrinking to the default inline host width.
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        NgTemplateOutlet,
         MatButtonModule,
         MatDialogModule,
         MatFormFieldModule,
@@ -80,6 +84,10 @@ import { TableSort } from './table-sort';
     ],
 })
 export class ResourceCrudComponent implements OnInit {
+    /** Inventory-style row detail expand/collapse (Angular animate.enter/leave). */
+    protected readonly expandOnEnter = expandOnEnter;
+    protected readonly collapseOnLeave = collapseOnLeave;
+
     @Input({ required: true }) resource!: CrudResource;
     @ViewChild('formDialog') private _formDialog!: TemplateRef<unknown>;
 
@@ -100,9 +108,13 @@ export class ResourceCrudComponent implements OnInit {
     readonly filterValues = signal<Record<string, string>>({});
     /** Loaded options per page-level filter name. */
     readonly filterOptions = signal<Record<string, CrudOption[]>>({});
+    /** Expanded row id for the inline detail editor (null = closed). */
+    readonly selectedId = signal<string | null>(null);
     readonly editingId = signal<string | null>(null);
-    /** True while the dialog is editing an existing row (see {@link save}). */
+    /** True while editing an existing row (see {@link save}). */
     readonly editing = signal(false);
+    /** Inline save flash in the detail footer (markets pattern). */
+    readonly flashMessage = signal<'success' | 'error' | null>(null);
     /** Loaded options per select field name. */
     readonly selectOptions = signal<Record<string, CrudOption[]>>({});
     /** In-dropdown filter term per `searchable` select field name. */
@@ -116,7 +128,7 @@ export class ResourceCrudComponent implements OnInit {
 
     readonly filteredRows = computed(() => {
         const keys = this.resource.searchKeys;
-        const term = this.search().trim().toLowerCase();
+        const term = this.search().trim();
         const values = this.filterValues();
         const activeFilters = (this.resource.filters ?? []).filter(
             (f) => values[f.name]
@@ -127,9 +139,7 @@ export class ResourceCrudComponent implements OnInit {
                 !keys?.length ||
                 !term ||
                 keys.some((key) =>
-                    String(row[key] ?? '')
-                        .toLowerCase()
-                        .includes(term)
+                    includesFolded(String(row[key] ?? ''), term)
                 );
             const matchesFilters = activeFilters.every((f) =>
                 f.match(row, values[f.name])
@@ -181,6 +191,36 @@ export class ResourceCrudComponent implements OnInit {
     });
 
     /**
+     * `grid-template-columns` for the inventory-style list. Data columns (incl.
+     * status) share width evenly; the trailing actions/details column stays
+     * compact on the right edge.
+     */
+    get gridTemplateColumns(): string {
+        const tracks: string[] = this.resource.columns.map((col) =>
+            col.image ? '3rem' : 'minmax(0, 1fr)'
+        );
+        tracks.push('minmax(0, 1fr)'); // status
+        if (this.usesInlineDetail && this.resource.rowActions?.length) {
+            tracks.push('auto');
+        }
+        tracks.push('auto'); // details chevron or action buttons
+        return tracks.join(' ');
+    }
+
+    /** Index of the first non-image column (emphasized as the primary label). */
+    get nameColumnIndex(): number {
+        return this.resource.columns.findIndex((col) => !col.image);
+    }
+
+    /**
+     * Expandable inline editor (markets pattern). Disabled for compact
+     * resources that use dialog edit + row action icons instead.
+     */
+    get usesInlineDetail(): boolean {
+        return this.resource.inlineDetail !== false;
+    }
+
+    /**
      * Resources with several fields (hubs, markets, products) render the dialog
      * as a wider two-column grid; simple ones (categories, units) stay a narrow
      * single column.
@@ -189,11 +229,29 @@ export class ResourceCrudComponent implements OnInit {
         return this.resource.fields.length >= 4;
     }
 
-    /** Container class for the dialog form (grid when wide, else a column). */
-    get formLayoutClass(): string {
+    /** Field layout without dialog top margin — used by the inline detail panel. */
+    get fieldsLayoutClass(): string {
         return this.wideDialog
-            ? 'mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2'
-            : 'mt-4 flex flex-col gap-3';
+            ? 'grid w-full grid-cols-1 gap-3 sm:grid-cols-2'
+            : 'flex w-full max-w-lg flex-col gap-3';
+    }
+
+    /** Field layout inside the dialog — fills the Fuse-sized shell. */
+    get dialogFieldsLayoutClass(): string {
+        return this.wideDialog
+            ? 'grid w-full grid-cols-1 gap-3 sm:grid-cols-2'
+            : 'flex w-full flex-col gap-3';
+    }
+
+    /**
+     * Root classes for the create/edit dialog shell (Fuse compose / card
+     * pattern): negative margin cancels Material dialog padding so the
+     * primary header sits flush to the edges.
+     */
+    get dialogShellClass(): string {
+        return this.wideDialog
+            ? '-m-6 flex max-h-screen max-w-240 flex-col md:min-w-160 md:w-160'
+            : '-m-6 flex max-h-screen flex-col md:min-w-120 md:w-120';
     }
 
     /** Fields that should span both columns (map + multi-line text). */
@@ -251,6 +309,15 @@ export class ResourceCrudComponent implements OnInit {
         if (this.pageIndex() * this.pageSize() >= rows.length) {
             this.pageIndex.set(0);
         }
+        const id = this.selectedId();
+        if (id) {
+            const row = rows.find((r) => r.id === id);
+            if (!row) {
+                this.closeDetails();
+            } else if (this.editing()) {
+                this.form = this._buildForm(row);
+            }
+        }
         return rows;
     }
 
@@ -286,6 +353,7 @@ export class ResourceCrudComponent implements OnInit {
     onSearch(value: string): void {
         this.search.set(value);
         this.pageIndex.set(0);
+        this.closeDetails();
     }
 
     onFilterChange(filter: CrudFilter, value: string): void {
@@ -294,6 +362,7 @@ export class ResourceCrudComponent implements OnInit {
             [filter.name]: value,
         }));
         this.pageIndex.set(0);
+        this.closeDetails();
     }
 
     /** Resets the search box and every page-level filter to "all". */
@@ -301,11 +370,13 @@ export class ResourceCrudComponent implements OnInit {
         this.search.set('');
         this.filterValues.set({});
         this.pageIndex.set(0);
+        this.closeDetails();
     }
 
     onPageChange(event: PageEvent): void {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
+        this.closeDetails();
     }
 
     private async _loadFilterOptions(rows: CrudRow[]): Promise<void> {
@@ -339,7 +410,42 @@ export class ResourceCrudComponent implements OnInit {
         });
     }
 
+    /** True when the row is explicitly inactive (matches markets/products pills). */
+    isInactive(row: CrudRow): boolean {
+        return row.isActive === false;
+    }
+
+    toggleDetails(row: CrudRow): void {
+        if (this.selectedId() === row.id) {
+            this.closeDetails();
+            return;
+        }
+        this.closeDialog();
+        this.selectedId.set(row.id);
+        this.editing.set(true);
+        this.editingId.set(row.id);
+        this.flashMessage.set(null);
+        this.form = this._buildForm(row);
+        this.optionSearch.set({});
+        void this._loadSelectOptions();
+    }
+
+    closeDetails(): void {
+        if (!this.selectedId()) {
+            return;
+        }
+        this.selectedId.set(null);
+        this.editing.set(false);
+        this.editingId.set(null);
+        this.flashMessage.set(null);
+        // Keep create-dialog form intact when only closing details.
+        if (!this._dialogRef) {
+            this.form = null;
+        }
+    }
+
     openCreate(): void {
+        this.closeDetails();
         this.editing.set(false);
         this.editingId.set(null);
         this.form = this._buildForm(null);
@@ -348,13 +454,25 @@ export class ResourceCrudComponent implements OnInit {
         this._open();
     }
 
+    /**
+     * Opens a row for editing — inline detail panel when
+     * {@link usesInlineDetail}, otherwise the create/edit dialog.
+     */
     openEdit(row: CrudRow): void {
+        this.closeDialog();
         this.editing.set(true);
         this.editingId.set(row.id);
+        this.flashMessage.set(null);
         this.form = this._buildForm(row);
         this.optionSearch.set({});
         void this._loadSelectOptions();
-        this._open();
+
+        if (this.usesInlineDetail) {
+            this.selectedId.set(row.id);
+        } else {
+            this.selectedId.set(null);
+            this._open();
+        }
     }
 
     closeDialog(): void {
@@ -368,6 +486,8 @@ export class ResourceCrudComponent implements OnInit {
         }
         const value = this._payload();
         const id = this.editingId();
+        const inline =
+            this.usesInlineDetail && !!this.selectedId() && this.editing();
 
         // Whether this is an edit is tracked separately from the id, because a
         // row whose id the API named something unexpected yields a blank id —
@@ -384,14 +504,52 @@ export class ResourceCrudComponent implements OnInit {
             : this.resource.create(value);
         request
             .then(() => {
-                this._notify(
-                    id ? 'admin.crud.updateSuccess' : 'admin.crud.createSuccess'
-                );
-                this.closeDialog();
+                if (id) {
+                    if (inline) {
+                        this.showFlashMessage('success');
+                    } else {
+                        this._notify('admin.crud.updateSuccess');
+                        this.closeDialog();
+                    }
+                } else {
+                    this._notify('admin.crud.createSuccess');
+                    this.closeDialog();
+                }
                 this.load();
             })
-            .catch((err) => this._notifyError(err, 'admin.crud.saveError'))
+            .catch((err) => {
+                if (inline) {
+                    this.showFlashMessage('error');
+                }
+                void this._notifyError(err, 'admin.crud.saveError');
+            })
             .finally(() => this.saving.set(false));
+    }
+
+    showFlashMessage(type: 'success' | 'error'): void {
+        this.flashMessage.set(type);
+        window.setTimeout(() => {
+            if (this.flashMessage() === type) {
+                this.flashMessage.set(null);
+            }
+        }, 3000);
+    }
+
+    /** Deactivate / delete / reactivate the expanded row from the detail footer. */
+    removeSelected(): void {
+        const id = this.selectedId();
+        if (!id) {
+            return;
+        }
+        const row = this.rows().find((r) => r.id === id);
+        if (row) {
+            this.remove(row);
+        }
+    }
+
+    selectedRow(): CrudRow | undefined {
+        const id = this.selectedId();
+        return id ? this.rows().find((r) => r.id === id) : undefined;
     }
 
     /**
@@ -421,7 +579,15 @@ export class ResourceCrudComponent implements OnInit {
             : this.resource.removeIcon ?? 'trash';
     }
 
-    /** Tooltip for the row action, per its direction and availability. */
+    /** Visible label for the detail-footer remove/deactivate/reactivate button. */
+    removeLabelFor(row: CrudRow): string {
+        if (this.isReactivate(row)) {
+            return 'admin.crud.reactivate';
+        }
+        return this.resource.removeLabel ?? 'admin.crud.remove';
+    }
+
+    /** Tooltip for the remove action, per its direction and availability. */
     removeTooltipFor(row: CrudRow): string {
         if (this.isReactivate(row)) {
             return 'admin.crud.reactivate';
@@ -466,6 +632,9 @@ export class ResourceCrudComponent implements OnInit {
             removeFn(row)
                 .then(() => {
                     this._notify('admin.crud.removeSuccess');
+                    if (this.selectedId() === row.id) {
+                        this.closeDetails();
+                    }
                     this.load();
                 })
                 .catch((err) => this._notifyError(err, 'admin.crud.saveError'));
@@ -511,16 +680,13 @@ export class ResourceCrudComponent implements OnInit {
      */
     visibleOptions(field: CrudField): CrudOption[] {
         const options = this.selectOptions()[field.name] ?? [];
-        const term = (this.optionSearch()[field.name] ?? '')
-            .trim()
-            .toLowerCase();
-        if (!field.searchable || !term) {
+        const term = this.optionSearch()[field.name] ?? '';
+        if (!field.searchable || !term.trim()) {
             return options;
         }
         const selected = this.controlOf(field.name)?.value;
         return options.filter(
-            (opt) =>
-                opt.value === selected || opt.label.toLowerCase().includes(term)
+            (opt) => opt.value === selected || includesFolded(opt.label, term)
         );
     }
 
@@ -600,11 +766,11 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     private _open(): void {
+        // Size comes from Tailwind on the dialog content (Fuse compose pattern),
+        // not MatDialog width — keeps the primary header flush to the edges.
         this._dialogRef = this._dialog.open(this._formDialog, {
-            width: this.wideDialog ? '46rem' : '30rem',
-            maxWidth: 'calc(100vw - 2rem)',
-            maxHeight: '90vh',
             autoFocus: false,
+            maxWidth: '100vw',
         });
         this._dialogRef.afterClosed().subscribe(() => (this._dialogRef = null));
     }
@@ -736,9 +902,11 @@ export class ResourceCrudComponent implements OnInit {
         err: unknown,
         fallbackKey: string
     ): Promise<void> {
-        const message =
-            (await apiErrorMessage(err)) ??
-            this._transloco.translate(fallbackKey);
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            fallbackKey
+        );
         this._snackBar.open(message, undefined, { duration: 6000 });
     }
 }

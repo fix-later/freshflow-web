@@ -1,9 +1,10 @@
-import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
+    OnDestroy,
     OnInit,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -16,7 +17,11 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from '../admin.service';
+import { describeApiError } from 'app/core/api/error-codes';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
+import { Subject, takeUntil } from 'rxjs';
 import {
     AnalyticsActivity,
     AnalyticsPoint,
@@ -24,18 +29,15 @@ import {
     isoDate,
 } from './analytics.service';
 
-/** A KPI tile derived from the untyped `/analytics/overview` body. */
+/** Overview KPI tile with Fuse-style accent classes. */
 interface OverviewTile {
     key: string;
     value: string;
+    valueClass: string;
+    labelClass: string;
 }
 
-/** One horizontal bar: a point plus its width as a share of the series max. */
-interface BarDatum extends AnalyticsPoint {
-    percent: number;
-}
-
-/** Quick-link cards kept from the previous admin landing page. */
+/** Quick-link cards under the analytics panels. */
 interface DashboardCard {
     icon: string;
     link: string;
@@ -43,25 +45,28 @@ interface DashboardCard {
     descriptionKey: string;
 }
 
-/** Datasets `GET /analytics/export` accepts, offered in the export menu. */
 const EXPORT_DATASETS = ['orders', 'procurement', 'deliveries'] as const;
 
-/**
- * Turns a series into bars sized against the series maximum. An all-zero (or
- * empty) series yields no bars rather than a row of full-width blocks.
- */
-function toBars(points: AnalyticsPoint[]): BarDatum[] {
-    const max = Math.max(0, ...points.map((p) => p.value));
-    if (max <= 0) {
-        return [];
-    }
-    return points.map((point) => ({
-        ...point,
-        percent: Math.round((point.value / max) * 100),
-    }));
-}
+const KPI_ACCENTS = [
+    {
+        valueClass: 'text-blue-500',
+        labelClass: 'text-blue-600 dark:text-blue-500',
+    },
+    {
+        valueClass: 'text-red-500',
+        labelClass: 'text-red-600 dark:text-red-500',
+    },
+    {
+        valueClass: 'text-amber-500',
+        labelClass: 'text-amber-600 dark:text-amber-500',
+    },
+    {
+        valueClass: 'text-green-500',
+        labelClass: 'text-green-600 dark:text-green-500',
+    },
+] as const;
 
-/** `overviewTotalOrders` → `Overview total orders` for an untyped KPI key. */
+/** `overviewTotalOrders` → `Overview total orders`. */
 function humanize(key: string): string {
     const spaced = key
         .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -72,13 +77,8 @@ function humanize(key: string): string {
 }
 
 /**
- * Admin ▸ Dashboard — the analytics landing page (`/api/v1/analytics/*`).
- *
- * The spec declares no response schemas for analytics, so the overview KPIs are
- * rendered generically from whatever scalar fields the backend returns (keys
- * humanized for display) and each series is normalised to `{ label, value }`
- * before charting. Every panel loads independently: one failing endpoint leaves
- * the rest of the dashboard usable.
+ * Admin ▸ Dashboard (`/admin`) — Fuse project-dashboard shell with live
+ * `/analytics/*` data, ApexCharts series, and quick links.
  */
 @Component({
     selector: 'admin-analytics-dashboard',
@@ -86,7 +86,6 @@ function humanize(key: string): string {
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    // Full-width flex host so the page fills the screen (see ResourceCrudComponent).
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
@@ -95,34 +94,49 @@ function humanize(key: string): string {
         MatInputModule,
         MatProgressBarModule,
         MatSnackBarModule,
-        NgTemplateOutlet,
+        NgApexchartsModule,
         ReactiveFormsModule,
         RouterLink,
         TranslocoModule,
     ],
 })
-export class AdminDashboardComponent implements OnInit {
+export class AdminDashboardComponent implements OnInit, OnDestroy {
     private readonly _analytics = inject(AnalyticsService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
+    private readonly _userService = inject(UserService);
+    private readonly _unsubscribeAll = new Subject<void>();
 
     readonly loading = signal(false);
     readonly exporting = signal(false);
+    readonly user = signal<User | null>(null);
     readonly tiles = signal<OverviewTile[]>([]);
-    readonly orderMetrics = signal<BarDatum[]>([]);
-    readonly procurementMetrics = signal<BarDatum[]>([]);
-    readonly hubThroughput = signal<BarDatum[]>([]);
-    readonly deliveryPerformance = signal<BarDatum[]>([]);
-    readonly priceTrends = signal<BarDatum[]>([]);
-    readonly demandDistribution = signal<BarDatum[]>([]);
+    readonly orderMetrics = signal<AnalyticsPoint[]>([]);
+    readonly procurementMetrics = signal<AnalyticsPoint[]>([]);
+    readonly hubThroughput = signal<AnalyticsPoint[]>([]);
+    readonly deliveryPerformance = signal<AnalyticsPoint[]>([]);
+    readonly priceTrends = signal<AnalyticsPoint[]>([]);
+    readonly demandDistribution = signal<AnalyticsPoint[]>([]);
     readonly activities = signal<AnalyticsActivity[]>([]);
+
+    readonly chartOrders = signal<ApexOptions>({});
+    readonly chartProcurement = signal<ApexOptions>({});
+    readonly chartHubs = signal<ApexOptions>({});
+    readonly chartDelivery = signal<ApexOptions>({});
+    readonly chartPrices = signal<ApexOptions>({});
+    readonly chartDemand = signal<ApexOptions>({});
 
     readonly exportDatasets = [...EXPORT_DATASETS];
 
     readonly rangeForm = this._formBuilder.nonNullable.group({
         from: [isoDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000))],
         to: [isoDate(new Date())],
+    });
+
+    readonly displayName = computed(() => {
+        const u = this.user();
+        return u?.fullName || u?.name || u?.email || '';
     });
 
     readonly cards: DashboardCard[] = [
@@ -153,7 +167,30 @@ export class AdminDashboardComponent implements OnInit {
     ];
 
     ngOnInit(): void {
+        // ApexCharts + `<base href>`: keep fill urls rooted (Fuse project pattern).
+        (window as Window & { Apex?: unknown }).Apex = {
+            chart: {
+                events: {
+                    mounted: (chart: { el: Element }): void => {
+                        this._fixSvgFill(chart.el);
+                    },
+                    updated: (chart: { el: Element }): void => {
+                        this._fixSvgFill(chart.el);
+                    },
+                },
+            },
+        };
+
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user) => this.user.set(user));
+
         this.reload();
+    }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next();
+        this._unsubscribeAll.complete();
     }
 
     reload(): void {
@@ -163,7 +200,6 @@ export class AdminDashboardComponent implements OnInit {
         }
         this.loading.set(true);
 
-        // Each panel resolves independently so one 500 doesn't blank the page.
         Promise.all([
             this._analytics.getOverview().catch(() => ({})),
             this._analytics.getOrderMetrics(from, to).catch(() => []),
@@ -192,18 +228,36 @@ export class AdminDashboardComponent implements OnInit {
                                     typeof value === 'number' ||
                                     typeof value === 'string'
                             )
-                            .map(([key, value]) => ({
-                                key: humanize(key),
-                                value: String(value),
-                            }))
+                            .slice(0, 4)
+                            .map(([key, value], index) => {
+                                const accent =
+                                    KPI_ACCENTS[index % KPI_ACCENTS.length];
+                                return {
+                                    key: humanize(key),
+                                    value: String(value),
+                                    valueClass: accent.valueClass,
+                                    labelClass: accent.labelClass,
+                                };
+                            })
                     );
-                    this.orderMetrics.set(toBars(orders));
-                    this.procurementMetrics.set(toBars(procurement));
-                    this.hubThroughput.set(toBars(hubs));
-                    this.deliveryPerformance.set(toBars(deliveries));
-                    this.priceTrends.set(toBars(prices));
-                    this.demandDistribution.set(toBars(demand));
+                    this.orderMetrics.set(orders);
+                    this.procurementMetrics.set(procurement);
+                    this.hubThroughput.set(hubs);
+                    this.deliveryPerformance.set(deliveries);
+                    this.priceTrends.set(prices);
+                    this.demandDistribution.set(demand);
                     this.activities.set(activities);
+
+                    this.chartOrders.set(this._areaChart(orders, '#34D399'));
+                    this.chartProcurement.set(
+                        this._columnChart(procurement, '#60A5FA')
+                    );
+                    this.chartHubs.set(this._columnChart(hubs, '#A78BFA'));
+                    this.chartDelivery.set(
+                        this._areaChart(deliveries, '#FBBF24')
+                    );
+                    this.chartPrices.set(this._areaChart(prices, '#F87171'));
+                    this.chartDemand.set(this._columnChart(demand, '#2DD4BF'));
                 }
             )
             .finally(() => this.loading.set(false));
@@ -228,7 +282,6 @@ export class AdminDashboardComponent implements OnInit {
         return Number.isNaN(date.getTime()) ? raw : date.toLocaleString();
     }
 
-    /** Downloads a dataset export and hands it to the browser as a file. */
     exportDataset(dataset: string): void {
         const { from, to } = this.rangeForm.getRawValue();
         this.exporting.set(true);
@@ -244,14 +297,132 @@ export class AdminDashboardComponent implements OnInit {
             })
             .catch(async (err) =>
                 this._snackBar.open(
-                    (await apiErrorMessage(err)) ??
-                        this._transloco.translate(
-                            'admin.analytics.exportError'
-                        ),
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.analytics.exportError'
+                    ),
                     undefined,
                     { duration: 5000 }
                 )
             )
             .finally(() => this.exporting.set(false));
+    }
+
+    private _areaChart(points: AnalyticsPoint[], color: string): ApexOptions {
+        return {
+            chart: {
+                animations: { enabled: true },
+                fontFamily: 'inherit',
+                foreColor: 'inherit',
+                height: '100%',
+                type: 'area',
+                toolbar: { show: false },
+                zoom: { enabled: false },
+            },
+            colors: [color],
+            dataLabels: { enabled: false },
+            fill: {
+                colors: [color],
+                opacity: 0.2,
+            },
+            grid: {
+                borderColor: 'var(--fuse-border)',
+            },
+            series: [
+                {
+                    name: 'Series',
+                    data: points.map((p) => p.value),
+                },
+            ],
+            stroke: {
+                curve: 'smooth',
+                width: 2,
+            },
+            tooltip: {
+                followCursor: true,
+                theme: 'dark',
+            },
+            xaxis: {
+                categories: points.map((p) => p.label || '—'),
+                axisBorder: { show: false },
+                axisTicks: { color: 'var(--fuse-border)' },
+                labels: {
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+            yaxis: {
+                labels: {
+                    offsetX: -16,
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+        };
+    }
+
+    private _columnChart(points: AnalyticsPoint[], color: string): ApexOptions {
+        return {
+            chart: {
+                animations: { enabled: true },
+                fontFamily: 'inherit',
+                foreColor: 'inherit',
+                height: '100%',
+                type: 'bar',
+                toolbar: { show: false },
+                zoom: { enabled: false },
+            },
+            colors: [color],
+            dataLabels: { enabled: false },
+            grid: {
+                borderColor: 'var(--fuse-border)',
+            },
+            plotOptions: {
+                bar: {
+                    columnWidth: '50%',
+                    borderRadius: 4,
+                },
+            },
+            series: [
+                {
+                    name: 'Series',
+                    data: points.map((p) => p.value),
+                },
+            ],
+            tooltip: {
+                followCursor: true,
+                theme: 'dark',
+            },
+            xaxis: {
+                categories: points.map((p) => p.label || '—'),
+                axisBorder: { show: false },
+                axisTicks: { color: 'var(--fuse-border)' },
+                labels: {
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+            yaxis: {
+                labels: {
+                    offsetX: -16,
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+        };
+    }
+
+    /** Rewrites absolute fill urls so gradients work under `<base href>`. */
+    private _fixSvgFill(element: Element): void {
+        const currentURL = window.location.href;
+        Array.from(element.querySelectorAll('*[fill]'))
+            .filter((el) => el.getAttribute('fill')?.indexOf('url(') !== -1)
+            .forEach((el) => {
+                const attr = el.getAttribute('fill');
+                if (!attr) {
+                    return;
+                }
+                el.setAttribute(
+                    'fill',
+                    `url(${currentURL}${attr.slice(attr.indexOf('#'))}`
+                );
+            });
     }
 }

@@ -19,7 +19,8 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { AdminService, apiErrorMessage } from '../admin.service';
+import { describeApiError } from 'app/core/api/error-codes';
+import { AdminService } from '../admin.service';
 import { AdminOrderGroupRow, AdminUserRow } from '../admin.types';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
@@ -212,9 +213,11 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     private async _notifyError(err: unknown): Promise<void> {
-        const message =
-            (await apiErrorMessage(err)) ??
-            this._transloco.translate('admin.orderGroups.actionError');
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            'admin.orderGroups.actionError'
+        );
         this._snackBar.open(message, undefined, { duration: 5000 });
     }
 }

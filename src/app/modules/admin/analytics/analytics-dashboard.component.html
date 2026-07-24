@@ -1,225 +1,408 @@
-<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-        <div>
-            <h1 class="text-3xl font-bold tracking-tight">
-                {{ t('admin.analytics.title') }}
-            </h1>
-            <p class="text-secondary mt-1">
-                {{ t('admin.analytics.subtitle') }}
-            </p>
-        </div>
-
-        <form
-            [formGroup]="rangeForm"
-            class="flex flex-wrap items-center gap-3"
-            (ngSubmit)="reload()"
-        >
-            <mat-form-field class="w-44" subscriptSizing="dynamic">
-                <mat-label>{{ t('admin.analytics.from') }}</mat-label>
-                <input matInput type="date" formControlName="from" />
-            </mat-form-field>
-            <mat-form-field class="w-44" subscriptSizing="dynamic">
-                <mat-label>{{ t('admin.analytics.to') }}</mat-label>
-                <input matInput type="date" formControlName="to" />
-            </mat-form-field>
-            <button
-                mat-flat-button
-                color="accent"
-                type="submit"
-                [disabled]="loading()"
-            >
-                <mat-icon
-                    class="mr-1"
-                    svgIcon="heroicons_outline:arrow-path"
-                ></mat-icon>
-                {{ t('admin.analytics.apply') }}
-            </button>
-        </form>
-    </div>
-
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
-    }
-
-    <!-- KPI tiles -->
-    @if (tiles().length) {
-        <div
-            class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
-            role="list"
-        >
-            @for (tile of tiles(); track tile.key) {
-                <div class="bg-card rounded-2xl border p-5" role="listitem">
-                    <p class="text-secondary text-xs uppercase tracking-wide">
-                        {{ tile.key }}
-                    </p>
-                    <p class="mt-1 text-2xl font-semibold tabular-nums">
-                        {{ tile.value }}
-                    </p>
-                </div>
-            }
-        </div>
-    }
-
-    <!-- Series panels -->
-    <div class="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.orderMetrics'),
-                    bars: orderMetrics(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.procurementMetrics'),
-                    bars: procurementMetrics(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.hubThroughput'),
-                    bars: hubThroughput(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.deliveryPerformance'),
-                    bars: deliveryPerformance(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.priceTrends'),
-                    bars: priceTrends(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-        <ng-container
-            *ngTemplateOutlet="
-                panel;
-                context: {
-                    title: t('admin.analytics.demandDistribution'),
-                    bars: demandDistribution(),
-                    empty: t('admin.analytics.noData'),
-                }
-            "
-        ></ng-container>
-    </div>
-
-    <!-- Recent activity -->
-    <div class="bg-card mt-6 rounded-2xl border p-6">
-        <h2 class="text-lg font-semibold">
-            {{ t('admin.analytics.recentActivity') }}
-        </h2>
-        <ul class="mt-3 flex flex-col divide-y">
-            @for (activity of activities(); track $index) {
-                <li class="flex flex-wrap justify-between gap-2 py-2 text-sm">
-                    <span>{{ activityLabel(activity) }}</span>
-                    <span class="text-secondary tabular-nums">{{
-                        activityTime(activity)
-                    }}</span>
-                </li>
-            } @empty {
-                <li class="text-secondary py-2 text-sm">
-                    {{ t('admin.analytics.noData') }}
-                </li>
-            }
-        </ul>
-    </div>
-
-    <!-- Export -->
-    <div
-        class="bg-card mt-6 flex flex-wrap items-center gap-3 rounded-2xl border p-6"
-    >
-        <h2 class="mr-2 text-lg font-semibold">
-            {{ t('admin.analytics.export') }}
-        </h2>
-        @for (dataset of exportDatasets; track dataset) {
-            <button
-                mat-stroked-button
-                type="button"
-                [disabled]="exporting()"
-                (click)="exportDataset(dataset)"
-            >
-                <mat-icon
-                    class="mr-1"
-                    svgIcon="heroicons_outline:arrow-down-tray"
-                ></mat-icon>
-                {{ t('admin.analytics.datasets.' + dataset) }}
-            </button>
+<div class="flex min-w-0 flex-auto flex-col" *transloco="let t">
+    <!-- Header (Fuse project dashboard) -->
+    <div class="bg-card relative">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
         }
-    </div>
-
-    <!-- Quick links -->
-    <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        @for (card of cards; track card.link) {
-            <a
-                [routerLink]="card.link"
-                class="bg-card flex items-start gap-4 rounded-2xl border p-5 transition-colors hover:bg-hover"
+        <div class="mx-auto flex w-full max-w-screen-xl flex-col px-6 sm:px-8">
+            <div
+                class="my-8 flex min-w-0 flex-auto flex-col sm:my-12 sm:flex-row sm:items-center"
             >
-                <mat-icon class="text-accent" [svgIcon]="card.icon"></mat-icon>
-                <span class="flex flex-col">
-                    <span class="font-medium">{{ t(card.titleKey) }}</span>
-                    <span class="text-secondary text-sm">{{
-                        t(card.descriptionKey)
-                    }}</span>
-                </span>
-            </a>
-        }
-    </div>
-</div>
-
-<!--
-    One analytics panel: a titled single-series horizontal bar chart. Bars are
-    sized against the series max, and each row is directly labeled with its
-    value, so no legend or axis is needed (single series, labels on the marks).
--->
-<ng-template #panel let-title="title" let-bars="bars" let-empty="empty">
-    <section class="bg-card rounded-2xl border p-6">
-        <h2 class="text-lg font-semibold">{{ title }}</h2>
-        @if (bars.length) {
-            <ul class="mt-4 flex flex-col gap-3">
-                @for (bar of bars; track bar.label) {
-                    <li class="flex flex-col gap-1">
-                        <div class="flex justify-between gap-3 text-sm">
-                            <span class="truncate">{{ bar.label || '—' }}</span>
-                            <span class="text-secondary tabular-nums">{{
-                                bar.value
-                            }}</span>
-                        </div>
+                <div class="flex min-w-0 flex-auto items-center">
+                    <div
+                        class="flex h-16 w-16 flex-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold uppercase text-primary-700 dark:bg-primary-600 dark:text-primary-50"
+                    >
+                        @if (user()?.avatar || user()?.avatarUrl; as avatar) {
+                            <img
+                                class="h-full w-full object-cover"
+                                [src]="avatar"
+                                [alt]="displayName()"
+                            />
+                        } @else {
+                            {{ displayName().charAt(0) || 'A' }}
+                        }
+                    </div>
+                    <div class="ml-4 flex min-w-0 flex-col">
                         <div
-                            class="bg-hover h-2 overflow-hidden rounded-full"
-                            role="img"
-                            [attr.aria-label]="bar.label + ': ' + bar.value"
+                            class="truncate text-2xl font-semibold leading-7 tracking-tight md:text-5xl md:leading-snug"
+                        >
+                            {{ t('welcome-back') }}
+                            @if (displayName()) {
+                                , {{ displayName() }}!
+                            }
+                        </div>
+                        <div class="flex items-center">
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_solid:bell"
+                            ></mat-icon>
+                            <div
+                                class="text-secondary ml-1.5 truncate leading-6"
+                            >
+                                {{
+                                    t('admin.analytics.welcomeStatus', {
+                                        count: activities().length,
+                                    })
+                                }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="mt-6 flex flex-wrap items-center gap-3 sm:ml-2 sm:mt-0"
+                >
+                    <form
+                        class="flex flex-wrap items-center gap-2"
+                        [formGroup]="rangeForm"
+                        (ngSubmit)="reload()"
+                    >
+                        <mat-form-field
+                            class="fuse-mat-dense w-36"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('admin.analytics.from')
+                            }}</mat-label>
+                            <input
+                                matInput
+                                type="date"
+                                formControlName="from"
+                            />
+                        </mat-form-field>
+                        <mat-form-field
+                            class="fuse-mat-dense w-36"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{ t('admin.analytics.to') }}</mat-label>
+                            <input matInput type="date" formControlName="to" />
+                        </mat-form-field>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="submit"
+                            [disabled]="loading()"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_solid:arrow-path"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('admin.analytics.apply')
+                            }}</span>
+                        </button>
+                    </form>
+                    <a
+                        mat-flat-button
+                        color="accent"
+                        routerLink="/admin/settings"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            svgIcon="heroicons_solid:cog-8-tooth"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            t('admin.dashboard.settings.title')
+                        }}</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto border-t pt-4 sm:pt-6">
+        <div class="mx-auto w-full max-w-screen-xl px-6 pb-10 sm:px-8">
+            <!-- KPI cards -->
+            @if (tiles().length) {
+                <div
+                    class="grid w-full min-w-0 grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4"
+                >
+                    @for (tile of tiles(); track tile.key) {
+                        <div
+                            class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
                         >
                             <div
-                                class="h-full rounded-full bg-accent"
-                                [style.width.%]="bar.percent"
-                            ></div>
+                                class="truncate text-lg font-medium leading-6 tracking-tight"
+                            >
+                                {{ tile.key }}
+                            </div>
+                            <div class="mt-2 flex flex-col items-center">
+                                <div
+                                    class="text-7xl font-bold leading-none tracking-tight sm:text-8xl"
+                                    [class]="tile.valueClass"
+                                >
+                                    {{ tile.value }}
+                                </div>
+                                <div
+                                    class="mt-2 text-lg font-medium"
+                                    [class]="tile.labelClass"
+                                >
+                                    {{ t('admin.analytics.kpiLabel') }}
+                                </div>
+                            </div>
                         </div>
-                    </li>
+                    }
+                </div>
+            }
+
+            <!-- Charts -->
+            <div
+                class="mt-6 grid w-full min-w-0 grid-cols-1 gap-6 md:grid-cols-2"
+            >
+                <!-- Orders (full width on md+) -->
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow md:col-span-2"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.orderMetrics') }}
+                    </div>
+                    @if (orderMetrics().length) {
+                        <div class="mt-4 flex h-80 flex-auto flex-col">
+                            <apx-chart
+                                class="h-full w-full flex-auto"
+                                [chart]="chartOrders().chart!"
+                                [colors]="chartOrders().colors!"
+                                [dataLabels]="chartOrders().dataLabels!"
+                                [fill]="chartOrders().fill!"
+                                [grid]="chartOrders().grid!"
+                                [series]="chartOrders().series!"
+                                [stroke]="chartOrders().stroke!"
+                                [tooltip]="chartOrders().tooltip!"
+                                [xaxis]="chartOrders().xaxis!"
+                                [yaxis]="chartOrders().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.procurementMetrics') }}
+                    </div>
+                    @if (procurementMetrics().length) {
+                        <div class="mt-4 h-72">
+                            <apx-chart
+                                class="h-full w-full"
+                                [chart]="chartProcurement().chart!"
+                                [colors]="chartProcurement().colors!"
+                                [dataLabels]="chartProcurement().dataLabels!"
+                                [grid]="chartProcurement().grid!"
+                                [plotOptions]="chartProcurement().plotOptions!"
+                                [series]="chartProcurement().series!"
+                                [tooltip]="chartProcurement().tooltip!"
+                                [xaxis]="chartProcurement().xaxis!"
+                                [yaxis]="chartProcurement().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+
+                <!-- Recent activity (schedule-style) -->
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.recentActivity') }}
+                    </div>
+                    <div class="mt-4 flex flex-col divide-y">
+                        @for (activity of activities(); track $index) {
+                            <div class="flex flex-col py-3">
+                                <div class="font-medium">
+                                    {{ activityLabel(activity) }}
+                                </div>
+                                <div class="text-secondary mt-0.5 text-sm">
+                                    {{ activityTime(activity) }}
+                                    @if (activity.actorEmail) {
+                                        · {{ activity.actorEmail }}
+                                    }
+                                </div>
+                            </div>
+                        } @empty {
+                            <p class="text-secondary py-3 text-sm">
+                                {{ t('admin.analytics.noData') }}
+                            </p>
+                        }
+                    </div>
+                </div>
+
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.hubThroughput') }}
+                    </div>
+                    @if (hubThroughput().length) {
+                        <div class="mt-4 h-72">
+                            <apx-chart
+                                class="h-full w-full"
+                                [chart]="chartHubs().chart!"
+                                [colors]="chartHubs().colors!"
+                                [dataLabels]="chartHubs().dataLabels!"
+                                [grid]="chartHubs().grid!"
+                                [plotOptions]="chartHubs().plotOptions!"
+                                [series]="chartHubs().series!"
+                                [tooltip]="chartHubs().tooltip!"
+                                [xaxis]="chartHubs().xaxis!"
+                                [yaxis]="chartHubs().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.deliveryPerformance') }}
+                    </div>
+                    @if (deliveryPerformance().length) {
+                        <div class="mt-4 h-72">
+                            <apx-chart
+                                class="h-full w-full"
+                                [chart]="chartDelivery().chart!"
+                                [colors]="chartDelivery().colors!"
+                                [dataLabels]="chartDelivery().dataLabels!"
+                                [fill]="chartDelivery().fill!"
+                                [grid]="chartDelivery().grid!"
+                                [series]="chartDelivery().series!"
+                                [stroke]="chartDelivery().stroke!"
+                                [tooltip]="chartDelivery().tooltip!"
+                                [xaxis]="chartDelivery().xaxis!"
+                                [yaxis]="chartDelivery().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.priceTrends') }}
+                    </div>
+                    @if (priceTrends().length) {
+                        <div class="mt-4 h-72">
+                            <apx-chart
+                                class="h-full w-full"
+                                [chart]="chartPrices().chart!"
+                                [colors]="chartPrices().colors!"
+                                [dataLabels]="chartPrices().dataLabels!"
+                                [fill]="chartPrices().fill!"
+                                [grid]="chartPrices().grid!"
+                                [series]="chartPrices().series!"
+                                [stroke]="chartPrices().stroke!"
+                                [tooltip]="chartPrices().tooltip!"
+                                [xaxis]="chartPrices().xaxis!"
+                                [yaxis]="chartPrices().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+
+                <div
+                    class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <div class="text-lg font-medium tracking-tight">
+                        {{ t('admin.analytics.demandDistribution') }}
+                    </div>
+                    @if (demandDistribution().length) {
+                        <div class="mt-4 h-72">
+                            <apx-chart
+                                class="h-full w-full"
+                                [chart]="chartDemand().chart!"
+                                [colors]="chartDemand().colors!"
+                                [dataLabels]="chartDemand().dataLabels!"
+                                [grid]="chartDemand().grid!"
+                                [plotOptions]="chartDemand().plotOptions!"
+                                [series]="chartDemand().series!"
+                                [tooltip]="chartDemand().tooltip!"
+                                [xaxis]="chartDemand().xaxis!"
+                                [yaxis]="chartDemand().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </div>
+            </div>
+
+            <!-- Export -->
+            <div
+                class="bg-card mt-6 flex flex-wrap items-center gap-3 rounded-2xl p-6 shadow"
+            >
+                <div class="mr-2 text-lg font-medium tracking-tight">
+                    {{ t('admin.analytics.export') }}
+                </div>
+                @for (dataset of exportDatasets; track dataset) {
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="exporting()"
+                        (click)="exportDataset(dataset)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            svgIcon="heroicons_outline:arrow-down-tray"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            t('admin.analytics.datasets.' + dataset)
+                        }}</span>
+                    </button>
                 }
-            </ul>
-        } @else {
-            <p class="text-secondary mt-4 text-sm">{{ empty }}</p>
-        }
-    </section>
-</ng-template>
+            </div>
+
+            <!-- Quick links -->
+            <div
+                class="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4"
+            >
+                @for (card of cards; track card.link) {
+                    <a
+                        class="bg-card flex items-start gap-4 rounded-2xl p-6 shadow transition-shadow hover:shadow-lg"
+                        [routerLink]="card.link"
+                    >
+                        <div
+                            class="flex h-12 w-12 flex-0 items-center justify-center rounded-xl bg-primary-50 text-primary-600 dark:bg-primary-600 dark:text-primary-50"
+                        >
+                            <mat-icon [svgIcon]="card.icon"></mat-icon>
+                        </div>
+                        <span class="flex min-w-0 flex-col">
+                            <span class="font-medium">{{
+                                t(card.titleKey)
+                            }}</span>
+                            <span class="text-secondary mt-1 text-sm">{{
+                                t(card.descriptionKey)
+                            }}</span>
+                        </span>
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</div>

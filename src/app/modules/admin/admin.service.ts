@@ -112,6 +112,79 @@ export class AdminService {
         });
     }
 
+    /**
+     * Loads every `market_agent` user and their market-assignments, then
+     * builds marketId → agent for the markets table.
+     */
+    async getMarketAgentsWithAssignments(): Promise<{
+        agents: AdminUserRow[];
+        agentsByMarket: Map<string, AdminUserRow>;
+    }> {
+        const { users } = await this.getUsers({
+            role: MARKET_AGENT_ROLE,
+            pageSize: MAX_PAGE_SIZE,
+        });
+        const agents = users.filter((u) => !!u.id);
+        const pairs = await Promise.all(
+            agents.map(async (agent) => ({
+                agent,
+                markets: await this.getMarketAssignments(agent.id),
+            }))
+        );
+        const agentsByMarket = new Map<string, AdminUserRow>();
+        for (const { agent, markets } of pairs) {
+            for (const marketId of markets) {
+                agentsByMarket.set(marketId, agent);
+            }
+        }
+        return { agents, agentsByMarket };
+    }
+
+    /**
+     * Resolves which market-agent (if any) currently holds each market, by
+     * reading every agent's assignment list. There is no market→agent GET.
+     */
+    async getAgentsByMarketId(): Promise<Map<string, AdminUserRow>> {
+        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
+        return agentsByMarket;
+    }
+
+    /**
+     * Makes `agentUserId` the sole agent for `marketId` (or clears the
+     * assignment when `agentUserId` is null) via market-assignments PUT.
+     * Other agents that held this market lose it; the chosen agent keeps
+     * their other markets.
+     */
+    async setMarketAgent(
+        marketId: string,
+        agentUserId: string | null
+    ): Promise<void> {
+        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
+        const previous = agentsByMarket.get(marketId);
+
+        if (previous?.id === agentUserId) {
+            return;
+        }
+
+        if (previous) {
+            const markets = await this.getMarketAssignments(previous.id);
+            await this.replaceMarketAssignments(
+                previous.id,
+                markets.filter((id) => id !== marketId)
+            );
+        }
+
+        if (agentUserId) {
+            const markets = await this.getMarketAssignments(agentUserId);
+            if (!markets.includes(marketId)) {
+                await this.replaceMarketAssignments(agentUserId, [
+                    ...markets,
+                    marketId,
+                ]);
+            }
+        }
+    }
+
     // -------------------------------------------------------------------
     // Roles
     // -------------------------------------------------------------------

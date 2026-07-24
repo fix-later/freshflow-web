@@ -26,6 +26,7 @@ export class UnitsComponent {
         title: 'admin.units.title',
         subtitle: 'admin.units.subtitle',
         createLabel: 'admin.units.create',
+        inlineDetail: false,
         searchKeys: ['name', 'abbreviation'],
         searchPlaceholder: 'admin.units.searchPlaceholder',
         columns: [

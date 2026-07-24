@@ -8,13 +8,39 @@
     [mode]="isScreenSmall ? 'over' : 'side'"
     [name]="'mainNavigation'"
     [navigation]="navigation.default"
-    [opened]="!isScreenSmall"
+    [opened]="navigationOpened"
+    (openedChanged)="navigationOpened = $event"
 >
     <!-- Navigation header hook -->
     <ng-container fuseVerticalNavigationContentHeader>
-        <!-- Logo -->
-        <div class="flex h-20 items-center justify-center">
-            <img class="w-8" src="images/logo/logo.svg" alt="Logo image" />
+        <div
+            class="admin-dense-logo-header flex h-20 items-center"
+            [class.justify-center]="navigationAppearance === 'dense'"
+            [class.px-6]="navigationAppearance !== 'dense'"
+        >
+            @if (navigationAppearance === 'dense') {
+                <!-- Collapsed mark; swaps to wordmark on hover via CSS -->
+                <img
+                    class="admin-dense-logo-mark h-8 w-8"
+                    src="images/logo/logo-dark.svg"
+                    alt="FreshFlow"
+                />
+                <img
+                    class="admin-dense-logo-primary hidden h-[calc(2rem*1.51685281)] w-auto"
+                    src="images/logo/logo-primary-dark.svg"
+                    alt="FreshFlow"
+                />
+            } @else {
+                <!--
+                  Primary wordmark (dark). Height = mark height × 1.51685281
+                  so the cart mark matches the dense logo; width follows SVG ratio.
+                -->
+                <img
+                    class="h-[calc(2rem*1.51685281)] w-auto"
+                    src="images/logo/logo-primary-dark.svg"
+                    alt="FreshFlow"
+                />
+            }
         </div>
     </ng-container>
 </fuse-vertical-navigation>
@@ -69,18 +95,7 @@
             </ng-container>
             <fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
             <search [appearance]="'bar'"></search>
-            <shortcuts></shortcuts>
-            <messages></messages>
             <notifications></notifications>
-            <button
-                class="lg:hidden"
-                mat-icon-button
-                (click)="quickChat.toggle()"
-            >
-                <mat-icon
-                    [svgIcon]="'heroicons_outline:chat-bubble-left-right'"
-                ></mat-icon>
-            </button>
             <user></user>
         </div>
     </div>
@@ -104,6 +119,3 @@
         </span>
     </div>
 </div>
-
-<!-- Quick chat -->
-<quick-chat #quickChat="quickChat"></quick-chat>
