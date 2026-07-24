@@ -165,17 +165,17 @@
                             </div>
                             <div class="min-w-0">
                                 <button
-                                    class="h-7 min-h-7 max-w-full truncate px-2 leading-6"
+                                    class="flex h-7 min-h-7 w-full min-w-0 items-center justify-start px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
-                                    [matTooltip]="t('admin.markets.agent')"
+                                    [matTooltip]="agentLabel(row)"
                                     (click)="openAgentDialog(row, agentDialog)"
                                 >
                                     <mat-icon
-                                        class="icon-size-5"
+                                        class="flex-shrink-0 icon-size-5"
                                         svgIcon="heroicons_outline:user"
                                     ></mat-icon>
-                                    <span class="ml-1 truncate">{{
+                                    <span class="ml-1 min-w-0 truncate">{{
                                         agentLabel(row) ||
                                             t('admin.markets.agentNone')
                                     }}</span>
@@ -225,13 +225,13 @@
                                     [formGroup]="selectedForm"
                                     (ngSubmit)="updateSelected()"
                                 >
-                                    <div
-                                        class="flex flex-col gap-6 p-6 md:flex-row md:p-8"
-                                    >
+                                    <div class="flex flex-col gap-4 p-6 md:p-8">
                                         <div
-                                            class="flex w-full flex-col md:w-1/2"
+                                            class="flex flex-col gap-0 sm:flex-row sm:gap-4"
                                         >
-                                            <mat-form-field class="w-full">
+                                            <mat-form-field
+                                                class="w-full sm:w-1/2"
+                                            >
                                                 <mat-label>{{
                                                     t('admin.markets.name')
                                                 }}</mat-label>
@@ -253,7 +253,9 @@
                                                     }}</mat-error>
                                                 }
                                             </mat-form-field>
-                                            <mat-form-field class="w-full">
+                                            <mat-form-field
+                                                class="w-full sm:w-1/2"
+                                            >
                                                 <mat-label>{{
                                                     t('admin.markets.location')
                                                 }}</mat-label>
@@ -262,39 +264,19 @@
                                                     formControlName="location"
                                                 />
                                             </mat-form-field>
-                                            <mat-form-field class="w-full">
-                                                <mat-label>{{
-                                                    t('admin.markets.address')
-                                                }}</mat-label>
-                                                <input
-                                                    matInput
-                                                    formControlName="address"
-                                                />
-                                            </mat-form-field>
                                         </div>
-                                        <div
-                                            class="flex w-full flex-col md:w-1/2"
-                                        >
-                                            <span
-                                                class="text-secondary mb-2 text-sm font-medium"
-                                            >
-                                                {{
-                                                    t(
-                                                        'admin.markets.coordinates'
-                                                    )
-                                                }}
-                                            </span>
-                                            <app-location-picker
-                                                [latControl]="
-                                                    selectedForm.controls
-                                                        .latitude
-                                                "
-                                                [lngControl]="
-                                                    selectedForm.controls
-                                                        .longitude
-                                                "
-                                            ></app-location-picker>
-                                        </div>
+                                        <app-location-picker
+                                            [latControl]="
+                                                selectedForm.controls.latitude
+                                            "
+                                            [lngControl]="
+                                                selectedForm.controls.longitude
+                                            "
+                                            [queryControl]="
+                                                selectedForm.controls.address
+                                            "
+                                            searchLabelKey="admin.markets.address"
+                                        ></app-location-picker>
                                     </div>
 
                                     <div
@@ -400,27 +382,29 @@
             [formGroup]="createForm"
             (ngSubmit)="saveCreate()"
         >
-            <mat-form-field class="w-full">
-                <mat-label>{{ t('admin.markets.name') }}</mat-label>
-                <input matInput formControlName="name" />
-                @if (
-                    createForm.controls.name.touched &&
-                    createForm.controls.name.hasError('required')
-                ) {
-                    <mat-error>{{ t('admin.crud.errors.required') }}</mat-error>
-                }
-            </mat-form-field>
-            <mat-form-field class="w-full">
-                <mat-label>{{ t('admin.markets.location') }}</mat-label>
-                <input matInput formControlName="location" />
-            </mat-form-field>
-            <mat-form-field class="w-full">
-                <mat-label>{{ t('admin.markets.address') }}</mat-label>
-                <input matInput formControlName="address" />
-            </mat-form-field>
+            <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
+                <mat-form-field class="w-full sm:w-1/2">
+                    <mat-label>{{ t('admin.markets.name') }}</mat-label>
+                    <input matInput formControlName="name" />
+                    @if (
+                        createForm.controls.name.touched &&
+                        createForm.controls.name.hasError('required')
+                    ) {
+                        <mat-error>{{
+                            t('admin.crud.errors.required')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+                <mat-form-field class="w-full sm:w-1/2">
+                    <mat-label>{{ t('admin.markets.location') }}</mat-label>
+                    <input matInput formControlName="location" />
+                </mat-form-field>
+            </div>
             <app-location-picker
                 [latControl]="createForm.controls.latitude"
                 [lngControl]="createForm.controls.longitude"
+                [queryControl]="createForm.controls.address"
+                searchLabelKey="admin.markets.address"
             ></app-location-picker>
 
             <div class="mt-4 flex justify-end gap-2">

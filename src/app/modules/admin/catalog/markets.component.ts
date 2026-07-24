@@ -71,21 +71,22 @@ import { CatalogAdminService } from './catalog-admin.service';
     styles: [
         `
             .markets-grid {
-                /* name | agent | pricing | details */
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+                /* name | agent | pricing | details — fixed action cols so the
+                   header and each row (separate grids) line up. */
+                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 7rem 5rem;
 
                 @screen sm {
                     /* name | location | agent | pricing | details */
                     grid-template-columns:
-                        minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)
-                        auto auto;
+                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        7rem 5rem;
                 }
 
                 @screen md {
                     /* name | location | address | agent | pricing | details */
                     grid-template-columns:
-                        minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1.25fr)
-                        minmax(0, 1fr) auto auto;
+                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        minmax(0, 1fr) 7rem 5rem;
                 }
             }
         `,
@@ -256,10 +257,11 @@ export class MarketsComponent implements OnInit {
             return;
         }
         const agentUserId = this.agentForm.getRawValue().agentUserId || null;
+        const previousAgentId = this.agentFor(market)?.id ?? null;
 
         this.agentDialogSaving.set(true);
         this._admin
-            .setMarketAgent(market.id, agentUserId)
+            .setMarketAgent(market.id, agentUserId, previousAgentId)
             .then(() => {
                 this._notify('admin.markets.agentDialog.success');
                 this.closeAgentDialog();

@@ -3,7 +3,6 @@ import {
     extractList,
     extractTotal,
     fetchAllCursor,
-    MAX_PAGE_SIZE,
     parseJson,
     unwrapData,
     withId,
@@ -18,7 +17,6 @@ import {
     AdminCreditStatement,
     AdminCreditTransaction,
     AdminGenerateStatementPayload,
-    AdminMarketAssignmentEntry,
     AdminMarketOption,
     AdminOperationalSettings,
     AdminOrderGroupRow,
@@ -66,30 +64,6 @@ export class AdminService {
         return { users, totalCount };
     }
 
-    /**
-     * Every user matching `filters`, following the offset pagination to the end
-     * (the per-page cap would otherwise stop at {@link MAX_PAGE_SIZE}). Used by
-     * the pickers that must see the whole set, not a first page.
-     */
-    private async _getAllUsers(
-        filters: AdminUserFilters
-    ): Promise<AdminUserRow[]> {
-        const pageSize = MAX_PAGE_SIZE;
-        const all: AdminUserRow[] = [];
-        for (let page = 1; page <= 1000; page++) {
-            const { users, totalCount } = await this.getUsers({
-                ...filters,
-                page,
-                pageSize,
-            });
-            all.push(...users);
-            if (users.length < pageSize || all.length >= totalCount) {
-                break;
-            }
-        }
-        return all;
-    }
-
     async createUser(payload: AdminCreateUserPayload): Promise<void> {
         await adminApi.apiV1AdminUsersPostRaw({
             createUserCommand: payload,
@@ -119,11 +93,53 @@ export class AdminService {
             { userId }
         );
         const body = await parseJson<unknown>(res.raw);
-        const entries = extractList<AdminMarketAssignmentEntry>(body);
-        return entries
-            .map((entry) =>
-                typeof entry === 'string' ? entry : entry.marketId ?? entry.id
-            )
+        const data = unwrapData<unknown>(body) ?? body;
+        return this._assignmentMarketIds(data);
+    }
+
+    /**
+     * Pulls the assigned market ids out of the (untyped) market-assignments
+     * body, tolerating both a bare array and an object wrapper that names the
+     * array `marketIds` / `markets` / `assignments` / `items`, and entries that
+     * are either plain id strings or objects.
+     */
+    private _assignmentMarketIds(data: unknown): string[] {
+        let list: unknown[] = [];
+        if (Array.isArray(data)) {
+            list = data;
+        } else if (data && typeof data === 'object') {
+            const record = data as Record<string, unknown>;
+            for (const key of [
+                'marketIds',
+                'markets',
+                'assignments',
+                'items',
+                'results',
+                'value',
+                'data',
+            ]) {
+                if (Array.isArray(record[key])) {
+                    list = record[key] as unknown[];
+                    break;
+                }
+            }
+        }
+        return list
+            .map((entry) => {
+                if (typeof entry === 'string') {
+                    return entry;
+                }
+                if (entry && typeof entry === 'object') {
+                    const e = entry as Record<string, unknown>;
+                    const value =
+                        e['marketId'] ??
+                        e['marketID'] ??
+                        e['market_id'] ??
+                        e['id'];
+                    return typeof value === 'string' ? value : null;
+                }
+                return null;
+            })
             .filter((id): id is string => !!id);
     }
 
@@ -145,9 +161,8 @@ export class AdminService {
         agents: AdminUserRow[];
         agentsByMarket: Map<string, AdminUserRow>;
     }> {
-        const agents = (
-            await this._getAllUsers({ role: MARKET_AGENT_ROLE })
-        ).filter((u) => !!u.id);
+        const { users } = await this.getUsers({ role: MARKET_AGENT_ROLE });
+        const agents = users.filter((u) => !!u.id);
         const pairs = await Promise.all(
             agents.map(async (agent) => ({
                 agent,
@@ -180,23 +195,24 @@ export class AdminService {
      */
     async setMarketAgent(
         marketId: string,
-        agentUserId: string | null
+        agentUserId: string | null,
+        previousAgentId: string | null = null
     ): Promise<void> {
-        const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
-        const previous = agentsByMarket.get(marketId);
-
-        if (previous?.id === agentUserId) {
+        const previous = previousAgentId || null;
+        if (previous === (agentUserId || null)) {
             return;
         }
 
+        // Drop the market from the previous agent's assignment list.
         if (previous) {
-            const markets = await this.getMarketAssignments(previous.id);
+            const markets = await this.getMarketAssignments(previous);
             await this.replaceMarketAssignments(
-                previous.id,
+                previous,
                 markets.filter((id) => id !== marketId)
             );
         }
 
+        // Add the market to the new agent's assignment list.
         if (agentUserId) {
             const markets = await this.getMarketAssignments(agentUserId);
             if (!markets.includes(marketId)) {
@@ -432,12 +448,11 @@ export class AdminService {
 
     /** Market-agent users, for the "assign agent" picker on a batch. */
     async getAgentOptions(): Promise<AdminUserRow[]> {
-        return (
-            await this._getAllUsers({
-                role: MARKET_AGENT_ROLE,
-                isActive: true,
-            })
-        ).filter((user) => !!user.id);
+        const { users } = await this.getUsers({
+            role: MARKET_AGENT_ROLE,
+            isActive: true,
+        });
+        return users.filter((user) => !!user.id);
     }
 
     async generateManifest(batchId: string): Promise<void> {
