@@ -55,7 +55,6 @@ export class UnitsComponent {
             },
         ],
         list: () => this._catalog.listUnits(),
-        listPage: (query) => this._catalog.listUnitsPage(query),
         create: (value) => this._catalog.createUnit(value),
         update: (id, value) => this._catalog.updateUnit(id, value),
         remove: (row) => this._catalog.deactivateUnit(row.id),

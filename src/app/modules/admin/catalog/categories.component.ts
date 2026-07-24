@@ -164,7 +164,6 @@ export class CategoriesComponent {
             },
         ],
         list: () => this._catalog.listCategories(),
-        listPage: (query) => this._catalog.listCategoriesPage(query),
         create: (value) => this._catalog.createCategory(value),
         update: (id, value) => this._catalog.updateCategory(id, value),
         remove: (row) => this._catalog.deactivateCategory(row.id),

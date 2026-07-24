@@ -91,40 +91,16 @@ export class CatalogAdminService {
     // ---- Categories -------------------------------------------------------
 
     /**
-     * Categories, each annotated with a resolved `parentName`.
-     *
-     * Pages to completion for pickers / mind-map. Prefer
-     * {@link listCategoriesPage} for the admin table.
+     * All categories in one request (BE has no offset pagination), each
+     * annotated with a resolved `parentName`. The admin table paginates
+     * client-side from this list.
      */
     async listCategories(activeOnly = false): Promise<CrudRow[]> {
-        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
-            categoriesApi
-                .apiV1CategoriesGetRaw({ activeOnly, page, pageSize })
-                .then((res) => res.raw)
-        );
-        return this._withCategoryParentNames(
-            withId<CrudRow>(rawRows, 'categoryId')
-        );
-    }
-
-    /** One offset page of categories for the admin table. */
-    async listCategoriesPage(query: CatalogPageQuery): Promise<CatalogPage> {
-        const res = await categoriesApi.apiV1CategoriesGetRaw({
-            activeOnly: query.activeOnly ?? false,
-            page: query.page,
-            pageSize: query.pageSize,
-        });
+        const res = await categoriesApi.apiV1CategoriesGetRaw({ activeOnly });
         const body = await parseJson(res.raw);
-        const rows = this._withCategoryParentNames(
+        return this._withCategoryParentNames(
             withId<CrudRow>(extractList(body), 'categoryId')
         );
-        const info = extractPagination(body);
-        return {
-            rows,
-            total: info?.total ?? extractTotal(body) ?? rows.length,
-            page: info?.page,
-            pageSize: info?.pageSize,
-        };
     }
 
     private _withCategoryParentNames(rows: CrudRow[]): CrudRow[] {
@@ -174,32 +150,14 @@ export class CatalogAdminService {
 
     // ---- Units ------------------------------------------------------------
 
-    /** All units (pages to completion) for pickers. */
+    /**
+     * All units in one request (BE has no offset pagination). The admin table
+     * paginates client-side from this list.
+     */
     async listUnits(activeOnly = false): Promise<CrudRow[]> {
-        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
-            unitsApi
-                .apiV1UnitsGetRaw({ activeOnly, page, pageSize })
-                .then((res) => res.raw)
-        );
-        return withId<CrudRow>(rawRows, 'unitId');
-    }
-
-    /** One offset page of units for the admin table. */
-    async listUnitsPage(query: CatalogPageQuery): Promise<CatalogPage> {
-        const res = await unitsApi.apiV1UnitsGetRaw({
-            activeOnly: query.activeOnly ?? false,
-            page: query.page,
-            pageSize: query.pageSize,
-        });
+        const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly });
         const body = await parseJson(res.raw);
-        const rows = withId<CrudRow>(extractList(body), 'unitId');
-        const info = extractPagination(body);
-        return {
-            rows,
-            total: info?.total ?? extractTotal(body) ?? rows.length,
-            page: info?.page,
-            pageSize: info?.pageSize,
-        };
+        return withId<CrudRow>(extractList(body), 'unitId');
     }
 
     async createUnit(value: CrudFormValue): Promise<void> {
