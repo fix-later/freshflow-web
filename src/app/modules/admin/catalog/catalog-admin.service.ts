@@ -1,6 +1,8 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractPagination,
+    extractTotal,
     fetchAllCursor,
     fetchAllOffset,
     parseJson,
@@ -13,6 +15,22 @@ import {
     CrudOption,
     CrudRow,
 } from '../shared/resource-crud.types';
+
+/** Server-side page of products (one page loaded at a time). */
+export interface ProductsPage {
+    rows: CrudRow[];
+    total: number;
+    page?: number;
+    pageSize?: number;
+}
+
+/** Query for a single products page. */
+export interface ProductsQuery {
+    page: number;
+    pageSize: number;
+    search?: string;
+    categoryId?: string;
+}
 
 /** Coerce a form value to a required (non-empty) string. */
 function str(value: unknown): string {
@@ -147,18 +165,47 @@ export class CatalogAdminService {
     // ---- Products ---------------------------------------------------------
 
     /**
-     * All products, following the offset pagination to completion — the API
-     * caps `pageSize` at {@link MAX_PAGE_SIZE}, so a single request would miss
-     * anything past the first 100. Loops until a short page (or the reported
-     * total) is reached.
+     * One server-side page of products. Search and category filtering are sent
+     * to the backend (`search`/`category`) so only the current page is loaded,
+     * keeping the frontend light. Only active products are returned
+     * (`includeInactive: false`).
      */
-    async listProducts(): Promise<CrudRow[]> {
+    async listProducts(query: ProductsQuery): Promise<ProductsPage> {
+        const res = await productsApi.apiV1ProductsGetRaw({
+            includeInactive: false,
+            page: query.page,
+            pageSize: query.pageSize,
+            search: query.search || undefined,
+            category: query.categoryId || undefined,
+        });
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(extractList(body), 'productId');
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
+    }
+
+    /**
+     * All active products as id/name options for pickers (e.g. adding a product
+     * to a market). Pickers need the whole set, so this pages to completion —
+     * unlike {@link listProducts}, which loads one page for the table.
+     */
+    async productOptions(): Promise<CrudOption[]> {
         const rows = await fetchAllOffset<CrudRow>((page, pageSize) =>
             productsApi
-                .apiV1ProductsGetRaw({ includeInactive: true, page, pageSize })
+                .apiV1ProductsGetRaw({ includeInactive: false, page, pageSize })
                 .then((res) => res.raw)
         );
-        return withId<CrudRow>(rows, 'productId');
+        return withId<CrudRow>(rows, 'productId')
+            .filter((row) => !!row.id)
+            .map((row) => ({
+                value: row.id,
+                label: String(row['name'] ?? ''),
+            }));
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {

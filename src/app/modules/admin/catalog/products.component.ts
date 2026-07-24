@@ -109,6 +109,10 @@ export class ProductsComponent implements OnInit {
     readonly filterChildId = signal('');
     readonly pageIndex = signal(0);
     readonly pageSize = signal(10);
+    /** Total matching products across all pages (from the server). */
+    readonly totalCount = signal(0);
+    /** Debounce handle for the server-side search box. */
+    private _searchTimer?: ReturnType<typeof setTimeout>;
     readonly selectedId = signal<string | null>(null);
     /** Full row backing the edit dialog (for read-only meta: status/dates/id). */
     readonly selectedRow = signal<CrudRow | null>(null);
@@ -170,24 +174,13 @@ export class ProductsComponent implements OnInit {
         description: new FormControl('', { nonNullable: true }),
     });
 
-    readonly filteredRows = computed(() => {
-        const term = this.search().trim();
-        const parent = this.filterParentId();
-        const child = this.filterChildId();
-
-        // Only active products are listed; soft-deleted ones are hidden.
-        return this.rows().filter((row) => {
-            if (row['isDeleted'] === true) {
-                return false;
-            }
-            const matchesSearch =
-                !term || includesFolded(String(row['name'] ?? ''), term);
-            return matchesSearch && this._matchesCategory(row, parent, child);
-        });
-    });
-
+    /**
+     * The current server page in the active client-side sort order. Search,
+     * category filtering and paging are done by the backend (one page loaded at
+     * a time); sorting reorders the loaded page.
+     */
     readonly sortedRows = computed(() =>
-        this.sort.apply(this.filteredRows(), (row, key) => {
+        this.sort.apply(this.rows(), (row, key) => {
             if (key === 'category') {
                 return String(row['categoryName'] ?? '');
             }
@@ -198,11 +191,6 @@ export class ProductsComponent implements OnInit {
         })
     );
 
-    readonly pagedRows = computed(() => {
-        const start = this.pageIndex() * this.pageSize();
-        return this.sortedRows().slice(start, start + this.pageSize());
-    });
-
     readonly hasActiveFilters = computed(
         () =>
             this.search().trim() !== '' ||
@@ -210,45 +198,32 @@ export class ProductsComponent implements OnInit {
             this.filterChildId() !== ''
     );
 
-    /**
-     * Category match for the page filter: a chosen sub-category matches exactly;
-     * a chosen parent matches products in the parent itself or any of its
-     * children; no selection matches everything.
-     */
-    private _matchesCategory(
-        row: CrudRow,
-        parent: string,
-        child: string
-    ): boolean {
-        const catId = String(row['categoryId'] ?? '');
-        if (child) {
-            return catId === child;
-        }
-        if (!parent) {
-            return true;
-        }
-        return catId === parent || this._parentOf(catId) === parent;
-    }
-
     ngOnInit(): void {
         this.load();
         void this._loadOptions();
     }
 
+    /** Loads the current page from the server (search / category / page). */
     load(): void {
         this.loading.set(true);
+        const categoryId =
+            this.filterChildId() || this.filterParentId() || undefined;
         this._catalog
-            .listProducts()
-            .then((rows) => {
+            .listProducts({
+                page: this.pageIndex() + 1,
+                pageSize: this.pageSize(),
+                search: this.search().trim() || undefined,
+                categoryId,
+            })
+            .then(({ rows, total, page, pageSize }) => {
                 this.rows.set(rows);
-                const id = this.selectedId();
-                if (id && !rows.some((r) => r.id === id)) {
-                    this.closeDetails();
-                } else if (id) {
-                    const row = rows.find((r) => r.id === id);
-                    if (row) {
-                        this._patchSelected(row);
-                    }
+                this.totalCount.set(total);
+                // Track the page/size the backend actually returned.
+                if (page) {
+                    this.pageIndex.set(page - 1);
+                }
+                if (pageSize) {
+                    this.pageSize.set(pageSize);
                 }
             })
             .catch((err) => void this._notifyError(err, 'admin.crud.loadError'))
@@ -257,8 +232,13 @@ export class ProductsComponent implements OnInit {
 
     onSearch(value: string): void {
         this.search.set(value);
-        this.pageIndex.set(0);
-        this.closeDetails();
+        // Debounce so typing doesn't fire a request per keystroke.
+        clearTimeout(this._searchTimer);
+        this._searchTimer = setTimeout(() => {
+            this.pageIndex.set(0);
+            this.closeDetails();
+            this.load();
+        }, 350);
     }
 
     /** Pick a parent filter → reset the sub-category filter so it re-narrows. */
@@ -267,6 +247,7 @@ export class ProductsComponent implements OnInit {
         this.filterChildId.set('');
         this.pageIndex.set(0);
         this.closeDetails();
+        this.load();
     }
 
     /** Pick a sub-category filter → auto-fill its parent (like the dialog). */
@@ -278,6 +259,7 @@ export class ProductsComponent implements OnInit {
         }
         this.pageIndex.set(0);
         this.closeDetails();
+        this.load();
     }
 
     clearFilters(): void {
@@ -286,11 +268,12 @@ export class ProductsComponent implements OnInit {
         this.filterChildId.set('');
         this.pageIndex.set(0);
         this.closeDetails();
+        this.load();
     }
 
+    /** Sort reorders the current page only (server owns paging). */
     onSort(key: string): void {
         this.sort.toggle(key);
-        this.pageIndex.set(0);
         this.closeDetails();
     }
 
@@ -298,6 +281,7 @@ export class ProductsComponent implements OnInit {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
         this.closeDetails();
+        this.load();
     }
 
     openEdit(row: CrudRow, template: TemplateRef<unknown>): void {
