@@ -89,6 +89,13 @@ import { CatalogAdminService } from './catalog-admin.service';
                         minmax(0, 1fr) 7rem 5rem;
                 }
             }
+
+            /* Force the agent button to be a real flex box (Material defaults to
+               inline-flex, which lets the email overflow instead of truncating). */
+            .agent-btn {
+                display: flex !important;
+                align-items: center;
+            }
         `,
     ],
 })

@@ -165,7 +165,7 @@
                             </div>
                             <div class="min-w-0">
                                 <button
-                                    class="flex h-7 min-h-7 w-full min-w-0 items-center justify-start px-2 leading-6"
+                                    class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
                                     [matTooltip]="agentLabel(row)"
@@ -175,10 +175,13 @@
                                         class="flex-shrink-0 icon-size-5"
                                         svgIcon="heroicons_outline:user"
                                     ></mat-icon>
-                                    <span class="ml-1 min-w-0 truncate">{{
-                                        agentLabel(row) ||
-                                            t('admin.markets.agentNone')
-                                    }}</span>
+                                    <span
+                                        class="ml-1 min-w-0 flex-1 truncate text-left"
+                                        >{{
+                                            agentLabel(row) ||
+                                                t('admin.markets.agentNone')
+                                        }}</span
+                                    >
                                 </button>
                             </div>
                             <div>
