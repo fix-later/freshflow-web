@@ -14,6 +14,7 @@ import {
     ReactiveFormsModule,
     Validators,
 } from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
 import {
     MatDialog,
@@ -29,7 +30,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -49,6 +49,7 @@ import { CatalogAdminService } from './catalog-admin.service';
     encapsulation: ViewEncapsulation.None,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        MatAutocompleteModule,
         MatButtonModule,
         MatDialogModule,
         MatFormFieldModule,
@@ -67,28 +68,25 @@ import { CatalogAdminService } from './catalog-admin.service';
     styles: [
         `
             .products-grid {
-                /* image | name | details — matches cells visible below sm */
-                grid-template-columns: 3rem minmax(0, 1fr) auto;
+                /* image | name | actions — matches cells visible below sm */
+                grid-template-columns: 4rem minmax(0, 1fr) 6rem;
 
                 @screen sm {
-                    /* image | name | category | details */
-                    grid-template-columns: 3rem minmax(0, 1.5fr) minmax(0, 1fr) auto;
+                    /* image | name | category | actions — content cols even */
+                    grid-template-columns: 4rem minmax(0, 1fr) minmax(0, 1fr) 6rem;
                 }
 
                 @screen md {
-                    /* image | name | category | unit | details */
+                    /* image | name | category | unit | actions — content cols even */
                     grid-template-columns:
-                        3rem minmax(0, 1.5fr) minmax(0, 1fr) minmax(5rem, 0.7fr)
-                        auto;
+                        4rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        6rem;
                 }
             }
         `,
     ],
 })
 export class ProductsComponent implements OnInit {
-    protected readonly expandOnEnter = expandOnEnter;
-    protected readonly collapseOnLeave = collapseOnLeave;
-
     private readonly _catalog = inject(CatalogAdminService);
     private readonly _dialog = inject(MatDialog);
     private readonly _confirmation = inject(FuseConfirmationService);
@@ -96,24 +94,50 @@ export class ProductsComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     private _createDialogRef: MatDialogRef<unknown> | null = null;
+    private _editDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly rows = signal<CrudRow[]>([]);
     readonly loading = signal(false);
     readonly saving = signal(false);
     readonly uploading = signal(false);
     readonly dragOver = signal(false);
+    /** Image URL shown in the enlarged-preview dialog. */
+    readonly previewImageUrl = signal('');
     readonly search = signal('');
     readonly categoryFilter = signal('');
-    readonly statusFilter = signal('');
     readonly pageIndex = signal(0);
     readonly pageSize = signal(10);
     readonly selectedId = signal<string | null>(null);
+    /** Full row backing the edit dialog (for read-only meta: status/dates/id). */
+    readonly selectedRow = signal<CrudRow | null>(null);
     readonly flashMessage = signal<'success' | 'error' | null>(null);
     readonly sort = new TableSort<CrudRow>();
-    readonly categoryOptions = signal<CrudOption[]>([]);
     readonly unitOptions = signal<CrudOption[]>([]);
     /** Active categories only — for the page filter dropdown. */
     readonly filterCategoryOptions = signal<CrudOption[]>([]);
+
+    /** All active categories (carry `parentId`) — feed the cascade selects. */
+    readonly activeCategoryRows = signal<CrudRow[]>([]);
+    /** Parent category chosen in the create / edit dialog. */
+    readonly createParentId = signal('');
+    readonly editParentId = signal('');
+    /** In-dropdown search term for the sub-category select, per dialog. */
+    readonly createChildSearch = signal('');
+    readonly editChildSearch = signal('');
+
+    /** Top-level active categories (no parent) — the "parent" dropdown. */
+    readonly parentCategoryOptions = computed(() =>
+        this.activeCategoryRows()
+            .filter((c) => !String(c['parentId'] ?? '').trim())
+            .map((c) => ({ value: c.id, label: String(c['name'] ?? '') }))
+    );
+    /** Active sub-categories of the parent chosen in each dialog. */
+    readonly createChildOptions = computed(() =>
+        this._childOptions(this.createParentId())
+    );
+    readonly editChildOptions = computed(() =>
+        this._childOptions(this.editParentId())
+    );
 
     readonly selectedForm = new FormGroup({
         name: new FormControl('', {
@@ -145,19 +169,17 @@ export class ProductsComponent implements OnInit {
     readonly filteredRows = computed(() => {
         const term = this.search().trim();
         const categoryId = this.categoryFilter();
-        const status = this.statusFilter();
 
+        // Only active products are listed; soft-deleted ones are hidden.
         return this.rows().filter((row) => {
+            if (row['isDeleted'] === true) {
+                return false;
+            }
             const matchesSearch =
                 !term || includesFolded(String(row['name'] ?? ''), term);
             const matchesCategory =
                 !categoryId || String(row['categoryId'] ?? '') === categoryId;
-            const matchesStatus =
-                !status ||
-                (status === 'active'
-                    ? row.isActive !== false
-                    : row.isActive === false);
-            return matchesSearch && matchesCategory && matchesStatus;
+            return matchesSearch && matchesCategory;
         });
     });
 
@@ -179,10 +201,7 @@ export class ProductsComponent implements OnInit {
     });
 
     readonly hasActiveFilters = computed(
-        () =>
-            this.search().trim() !== '' ||
-            this.categoryFilter() !== '' ||
-            this.statusFilter() !== ''
+        () => this.search().trim() !== '' || this.categoryFilter() !== ''
     );
 
     ngOnInit(): void {
@@ -222,16 +241,9 @@ export class ProductsComponent implements OnInit {
         this.closeDetails();
     }
 
-    onStatusFilter(value: string): void {
-        this.statusFilter.set(value);
-        this.pageIndex.set(0);
-        this.closeDetails();
-    }
-
     clearFilters(): void {
         this.search.set('');
         this.categoryFilter.set('');
-        this.statusFilter.set('');
         this.pageIndex.set(0);
         this.closeDetails();
     }
@@ -248,18 +260,26 @@ export class ProductsComponent implements OnInit {
         this.closeDetails();
     }
 
-    toggleDetails(row: CrudRow): void {
-        if (this.selectedId() === row.id) {
-            this.closeDetails();
-            return;
-        }
+    openEdit(row: CrudRow, template: TemplateRef<unknown>): void {
         this.selectedId.set(row.id);
+        this.selectedRow.set(row);
         this.flashMessage.set(null);
+        this.editChildSearch.set('');
         this._patchSelected(row);
+        this._editDialogRef = this._dialog.open(template, {
+            width: '720px',
+            maxWidth: '95vw',
+            autoFocus: 'first-tabbable',
+        });
     }
 
     closeDetails(): void {
+        this._editDialogRef?.close();
+        this._editDialogRef = null;
         this.selectedId.set(null);
+        this.selectedRow.set(null);
+        this.editParentId.set('');
+        this.editChildSearch.set('');
         this.flashMessage.set(null);
         this.selectedForm.reset({
             name: '',
@@ -277,6 +297,8 @@ export class ProductsComponent implements OnInit {
             categoryId: '',
             description: '',
         });
+        this.createParentId.set('');
+        this.createChildSearch.set('');
         this._createDialogRef = this._dialog.open(template, {
             width: '560px',
             maxWidth: '95vw',
@@ -289,14 +311,100 @@ export class ProductsComponent implements OnInit {
         this._createDialogRef = null;
     }
 
+    /** Pick a parent category → reset the sub-category so it re-filters. */
+    onCreateParentChange(parentId: string): void {
+        this.createParentId.set(parentId);
+        this.createForm.controls.categoryId.setValue('');
+    }
+
+    onEditParentChange(parentId: string): void {
+        this.editParentId.set(parentId);
+        this.selectedForm.controls.categoryId.setValue('');
+    }
+
+    /** Type-to-search options for the sub-category autocomplete. */
+    visibleChildOptions(mode: 'create' | 'edit'): CrudOption[] {
+        const options =
+            mode === 'create'
+                ? this.createChildOptions()
+                : this.editChildOptions();
+        const term = (
+            mode === 'create'
+                ? this.createChildSearch()
+                : this.editChildSearch()
+        ).trim();
+        const selectedId = this._childControl(mode).value;
+        // Empty box, or still showing the current selection → full list.
+        if (!term || term === this._categoryLabel(selectedId)) {
+            return options;
+        }
+        return options.filter((opt) => includesFolded(opt.label, term));
+    }
+
+    onChildSearch(mode: 'create' | 'edit', term: string): void {
+        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
+            term
+        );
+    }
+
+    /** Pick a sub-category → store it, show its label, auto-fill the parent. */
+    onChildSelected(mode: 'create' | 'edit', childId: string): void {
+        this._childControl(mode).setValue(childId);
+        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
+            this._categoryLabel(childId)
+        );
+        const parent = this._parentOf(childId);
+        if (parent) {
+            (mode === 'create' ? this.createParentId : this.editParentId).set(
+                parent
+            );
+        }
+    }
+
+    /** On close, drop any unselected typed text — revert to the selection. */
+    onChildBlur(mode: 'create' | 'edit'): void {
+        const id = this._childControl(mode).value;
+        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
+            id ? this._categoryLabel(id) : ''
+        );
+    }
+
+    clearChild(mode: 'create' | 'edit'): void {
+        this._childControl(mode).setValue('');
+        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
+            ''
+        );
+    }
+
+    /** Maps the stored category id → its name for the autocomplete display. */
+    readonly childLabel = (id: string): string => this._categoryLabel(id);
+
+    private _childControl(mode: 'create' | 'edit') {
+        return mode === 'create'
+            ? this.createForm.controls.categoryId
+            : this.selectedForm.controls.categoryId;
+    }
+
+    private _categoryLabel(id: string): string {
+        if (!id) {
+            return '';
+        }
+        const cat = this.activeCategoryRows().find((c) => c.id === id);
+        return cat ? String(cat['name'] ?? '') : '';
+    }
+
     saveCreate(): void {
         if (this.createForm.invalid) {
             this.createForm.markAllAsTouched();
             return;
         }
+        const value = this.createForm.getRawValue();
         this.saving.set(true);
         this._catalog
-            .createProduct(this.createForm.getRawValue())
+            .createProduct({
+                ...value,
+                categoryId: value.categoryId || this.createParentId(),
+            })
             .then(() => {
                 this._notify('admin.crud.createSuccess');
                 this.closeCreate();
@@ -312,11 +420,16 @@ export class ProductsComponent implements OnInit {
             this.selectedForm.markAllAsTouched();
             return;
         }
+        const value = this.selectedForm.getRawValue();
         this.saving.set(true);
         this._catalog
-            .updateProduct(id, this.selectedForm.getRawValue())
+            .updateProduct(id, {
+                ...value,
+                categoryId: value.categoryId || this.editParentId(),
+            })
             .then(() => {
-                this.showFlashMessage('success');
+                this._notify('admin.crud.updateSuccess');
+                this.closeDetails();
                 this.load();
             })
             .catch((err) => {
@@ -326,15 +439,11 @@ export class ProductsComponent implements OnInit {
             .finally(() => this.saving.set(false));
     }
 
-    deactivateSelected(): void {
-        const id = this.selectedId();
-        if (!id) {
+    deactivate(row: CrudRow): void {
+        if (row['isDeleted'] === true) {
             return;
         }
-        const row = this.rows().find((r) => r.id === id);
-        if (row?.isActive === false) {
-            return;
-        }
+        const id = row.id;
 
         const confirmation = this._confirmation.open({
             title: this._transloco.translate('admin.crud.confirmRemove.title'),
@@ -368,11 +477,49 @@ export class ProductsComponent implements OnInit {
     }
 
     isInactive(row: CrudRow): boolean {
-        return row.isActive === false;
+        return row['isDeleted'] === true;
     }
 
     unitLabel(row: CrudRow): string {
         return String(row['unitName'] ?? row['unitAbbreviation'] ?? '');
+    }
+
+    /** Assigned category rows keyed by id, for parent/child resolution. */
+    private readonly _categoryById = computed(
+        () => new Map(this.activeCategoryRows().map((c) => [c.id, c]))
+    );
+
+    /** The product's own (leaf) category name. */
+    categoryChild(row: CrudRow): string {
+        const cat = this._categoryById().get(String(row['categoryId'] ?? ''));
+        return String(cat?.['name'] ?? row['categoryName'] ?? '');
+    }
+
+    /** Parent category name — empty when the product's category is top-level. */
+    categoryParent(row: CrudRow): string {
+        const cat = this._categoryById().get(String(row['categoryId'] ?? ''));
+        return cat ? String(cat['parentName'] ?? '').trim() : '';
+    }
+
+    createdLabel(row: CrudRow): string {
+        return this._formatDate(row['createdAt'] ?? row['createdDate']);
+    }
+
+    updatedLabel(row: CrudRow): string {
+        return this._formatDate(
+            row['updatedAt'] ?? row['updatedDate'] ?? row['modifiedAt']
+        );
+    }
+
+    /** Locale-formatted date, or '' when the value is missing/unparseable. */
+    private _formatDate(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleString(this._transloco.getActiveLang());
     }
 
     showFlashMessage(type: 'success' | 'error'): void {
@@ -415,6 +562,20 @@ export class ProductsComponent implements OnInit {
         this.selectedForm.controls.imageUrl.setValue('');
     }
 
+    /** Opens the image in a large, click-to-close preview dialog. */
+    openImagePreview(template: TemplateRef<unknown>, url: string): void {
+        if (!url) {
+            return;
+        }
+        this.previewImageUrl.set(url);
+        this._dialog.open(template, {
+            maxWidth: '95vw',
+            maxHeight: '95vh',
+            autoFocus: false,
+            panelClass: 'image-preview-dialog',
+        });
+    }
+
     private async _uploadImage(file: File): Promise<void> {
         if (!file.type.startsWith('image/')) {
             this._notify('admin.crud.image.invalidType');
@@ -433,26 +594,77 @@ export class ProductsComponent implements OnInit {
 
     private async _loadOptions(): Promise<void> {
         try {
-            const [units, categories, filterCategories] = await Promise.all([
+            const [units, activeCategories] = await Promise.all([
                 this._catalog.unitOptions(),
-                this._catalog.categoryOptions(),
-                this._catalog.categoryOptions(true),
+                this._catalog.listCategories(true),
             ]);
             this.unitOptions.set(units);
-            this.categoryOptions.set(categories);
-            this.filterCategoryOptions.set(filterCategories);
+            this.activeCategoryRows.set(activeCategories);
+            this.filterCategoryOptions.set(
+                activeCategories.map((c) => ({
+                    value: c.id,
+                    label: String(c['name'] ?? ''),
+                }))
+            );
         } catch {
             this.unitOptions.set([]);
-            this.categoryOptions.set([]);
+            this.activeCategoryRows.set([]);
             this.filterCategoryOptions.set([]);
         }
     }
 
+    /**
+     * Sub-category options. Scoped to `parentId` when a parent is chosen;
+     * otherwise every active sub-category, so a child can be picked first and
+     * the parent auto-filled from it.
+     */
+    private _childOptions(parentId: string): CrudOption[] {
+        return this.activeCategoryRows()
+            .filter((c) => {
+                const p = String(c['parentId'] ?? '').trim();
+                return p !== '' && (!parentId || p === parentId);
+            })
+            .map((c) => ({ value: c.id, label: String(c['name'] ?? '') }));
+    }
+
+    /** Parent id of a category (empty if top-level or unknown). */
+    private _parentOf(categoryId: string): string {
+        if (!categoryId) {
+            return '';
+        }
+        const cat = this.activeCategoryRows().find((c) => c.id === categoryId);
+        return cat ? String(cat['parentId'] ?? '').trim() : '';
+    }
+
+    /**
+     * Splits a product's stored `categoryId` into the parent to preselect and
+     * the sub-category (if the stored category is itself a child). A top-level
+     * category becomes the parent with no child selected.
+     */
+    private _resolveCategory(categoryId: string): {
+        parentId: string;
+        childId: string;
+    } {
+        const cat = this.activeCategoryRows().find((c) => c.id === categoryId);
+        if (!cat) {
+            return { parentId: '', childId: '' };
+        }
+        const parent = String(cat['parentId'] ?? '').trim();
+        return parent
+            ? { parentId: parent, childId: cat.id }
+            : { parentId: cat.id, childId: '' };
+    }
+
     private _patchSelected(row: CrudRow): void {
+        const { parentId, childId } = this._resolveCategory(
+            String(row['categoryId'] ?? '')
+        );
+        this.editParentId.set(parentId);
+        this.editChildSearch.set(this._categoryLabel(childId));
         this.selectedForm.reset({
             name: String(row['name'] ?? ''),
             unitId: String(row['unitId'] ?? ''),
-            categoryId: String(row['categoryId'] ?? ''),
+            categoryId: childId,
             description: String(row['description'] ?? ''),
             imageUrl: String(row['imageUrl'] ?? ''),
         });

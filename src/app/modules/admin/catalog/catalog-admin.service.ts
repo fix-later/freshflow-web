@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractTotal,
     MAX_PAGE_SIZE,
     parseJson,
     unwrapData,
@@ -115,8 +116,8 @@ export class CatalogAdminService {
 
     // ---- Units ------------------------------------------------------------
 
-    async listUnits(): Promise<CrudRow[]> {
-        const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly: false });
+    async listUnits(activeOnly = false): Promise<CrudRow[]> {
+        const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly });
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'unitId');
     }
 
@@ -145,15 +146,34 @@ export class CatalogAdminService {
 
     // ---- Products ---------------------------------------------------------
 
+    /**
+     * All products, following the offset pagination to completion — the API
+     * caps `pageSize` at {@link MAX_PAGE_SIZE}, so a single request would miss
+     * anything past the first 100. Loops until a short page (or the reported
+     * total) is reached.
+     */
     async listProducts(): Promise<CrudRow[]> {
-        const res = await productsApi.apiV1ProductsGetRaw({
-            includeInactive: true,
-            pageSize: MAX_PAGE_SIZE,
-        });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'productId'
-        );
+        const pageSize = MAX_PAGE_SIZE;
+        const all: CrudRow[] = [];
+        for (let page = 1; ; page++) {
+            const res = await productsApi.apiV1ProductsGetRaw({
+                includeInactive: true,
+                page,
+                pageSize,
+            });
+            const body = await parseJson(res.raw);
+            const rows = withId<CrudRow>(extractList(body), 'productId');
+            all.push(...rows);
+            const total = extractTotal(body);
+            const done =
+                rows.length < pageSize ||
+                (total != null && all.length >= total) ||
+                page >= 100; // safety cap: 100 pages × 100 = 10k products
+            if (done) {
+                break;
+            }
+        }
+        return all;
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {
@@ -223,9 +243,12 @@ export class CatalogAdminService {
         return this._toOptions(await this.listCategories(activeOnly));
     }
 
-    /** Unit id/name options for the product form select. */
+    /** Active-only unit id/name options for the product form select. */
     async unitOptions(): Promise<CrudOption[]> {
-        return this._toOptions(await this.listUnits(), 'abbreviation');
+        const units = (await this.listUnits(true)).filter(
+            (u) => u['isActive'] !== false
+        );
+        return this._toOptions(units, 'abbreviation');
     }
 
     // ---- Markets ----------------------------------------------------------
