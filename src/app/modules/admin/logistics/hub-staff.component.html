@@ -24,6 +24,7 @@
                 >
                     @for (member of staff(); track member.value) {
                         <mat-checkbox
+                            color="primary"
                             [checked]="isAssigned(member.value)"
                             (change)="toggle(member.value)"
                         >
