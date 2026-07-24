@@ -1,26 +1,479 @@
-<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
-    <h1 class="text-3xl font-bold tracking-tight">
-        {{ t('admin.orderGroups.title') }}
-    </h1>
-    <p class="text-secondary mt-1 text-sm">
-        {{ t('admin.orderGroups.subtitle') }}
-    </p>
-
-    <!-- Auto-batch -->
-    <form
-        [formGroup]="batchForm"
-        class="bg-card mt-6 flex flex-col gap-4 rounded-2xl border p-6"
-        (ngSubmit)="runAutoBatch()"
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-8 sm:flex-row sm:items-center sm:justify-between md:px-8"
     >
-        <div class="flex flex-wrap items-start gap-4">
-            <h2 class="w-full text-lg font-semibold">
+        @if (loading() || batching()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="min-w-0">
+            <div class="text-4xl font-extrabold tracking-tight">
+                {{ t('admin.orderGroups.title') }}
+            </div>
+        </div>
+        <div
+            class="mt-6 flex min-w-0 shrink flex-wrap items-center gap-3 sm:ml-4 sm:mt-0"
+        >
+            <mat-form-field
+                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                    autocomplete="off"
+                    [value]="search()"
+                    [placeholder]="t('admin.orderGroups.searchPlaceholder')"
+                    (input)="onSearch($any($event.target).value)"
+                />
+            </mat-form-field>
+            <button
+                mat-flat-button
+                color="accent"
+                class="shrink-0"
+                type="button"
+                (click)="openSettings()"
+            >
+                <mat-icon svgIcon="heroicons_outline:cog-6-tooth"></mat-icon>
+                <span class="ml-2 mr-1">{{ t('admin.settings.title') }}</span>
+            </button>
+            <button
+                mat-flat-button
+                color="primary"
+                class="shrink-0"
+                type="button"
+                (click)="openAutoBatch(autoBatchDialog)"
+            >
+                <mat-icon
+                    svgIcon="heroicons_outline:rectangle-group"
+                ></mat-icon>
+                <span class="ml-2 mr-1">{{
+                    t('admin.orderGroups.autoBatch.title')
+                }}</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+        >
+            <!-- Auto-batch failure -->
+            @if (autoBatchError(); as err) {
+                <div
+                    class="mx-6 mt-6 flex items-start gap-3 rounded-2xl border p-4 md:mx-8"
+                    [class.border-red-300]="err.severity === 'error'"
+                    [class.bg-red-50]="err.severity === 'error'"
+                    [class.dark:bg-red-900]="err.severity === 'error'"
+                    [class.border-amber-300]="err.severity === 'warning'"
+                    [class.bg-amber-50]="err.severity === 'warning'"
+                >
+                    <mat-icon
+                        class="flex-shrink-0 icon-size-6"
+                        [class.text-red-600]="err.severity === 'error'"
+                        [class.text-amber-600]="err.severity === 'warning'"
+                        [svgIcon]="
+                            err.severity === 'warning'
+                                ? 'heroicons_outline:exclamation-triangle'
+                                : 'heroicons_outline:x-circle'
+                        "
+                    ></mat-icon>
+                    <div class="min-w-0 text-sm">
+                        <div class="font-semibold">
+                            {{
+                                err.severity === 'warning'
+                                    ? t('admin.orderGroups.autoBatch.busyTitle')
+                                    : t(
+                                          'admin.orderGroups.autoBatch.errorTitle'
+                                      )
+                            }}
+                        </div>
+                        <div class="text-secondary mt-0.5">
+                            {{ err.message }}
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Auto-batch result -->
+            @if (autoBatchResult(); as result) {
+                <div
+                    class="bg-default mx-6 mt-6 rounded-2xl border p-5 md:mx-8 md:p-6"
+                >
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <div class="text-lg font-semibold">
+                                {{ t('admin.orderGroups.result.title') }}
+                            </div>
+                            @if (result.dryRun) {
+                                <span class="admin-pill admin-pill-warning">{{
+                                    t('admin.orderGroups.result.previewBadge')
+                                }}</span>
+                            } @else {
+                                <span class="admin-pill admin-pill-success">{{
+                                    t('admin.orderGroups.result.appliedBadge')
+                                }}</span>
+                            }
+                            @if (result.targetDate) {
+                                <span class="text-secondary text-xs">{{
+                                    result.targetDate
+                                }}</span>
+                            }
+                        </div>
+                        <button
+                            mat-icon-button
+                            type="button"
+                            [matTooltip]="t('admin.crud.cancel')"
+                            (click)="dismissAutoBatchResult()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:x-mark"
+                            ></mat-icon>
+                        </button>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                        <div class="rounded-xl border p-4">
+                            <div
+                                class="text-secondary text-xs uppercase tracking-wide"
+                            >
+                                {{
+                                    t('admin.orderGroups.result.createdBatches')
+                                }}
+                            </div>
+                            <div class="mt-1 text-2xl font-bold tabular-nums">
+                                {{ result.createdBatchCount ?? 0 }}
+                            </div>
+                        </div>
+                        <div class="rounded-xl border p-4">
+                            <div
+                                class="text-secondary text-xs uppercase tracking-wide"
+                            >
+                                {{
+                                    t('admin.orderGroups.result.batchedOrders')
+                                }}
+                            </div>
+                            <div class="mt-1 text-2xl font-bold tabular-nums">
+                                {{ result.batchedOrderCount ?? 0 }}
+                            </div>
+                        </div>
+                        <div class="rounded-xl border p-4">
+                            <div
+                                class="text-secondary text-xs uppercase tracking-wide"
+                            >
+                                {{
+                                    t('admin.orderGroups.result.skippedOrders')
+                                }}
+                            </div>
+                            <div class="mt-1 text-2xl font-bold tabular-nums">
+                                {{
+                                    result.skippedOrderCount ??
+                                        (result.skippedOrders?.length || 0)
+                                }}
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (result.batches?.length) {
+                        <div class="mt-5">
+                            <div class="mb-2 text-sm font-semibold">
+                                {{ t('admin.orderGroups.result.batchesTitle') }}
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                @for (batch of result.batches; track $index) {
+                                    <div
+                                        class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2 text-sm"
+                                    >
+                                        <span class="font-medium">{{
+                                            batch.sourceMarketName ||
+                                                batch.sourceMarketId ||
+                                                '—'
+                                        }}</span>
+                                        @if (batch.deliveryZone) {
+                                            <span
+                                                class="admin-pill admin-pill-neutral"
+                                                >{{ batch.deliveryZone }}</span
+                                            >
+                                        }
+                                        <span class="text-secondary">{{
+                                            t(
+                                                'admin.orderGroups.result.orderCount',
+                                                {
+                                                    count:
+                                                        batch.orderIds
+                                                            ?.length || 0,
+                                                }
+                                            )
+                                        }}</span>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+
+                    @if (result.skippedOrders?.length) {
+                        <div class="mt-5">
+                            <div class="mb-2 text-sm font-semibold">
+                                {{ t('admin.orderGroups.result.skippedTitle') }}
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                @for (
+                                    skip of result.skippedOrders;
+                                    track $index
+                                ) {
+                                    <div
+                                        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs"
+                                    >
+                                        <span class="font-mono">{{
+                                            skip.orderId || '—'
+                                        }}</span>
+                                        <span
+                                            class="admin-pill admin-pill-neutral"
+                                            >{{
+                                                skippedReasonLabel(skip.reason)
+                                            }}</span
+                                        >
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (sortedGroups().length > 0) {
+                <div class="grid">
+                    <div
+                        class="order-groups-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        @for (
+                            col of [
+                                {
+                                    key: 'batch',
+                                    label: 'admin.orderGroups.table.batch',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'marketName',
+                                    label: 'admin.orderGroups.table.market',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'status',
+                                    label: 'admin.orderGroups.table.status',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'orderCount',
+                                    label: 'admin.orderGroups.table.orders',
+                                    hide: 'hidden md:block',
+                                },
+                                {
+                                    key: 'createdAt',
+                                    label: 'admin.orderGroups.table.created',
+                                    hide: 'hidden lg:block',
+                                },
+                            ];
+                            track col.key
+                        ) {
+                            <div
+                                [class]="col.hide"
+                                [attr.aria-sort]="sort.ariaSort(col.key)"
+                            >
+                                <button
+                                    type="button"
+                                    class="admin-sort-header"
+                                    (click)="sort.toggle(col.key)"
+                                >
+                                    {{ t(col.label) }}
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-accent]="
+                                            sort.key() === col.key
+                                        "
+                                        [svgIcon]="
+                                            'heroicons_outline:' +
+                                            sort.icon(col.key)
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
+                        <div>{{ t('admin.orderGroups.table.agent') }}</div>
+                        <div class="text-right">
+                            {{ t('admin.orderGroups.table.actions') }}
+                        </div>
+                    </div>
+
+                    @for (
+                        group of sortedGroups();
+                        track trackById($index, group)
+                    ) {
+                        <div
+                            class="order-groups-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                        >
+                            <div class="min-w-0 truncate font-medium">
+                                {{ group.batchNumber || batchIdOf(group) }}
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ group.marketName || '—' }}
+                            </div>
+                            <div>
+                                <span [class]="statusPillClass(group.status)">
+                                    {{ group.status || '—' }}
+                                </span>
+                            </div>
+                            <div class="hidden tabular-nums md:block">
+                                {{ group.orderCount ?? '—' }}
+                            </div>
+                            <div
+                                class="text-secondary hidden truncate text-sm lg:block"
+                            >
+                                {{ formatDate(group.createdAt) || '—' }}
+                            </div>
+                            <div class="min-w-0">
+                                <mat-form-field
+                                    class="fuse-mat-dense w-full max-w-56"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-select
+                                        [value]="group.agentId || ''"
+                                        [attr.aria-label]="
+                                            t(
+                                                'admin.orderGroups.assignAgent.label'
+                                            )
+                                        "
+                                        (selectionChange)="
+                                            assignAgent(group, $event.value)
+                                        "
+                                    >
+                                        <mat-option value="">{{
+                                            t(
+                                                'admin.orderGroups.assignAgent.none'
+                                            )
+                                        }}</mat-option>
+                                        @for (
+                                            agent of agents();
+                                            track agent.id
+                                        ) {
+                                            <mat-option [value]="agent.id">{{
+                                                agent.email || agent.id
+                                            }}</mat-option>
+                                        }
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+                            <div class="flex justify-end gap-1">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.orderGroups.manifest.tooltip')
+                                    "
+                                    (click)="generateManifest(group)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:document-text"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    color="warn"
+                                    type="button"
+                                    [matTooltip]="
+                                        t('admin.orderGroups.cancel.tooltip')
+                                    "
+                                    (click)="openCancel(group, cancelDialog)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:x-circle"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <mat-paginator
+                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="[10, 20, 50]"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
+            } @else if (!loading()) {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.orderGroups.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Auto-batch dialog -->
+<ng-template #autoBatchDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
                 {{ t('admin.orderGroups.autoBatch.title') }}
-            </h2>
-            <mat-form-field class="w-56" subscriptSizing="dynamic">
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeAutoBatch()"
+            >
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        <form
+            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+            [formGroup]="batchForm"
+            (ngSubmit)="runAutoBatch()"
+        >
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.orderGroups.autoBatch.targetDate')
                 }}</mat-label>
-                <input matInput type="date" formControlName="targetDate" />
+                <input
+                    matInput
+                    [matDatepicker]="targetDatePicker"
+                    formControlName="targetDate"
+                    [placeholder]="
+                        t('admin.orderGroups.autoBatch.datePlaceholder')
+                    "
+                />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="targetDatePicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #targetDatePicker></mat-datepicker>
                 <mat-hint>{{
                     t('admin.orderGroups.autoBatch.targetDateHint')
                 }}</mat-hint>
@@ -35,417 +488,137 @@
                     }}</mat-error>
                 }
             </mat-form-field>
-            <div class="flex flex-col gap-2 pt-2">
-                <mat-checkbox formControlName="dryRun" color="primary">
+
+            <div class="mt-4 flex flex-col">
+                <mat-checkbox
+                    class="my-1"
+                    [color]="'primary'"
+                    formControlName="dryRun"
+                >
                     {{ t('admin.orderGroups.autoBatch.dryRun') }}
                 </mat-checkbox>
-                <mat-checkbox formControlName="force" color="primary">
+                <mat-checkbox
+                    class="my-1"
+                    [color]="'primary'"
+                    formControlName="force"
+                >
                     {{ t('admin.orderGroups.autoBatch.force') }}
                 </mat-checkbox>
             </div>
-        </div>
 
-        @if (batchForm.controls.dryRun.value) {
-            <p class="text-secondary text-xs">
-                {{ t('admin.orderGroups.autoBatch.dryRunHint') }}
-            </p>
-        } @else {
-            <p class="flex items-center gap-1 text-xs text-amber-600">
-                <mat-icon
-                    class="icon-size-4"
-                    svgIcon="heroicons_outline:exclamation-triangle"
-                ></mat-icon>
-                {{ t('admin.orderGroups.autoBatch.applyHint') }}
-            </p>
-        }
-        @if (batchForm.controls.force.value) {
-            <p class="flex items-center gap-1 text-xs text-amber-600">
-                <mat-icon
-                    class="icon-size-4"
-                    svgIcon="heroicons_outline:exclamation-triangle"
-                ></mat-icon>
-                {{ t('admin.orderGroups.autoBatch.forceHint') }}
-            </p>
-        }
-
-        <div>
-            <button
-                mat-flat-button
-                color="primary"
-                type="submit"
-                [disabled]="batching() || batchForm.invalid"
-            >
-                <mat-icon
-                    class="mr-1"
-                    svgIcon="heroicons_outline:rectangle-group"
-                ></mat-icon>
-                {{
-                    batchForm.controls.dryRun.value
-                        ? t('admin.orderGroups.autoBatch.submitDryRun')
-                        : t('admin.orderGroups.autoBatch.submit')
-                }}
-            </button>
-            @if (batching()) {
-                <mat-progress-bar
-                    mode="indeterminate"
-                    class="mt-3"
-                ></mat-progress-bar>
+            @if (batchForm.controls.dryRun.value) {
+                <p class="text-secondary mt-3 text-xs">
+                    {{ t('admin.orderGroups.autoBatch.dryRunHint') }}
+                </p>
+            } @else {
+                <p class="mt-3 flex items-center gap-1 text-xs text-amber-600">
+                    <mat-icon
+                        class="icon-size-4"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    {{ t('admin.orderGroups.autoBatch.applyHint') }}
+                </p>
             }
-        </div>
-    </form>
+            @if (batchForm.controls.force.value) {
+                <p class="mt-2 flex items-center gap-1 text-xs text-amber-600">
+                    <mat-icon
+                        class="icon-size-4"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    {{ t('admin.orderGroups.autoBatch.forceHint') }}
+                </p>
+            }
 
-    <!-- Auto-batch failure -->
-    @if (autoBatchError(); as err) {
-        <div
-            class="mt-4 flex items-start gap-3 rounded-2xl border p-4"
-            [class.border-red-300]="err.severity === 'error'"
-            [class.bg-red-50]="err.severity === 'error'"
-            [class.border-amber-300]="err.severity === 'warning'"
-            [class.bg-amber-50]="err.severity === 'warning'"
-        >
-            <mat-icon
-                class="flex-shrink-0 icon-size-6"
-                [class.text-red-600]="err.severity === 'error'"
-                [class.text-amber-600]="err.severity === 'warning'"
-                [svgIcon]="
-                    err.severity === 'warning'
-                        ? 'heroicons_outline:exclamation-triangle'
-                        : 'heroicons_outline:x-circle'
-                "
-            ></mat-icon>
-            <div class="min-w-0 text-sm">
-                <div class="font-semibold">
-                    {{
-                        err.severity === 'warning'
-                            ? t('admin.orderGroups.autoBatch.busyTitle')
-                            : t('admin.orderGroups.autoBatch.errorTitle')
-                    }}
-                </div>
-                <div class="text-secondary mt-0.5">{{ err.message }}</div>
-            </div>
-        </div>
-    }
-
-    <!-- Auto-batch result -->
-    @if (autoBatchResult(); as result) {
-        <div class="bg-card mt-4 rounded-2xl border p-6">
-            <div class="flex items-start justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2">
-                    <h3 class="font-semibold">
-                        {{ t('admin.orderGroups.result.title') }}
-                    </h3>
-                    @if (result.dryRun) {
-                        <span class="admin-pill admin-pill-warning">{{
-                            t('admin.orderGroups.result.previewBadge')
-                        }}</span>
-                    } @else {
-                        <span class="admin-pill admin-pill-success">{{
-                            t('admin.orderGroups.result.appliedBadge')
-                        }}</span>
-                    }
-                    @if (formatDate(result.targetDate) || result.targetDate) {
-                        <span class="text-secondary text-xs">{{
-                            result.targetDate
-                        }}</span>
-                    }
-                </div>
+            <div class="mt-6 flex justify-end gap-3">
                 <button
-                    mat-icon-button
+                    mat-stroked-button
                     type="button"
-                    [matTooltip]="t('admin.crud.cancel')"
-                    (click)="dismissAutoBatchResult()"
+                    (click)="closeAutoBatch()"
                 >
-                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="batching() || batchForm.invalid"
+                >
+                    {{
+                        batchForm.controls.dryRun.value
+                            ? t('admin.orderGroups.autoBatch.submitDryRun')
+                            : t('admin.orderGroups.autoBatch.submit')
+                    }}
                 </button>
             </div>
-
-            <!-- Summary tiles -->
-            <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div class="rounded-xl border p-4">
-                    <div class="text-secondary text-xs uppercase tracking-wide">
-                        {{ t('admin.orderGroups.result.createdBatches') }}
-                    </div>
-                    <div class="mt-1 text-2xl font-bold">
-                        {{ result.createdBatchCount ?? 0 }}
-                    </div>
-                </div>
-                <div class="rounded-xl border p-4">
-                    <div class="text-secondary text-xs uppercase tracking-wide">
-                        {{ t('admin.orderGroups.result.batchedOrders') }}
-                    </div>
-                    <div class="mt-1 text-2xl font-bold">
-                        {{ result.batchedOrderCount ?? 0 }}
-                    </div>
-                </div>
-                <div class="rounded-xl border p-4">
-                    <div class="text-secondary text-xs uppercase tracking-wide">
-                        {{ t('admin.orderGroups.result.skippedOrders') }}
-                    </div>
-                    <div class="mt-1 text-2xl font-bold">
-                        {{
-                            result.skippedOrderCount ??
-                                (result.skippedOrders?.length || 0)
-                        }}
-                    </div>
-                </div>
-            </div>
-
-            <!-- Batches -->
-            @if (result.batches?.length) {
-                <div class="mt-5">
-                    <div class="mb-2 text-sm font-semibold">
-                        {{ t('admin.orderGroups.result.batchesTitle') }}
-                    </div>
-                    <div class="flex flex-col gap-2">
-                        @for (batch of result.batches; track $index) {
-                            <div
-                                class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2 text-sm"
-                            >
-                                <span class="font-medium">{{
-                                    batch.sourceMarketName ||
-                                        batch.sourceMarketId ||
-                                        '—'
-                                }}</span>
-                                @if (batch.deliveryZone) {
-                                    <span
-                                        class="admin-pill admin-pill-neutral"
-                                        >{{ batch.deliveryZone }}</span
-                                    >
-                                }
-                                <span class="text-secondary">{{
-                                    t('admin.orderGroups.result.orderCount', {
-                                        count: batch.orderIds?.length || 0,
-                                    })
-                                }}</span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-
-            <!-- Skipped -->
-            @if (result.skippedOrders?.length) {
-                <div class="mt-5">
-                    <div class="mb-2 text-sm font-semibold">
-                        {{ t('admin.orderGroups.result.skippedTitle') }}
-                    </div>
-                    <div class="flex flex-col gap-1">
-                        @for (skip of result.skippedOrders; track $index) {
-                            <div
-                                class="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs"
-                            >
-                                <span class="font-mono">{{
-                                    skip.orderId || '—'
-                                }}</span>
-                                <span class="admin-pill admin-pill-neutral">{{
-                                    skippedReasonLabel(skip.reason)
-                                }}</span>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
-        </div>
-    }
-
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
-    }
-
-    <!-- Batches -->
-    <div class="bg-card mt-4 overflow-x-auto rounded-2xl border">
-        <table class="w-full min-w-[920px] text-left text-sm">
-            <thead
-                class="text-secondary border-b text-xs uppercase tracking-wide"
-            >
-                <tr>
-                    @for (
-                        col of [
-                            {
-                                key: 'batch',
-                                label: 'admin.orderGroups.table.batch',
-                            },
-                            {
-                                key: 'marketName',
-                                label: 'admin.orderGroups.table.market',
-                            },
-                            {
-                                key: 'status',
-                                label: 'admin.orderGroups.table.status',
-                            },
-                            {
-                                key: 'orderCount',
-                                label: 'admin.orderGroups.table.orders',
-                            },
-                            {
-                                key: 'createdAt',
-                                label: 'admin.orderGroups.table.created',
-                            },
-                        ];
-                        track col.key
-                    ) {
-                        <th
-                            class="px-4 py-3 font-medium"
-                            [attr.aria-sort]="sort.ariaSort(col.key)"
-                        >
-                            <button
-                                type="button"
-                                class="admin-sort-header"
-                                (click)="sort.toggle(col.key)"
-                            >
-                                {{ t(col.label) }}
-                                <mat-icon
-                                    class="icon-size-4"
-                                    [class.text-accent]="sort.key() === col.key"
-                                    [svgIcon]="
-                                        'heroicons_outline:' +
-                                        sort.icon(col.key)
-                                    "
-                                ></mat-icon>
-                            </button>
-                        </th>
-                    }
-                    <th class="px-4 py-3 font-medium">
-                        {{ t('admin.orderGroups.table.agent') }}
-                    </th>
-                    <th class="px-4 py-3 text-right font-medium">
-                        {{ t('admin.orderGroups.table.actions') }}
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (group of sortedGroups(); track trackById($index, group)) {
-                    <tr class="border-b hover:bg-hover last:border-0">
-                        <td class="px-4 py-3 font-medium">
-                            {{ group.batchNumber || batchIdOf(group) }}
-                        </td>
-                        <td class="px-4 py-3">{{ group.marketName || '—' }}</td>
-                        <td class="px-4 py-3">
-                            <span [class]="statusPillClass(group.status)">
-                                {{ group.status || '—' }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3">{{ group.orderCount ?? '—' }}</td>
-                        <td class="text-secondary px-4 py-3">
-                            {{ formatDate(group.createdAt) || '—' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <mat-form-field
-                                class="w-56"
-                                subscriptSizing="dynamic"
-                            >
-                                <mat-label>{{
-                                    t('admin.orderGroups.assignAgent.label')
-                                }}</mat-label>
-                                <mat-select
-                                    [value]="group.agentId || ''"
-                                    (selectionChange)="
-                                        assignAgent(group, $event.value)
-                                    "
-                                >
-                                    @for (agent of agents(); track agent.id) {
-                                        <mat-option [value]="agent.id">{{
-                                            agent.email || agent.id
-                                        }}</mat-option>
-                                    }
-                                </mat-select>
-                            </mat-form-field>
-                        </td>
-                        <td class="px-4 py-3">
-                            <div class="flex items-center justify-end gap-1">
-                                <button
-                                    mat-icon-button
-                                    type="button"
-                                    [matTooltip]="
-                                        t('admin.orderGroups.manifest.tooltip')
-                                    "
-                                    (click)="generateManifest(group)"
-                                >
-                                    <mat-icon
-                                        svgIcon="heroicons_outline:document-text"
-                                    ></mat-icon>
-                                </button>
-                                <button
-                                    mat-icon-button
-                                    type="button"
-                                    color="warn"
-                                    [matTooltip]="
-                                        t('admin.orderGroups.cancel.tooltip')
-                                    "
-                                    (click)="openCancel(group, cancelDialog)"
-                                >
-                                    <mat-icon
-                                        svgIcon="heroicons_outline:x-circle"
-                                    ></mat-icon>
-                                </button>
-                            </div>
-                        </td>
-                    </tr>
-                } @empty {
-                    <tr>
-                        <td
-                            class="text-secondary px-4 py-8 text-center"
-                            colspan="7"
-                        >
-                            {{ t('admin.orderGroups.empty') }}
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+        </form>
     </div>
-
-    <mat-paginator
-        class="mt-2"
-        [length]="totalCount()"
-        [pageIndex]="pageIndex()"
-        [pageSize]="pageSize()"
-        [pageSizeOptions]="[10, 20, 50]"
-        (page)="onPageChange($event)"
-    ></mat-paginator>
-</div>
+</ng-template>
 
 <!-- Cancel batch dialog -->
 <ng-template #cancelDialog>
-    <div class="flex w-full flex-col p-6" *transloco="let t">
-        <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold">
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
                 {{ t('admin.orderGroups.cancel.title') }}
-            </h2>
-            <button mat-icon-button type="button" (click)="closeCancel()">
-                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeCancel()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
             </button>
         </div>
-        <p class="text-secondary mt-2 text-sm">
-            {{ t('admin.orderGroups.cancel.message') }}
-        </p>
-        @if (cancelTarget(); as target) {
-            <div class="mt-1 text-sm font-medium">
-                {{ target.batchNumber || batchIdOf(target) }}
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            <p class="text-secondary text-sm">
+                {{ t('admin.orderGroups.cancel.message') }}
+            </p>
+            @if (cancelTarget(); as target) {
+                <div class="mt-2 text-base font-medium">
+                    {{ target.batchNumber || batchIdOf(target) }}
+                </div>
+            }
+            <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.orderGroups.cancel.reason')
+                }}</mat-label>
+                <textarea
+                    matInput
+                    rows="3"
+                    [formControl]="cancelReason"
+                    [placeholder]="
+                        t('admin.orderGroups.cancel.reasonPlaceholder')
+                    "
+                ></textarea>
+            </mat-form-field>
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeCancel()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="warn"
+                    type="button"
+                    [disabled]="cancelSaving()"
+                    (click)="confirmCancel()"
+                >
+                    {{ t('admin.orderGroups.cancel.confirm') }}
+                </button>
             </div>
-        }
-        <mat-form-field class="mt-4 w-full">
-            <mat-label>{{ t('admin.orderGroups.cancel.reason') }}</mat-label>
-            <textarea
-                matInput
-                rows="3"
-                [formControl]="cancelReason"
-                [placeholder]="t('admin.orderGroups.cancel.reasonPlaceholder')"
-            ></textarea>
-        </mat-form-field>
-        <div class="mt-2 flex justify-end gap-2">
-            <button mat-button type="button" (click)="closeCancel()">
-                {{ t('admin.crud.cancel') }}
-            </button>
-            <button
-                mat-flat-button
-                color="warn"
-                type="button"
-                [disabled]="cancelSaving()"
-                (click)="confirmCancel()"
-            >
-                {{ t('admin.orderGroups.cancel.confirm') }}
-            </button>
         </div>
     </div>
 </ng-template>

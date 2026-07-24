@@ -34,6 +34,11 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
@@ -108,7 +113,7 @@ export class ProductsComponent implements OnInit {
     readonly filterParentId = signal('');
     readonly filterChildId = signal('');
     readonly pageIndex = signal(0);
-    readonly pageSize = signal(10);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     /** Total matching products across all pages (from the server). */
     readonly totalCount = signal(0);
     /** Debounce handle for the server-side search box. */
@@ -210,7 +215,7 @@ export class ProductsComponent implements OnInit {
             this.filterChildId() || this.filterParentId() || undefined;
         this._catalog
             .listProducts({
-                page: this.pageIndex() + 1,
+                page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
                 search: this.search().trim() || undefined,
                 categoryId,
@@ -220,7 +225,7 @@ export class ProductsComponent implements OnInit {
                 this.totalCount.set(total);
                 // Track the page/size the backend actually returned.
                 if (page) {
-                    this.pageIndex.set(page - 1);
+                    this.pageIndex.set(toPageIndex(page));
                 }
                 if (pageSize) {
                     this.pageSize.set(pageSize);

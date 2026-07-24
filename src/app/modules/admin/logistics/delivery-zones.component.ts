@@ -61,6 +61,7 @@ export class DeliveryZonesComponent {
             },
         ],
         list: () => this._logistics.listZones(),
+        listPage: (query) => this._logistics.listZonesPage(query),
         create: (value) => this._logistics.createZone(value),
         update: (id, value) => this._logistics.updateZone(id, value),
         remove: (row) => this._logistics.deleteZone(row.id),

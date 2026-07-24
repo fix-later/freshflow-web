@@ -8,8 +8,14 @@ import {
     inject,
     signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import {
+    AbstractControl,
+    FormBuilder,
+    ReactiveFormsModule,
+    ValidationErrors,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -20,14 +26,31 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import { DateTime } from 'luxon';
 import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
 import { Subject, takeUntil } from 'rxjs';
 import {
     AnalyticsActivity,
     AnalyticsPoint,
     AnalyticsService,
-    isoDate,
 } from './analytics.service';
+
+/** Optional Luxon day from the Material datepicker. */
+function validDate(control: AbstractControl): ValidationErrors | null {
+    const value = control.value;
+    if (value == null || value === '') {
+        return { required: true };
+    }
+    return DateTime.isDateTime(value) && value.isValid
+        ? null
+        : { invalidDate: true };
+}
+
+function toIsoDate(value: DateTime | null | undefined): string | null {
+    return value && DateTime.isDateTime(value) && value.isValid
+        ? value.toISODate()
+        : null;
+}
 
 /** Overview KPI tile with Fuse-style accent classes. */
 interface OverviewTile {
@@ -89,6 +112,7 @@ function humanize(key: string): string {
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
+        MatDatepickerModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -129,9 +153,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
 
     readonly exportDatasets = [...EXPORT_DATASETS];
 
-    readonly rangeForm = this._formBuilder.nonNullable.group({
-        from: [isoDate(new Date(Date.now() - 29 * 24 * 60 * 60 * 1000))],
-        to: [isoDate(new Date())],
+    readonly rangeForm = this._formBuilder.group({
+        from: this._formBuilder.control<DateTime | null>(
+            DateTime.now().minus({ days: 29 }).startOf('day'),
+            { validators: [validDate] }
+        ),
+        to: this._formBuilder.control<DateTime | null>(
+            DateTime.now().startOf('day'),
+            { validators: [validDate] }
+        ),
     });
 
     readonly displayName = computed(() => {
@@ -157,12 +187,6 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             link: '/admin/order-groups',
             titleKey: 'admin.dashboard.orderGroups.title',
             descriptionKey: 'admin.dashboard.orderGroups.description',
-        },
-        {
-            icon: 'heroicons_outline:cog-6-tooth',
-            link: '/admin/settings',
-            titleKey: 'admin.dashboard.settings.title',
-            descriptionKey: 'admin.dashboard.settings.description',
         },
     ];
 
@@ -194,7 +218,12 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
 
     reload(): void {
-        const { from, to } = this.rangeForm.getRawValue();
+        if (this.rangeForm.invalid) {
+            this.rangeForm.markAllAsTouched();
+            return;
+        }
+        const from = toIsoDate(this.rangeForm.controls.from.value);
+        const to = toIsoDate(this.rangeForm.controls.to.value);
         if (!from || !to) {
             return;
         }
@@ -283,7 +312,11 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     }
 
     exportDataset(dataset: string): void {
-        const { from, to } = this.rangeForm.getRawValue();
+        const from = toIsoDate(this.rangeForm.controls.from.value);
+        const to = toIsoDate(this.rangeForm.controls.to.value);
+        if (!from || !to) {
+            return;
+        }
         this.exporting.set(true);
         this._analytics
             .exportDataset(dataset, from, to)

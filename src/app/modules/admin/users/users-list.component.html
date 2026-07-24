@@ -9,95 +9,97 @@
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div
-            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-        >
-            <div class="min-w-0">
-                <div class="text-4xl font-extrabold tracking-tight">
-                    {{ t('admin.users.title') }}
+        <form [formGroup]="filterForm">
+            <div
+                class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="min-w-0">
+                    <div class="text-4xl font-extrabold tracking-tight">
+                        {{ t('admin.users.title') }}
+                    </div>
+                </div>
+                <div class="flex min-w-0 flex-wrap items-center gap-3">
+                    <mat-form-field
+                        class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            matPrefix
+                            svgIcon="heroicons_solid:magnifying-glass"
+                        ></mat-icon>
+                        <input
+                            matInput
+                            class="overflow-hidden text-ellipsis whitespace-nowrap"
+                            autocomplete="off"
+                            formControlName="search"
+                            [placeholder]="
+                                t('admin.users.filters.searchPlaceholder')
+                            "
+                        />
+                    </mat-form-field>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        class="shrink-0"
+                        type="button"
+                        (click)="openCreatePanel()"
+                    >
+                        <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                        <span class="ml-2 mr-1">{{
+                            t('admin.users.create.trigger')
+                        }}</span>
+                    </button>
                 </div>
             </div>
-            <button
-                mat-flat-button
-                color="primary"
-                class="shrink-0"
-                type="button"
-                (click)="openCreatePanel()"
-            >
-                <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-                <span class="ml-2 mr-1">{{
-                    t('admin.users.create.trigger')
-                }}</span>
-            </button>
-        </div>
 
-        <form
-            [formGroup]="filterForm"
-            class="mt-6 flex flex-wrap items-end gap-3"
-        >
-            <mat-form-field
-                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
-                subscriptSizing="dynamic"
-            >
-                <mat-icon
-                    class="icon-size-5"
-                    matPrefix
-                    svgIcon="heroicons_solid:magnifying-glass"
-                ></mat-icon>
-                <input
-                    matInput
-                    class="overflow-hidden text-ellipsis whitespace-nowrap"
-                    autocomplete="off"
-                    formControlName="search"
-                    [placeholder]="t('admin.users.filters.searchPlaceholder')"
-                />
-            </mat-form-field>
-
-            <mat-form-field
-                class="fuse-mat-dense w-48"
-                subscriptSizing="dynamic"
-            >
-                <mat-label>{{ t('admin.users.filters.role') }}</mat-label>
-                <mat-select formControlName="role">
-                    <mat-option value="">{{
-                        t('admin.users.filters.allRoles')
-                    }}</mat-option>
-                    @for (role of roles(); track role) {
-                        <mat-option [value]="role">{{ role }}</mat-option>
-                    }
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field
-                class="fuse-mat-dense w-48"
-                subscriptSizing="dynamic"
-            >
-                <mat-label>{{ t('admin.users.filters.status') }}</mat-label>
-                <mat-select formControlName="isActive">
-                    <mat-option value="">{{
-                        t('admin.users.filters.allStatuses')
-                    }}</mat-option>
-                    <mat-option value="true">{{
-                        t('admin.users.filters.active')
-                    }}</mat-option>
-                    <mat-option value="false">{{
-                        t('admin.users.filters.inactive')
-                    }}</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            @if (hasActiveFilters()) {
-                <button
-                    mat-stroked-button
-                    type="button"
-                    (click)="clearFilters()"
+            <div class="mt-4 flex flex-wrap items-end gap-3">
+                <mat-form-field
+                    class="fuse-mat-dense w-48"
+                    subscriptSizing="dynamic"
                 >
-                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
-                    <span class="ml-2 mr-1">{{
-                        t('admin.users.filters.clear')
-                    }}</span>
-                </button>
-            }
+                    <mat-label>{{ t('admin.users.filters.role') }}</mat-label>
+                    <mat-select formControlName="role">
+                        <mat-option value="">{{
+                            t('admin.users.filters.allRoles')
+                        }}</mat-option>
+                        @for (role of roles(); track role) {
+                            <mat-option [value]="role">{{ role }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                <mat-form-field
+                    class="fuse-mat-dense w-48"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('admin.users.filters.status') }}</mat-label>
+                    <mat-select formControlName="isActive">
+                        <mat-option value="">{{
+                            t('admin.users.filters.allStatuses')
+                        }}</mat-option>
+                        <mat-option value="true">{{
+                            t('admin.users.filters.active')
+                        }}</mat-option>
+                        <mat-option value="false">{{
+                            t('admin.users.filters.inactive')
+                        }}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                @if (hasActiveFilters()) {
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="clearFilters()"
+                    >
+                        <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                        <span class="ml-2 mr-1">{{
+                            t('admin.users.filters.clear')
+                        }}</span>
+                    </button>
+                }
+            </div>
         </form>
     </div>
 

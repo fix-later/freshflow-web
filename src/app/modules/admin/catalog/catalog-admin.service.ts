@@ -24,12 +24,27 @@ export interface ProductsPage {
     pageSize?: number;
 }
 
+/** Offset page for catalog master-data tables (categories, units, markets). */
+export interface CatalogPage {
+    rows: CrudRow[];
+    total: number;
+    page?: number;
+    pageSize?: number;
+}
+
 /** Query for a single products page. */
 export interface ProductsQuery {
     page: number;
     pageSize: number;
     search?: string;
     categoryId?: string;
+}
+
+/** Query for a catalog master-data page. */
+export interface CatalogPageQuery {
+    page: number;
+    pageSize: number;
+    activeOnly?: boolean;
 }
 
 /** Coerce a form value to a required (non-empty) string. */
@@ -78,16 +93,41 @@ export class CatalogAdminService {
     /**
      * Categories, each annotated with a resolved `parentName`.
      *
-     * The spec declares no response schema, and the list body carries only
-     * `parentId` — so the parent's name is resolved by self-joining the same
-     * list (no extra request). A server-sent `parentName` wins if present.
+     * Pages to completion for pickers / mind-map. Prefer
+     * {@link listCategoriesPage} for the admin table.
      */
     async listCategories(activeOnly = false): Promise<CrudRow[]> {
-        const res = await categoriesApi.apiV1CategoriesGetRaw({ activeOnly });
-        const rows = withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'categoryId'
+        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            categoriesApi
+                .apiV1CategoriesGetRaw({ activeOnly, page, pageSize })
+                .then((res) => res.raw)
         );
+        return this._withCategoryParentNames(
+            withId<CrudRow>(rawRows, 'categoryId')
+        );
+    }
+
+    /** One offset page of categories for the admin table. */
+    async listCategoriesPage(query: CatalogPageQuery): Promise<CatalogPage> {
+        const res = await categoriesApi.apiV1CategoriesGetRaw({
+            activeOnly: query.activeOnly ?? false,
+            page: query.page,
+            pageSize: query.pageSize,
+        });
+        const body = await parseJson(res.raw);
+        const rows = this._withCategoryParentNames(
+            withId<CrudRow>(extractList(body), 'categoryId')
+        );
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
+    }
+
+    private _withCategoryParentNames(rows: CrudRow[]): CrudRow[] {
         const nameById = new Map(rows.map((row) => [row.id, str(row['name'])]));
         return rows.map((row) => ({
             ...row,
@@ -134,9 +174,32 @@ export class CatalogAdminService {
 
     // ---- Units ------------------------------------------------------------
 
+    /** All units (pages to completion) for pickers. */
     async listUnits(activeOnly = false): Promise<CrudRow[]> {
-        const res = await unitsApi.apiV1UnitsGetRaw({ activeOnly });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'unitId');
+        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            unitsApi
+                .apiV1UnitsGetRaw({ activeOnly, page, pageSize })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rawRows, 'unitId');
+    }
+
+    /** One offset page of units for the admin table. */
+    async listUnitsPage(query: CatalogPageQuery): Promise<CatalogPage> {
+        const res = await unitsApi.apiV1UnitsGetRaw({
+            activeOnly: query.activeOnly ?? false,
+            page: query.page,
+            pageSize: query.pageSize,
+        });
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(extractList(body), 'unitId');
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
     }
 
     async createUnit(value: CrudFormValue): Promise<void> {
@@ -285,12 +348,36 @@ export class CatalogAdminService {
 
     // ---- Markets ----------------------------------------------------------
 
+    /** All markets (pages to completion) for pickers. */
     async listMarkets(): Promise<CrudRow[]> {
-        const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly: false });
-        return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
-            'marketId'
+        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            marketsApi
+                .apiV1MarketsGetRaw({
+                    activeOnly: false,
+                    page,
+                    pageSize,
+                })
+                .then((res) => res.raw)
         );
+        return withId<CrudRow>(rawRows, 'marketId');
+    }
+
+    /** One offset page of markets for the admin table. */
+    async listMarketsPage(query: CatalogPageQuery): Promise<CatalogPage> {
+        const res = await marketsApi.apiV1MarketsGetRaw({
+            activeOnly: query.activeOnly ?? false,
+            page: query.page,
+            pageSize: query.pageSize,
+        });
+        const body = await parseJson(res.raw);
+        const rows = withId<CrudRow>(extractList(body), 'marketId');
+        const info = extractPagination(body);
+        return {
+            rows,
+            total: info?.total ?? extractTotal(body) ?? rows.length,
+            page: info?.page,
+            pageSize: info?.pageSize,
+        };
     }
 
     async createMarket(value: CrudFormValue): Promise<void> {

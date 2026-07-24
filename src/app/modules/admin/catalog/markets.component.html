@@ -339,18 +339,16 @@
                     }
                 </div>
 
-                @if (filteredRows().length > pageSize()) {
-                    <mat-paginator
-                        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
-                        [class.pointer-events-none]="loading()"
-                        [length]="filteredRows().length"
-                        [pageIndex]="pageIndex()"
-                        [pageSize]="pageSize()"
-                        [pageSizeOptions]="[5, 10, 25, 100]"
-                        [showFirstLastButtons]="true"
-                        (page)="onPageChange($event)"
-                    ></mat-paginator>
-                }
+                <mat-paginator
+                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="pageSizeOptions"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
             } @else if (!loading()) {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"

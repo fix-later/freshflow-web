@@ -43,10 +43,15 @@ import {
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminRestaurantCredit, AdminUserRow } from '../admin.types';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
 const RESTAURANT_NAME_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 20;
@@ -518,13 +523,13 @@ export class RestaurantsAdminComponent implements OnInit {
                 role: RESTAURANT_ROLE,
                 isActive:
                     raw.isActive === '' ? undefined : raw.isActive === 'true',
-                page: this.pageIndex() + 1,
+                page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });
             this.users.set(result.users);
             this.totalCount.set(result.totalCount);
             if (result.page) {
-                this.pageIndex.set(result.page - 1);
+                this.pageIndex.set(toPageIndex(result.page));
             }
             if (result.pageSize) {
                 this.pageSize.set(result.pageSize);

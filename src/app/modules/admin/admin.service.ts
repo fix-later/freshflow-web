@@ -409,7 +409,7 @@ export class AdminService {
 
     async getOrderGroups(
         page = 1,
-        pageSize = 25
+        pageSize = 10
     ): Promise<AdminOrderGroupsResult> {
         const res = await adminApi.apiV1AdminOrderGroupsGetRaw({
             page,

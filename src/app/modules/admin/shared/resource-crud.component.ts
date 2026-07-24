@@ -38,8 +38,15 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { includesFolded } from 'app/core/util/text-search';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    ADMIN_PAGE_SIZE_OPTIONS,
+    toApiPage,
+    toPageIndex,
+} from './admin-pagination';
 import { CoalescedTask } from './coalesced-task';
 import {
+    CrudColumn,
     CrudField,
     CrudFilter,
     CrudFormValue,
@@ -90,6 +97,7 @@ export class ResourceCrudComponent implements OnInit {
 
     @Input({ required: true }) resource!: CrudResource;
     @ViewChild('formDialog') private _formDialog!: TemplateRef<unknown>;
+    @ViewChild('assignDialog') private _assignDialog!: TemplateRef<unknown>;
 
     private readonly _dialog = inject(MatDialog);
     private readonly _confirmation = inject(FuseConfirmationService);
@@ -97,13 +105,17 @@ export class ResourceCrudComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     private _dialogRef: MatDialogRef<unknown> | null = null;
+    private _assignDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly rows = signal<CrudRow[]>([]);
     readonly loading = signal(false);
     readonly saving = signal(false);
     readonly search = signal('');
     readonly pageIndex = signal(0);
-    readonly pageSize = signal(10);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
+    /** Server total when {@link CrudResource.listPage} is used. */
+    readonly totalCount = signal(0);
+    readonly pageSizeOptions = ADMIN_PAGE_SIZE_OPTIONS;
     /** Selected value per page-level filter (empty string = "all"). */
     readonly filterValues = signal<Record<string, string>>({});
     /** Loaded options per page-level filter name. */
@@ -123,6 +135,15 @@ export class ResourceCrudComponent implements OnInit {
     readonly uploading = signal<Record<string, boolean>>({});
     /** Fields (by name) whose dropzone is currently being dragged over. */
     readonly dragOver = signal<Record<string, boolean>>({});
+
+    /** Row + column currently open in the assign-user dialog. */
+    readonly assignDialogRow = signal<CrudRow | null>(null);
+    readonly assignDialogColumn = signal<CrudColumn | null>(null);
+    readonly assignDialogOptions = signal<CrudOption[]>([]);
+    readonly assignDialogSaving = signal(false);
+    readonly assignForm = new FormGroup({
+        userId: new FormControl('', { nonNullable: true }),
+    });
 
     form: FormGroup | null = null;
 
@@ -182,28 +203,63 @@ export class ResourceCrudComponent implements OnInit {
         })
     );
 
-    /** The current page of {@link sortedRows}, clamped to a valid page. */
+    /** The current page of {@link sortedRows}. */
     readonly pagedRows = computed(() => {
         const rows = this.sortedRows();
+        // Server-paged resources already returned one page from the API.
+        if (this.resource.listPage) {
+            return rows;
+        }
         const size = this.pageSize();
         const start = this.pageIndex() * size;
         return rows.slice(start, start + size);
     });
 
+    /** Length bound to MatPaginator. */
+    readonly paginatorLength = computed(() =>
+        this.resource.listPage ? this.totalCount() : this.filteredRows().length
+    );
+
+    /** Whether the paginator should render. */
+    readonly showPaginator = computed(
+        () =>
+            !!this.resource.listPage ||
+            this.filteredRows().length > this.pageSize()
+    );
+
     /**
-     * `grid-template-columns` for the inventory-style list. Data columns (incl.
-     * status) share width evenly; the trailing actions/details column stays
-     * compact on the right edge.
+     * `grid-template-columns` for the inventory-style list.
+     *
+     * Data columns use each column's `width` (or `minmax(0, 1fr)`); status and
+     * trailing action/details tracks are fixed rem sizes so the sticky header
+     * grid and every row grid share identical tracks (`auto` sized differently
+     * per row and broke alignment).
      */
     get gridTemplateColumns(): string {
-        const tracks: string[] = this.resource.columns.map((col) =>
-            col.image ? '3rem' : 'minmax(0, 1fr)'
-        );
-        tracks.push('minmax(0, 1fr)'); // status
-        if (this.usesInlineDetail && this.resource.rowActions?.length) {
-            tracks.push('auto');
+        const tracks: string[] = this.resource.columns.map((col) => {
+            if (col.image) {
+                return '3rem';
+            }
+            if (col.width) {
+                return col.width;
+            }
+            return 'minmax(0, 1fr)';
+        });
+        tracks.push('8rem'); // status pill
+        if (this.usesInlineDetail) {
+            if (this.resource.rowActions?.length) {
+                const n = this.resource.rowActions.length;
+                tracks.push(`${Math.max(2.75, n * 2.75)}rem`);
+            }
+            tracks.push('5rem'); // details chevron
+        } else {
+            // Edit (+ remove) + optional row actions — fixed so header/body match.
+            const n =
+                1 +
+                (this.resource.remove ? 1 : 0) +
+                (this.resource.rowActions?.length ?? 0);
+            tracks.push(`${Math.max(5, n * 2.5)}rem`);
         }
-        tracks.push('auto'); // details chevron or action buttons
         return tracks.join(' ');
     }
 
@@ -221,27 +277,51 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     /**
-     * Resources with several fields (hubs, markets, products) render the dialog
-     * as a wider two-column grid; simple ones (categories, units) stay a narrow
-     * single column.
+     * Resources with a map/address picker or several fields render wide
+     * (markets / hubs pattern); simple ones (categories, units) stay narrow.
      */
     get wideDialog(): boolean {
-        return this.resource.fields.length >= 4;
+        if (this.resource.wideForm != null) {
+            return this.resource.wideForm;
+        }
+        return (
+            this.resource.fields.length >= 4 ||
+            this.resource.fields.some(
+                (f) => f.type === 'location' || f.type === 'image'
+            )
+        );
     }
 
-    /** Field layout without dialog top margin — used by the inline detail panel. */
-    get fieldsLayoutClass(): string {
-        return this.wideDialog
-            ? 'grid w-full grid-cols-1 gap-3 sm:grid-cols-2'
-            : 'flex w-full max-w-lg flex-col gap-3';
+    /**
+     * Scalar inputs (text/number/select) shown in a two-up row like markets
+     * detail: name | area, then the address/map block below.
+     */
+    get scalarFields(): CrudField[] {
+        return this.resource.fields.filter(
+            (f) =>
+                f.type !== 'location' &&
+                f.type !== 'image' &&
+                f.type !== 'textarea' &&
+                this.isFieldVisible(f)
+        );
     }
 
-    /** Field layout inside the dialog — fills the Fuse-sized shell. */
-    get dialogFieldsLayoutClass(): string {
-        return this.wideDialog
-            ? 'grid w-full grid-cols-1 gap-3 sm:grid-cols-2'
-            : 'flex w-full flex-col gap-3';
+    /** Full-width blocks under the scalar row (address+map, image, textarea). */
+    get blockFields(): CrudField[] {
+        return this.resource.fields.filter(
+            (f) =>
+                (f.type === 'location' ||
+                    f.type === 'image' ||
+                    f.type === 'textarea') &&
+                this.isFieldVisible(f)
+        );
     }
+
+    /** Markets-style stack: two-up scalars, then full-width blocks. */
+    readonly fieldsLayoutClass = 'flex w-full flex-col gap-4';
+
+    /** Same stack inside the create/edit dialog. */
+    readonly dialogFieldsLayoutClass = 'flex w-full flex-col gap-4';
 
     /**
      * Root classes for the create/edit dialog shell (Fuse compose / card
@@ -252,16 +332,6 @@ export class ResourceCrudComponent implements OnInit {
         return this.wideDialog
             ? '-m-6 flex max-h-screen max-w-240 flex-col md:min-w-160 md:w-160'
             : '-m-6 flex max-h-screen flex-col md:min-w-120 md:w-120';
-    }
-
-    /** Fields that should span both columns (map + multi-line text). */
-    fieldSpanClass(field: CrudField): string {
-        return this.wideDialog &&
-            (field.type === 'location' ||
-                field.type === 'textarea' ||
-                field.type === 'image')
-            ? 'sm:col-span-2'
-            : '';
     }
 
     ngOnInit(): void {
@@ -302,13 +372,31 @@ export class ResourceCrudComponent implements OnInit {
 
     /** Fetches and applies the rows, returning them so callers can inspect. */
     private async _fetchRows(): Promise<CrudRow[]> {
-        const rows = await this.resource.list();
+        const listPage = this.resource.listPage;
+        let rows: CrudRow[];
+        if (listPage) {
+            const page = await listPage({
+                page: toApiPage(this.pageIndex()),
+                pageSize: this.pageSize(),
+            });
+            rows = page.rows;
+            this.totalCount.set(page.total);
+            if (page.page) {
+                this.pageIndex.set(toPageIndex(page.page));
+            }
+            if (page.pageSize) {
+                this.pageSize.set(page.pageSize);
+            }
+        } else {
+            rows = await this.resource.list();
+            this.totalCount.set(rows.length);
+            // Guard against sitting on a now-empty page after a deletion.
+            if (this.pageIndex() * this.pageSize() >= rows.length) {
+                this.pageIndex.set(0);
+            }
+        }
         this.rows.set(rows);
         await this._loadFilterOptions(rows);
-        // Guard against sitting on a now-empty page after a deletion.
-        if (this.pageIndex() * this.pageSize() >= rows.length) {
-            this.pageIndex.set(0);
-        }
         const id = this.selectedId();
         if (id) {
             const row = rows.find((r) => r.id === id);
@@ -377,6 +465,9 @@ export class ResourceCrudComponent implements OnInit {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
         this.closeDetails();
+        if (this.resource.listPage) {
+            this.load();
+        }
     }
 
     private async _loadFilterOptions(rows: CrudRow[]): Promise<void> {
@@ -477,6 +568,79 @@ export class ResourceCrudComponent implements OnInit {
 
     closeDialog(): void {
         this._dialogRef?.close();
+    }
+
+    /**
+     * Opens the markets-style assign-user dialog for a column that declares
+     * {@link CrudColumn.assign}.
+     */
+    openAssignDialog(row: CrudRow, column: CrudColumn): void {
+        const assign = column.assign;
+        if (!assign || this._assignDialogRef) {
+            return;
+        }
+        this.assignDialogRow.set(row);
+        this.assignDialogColumn.set(column);
+        this.assignDialogSaving.set(false);
+        const currentId = row[assign.idKey];
+        this.assignForm.reset({
+            userId:
+                currentId == null || currentId === '' ? '' : String(currentId),
+        });
+        this.assignDialogOptions.set([]);
+        void assign
+            .options()
+            .then((opts) => this.assignDialogOptions.set(opts));
+
+        this._assignDialogRef = this._dialog.open(this._assignDialog, {
+            autoFocus: 'dialog',
+        });
+        this._assignDialogRef.afterClosed().subscribe(() => {
+            this._assignDialogRef = null;
+            this.assignDialogRow.set(null);
+            this.assignDialogColumn.set(null);
+            this.assignDialogOptions.set([]);
+        });
+    }
+
+    closeAssignDialog(): void {
+        this._assignDialogRef?.close();
+    }
+
+    clearAssignSelection(): void {
+        this.assignForm.reset({ userId: '' });
+    }
+
+    saveAssign(): void {
+        const row = this.assignDialogRow();
+        const column = this.assignDialogColumn();
+        const assign = column?.assign;
+        if (!row || !assign) {
+            return;
+        }
+        const raw = this.assignForm.getRawValue().userId;
+        const userId = raw.trim() === '' ? null : raw;
+        this.assignDialogSaving.set(true);
+        assign
+            .save(row, userId)
+            .then(() => {
+                this._notify(assign.dialogSuccess);
+                this.closeAssignDialog();
+                this.load();
+            })
+            .catch((err) => void this._notifyError(err, assign.dialogError))
+            .finally(() => this.assignDialogSaving.set(false));
+    }
+
+    /** Current assignee id for the open assign dialog (for clear-button disable). */
+    assignCurrentId(): string {
+        const row = this.assignDialogRow();
+        const idKey = this.assignDialogColumn()?.assign?.idKey;
+        if (!row || !idKey) {
+            return '';
+        }
+        const value = row[idKey];
+        return value == null || value === '' ? '' : String(value);
     }
 
     save(): void {
@@ -786,6 +950,11 @@ export class ResourceCrudComponent implements OnInit {
                         );
                     }
                 }
+                if (field.addressField) {
+                    controls[field.addressField] = new FormControl(
+                        row ? String(row[field.addressField] ?? '') : ''
+                    );
+                }
                 continue;
             }
             const value = row
@@ -860,6 +1029,13 @@ export class ResourceCrudComponent implements OnInit {
                     if (coord) {
                         out[coord] = this._toNumberOrNull(raw[coord]);
                     }
+                }
+                if (field.addressField) {
+                    const address = raw[field.addressField];
+                    out[field.addressField] =
+                        address == null || address === ''
+                            ? null
+                            : String(address);
                 }
                 continue;
             }

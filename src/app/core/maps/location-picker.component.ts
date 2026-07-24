@@ -100,27 +100,29 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
                 </div>
             }
 
-            <!-- Manual entry -->
-            <div class="flex gap-2">
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{ t('maps.latitude') }}</mat-label>
-                    <input
-                        matInput
-                        type="number"
-                        step="any"
-                        [formControl]="latControl"
-                    />
-                </mat-form-field>
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{ t('maps.longitude') }}</mat-label>
-                    <input
-                        matInput
-                        type="number"
-                        step="any"
-                        [formControl]="lngControl"
-                    />
-                </mat-form-field>
-            </div>
+            <!-- Manual entry (optional — hidden when address search owns the coords) -->
+            @if (showManualCoords) {
+                <div class="flex gap-2">
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{ t('maps.latitude') }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            step="any"
+                            [formControl]="latControl"
+                        />
+                    </mat-form-field>
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{ t('maps.longitude') }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            step="any"
+                            [formControl]="lngControl"
+                        />
+                    </mat-form-field>
+                </div>
+            }
         </div>
     `,
 })
@@ -135,6 +137,11 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     @Input() queryControl?: FormControl;
     /** i18n key for the search field label (default: generic "search place"). */
     @Input() searchLabelKey = 'maps.searchLabel';
+    /**
+     * When false, hides the manual lat/lng number inputs (address search + map
+     * still write coordinates). Used when a single address field owns the pick.
+     */
+    @Input() showManualCoords = true;
     @ViewChild('mapContainer') private _mapContainer?: ElementRef<HTMLElement>;
 
     private readonly _goong = inject(GoongMapService);

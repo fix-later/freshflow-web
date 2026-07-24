@@ -17,6 +17,7 @@ import {
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import {
     MatDialog,
     MatDialogModule,
@@ -33,12 +34,20 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import { describeApiError } from 'app/core/api/error-codes';
+import { includesFolded } from 'app/core/util/text-search';
+import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
     AdminAutoBatchResult,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
+import { AdminSettingsDialogComponent } from '../settings/settings.component';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    toApiPage,
+    toPageIndex,
+} from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
@@ -51,26 +60,20 @@ const KNOWN_SKIP_REASONS = new Set([
     'NO_ELIGIBLE_ITEMS',
 ]);
 
-/** Optional `yyyy-MM-dd` date — mirrors the backend's `targetDate` validation. */
+/** Optional Luxon day from the Material datepicker. */
 function validTargetDate(control: AbstractControl): ValidationErrors | null {
-    const value = String(control.value ?? '').trim();
-    if (!value) {
+    const value = control.value;
+    if (value == null || value === '') {
         return null;
     }
-    const ok =
-        /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
-    return ok ? null : { invalidDate: true };
+    return DateTime.isDateTime(value) && value.isValid
+        ? null
+        : { invalidDate: true };
 }
 
 /**
- * Admin ▸ Order groups — procurement batching (`/admin/order-groups`).
- *
- * Validates the auto-batch inputs client-side (mirroring the backend rules)
- * before sending, renders the run result as UI (created / batched / skipped
- * with per-order reasons) instead of raw JSON, and turns every documented
- * failure code into an explained banner or snackbar so the admin always knows
- * what happened. Per-batch manifest, agent assignment and cancellation are
- * handled the same way.
+ * Admin ▸ Order groups — Fuse inventory list of procurement batches with
+ * auto-batch / manifest / agent / cancel actions.
  */
 @Component({
     selector: 'admin-order-groups',
@@ -81,18 +84,43 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
-        MatCheckboxModule,
+        MatDatepickerModule,
         MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
         MatPaginatorModule,
         MatProgressBarModule,
+        MatCheckboxModule,
         MatSelectModule,
         MatSnackBarModule,
         MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
+    ],
+    styles: [
+        `
+            .order-groups-grid {
+                /* batch | market | status | agent | actions */
+                grid-template-columns:
+                    minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)
+                    minmax(0, 1.3fr) auto;
+
+                @screen md {
+                    /* + orders */
+                    grid-template-columns:
+                        minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr)
+                        minmax(0, 0.55fr) minmax(0, 1.3fr) auto;
+                }
+
+                @screen lg {
+                    /* + created */
+                    grid-template-columns:
+                        minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.9fr)
+                        minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+                }
+            }
+        `,
     ],
 })
 export class OrderGroupsComponent implements OnInit {
@@ -103,14 +131,18 @@ export class OrderGroupsComponent implements OnInit {
     private readonly _dialog = inject(MatDialog);
 
     private _cancelDialogRef: MatDialogRef<unknown> | null = null;
+    private _batchDialogRef: MatDialogRef<unknown> | null = null;
+    private _settingsDialogRef: MatDialogRef<AdminSettingsDialogComponent> | null =
+        null;
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
     readonly agents = signal<AdminUserRow[]>([]);
     readonly totalCount = signal(0);
     readonly pageIndex = signal(0);
-    readonly pageSize = signal(20);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
     readonly batching = signal(false);
+    readonly search = signal('');
 
     /** Structured result of the last auto-batch run (dry or applied). */
     readonly autoBatchResult = signal<AdminAutoBatchResult | null>(null);
@@ -126,18 +158,38 @@ export class OrderGroupsComponent implements OnInit {
     readonly cancelReason = new FormControl('', { nonNullable: true });
 
     readonly sort = new TableSort<AdminOrderGroupRow>();
+
+    readonly filteredGroups = computed(() => {
+        const term = this.search().trim();
+        const list = this.groups();
+        if (!term) {
+            return list;
+        }
+        return list.filter((group) => {
+            const batch = group.batchNumber || this.batchIdOf(group);
+            return (
+                includesFolded(String(batch ?? ''), term) ||
+                includesFolded(String(group.marketName ?? ''), term) ||
+                includesFolded(String(group.status ?? ''), term) ||
+                includesFolded(String(group.agentEmail ?? ''), term)
+            );
+        });
+    });
+
     readonly sortedGroups = computed(() =>
-        this.sort.apply(this.groups(), (group, key) =>
+        this.sort.apply(this.filteredGroups(), (group, key) =>
             key === 'batch'
                 ? group.batchNumber || this.batchIdOf(group)
                 : (group[key] as string | number | null)
         )
     );
 
-    readonly batchForm = this._formBuilder.nonNullable.group({
-        targetDate: ['', [validTargetDate]],
-        dryRun: [true],
-        force: [false],
+    readonly batchForm = this._formBuilder.group({
+        targetDate: this._formBuilder.control<DateTime | null>(null, {
+            validators: [validTargetDate],
+        }),
+        dryRun: this._formBuilder.nonNullable.control(true),
+        force: this._formBuilder.nonNullable.control(false),
     });
 
     ngOnInit(): void {
@@ -146,6 +198,10 @@ export class OrderGroupsComponent implements OnInit {
             .getAgentOptions()
             .then((agents) => this.agents.set(agents))
             .catch(() => this.agents.set([]));
+    }
+
+    onSearch(value: string): void {
+        this.search.set(value);
     }
 
     onPageChange(event: PageEvent): void {
@@ -164,19 +220,63 @@ export class OrderGroupsComponent implements OnInit {
 
     // ---- Auto-batch -------------------------------------------------------
 
+    openSettings(): void {
+        if (this._settingsDialogRef) {
+            return;
+        }
+        this._settingsDialogRef = this._dialog.open(
+            AdminSettingsDialogComponent,
+            {
+                autoFocus: 'first-tabbable',
+                width: '40rem',
+                maxWidth: '95vw',
+            }
+        );
+        this._settingsDialogRef.afterClosed().subscribe(() => {
+            this._settingsDialogRef = null;
+        });
+    }
+
+    openAutoBatch(template: TemplateRef<unknown>): void {
+        if (this._batchDialogRef) {
+            return;
+        }
+        this.autoBatchError.set(null);
+        this._batchDialogRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._batchDialogRef.afterClosed().subscribe(() => {
+            this._batchDialogRef = null;
+        });
+    }
+
+    closeAutoBatch(): void {
+        this._batchDialogRef?.close();
+    }
+
     runAutoBatch(): void {
         if (this.batchForm.invalid) {
             this.batchForm.markAllAsTouched();
             return;
         }
         const { targetDate, dryRun, force } = this.batchForm.getRawValue();
+        const dateIso =
+            targetDate && DateTime.isDateTime(targetDate) && targetDate.isValid
+                ? targetDate.toISODate()
+                : null;
         this.batching.set(true);
         this.autoBatchResult.set(null);
         this.autoBatchError.set(null);
         this._admin
-            .runAutoBatch({ targetDate: targetDate || null, dryRun, force })
+            .runAutoBatch({
+                targetDate: dateIso,
+                dryRun: dryRun ?? true,
+                force: force ?? false,
+            })
             .then((result) => {
                 this.autoBatchResult.set(result);
+                this.closeAutoBatch();
                 if (!dryRun) {
                     this._notifyKey('admin.orderGroups.autoBatch.success');
                     this._load();
@@ -241,7 +341,6 @@ export class OrderGroupsComponent implements OnInit {
 
     assignAgent(row: AdminOrderGroupRow, agentUserId: string): void {
         const batchId = this.batchIdOf(row);
-        // agentUserId is required by the backend — don't send an empty pick.
         if (!batchId || !agentUserId) {
             return;
         }
@@ -259,16 +358,17 @@ export class OrderGroupsComponent implements OnInit {
         this.cancelReason.reset('');
         this.cancelSaving.set(false);
         this._cancelDialogRef = this._dialog.open(template, {
-            width: '440px',
-            maxWidth: '95vw',
             autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._cancelDialogRef.afterClosed().subscribe(() => {
+            this._cancelDialogRef = null;
+            this.cancelTarget.set(null);
         });
     }
 
     closeCancel(): void {
         this._cancelDialogRef?.close();
-        this._cancelDialogRef = null;
-        this.cancelTarget.set(null);
     }
 
     confirmCancel(): void {
@@ -331,14 +431,13 @@ export class OrderGroupsComponent implements OnInit {
         try {
             const { groups, totalCount, page, pageSize } =
                 await this._admin.getOrderGroups(
-                    this.pageIndex() + 1,
+                    toApiPage(this.pageIndex()),
                     this.pageSize()
                 );
             this.groups.set(groups);
             this.totalCount.set(totalCount);
-            // Track the page/size the backend actually returned.
             if (page) {
-                this.pageIndex.set(page - 1);
+                this.pageIndex.set(toPageIndex(page));
             }
             if (pageSize) {
                 this.pageSize.set(pageSize);
