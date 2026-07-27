@@ -50,6 +50,8 @@ jobs:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
     runs-on: ubuntu-latest
 
+    environment: development
+
     permissions:
       contents: read
       packages: write
