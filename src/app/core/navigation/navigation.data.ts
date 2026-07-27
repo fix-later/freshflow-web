@@ -136,6 +136,13 @@ const NAVIGATION: AreaNavItem[] = [
                 icon: 'heroicons_outline:rectangle-group',
                 link: '/admin/order-groups',
             },
+            {
+                id: 'admin-audit-logs',
+                title: 'Nhật ký hệ thống',
+                type: 'basic',
+                icon: 'heroicons_outline:clipboard-document-list',
+                link: '/admin/audit-logs',
+            },
         ],
     },
     {

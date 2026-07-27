@@ -69,6 +69,75 @@
         <div
             class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
         >
+            <!-- Live batching progress (today) -->
+            @if (progress(); as p) {
+                <div
+                    class="bg-default mx-6 mt-6 rounded-2xl border p-5 md:mx-8 md:p-6"
+                >
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.orderGroups.progress.title') }}
+                        </div>
+                        @if (p.batchDate) {
+                            <span class="text-secondary text-xs">{{
+                                formatDate(p.batchDate)
+                            }}</span>
+                        }
+                    </div>
+                    <div
+                        class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+                    >
+                        @for (
+                            tile of [
+                                {
+                                    label: 'admin.orderGroups.progress.batches',
+                                    value: p.totalBatches ?? 0,
+                                },
+                                {
+                                    label: 'admin.orderGroups.progress.totalItems',
+                                    value: p.totalItems ?? 0,
+                                },
+                                {
+                                    label: 'admin.orderGroups.progress.purchased',
+                                    value: p.itemsPurchased ?? 0,
+                                },
+                                {
+                                    label: 'admin.orderGroups.progress.pending',
+                                    value: p.itemsPending ?? 0,
+                                },
+                                {
+                                    label: 'admin.orderGroups.progress.exceptions',
+                                    value: p.openExceptions ?? 0,
+                                },
+                            ];
+                            track tile.label
+                        ) {
+                            <div class="rounded-xl border p-4">
+                                <div
+                                    class="text-secondary text-xs uppercase tracking-wide"
+                                >
+                                    {{ t(tile.label) }}
+                                </div>
+                                <div
+                                    class="mt-1 text-2xl font-bold tabular-nums"
+                                >
+                                    {{ tile.value }}
+                                </div>
+                            </div>
+                        }
+                    </div>
+                    @if (progressStatusCounts().length) {
+                        <div class="mt-4 flex flex-wrap items-center gap-2">
+                            @for (sc of progressStatusCounts(); track sc[0]) {
+                                <span [class]="statusPillClass(sc[0])">
+                                    {{ sc[0] }}: {{ sc[1] }}
+                                </span>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+
             <!-- Auto-batch failure -->
             @if (autoBatchError(); as err) {
                 <div
@@ -321,10 +390,32 @@
                         track trackById($index, group)
                     ) {
                         <div
-                            class="order-groups-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                            class="order-groups-grid grid cursor-pointer items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                            (click)="openDetail(group)"
                         >
-                            <div class="min-w-0 truncate font-medium">
-                                {{ group.batchNumber || batchIdOf(group) }}
+                            <div class="min-w-0">
+                                <button
+                                    type="button"
+                                    class="group/copy flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:text-primary"
+                                    [cdkCopyToClipboard]="
+                                        group.batchNumber || batchIdOf(group)
+                                    "
+                                    (click)="$event.stopPropagation()"
+                                    (cdkCopyToClipboardCopied)="
+                                        onCopied($event)
+                                    "
+                                    [matTooltip]="
+                                        t('admin.orderGroups.table.copyId')
+                                    "
+                                >
+                                    <span class="truncate">{{
+                                        group.batchNumber || batchIdOf(group)
+                                    }}</span>
+                                    <mat-icon
+                                        class="flex-shrink-0 opacity-0 transition-opacity icon-size-4 group-hover/copy:opacity-100"
+                                        svgIcon="heroicons_outline:clipboard-document"
+                                    ></mat-icon>
+                                </button>
                             </div>
                             <div class="min-w-0 truncate">
                                 {{ group.marketName || '—' }}
@@ -342,7 +433,10 @@
                             >
                                 {{ formatDate(group.createdAt) || '—' }}
                             </div>
-                            <div class="min-w-0">
+                            <div
+                                class="min-w-0"
+                                (click)="$event.stopPropagation()"
+                            >
                                 <mat-form-field
                                     class="fuse-mat-dense w-full max-w-56"
                                     subscriptSizing="dynamic"
@@ -374,36 +468,77 @@
                                     </mat-select>
                                 </mat-form-field>
                             </div>
-                            <div class="flex justify-end gap-1">
+                            <div
+                                class="flex justify-end gap-1"
+                                (click)="$event.stopPropagation()"
+                            >
                                 <button
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
                                     [matTooltip]="
-                                        t('admin.orderGroups.manifest.tooltip')
+                                        t('admin.orderGroups.details.tooltip')
                                     "
-                                    (click)="generateManifest(group)"
+                                    (click)="openDetail(group)"
                                 >
                                     <mat-icon
                                         class="icon-size-5"
-                                        svgIcon="heroicons_outline:document-text"
+                                        svgIcon="heroicons_outline:eye"
                                     ></mat-icon>
                                 </button>
-                                <button
-                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                    mat-stroked-button
-                                    color="warn"
-                                    type="button"
+                                <span
+                                    class="inline-flex"
                                     [matTooltip]="
-                                        t('admin.orderGroups.cancel.tooltip')
+                                        canManifest(group)
+                                            ? t(
+                                                  'admin.orderGroups.manifest.tooltip'
+                                              )
+                                            : t(
+                                                  'admin.orderGroups.manifest.disabledTooltip'
+                                              )
                                     "
-                                    (click)="openCancel(group, cancelDialog)"
                                 >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:x-circle"
-                                    ></mat-icon>
-                                </button>
+                                    <button
+                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="!canManifest(group)"
+                                        (click)="generateManifest(group)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:document-text"
+                                        ></mat-icon>
+                                    </button>
+                                </span>
+                                <span
+                                    class="inline-flex"
+                                    [matTooltip]="
+                                        canCancel(group)
+                                            ? t(
+                                                  'admin.orderGroups.cancel.tooltip'
+                                              )
+                                            : t(
+                                                  'admin.orderGroups.cancel.disabledTooltip'
+                                              )
+                                    "
+                                >
+                                    <button
+                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                        mat-stroked-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="!canCancel(group)"
+                                        (click)="
+                                            openCancel(group, cancelDialog)
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:x-circle"
+                                        ></mat-icon>
+                                    </button>
+                                </span>
                             </div>
                         </div>
                     }

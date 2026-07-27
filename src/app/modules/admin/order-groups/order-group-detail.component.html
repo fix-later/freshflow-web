@@ -1,0 +1,433 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.orderGroups.detailPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.orderGroups.detailPage.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ batch()?.batchNumber || batchId() || '—' }}
+                </div>
+            </div>
+        </div>
+        @if (batch(); as b) {
+            <span [class]="statusPillClass(b.status)">{{
+                b.status || '—'
+            }}</span>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex flex-auto flex-col gap-6 overflow-y-auto p-6 md:p-8">
+            @if (notFound()) {
+                <div
+                    class="border-t p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.orderGroups.detailPage.notFound') }}
+                </div>
+            } @else if (batch(); as b) {
+                <!-- Batch info -->
+                <section>
+                    <div class="mb-3 text-lg font-semibold">
+                        {{ t('admin.orderGroups.details.fields') }}
+                    </div>
+                    <div
+                        class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
+                    >
+                        @for (field of detailEntries(b); track field.label) {
+                            <div
+                                class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                            >
+                                <span
+                                    class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                    >{{ field.label }}</span
+                                >
+                                <span class="min-w-0 break-words font-medium">{{
+                                    field.value
+                                }}</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- Items -->
+                @if (itemsOf(b).length) {
+                    <section>
+                        <div class="mb-3 text-lg font-semibold">
+                            {{ t('admin.orderGroups.details.items') }}
+                        </div>
+                        <div class="overflow-x-auto rounded-xl border">
+                            <table
+                                class="w-full min-w-[40rem] text-left text-sm"
+                            >
+                                <thead
+                                    class="text-secondary bg-gray-50 text-xs uppercase tracking-wide dark:bg-black dark:bg-opacity-5"
+                                >
+                                    <tr>
+                                        <th class="px-4 py-2">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.product'
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2 text-right">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.plannedQty'
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2 text-right">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.refPrice'
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2 text-right">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.actualQty'
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2 text-right">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.actualPrice'
+                                                )
+                                            }}
+                                        </th>
+                                        <th class="px-4 py-2">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.item.purchasedAt'
+                                                )
+                                            }}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (item of itemsOf(b); track $index) {
+                                        <tr class="border-t">
+                                            <td class="px-4 py-2 font-medium">
+                                                {{
+                                                    item.productNameSnapshot ||
+                                                        item.marketProductId ||
+                                                        '—'
+                                                }}
+                                            </td>
+                                            <td
+                                                class="px-4 py-2 text-right tabular-nums"
+                                            >
+                                                {{ item.totalQuantity ?? '—' }}
+                                            </td>
+                                            <td
+                                                class="px-4 py-2 text-right tabular-nums"
+                                            >
+                                                {{
+                                                    money(
+                                                        item.referenceUnitPrice
+                                                    )
+                                                }}
+                                            </td>
+                                            <td
+                                                class="px-4 py-2 text-right tabular-nums"
+                                            >
+                                                {{ item.actualQuantity ?? '—' }}
+                                            </td>
+                                            <td
+                                                class="px-4 py-2 text-right tabular-nums"
+                                            >
+                                                {{
+                                                    money(item.actualUnitPrice)
+                                                }}
+                                            </td>
+                                            <td
+                                                class="text-secondary px-4 py-2"
+                                            >
+                                                {{
+                                                    formatDate(
+                                                        item.purchasedAt
+                                                    ) || '—'
+                                                }}
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                }
+
+                <!-- Member orders -->
+                @if (membersOf(b).length) {
+                    <section>
+                        <div class="mb-3 text-lg font-semibold">
+                            {{ t('admin.orderGroups.details.members') }}
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            @for (member of membersOf(b); track $index) {
+                                <div class="rounded-xl border">
+                                    <button
+                                        type="button"
+                                        class="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-hover"
+                                        (click)="toggleOrder(member.orderId)"
+                                    >
+                                        <span
+                                            class="flex items-center gap-2 font-mono"
+                                        >
+                                            <mat-icon
+                                                class="transition-transform icon-size-4"
+                                                [class.rotate-90]="
+                                                    isOrderExpanded(
+                                                        member.orderId
+                                                    )
+                                                "
+                                                svgIcon="heroicons_outline:chevron-right"
+                                            ></mat-icon>
+                                            {{ member.orderId || '—' }}
+                                        </span>
+                                        <span
+                                            [class]="
+                                                statusPillClass(member.status)
+                                            "
+                                            >{{ member.status || '—' }}</span
+                                        >
+                                    </button>
+                                    @if (isOrderExpanded(member.orderId)) {
+                                        <div class="border-t px-4 py-3">
+                                            @if (
+                                                isOrderLoading(member.orderId)
+                                            ) {
+                                                <mat-progress-bar
+                                                    mode="indeterminate"
+                                                ></mat-progress-bar>
+                                            } @else if (
+                                                orderDetail(member.orderId);
+                                                as od
+                                            ) {
+                                                <div
+                                                    class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3"
+                                                >
+                                                    @for (
+                                                        f of entriesOf(od);
+                                                        track f.label
+                                                    ) {
+                                                        <div
+                                                            class="flex min-w-0 flex-col border-b py-1"
+                                                        >
+                                                            <span
+                                                                class="text-secondary text-xs uppercase tracking-wider"
+                                                                >{{
+                                                                    f.label
+                                                                }}</span
+                                                            >
+                                                            <span
+                                                                class="min-w-0 break-words"
+                                                                >{{
+                                                                    f.value
+                                                                }}</span
+                                                            >
+                                                        </div>
+                                                    }
+                                                </div>
+                                                @if (orderItemsOf(od).length) {
+                                                    <div
+                                                        class="mb-1 mt-4 text-sm font-semibold"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.orderDetail.items'
+                                                            )
+                                                        }}
+                                                    </div>
+                                                    <div
+                                                        class="overflow-x-auto rounded-lg border"
+                                                    >
+                                                        <table
+                                                            class="w-full min-w-[34rem] text-left text-sm"
+                                                        >
+                                                            <thead
+                                                                class="text-secondary bg-gray-50 text-xs uppercase dark:bg-black dark:bg-opacity-5"
+                                                            >
+                                                                <tr>
+                                                                    <th
+                                                                        class="px-3 py-2"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'admin.orderGroups.details.item.product'
+                                                                            )
+                                                                        }}
+                                                                    </th>
+                                                                    <th
+                                                                        class="px-3 py-2 text-right"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'admin.orderGroups.orderDetail.qty'
+                                                                            )
+                                                                        }}
+                                                                    </th>
+                                                                    <th
+                                                                        class="px-3 py-2 text-right"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'admin.orderGroups.orderDetail.unitPrice'
+                                                                            )
+                                                                        }}
+                                                                    </th>
+                                                                    <th
+                                                                        class="px-3 py-2 text-right"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'admin.orderGroups.orderDetail.subtotal'
+                                                                            )
+                                                                        }}
+                                                                    </th>
+                                                                    <th
+                                                                        class="px-3 py-2 text-right"
+                                                                    >
+                                                                        {{
+                                                                            t(
+                                                                                'admin.orderGroups.details.item.actualQty'
+                                                                            )
+                                                                        }}
+                                                                    </th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                @for (
+                                                                    it of orderItemsOf(
+                                                                        od
+                                                                    );
+                                                                    track $index
+                                                                ) {
+                                                                    <tr
+                                                                        class="border-t"
+                                                                    >
+                                                                        <td
+                                                                            class="px-3 py-2 font-medium"
+                                                                        >
+                                                                            {{
+                                                                                it.productNameSnapshot ||
+                                                                                    it.marketProductId ||
+                                                                                    '—'
+                                                                            }}
+                                                                        </td>
+                                                                        <td
+                                                                            class="px-3 py-2 text-right tabular-nums"
+                                                                        >
+                                                                            {{
+                                                                                it.quantity ??
+                                                                                    '—'
+                                                                            }}
+                                                                        </td>
+                                                                        <td
+                                                                            class="px-3 py-2 text-right tabular-nums"
+                                                                        >
+                                                                            {{
+                                                                                money(
+                                                                                    it.unitPrice
+                                                                                )
+                                                                            }}
+                                                                        </td>
+                                                                        <td
+                                                                            class="px-3 py-2 text-right tabular-nums"
+                                                                        >
+                                                                            {{
+                                                                                money(
+                                                                                    it.subtotal
+                                                                                )
+                                                                            }}
+                                                                        </td>
+                                                                        <td
+                                                                            class="px-3 py-2 text-right tabular-nums"
+                                                                        >
+                                                                            {{
+                                                                                it.actualQuantity ??
+                                                                                    '—'
+                                                                            }}
+                                                                        </td>
+                                                                    </tr>
+                                                                }
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                }
+                                            } @else {
+                                                <div
+                                                    class="text-secondary text-sm"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.orderGroups.orderDetail.loadError'
+                                                        )
+                                                    }}
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+
+                <!-- Exceptions -->
+                @if (exceptionsOf(b).length) {
+                    <section>
+                        <div class="mb-3 text-lg font-semibold">
+                            {{ t('admin.orderGroups.details.exceptions') }}
+                        </div>
+                        <div class="flex flex-col gap-2">
+                            @for (ex of exceptionsOf(b); track $index) {
+                                <div
+                                    class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-xl border p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
+                                >
+                                    @for (f of entriesOf(ex); track f.label) {
+                                        <div
+                                            class="flex min-w-0 flex-col border-b py-1"
+                                        >
+                                            <span
+                                                class="text-secondary text-xs uppercase tracking-wider"
+                                                >{{ f.label }}</span
+                                            >
+                                            <span class="min-w-0 break-words">{{
+                                                f.value
+                                            }}</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </section>
+                }
+            }
+        </div>
+    </div>
+</div>

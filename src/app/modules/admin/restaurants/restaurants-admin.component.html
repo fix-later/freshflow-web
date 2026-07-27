@@ -500,6 +500,237 @@
                                         </div>
                                     </div>
 
+                                    <!-- Credit history: statements + ledger -->
+                                    @if (user.restaurantId) {
+                                        <div
+                                            class="flex w-full flex-col gap-5 border-t px-6 py-5 md:px-8"
+                                            [formGroup]="statementForm"
+                                        >
+                                            <div
+                                                class="flex flex-wrap items-end justify-between gap-3"
+                                            >
+                                                <div
+                                                    class="text-secondary text-sm font-medium"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.restaurants.statements.title'
+                                                        )
+                                                    }}
+                                                </div>
+                                                <div
+                                                    class="flex flex-wrap items-center gap-2"
+                                                >
+                                                    <mat-form-field
+                                                        class="fuse-mat-dense w-24"
+                                                        subscriptSizing="dynamic"
+                                                    >
+                                                        <mat-label>{{
+                                                            t(
+                                                                'admin.restaurants.statements.year'
+                                                            )
+                                                        }}</mat-label>
+                                                        <input
+                                                            matInput
+                                                            type="number"
+                                                            formControlName="year"
+                                                        />
+                                                    </mat-form-field>
+                                                    <mat-form-field
+                                                        class="fuse-mat-dense w-28"
+                                                        subscriptSizing="dynamic"
+                                                    >
+                                                        <mat-label>{{
+                                                            t(
+                                                                'admin.restaurants.statements.month'
+                                                            )
+                                                        }}</mat-label>
+                                                        <mat-select
+                                                            formControlName="month"
+                                                        >
+                                                            @for (
+                                                                m of months;
+                                                                track m
+                                                            ) {
+                                                                <mat-option
+                                                                    [value]="m"
+                                                                    >{{
+                                                                        m
+                                                                    }}</mat-option
+                                                                >
+                                                            }
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        [disabled]="
+                                                            statementForm.invalid ||
+                                                            generatingStatement()
+                                                        "
+                                                        (click)="
+                                                            generateStatement(
+                                                                user
+                                                            )
+                                                        "
+                                                    >
+                                                        <mat-icon
+                                                            class="icon-size-5"
+                                                            svgIcon="heroicons_outline:document-plus"
+                                                        ></mat-icon>
+                                                        <span class="ml-1">{{
+                                                            t(
+                                                                'admin.restaurants.statements.generate'
+                                                            )
+                                                        }}</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            @if (loadingCreditHistory()) {
+                                                <mat-progress-bar
+                                                    mode="indeterminate"
+                                                ></mat-progress-bar>
+                                            } @else {
+                                                <!-- Statements -->
+                                                @if (statements().length) {
+                                                    <div
+                                                        class="flex flex-col gap-2"
+                                                    >
+                                                        @for (
+                                                            st of statements();
+                                                            track st.id
+                                                        ) {
+                                                            <div
+                                                                class="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-2 text-sm"
+                                                            >
+                                                                <span
+                                                                    class="font-medium"
+                                                                    >{{
+                                                                        st.month
+                                                                    }}/{{
+                                                                        st.year
+                                                                    }}</span
+                                                                >
+                                                                <span
+                                                                    class="text-secondary"
+                                                                    >{{
+                                                                        t(
+                                                                            'admin.restaurants.statements.closing'
+                                                                        )
+                                                                    }}:
+                                                                    {{
+                                                                        st.closingBalance
+                                                                            | number
+                                                                    }}
+                                                                    ₫</span
+                                                                >
+                                                                <button
+                                                                    mat-stroked-button
+                                                                    class="h-7 min-h-7 px-2 leading-6"
+                                                                    type="button"
+                                                                    [disabled]="
+                                                                        downloadingStatementId() ===
+                                                                        st.id
+                                                                    "
+                                                                    [matTooltip]="
+                                                                        t(
+                                                                            'admin.restaurants.statements.download'
+                                                                        )
+                                                                    "
+                                                                    (click)="
+                                                                        downloadStatementPdf(
+                                                                            user,
+                                                                            st
+                                                                        )
+                                                                    "
+                                                                >
+                                                                    <mat-icon
+                                                                        class="icon-size-5"
+                                                                        svgIcon="heroicons_outline:arrow-down-tray"
+                                                                    ></mat-icon>
+                                                                </button>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                } @else {
+                                                    <div
+                                                        class="text-secondary text-sm"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.restaurants.statements.empty'
+                                                            )
+                                                        }}
+                                                    </div>
+                                                }
+
+                                                <!-- Transactions ledger -->
+                                                <div
+                                                    class="text-secondary mt-2 text-sm font-medium"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.restaurants.transactions.title'
+                                                        )
+                                                    }}
+                                                </div>
+                                                @if (transactions().length) {
+                                                    <div
+                                                        class="flex flex-col gap-1"
+                                                    >
+                                                        @for (
+                                                            tx of transactions();
+                                                            track tx.id
+                                                        ) {
+                                                            <div
+                                                                class="flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-1.5 text-xs"
+                                                            >
+                                                                <span
+                                                                    class="text-secondary"
+                                                                    >{{
+                                                                        tx.createdAt
+                                                                    }}</span
+                                                                >
+                                                                <span
+                                                                    class="admin-pill admin-pill-neutral"
+                                                                    >{{
+                                                                        tx.type ||
+                                                                            '—'
+                                                                    }}</span
+                                                                >
+                                                                <span
+                                                                    class="font-medium tabular-nums"
+                                                                    >{{
+                                                                        tx.amount
+                                                                            | number
+                                                                    }}
+                                                                    ₫</span
+                                                                >
+                                                                <span
+                                                                    class="text-secondary min-w-0 flex-1 truncate text-right"
+                                                                    >{{
+                                                                        tx.description
+                                                                    }}</span
+                                                                >
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                } @else {
+                                                    <div
+                                                        class="text-secondary text-sm"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.restaurants.transactions.empty'
+                                                            )
+                                                        }}
+                                                    </div>
+                                                }
+                                            }
+                                        </div>
+                                    }
+
                                     <div
                                         class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
                                     >

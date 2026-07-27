@@ -214,8 +214,9 @@ export function unwrapData<T>(body: unknown): T | undefined {
 /**
  * Returns the first array found in an untyped list response, guaranteeing an
  * array. Handles a bare array, the common envelope keys
- * (`items`/`data`/`results`/`value`) and one level of nesting (e.g. the .NET
- * shape `{ data: { items: [...] } }`). Unknown shapes degrade to `[]`.
+ * (`items`/`data`/`results`/`value`, plus the order-groups `batches`) and one
+ * level of nesting (e.g. the .NET shape `{ data: { items: [...] } }`). Unknown
+ * shapes degrade to `[]`.
  */
 export function extractList<T>(body: unknown): T[] {
     if (Array.isArray(body)) {
@@ -225,7 +226,7 @@ export function extractList<T>(body: unknown): T[] {
         return [];
     }
     const record = body as Record<string, unknown>;
-    for (const key of ['items', 'data', 'results', 'value']) {
+    for (const key of ['items', 'data', 'results', 'value', 'batches']) {
         if (Array.isArray(record[key])) {
             return record[key] as T[];
         }

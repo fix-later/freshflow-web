@@ -1,3 +1,4 @@
+import { ClipboardModule } from '@angular/cdk/clipboard';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -31,6 +32,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -39,6 +41,7 @@ import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
     AdminAutoBatchResult,
+    AdminOrderGroupProgressSummary,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
@@ -50,6 +53,7 @@ import {
 } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
+import { statusPillClass } from './order-group-status';
 
 /** Reason codes the auto-batch run reports for skipped orders (see doc §4.2). */
 const KNOWN_SKIP_REASONS = new Set([
@@ -59,6 +63,16 @@ const KNOWN_SKIP_REASONS = new Set([
     'OUT_OF_STOCK',
     'NO_ELIGIBLE_ITEMS',
 ]);
+
+/**
+ * Batch lifecycle (lowercased): Built → Manifested → Purchasing → HandedOff →
+ * Completed, plus Cancelled. Generating a manifest only makes sense before an
+ * agent starts purchasing — at `Built` (creates it) or `Manifested`
+ * (regenerates it); later states already have a manifest in the field.
+ */
+const MANIFEST_ELIGIBLE_STATUSES = new Set(['built', 'manifested']);
+/** Terminal states in which a batch can no longer be cancelled. */
+const TERMINAL_STATUSES = new Set(['completed', 'cancelled']);
 
 /** Optional Luxon day from the Material datepicker. */
 function validTargetDate(control: AbstractControl): ValidationErrors | null {
@@ -83,6 +97,7 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        ClipboardModule,
         MatButtonModule,
         MatDatepickerModule,
         MatDialogModule,
@@ -104,20 +119,21 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
                 /* batch | market | status | agent | actions */
                 grid-template-columns:
                     minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 0.9fr)
-                    minmax(0, 1.3fr) auto;
+                    minmax(0, 1.3fr) 9.5rem;
 
                 @screen md {
                     /* + orders */
                     grid-template-columns:
                         minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 0.9fr)
-                        minmax(0, 0.55fr) minmax(0, 1.3fr) auto;
+                        minmax(0, 0.55fr) minmax(0, 1.3fr) 9.5rem;
                 }
 
                 @screen lg {
                     /* + created */
                     grid-template-columns:
                         minmax(0, 1.1fr) minmax(0, 1.2fr) minmax(0, 0.9fr)
-                        minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1.3fr) auto;
+                        minmax(0, 0.55fr) minmax(0, 1fr) minmax(0, 1.3fr)
+                        9.5rem;
                 }
             }
         `,
@@ -129,6 +145,9 @@ export class OrderGroupsComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _dialog = inject(MatDialog);
+    private readonly _router = inject(Router);
+
+    readonly statusPillClass = statusPillClass;
 
     private _cancelDialogRef: MatDialogRef<unknown> | null = null;
     private _batchDialogRef: MatDialogRef<unknown> | null = null;
@@ -137,6 +156,8 @@ export class OrderGroupsComponent implements OnInit {
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
     readonly agents = signal<AdminUserRow[]>([]);
+    /** Today's live batching summary (`GET /admin/order-groups/progress`). */
+    readonly progress = signal<AdminOrderGroupProgressSummary | null>(null);
     readonly totalCount = signal(0);
     readonly pageIndex = signal(0);
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
@@ -192,12 +213,30 @@ export class OrderGroupsComponent implements OnInit {
         force: this._formBuilder.nonNullable.control(false),
     });
 
+    /** Status counts of the progress summary as sorted `[status, count]` pairs. */
+    readonly progressStatusCounts = computed<[string, number][]>(() => {
+        const counts = this.progress()?.statusCounts;
+        if (!counts) {
+            return [];
+        }
+        return Object.entries(counts)
+            .filter(([, n]) => typeof n === 'number')
+            .sort((a, b) => b[1] - a[1]);
+    });
+
     ngOnInit(): void {
         this._load();
         this._admin
             .getAgentOptions()
             .then((agents) => this.agents.set(agents))
             .catch(() => this.agents.set([]));
+    }
+
+    private _loadProgress(): void {
+        this._admin
+            .getOrderGroupProgress()
+            .then((result) => this.progress.set(result.summary))
+            .catch(() => this.progress.set(null));
     }
 
     onSearch(value: string): void {
@@ -216,6 +255,24 @@ export class OrderGroupsComponent implements OnInit {
 
     batchIdOf(row: AdminOrderGroupRow): string {
         return row.id ?? '';
+    }
+
+    /** Confirms a click-to-copy of the batch id via a snackbar. */
+    onCopied(success: boolean): void {
+        if (success) {
+            this._notifyKey('admin.orderGroups.copied');
+        }
+    }
+
+    /** Opens the full-detail page for a batch, passing the row for instant render. */
+    openDetail(row: AdminOrderGroupRow): void {
+        const id = this.batchIdOf(row);
+        if (!id) {
+            return;
+        }
+        this._router.navigate(['/admin/order-groups', id], {
+            state: { batch: row },
+        });
     }
 
     // ---- Auto-batch -------------------------------------------------------
@@ -394,19 +451,16 @@ export class OrderGroupsComponent implements OnInit {
 
     // ---- Presentation helpers --------------------------------------------
 
-    /** Pill class for a batch status (falls back to a neutral chip). */
-    statusPillClass(status: string | null | undefined): string {
-        switch (String(status ?? '').toLowerCase()) {
-            case 'completed':
-            case 'dispatched':
-                return 'admin-pill admin-pill-success';
-            case 'open':
-            case 'locked':
-            case 'processing':
-                return 'admin-pill admin-pill-warning';
-            default:
-                return 'admin-pill admin-pill-neutral';
-        }
+    /** Whether the manifest action applies to this batch's current status. */
+    canManifest(row: AdminOrderGroupRow): boolean {
+        return MANIFEST_ELIGIBLE_STATUSES.has(
+            String(row.status ?? '').toLowerCase()
+        );
+    }
+
+    /** Whether the batch can still be cancelled (i.e. not in a terminal state). */
+    canCancel(row: AdminOrderGroupRow): boolean {
+        return !TERMINAL_STATUSES.has(String(row.status ?? '').toLowerCase());
     }
 
     /** Locale date-time for a stored ISO value, or '' when missing/invalid. */
@@ -448,6 +502,7 @@ export class OrderGroupsComponent implements OnInit {
         } finally {
             this.loading.set(false);
         }
+        this._loadProgress();
     });
 
     private _notifyKey(key: string): void {

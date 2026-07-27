@@ -42,7 +42,12 @@ import {
 } from 'app/core/api/validators';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
-import { AdminRestaurantCredit, AdminUserRow } from '../admin.types';
+import {
+    AdminCreditStatement,
+    AdminCreditTransaction,
+    AdminRestaurantCredit,
+    AdminUserRow,
+} from '../admin.types';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     toApiPage,
@@ -132,6 +137,14 @@ export class RestaurantsAdminComponent implements OnInit {
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
 
+    /** Credit ledger + monthly statements for the expanded restaurant. */
+    readonly statements = signal<AdminCreditStatement[]>([]);
+    readonly transactions = signal<AdminCreditTransaction[]>([]);
+    readonly loadingCreditHistory = signal(false);
+    readonly generatingStatement = signal(false);
+    /** Statement id whose PDF is currently downloading (for a per-row spinner). */
+    readonly downloadingStatementId = signal<string | null>(null);
+
     /** Which row + API action is currently in flight. */
     readonly busyAction = signal<{
         userId: string;
@@ -215,6 +228,21 @@ export class RestaurantsAdminComponent implements OnInit {
         reference: [''],
         note: [''],
     });
+
+    /** Period picker for generating a monthly statement (defaults to now). */
+    readonly statementForm = this._formBuilder.nonNullable.group({
+        year: [
+            new Date().getFullYear(),
+            [Validators.required, Validators.min(2000), Validators.max(2100)],
+        ],
+        month: [
+            new Date().getMonth() + 1,
+            [Validators.required, Validators.min(1), Validators.max(12)],
+        ],
+    });
+
+    /** 1–12, for the statement month picker. */
+    readonly months = Array.from({ length: 12 }, (_, i) => i + 1);
 
     ngOnInit(): void {
         this._load();
@@ -491,6 +519,8 @@ export class RestaurantsAdminComponent implements OnInit {
         this.credit.set(null);
         this.editingCreditLimit.set(false);
         this.creditLimitForm.reset({ creditLimit: 0, note: '' });
+        this.statements.set([]);
+        this.transactions.set([]);
         if (!restaurantId) {
             return;
         }
@@ -508,6 +538,66 @@ export class RestaurantsAdminComponent implements OnInit {
                 });
             })
             .finally(() => this.loadingCredit.set(false));
+        this._loadCreditHistory(restaurantId);
+    }
+
+    /** Loads the statements + transactions lists (best-effort; empty on failure). */
+    private _loadCreditHistory(restaurantId: string): void {
+        this.loadingCreditHistory.set(true);
+        Promise.all([
+            this._admin.getCreditStatements(restaurantId),
+            this._admin.getCreditTransactions(restaurantId),
+        ])
+            .then(([statements, transactions]) => {
+                this.statements.set(statements);
+                this.transactions.set(transactions);
+            })
+            .finally(() => this.loadingCreditHistory.set(false));
+    }
+
+    /** Generates (or regenerates) the statement for the picked year/month. */
+    generateStatement(user: AdminUserRow): void {
+        const restaurantId = user.restaurantId;
+        if (!restaurantId || this.statementForm.invalid) {
+            this.statementForm.markAllAsTouched();
+            return;
+        }
+        const { year, month } = this.statementForm.getRawValue();
+        this.generatingStatement.set(true);
+        this._admin
+            .generateCreditStatement(restaurantId, { year, month })
+            .then(() => {
+                this._notify('admin.restaurants.statements.generateSuccess');
+                this._loadCreditHistory(restaurantId);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.generatingStatement.set(false));
+    }
+
+    /** Downloads a statement PDF via an object URL, then revokes it. */
+    downloadStatementPdf(
+        user: AdminUserRow,
+        statement: AdminCreditStatement
+    ): void {
+        const restaurantId = user.restaurantId;
+        if (!restaurantId || !statement.id) {
+            return;
+        }
+        this.downloadingStatementId.set(statement.id);
+        this._admin
+            .getStatementPdf(restaurantId, statement.id)
+            .then((blob) => {
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `statement-${statement.year ?? ''}-${
+                    statement.month ?? ''
+                }.pdf`;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.downloadingStatementId.set(null));
     }
 
     private _load(): void {

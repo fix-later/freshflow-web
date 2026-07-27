@@ -146,11 +146,74 @@ export interface AdminOrderGroupRow {
     [key: string]: unknown;
 }
 
+/** A purchased/planned line item inside a batch (`batch.items[]`). */
+export interface AdminBatchItem {
+    marketProductId?: string | null;
+    productNameSnapshot?: string | null;
+    totalQuantity?: number | null;
+    referenceUnitPrice?: number | null;
+    actualQuantity?: number | null;
+    actualUnitPrice?: number | null;
+    purchasedAt?: string | null;
+    [key: string]: unknown;
+}
+
+/** An order that belongs to a batch (`batch.members[]`). */
+export interface AdminBatchMember {
+    orderId?: string | null;
+    status?: string | null;
+    [key: string]: unknown;
+}
+
+/** A line item of an order (`order.items[]`, `GET /orders/{orderId}`). */
+export interface AdminOrderItem {
+    orderItemId?: string | null;
+    marketProductId?: string | null;
+    productNameSnapshot?: string | null;
+    quantity?: number | null;
+    unitPrice?: number | null;
+    subtotal?: number | null;
+    actualQuantity?: number | null;
+    [key: string]: unknown;
+}
+
+/** Full order detail (`GET /orders/{orderId}`), for the batch member drill-down. */
+export interface AdminOrderDetail {
+    orderId?: string | null;
+    restaurantId?: string | null;
+    status?: string | null;
+    paymentStatus?: string | null;
+    scheduledFor?: string | null;
+    totalAmount?: number | null;
+    notes?: string | null;
+    items?: AdminOrderItem[] | null;
+    createdAt?: string | null;
+    [key: string]: unknown;
+}
+
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];
     totalCount: number;
     page?: number;
     pageSize?: number;
+}
+
+/** Live batching summary for a day (`GET /admin/order-groups/progress`). */
+export interface AdminOrderGroupProgressSummary {
+    batchDate?: string | null;
+    totalBatches?: number | null;
+    /** Count of batches per status, e.g. `{ Built: 1, Purchasing: 2 }`. */
+    statusCounts?: Record<string, number> | null;
+    totalItems?: number | null;
+    itemsPurchased?: number | null;
+    itemsPending?: number | null;
+    openExceptions?: number | null;
+    [key: string]: unknown;
+}
+
+export interface AdminOrderGroupProgress {
+    summary: AdminOrderGroupProgressSummary;
+    batches: AdminOrderGroupRow[];
 }
 
 export interface AdminAutoBatchPayload {

@@ -8,7 +8,13 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { adminApi, marketsApi, restaurantCreditApi } from 'contract';
+import {
+    adminApi,
+    hubsApi,
+    marketsApi,
+    ordersApi,
+    restaurantCreditApi,
+} from 'contract';
 import {
     AdminAuditLogFilters,
     AdminAuditLogRow,
@@ -21,6 +27,9 @@ import {
     AdminGenerateStatementPayload,
     AdminMarketOption,
     AdminOperationalSettings,
+    AdminOrderDetail,
+    AdminOrderGroupProgress,
+    AdminOrderGroupProgressSummary,
     AdminOrderGroupRow,
     AdminOrderGroupsResult,
     AdminPricingSettings,
@@ -416,8 +425,10 @@ export class AdminService {
             pageSize,
         });
         const body = await parseJson<unknown>(res.raw);
-        // Batch routes use {batchId}; the list may key it either way.
-        const groups = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
+        // The list nests the array at `data.batches` (see extractList); batch
+        // routes use {batchId}, but the rows carry `id`.
+        const rows = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
+        const groups = await this._normalizeOrderGroups(rows);
         const p = extractPagination(body);
         return {
             groups,
@@ -427,19 +438,87 @@ export class AdminService {
         };
     }
 
-    /** Live batching progress for a day, optionally narrowed to one status. */
+    /**
+     * Maps the backend batch shape onto the fields the order-groups table binds
+     * (`marketName`/`agentId`/`orderCount`/`createdAt`), which the API spells
+     * differently (`marketId`/`assignedAgentUserId`/`members`/`batchDate`), and
+     * resolves market ids to names. Existing values win, so a backend that later
+     * returns the display fields directly is untouched.
+     */
+    private async _normalizeOrderGroups(
+        rows: AdminOrderGroupRow[]
+    ): Promise<AdminOrderGroupRow[]> {
+        const marketNames = await this._marketNameMap();
+        return rows.map((row) => {
+            const members = row['members'];
+            return {
+                ...row,
+                marketName:
+                    row.marketName ??
+                    marketNames.get(String(row.marketId ?? '')) ??
+                    null,
+                agentId:
+                    row.agentId ??
+                    (row['assignedAgentUserId'] as string | null) ??
+                    null,
+                orderCount:
+                    row.orderCount ??
+                    (Array.isArray(members)
+                        ? members.length
+                        : (row['totalItemCount'] as number | null) ?? null),
+                createdAt:
+                    row.createdAt ??
+                    (row['batchDate'] as string | null) ??
+                    null,
+            };
+        });
+    }
+
+    /** Best-effort market id → name lookup, fetched once and cached. */
+    private _marketNames?: Promise<Map<string, string>>;
+    private _marketNameMap(): Promise<Map<string, string>> {
+        return (this._marketNames ??= this.getMarkets()
+            .then(
+                (markets) =>
+                    new Map(
+                        markets.map((m) => [String(m.id), String(m.name ?? '')])
+                    )
+            )
+            .catch(() => new Map<string, string>()));
+    }
+
+    /**
+     * A single batch by id. There is no single-batch GET, so this pulls the
+     * (small) list and finds it — the rows already carry full detail
+     * (items / members / exceptions).
+     */
+    async getOrderGroup(batchId: string): Promise<AdminOrderGroupRow | null> {
+        const { groups } = await this.getOrderGroups(1, 100);
+        return groups.find((group) => group.id === batchId) ?? null;
+    }
+
+    /**
+     * Live batching progress for a day, optionally narrowed to one status.
+     * Returns the day's summary counts alongside the batch rows (`data.summary`
+     * / `data.batches`).
+     */
     async getOrderGroupProgress(
         date?: string,
         status?: string
-    ): Promise<AdminOrderGroupRow[]> {
+    ): Promise<AdminOrderGroupProgress> {
         const res = await adminApi.apiV1AdminOrderGroupsProgressGetRaw({
             date: date ? new Date(date) : undefined,
             status: status || undefined,
         });
-        return withId<AdminOrderGroupRow>(
-            extractList(await parseJson(res.raw)),
+        const body = await parseJson<unknown>(res.raw);
+        const data = unwrapData<Record<string, unknown>>(body) ?? {};
+        const summary =
+            (data['summary'] as AdminOrderGroupProgressSummary) ?? {};
+        const batches = withId<AdminOrderGroupRow>(
+            extractList(body),
             'batchId'
         );
+        return { summary, batches };
     }
 
     /**
@@ -482,6 +561,12 @@ export class AdminService {
             batchId,
             assignAgentRequest: { agentUserId },
         });
+    }
+
+    /** Full detail of a single order (for the batch-member drill-down). */
+    async getOrder(orderId: string): Promise<AdminOrderDetail | null> {
+        const res = await ordersApi.apiV1OrdersOrderIdGetRaw({ orderId });
+        return unwrapData<AdminOrderDetail>(await parseJson(res.raw)) ?? null;
     }
 
     async cancelOrderGroup(batchId: string, reason?: string): Promise<void> {
@@ -527,6 +612,19 @@ export class AdminService {
         const body = await parseJson<unknown>(res.raw);
         const entries = extractList<AdminMarketOption>(body);
         return entries.filter((m): m is AdminMarketOption => !!m?.id);
+    }
+
+    /** Hubs as `{ id, name }`, for resolving a batch's `hubId` to a name. */
+    async getHubs(): Promise<{ id: string; name: string }[]> {
+        const rows = await fetchAllCursor<Record<string, unknown>>(
+            (cursor, pageSize) =>
+                hubsApi
+                    .apiV1HubsGetRaw({ cursor, pageSize })
+                    .then((res) => res.raw)
+        );
+        return withId(rows, 'hubId')
+            .map((hub) => ({ id: hub.id, name: String(hub['name'] ?? '') }))
+            .filter((hub) => !!hub.id);
     }
 }
 

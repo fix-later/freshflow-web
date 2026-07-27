@@ -1,0 +1,241 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8"
+        [formGroup]="filterForm"
+    >
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div
+            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+        >
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.auditLogs.title') }}
+                </div>
+                <div class="text-secondary mt-1 text-sm">
+                    {{ t('admin.auditLogs.subtitle') }}
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+            <mat-form-field
+                class="fuse-mat-dense fuse-mat-rounded w-48 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:bolt"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    formControlName="action"
+                    [placeholder]="t('admin.auditLogs.filter.action')"
+                />
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense fuse-mat-rounded w-48 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:cube"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    formControlName="entityType"
+                    [placeholder]="t('admin.auditLogs.filter.entityType')"
+                />
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense fuse-mat-rounded w-56 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:user"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    formControlName="actorId"
+                    [placeholder]="t('admin.auditLogs.filter.actorId')"
+                />
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-40 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.auditLogs.filter.from') }}</mat-label>
+                <input
+                    matInput
+                    [matDatepicker]="fromPicker"
+                    formControlName="from"
+                />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="fromPicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #fromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-40 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.auditLogs.filter.to') }}</mat-label>
+                <input
+                    matInput
+                    [matDatepicker]="toPicker"
+                    formControlName="to"
+                />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="toPicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #toPicker></mat-datepicker>
+            </mat-form-field>
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    class="shrink-0"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-1">{{ t('admin.auditLogs.clear') }}</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+            *transloco="let t"
+        >
+            @if (sortedEntries().length > 0) {
+                <div class="grid">
+                    <div
+                        class="audit-logs-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        @for (
+                            col of [
+                                {
+                                    key: 'time',
+                                    label: 'admin.auditLogs.table.time',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'actorEmail',
+                                    label: 'admin.auditLogs.table.actor',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'action',
+                                    label: 'admin.auditLogs.table.action',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'entityType',
+                                    label: 'admin.auditLogs.table.entity',
+                                    hide: '',
+                                },
+                                {
+                                    key: 'entityId',
+                                    label: 'admin.auditLogs.table.entityId',
+                                    hide: 'hidden md:block',
+                                },
+                            ];
+                            track col.key
+                        ) {
+                            <div
+                                [class]="col.hide"
+                                [attr.aria-sort]="sort.ariaSort(col.key)"
+                            >
+                                <button
+                                    type="button"
+                                    class="admin-sort-header"
+                                    (click)="sort.toggle(col.key)"
+                                >
+                                    {{ t(col.label) }}
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-accent]="
+                                            sort.key() === col.key
+                                        "
+                                        [svgIcon]="
+                                            'heroicons_outline:' +
+                                            sort.icon(col.key)
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    @for (
+                        entry of sortedEntries();
+                        track trackById($index, entry)
+                    ) {
+                        <div
+                            class="audit-logs-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                        >
+                            <div
+                                class="text-secondary min-w-0 truncate text-sm"
+                            >
+                                {{ formatDate(timeOf(entry)) || '—' }}
+                            </div>
+                            <div class="min-w-0 truncate font-medium">
+                                {{ actorOf(entry) }}
+                            </div>
+                            <div class="min-w-0">
+                                <span class="admin-pill admin-pill-neutral">
+                                    {{ entry.action || '—' }}
+                                </span>
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ entry.entityType || '—' }}
+                            </div>
+                            <div
+                                class="text-secondary hidden min-w-0 truncate font-mono text-xs md:block"
+                            >
+                                {{ entry.entityId || '—' }}
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <mat-paginator
+                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="[10, 20, 50]"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
+            } @else if (!loading()) {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.auditLogs.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
