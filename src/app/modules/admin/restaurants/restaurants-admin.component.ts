@@ -3,7 +3,6 @@ import {
     Component,
     DestroyRef,
     OnInit,
-    TemplateRef,
     ViewEncapsulation,
     computed,
     inject,
@@ -12,11 +11,6 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import {
-    MatDialog,
-    MatDialogModule,
-    MatDialogRef,
-} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -27,7 +21,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { describeApiError } from 'app/core/api/error-codes';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
@@ -43,11 +36,9 @@ import { TableSort } from '../shared/table-sort';
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
 
-type RestaurantAction = 'approve' | 'settle';
-
 /**
  * Admin ▸ Restaurants — inventory list of `restaurant` users.
- * Row actions: approve, settle. Detail view is a dedicated route.
+ * Detail view is a dedicated route.
  */
 @Component({
     selector: 'admin-restaurants-admin',
@@ -59,7 +50,6 @@ type RestaurantAction = 'approve' | 'settle';
     imports: [
         AdminLoadingStateComponent,
         MatButtonModule,
-        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -74,23 +64,22 @@ type RestaurantAction = 'approve' | 'settle';
     styles: [
         `
             .restaurants-grid {
+                /* name | email | phone | status | details — fixed
+                   action col so header and each row line up. */
                 grid-template-columns:
                     minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(0, 1fr)
-                    minmax(0, 0.9fr) auto auto;
+                    7rem 5rem;
             }
         `,
     ],
 })
 export class RestaurantsAdminComponent implements OnInit {
     private readonly _admin = inject(AdminService);
-    private readonly _dialog = inject(MatDialog);
     private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _destroyRef = inject(DestroyRef);
-
-    private _dialogRef: MatDialogRef<unknown> | null = null;
 
     readonly users = signal<AdminUserRow[]>([]);
     readonly sort = new TableSort<AdminUserRow>();
@@ -104,15 +93,6 @@ export class RestaurantsAdminComponent implements OnInit {
     readonly pageIndex = signal(0);
     readonly pageSize = signal(DEFAULT_PAGE_SIZE);
 
-    /** Which row + API action is currently in flight. */
-    readonly busyAction = signal<{
-        userId: string;
-        kind: RestaurantAction;
-    } | null>(null);
-
-    /** User targeted by the settle dialog. */
-    readonly actionUser = signal<AdminUserRow | null>(null);
-
     readonly filterForm = this._formBuilder.nonNullable.group({
         search: [''],
         isActive: [''],
@@ -125,13 +105,6 @@ export class RestaurantsAdminComponent implements OnInit {
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
         return (v.search ?? '').trim() !== '' || !!(v.isActive ?? '');
-    });
-
-    readonly settleForm = this._formBuilder.nonNullable.group({
-        amount: [0, []],
-        paymentMethod: [''],
-        reference: [''],
-        note: [''],
     });
 
     ngOnInit(): void {
@@ -161,16 +134,6 @@ export class RestaurantsAdminComponent implements OnInit {
         this.filterForm.reset({ search: '', isActive: '' });
     }
 
-    isActionBusy(user: AdminUserRow, kind: RestaurantAction): boolean {
-        const busy = this.busyAction();
-        return !!busy && busy.userId === user.id && busy.kind === kind;
-    }
-
-    anyActionBusy(user: AdminUserRow): boolean {
-        const busy = this.busyAction();
-        return !!busy && busy.userId === user.id;
-    }
-
     openDetail(user: AdminUserRow): void {
         if (!user.id) {
             return;
@@ -182,79 +145,6 @@ export class RestaurantsAdminComponent implements OnInit {
 
     openCreatePanel(): void {
         void this._router.navigate(['/admin/restaurants/new']);
-    }
-
-    approve(user: AdminUserRow): void {
-        const restaurantId = user.restaurantId;
-        if (!restaurantId) {
-            this._notify('admin.restaurants.noRestaurantId');
-            return;
-        }
-        this.busyAction.set({ userId: user.id, kind: 'approve' });
-        this._admin
-            .approveRestaurant(restaurantId)
-            .then(() => this._notify('admin.restaurants.approve.success'))
-            .catch((err) => void this._notifyError(err))
-            .finally(() => this.busyAction.set(null));
-    }
-
-    openSettleDialog(user: AdminUserRow, template: TemplateRef<unknown>): void {
-        if (!user.restaurantId) {
-            this._notify('admin.restaurants.noRestaurantId');
-            return;
-        }
-        if (this._dialogRef) {
-            return;
-        }
-        this.actionUser.set(user);
-        this.settleForm.reset({
-            amount: 0,
-            paymentMethod: '',
-            reference: '',
-            note: '',
-        });
-        this._dialogRef = this._dialog.open(template, {
-            autoFocus: 'first-tabbable',
-            maxWidth: '95vw',
-        });
-        this._dialogRef.afterClosed().subscribe(() => {
-            this._dialogRef = null;
-            this.actionUser.set(null);
-        });
-    }
-
-    closeActionDialog(): void {
-        this._dialogRef?.close();
-    }
-
-    settleCredit(): void {
-        const user = this.actionUser();
-        const restaurantId = user?.restaurantId;
-        if (!user || !restaurantId || this.settleForm.invalid) {
-            this.settleForm.markAllAsTouched();
-            return;
-        }
-        const { amount, paymentMethod, reference, note } =
-            this.settleForm.getRawValue();
-        if (!amount || amount < 0.01) {
-            this.settleForm.controls.amount.setErrors({ min: true });
-            this.settleForm.markAllAsTouched();
-            return;
-        }
-        this.busyAction.set({ userId: user.id, kind: 'settle' });
-        this._admin
-            .settleCredit(restaurantId, {
-                amount,
-                paymentMethod: paymentMethod || null,
-                reference: reference || null,
-                note: note || null,
-            })
-            .then(() => {
-                this._notify('admin.restaurants.settle.success');
-                this.closeActionDialog();
-            })
-            .catch((err) => void this._notifyError(err))
-            .finally(() => this.busyAction.set(null));
     }
 
     trackById(_: number, row: { id: string }): string {
@@ -288,27 +178,13 @@ export class RestaurantsAdminComponent implements OnInit {
         } catch {
             this.users.set([]);
             this.totalCount.set(0);
-            this._notify('admin.restaurants.loadError');
+            this._snackBar.open(
+                this._transloco.translate('admin.restaurants.loadError'),
+                undefined,
+                { duration: 5000 }
+            );
         } finally {
             this.loading.set(false);
         }
     });
-
-    private _notify(key: string): void {
-        this._notifyText(this._transloco.translate(key));
-    }
-
-    private _notifyText(message: string): void {
-        this._snackBar.open(message, undefined, { duration: 5000 });
-    }
-
-    private async _notifyError(err: unknown): Promise<void> {
-        this._notifyText(
-            await describeApiError(
-                err,
-                (key) => this._transloco.translate(key),
-                'admin.restaurants.actionError'
-            )
-        );
-    }
 }
