@@ -3,7 +3,7 @@
     *transloco="let t"
 >
     <!-- Header -->
-    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+    <div class="relative flex flex-0 flex-col border-b px-6 py-6 md:px-8">
         @if (loading()) {
             <div class="absolute inset-x-0 bottom-0">
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -45,7 +45,9 @@
                         t('admin.crud.filterAll')
                     }}</mat-option>
                     @for (opt of statuses; track opt) {
-                        <mat-option [value]="opt">{{ opt }}</mat-option>
+                        <mat-option [value]="opt">{{
+                            statusLabel(opt)
+                        }}</mat-option>
                     }
                 </mat-select>
             </mat-form-field>
@@ -77,6 +79,18 @@
                 ></mat-datepicker-toggle>
                 <mat-datepicker #toPicker></mat-datepicker>
             </mat-form-field>
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.crud.clearFilters')
+                    }}</span>
+                </button>
+            }
         </div>
     </div>
 
@@ -93,11 +107,15 @@
                         <div>{{ t('admin.orders.table.id') }}</div>
                         <div>{{ t('admin.orders.table.restaurant') }}</div>
                         <div>{{ t('admin.orders.table.status') }}</div>
+                        <div>{{ t('admin.orders.table.paymentStatus') }}</div>
+                        <div class="hidden md:block">
+                            {{ t('admin.orders.table.itemCount') }}
+                        </div>
                         <div class="hidden md:block">
                             {{ t('admin.orders.table.amount') }}
                         </div>
                         <div class="hidden lg:block">
-                            {{ t('admin.orders.table.createdAt') }}
+                            {{ t('admin.orders.table.scheduledFor') }}
                         </div>
                         <div class="text-right">
                             {{ t('admin.orders.table.actions') }}
@@ -124,8 +142,14 @@
                             </div>
                             <div>
                                 <span [class]="statusPillClass(row.status)">
-                                    {{ row.status || '—' }}
+                                    {{ statusLabel(row.status) }}
                                 </span>
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ paymentStatusLabel(row.paymentStatus) }}
+                            </div>
+                            <div class="hidden tabular-nums md:block">
+                                {{ itemCountOf(row) }}
                             </div>
                             <div class="hidden truncate tabular-nums md:block">
                                 {{ money(row.totalAmount) }}
@@ -133,7 +157,7 @@
                             <div
                                 class="text-secondary hidden truncate text-sm lg:block"
                             >
-                                {{ formatDate(row.createdAt) || '—' }}
+                                {{ formatDate(row.scheduledFor) || '—' }}
                             </div>
                             <div class="flex justify-end gap-1">
                                 <button

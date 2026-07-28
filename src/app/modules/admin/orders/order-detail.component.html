@@ -34,7 +34,7 @@
         @if (order(); as o) {
             <div class="flex items-center gap-3">
                 <span [class]="statusPillClass(o.status)">{{
-                    o.status || '—'
+                    statusLabel(o.status)
                 }}</span>
                 <span
                     class="inline-flex"

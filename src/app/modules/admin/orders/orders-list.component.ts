@@ -4,6 +4,7 @@ import {
     OnInit,
     TemplateRef,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -41,33 +42,56 @@ import {
 import { CoalescedTask } from '../shared/coalesced-task';
 
 const ORDER_STATUSES = [
+    'draft',
+    'batched',
     'pending',
     'confirmed',
     'processing',
     'ready_for_pickup',
     'in_transit',
+    'at_hub',
     'delivered',
     'cancelled',
 ];
+
+export function normalizeOrderStatus(
+    status: string | null | undefined
+): string {
+    const raw = String(status ?? '').trim();
+    if (!raw) {
+        return '';
+    }
+    return raw
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[\s-]+/g, '_')
+        .toLowerCase();
+}
 
 /** Pill class for an order status — same lifecycle-coloring idiom used elsewhere. */
 export function orderStatusPillClass(
     status: string | null | undefined
 ): string {
-    switch (String(status ?? '').toLowerCase()) {
+    switch (normalizeOrderStatus(status)) {
         case 'delivered':
             return 'admin-pill admin-pill-success';
         case 'cancelled':
             return 'admin-pill admin-pill-danger';
         case 'processing':
-        case 'in_transit':
             return 'admin-pill admin-pill-warning';
+        case 'in_transit':
+            return 'admin-pill admin-pill-teal';
+        case 'at_hub':
+            return 'admin-pill admin-pill-lime';
         case 'ready_for_pickup':
             return 'admin-pill admin-pill-cyan';
         case 'confirmed':
             return 'admin-pill admin-pill-purple';
         case 'pending':
             return 'admin-pill admin-pill-info';
+        case 'batched':
+            return 'admin-pill admin-pill-indigo';
+        case 'draft':
+            return 'admin-pill admin-pill-pink';
         default:
             return 'admin-pill admin-pill-neutral';
     }
@@ -75,9 +99,7 @@ export function orderStatusPillClass(
 
 /** Whether an order can still be cancelled (BR: not processing/in_transit/delivered). */
 export function canCancelOrder(status: string | null | undefined): boolean {
-    return !ORDER_NOT_CANCELLABLE_STATUSES.has(
-        String(status ?? '').toLowerCase()
-    );
+    return !ORDER_NOT_CANCELLABLE_STATUSES.has(normalizeOrderStatus(status));
 }
 
 /**
@@ -112,8 +134,22 @@ export function canCancelOrder(status: string | null | undefined): boolean {
         `
             .orders-grid {
                 grid-template-columns:
-                    minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr)
-                    minmax(0, 0.9fr) minmax(0, 0.9fr) 6rem;
+                    minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.85fr)
+                    minmax(0, 0.95fr) 6rem;
+
+                @screen md {
+                    grid-template-columns:
+                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.85fr)
+                        minmax(0, 0.85fr) minmax(0, 0.6fr) minmax(0, 0.95fr)
+                        6rem;
+                }
+
+                @screen lg {
+                    grid-template-columns:
+                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.85fr)
+                        minmax(0, 0.85fr) minmax(0, 0.6fr) minmax(0, 0.95fr)
+                        minmax(0, 1fr) 6rem;
+                }
             }
         `,
     ],
@@ -145,6 +181,13 @@ export class OrdersListComponent implements OnInit {
 
     readonly cancelTarget = signal<AdminOrderDetail | null>(null);
     readonly cancelReason = new FormControl('', { nonNullable: true });
+    readonly hasActiveFilters = computed(
+        () =>
+            !!this.restaurantId.value.trim() ||
+            !!this.status.value ||
+            !!this.from.value ||
+            !!this.to.value
+    );
 
     ngOnInit(): void {
         this._load();
@@ -162,6 +205,13 @@ export class OrdersListComponent implements OnInit {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
         this._load();
+    }
+
+    clearFilters(): void {
+        this.restaurantId.setValue('');
+        this.status.setValue('');
+        this.from.setValue(null);
+        this.to.setValue(null);
     }
 
     openDetail(row: AdminOrderDetail): void {
@@ -194,6 +244,30 @@ export class OrdersListComponent implements OnInit {
         return Number.isNaN(amount)
             ? String(value)
             : `${amount.toLocaleString(this._transloco.getActiveLang())} ₫`;
+    }
+
+    statusLabel(status: string | null | undefined): string {
+        const normalized = normalizeOrderStatus(status);
+        if (!normalized) {
+            return '—';
+        }
+        const key = `admin.orders.status.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? String(status) : translated;
+    }
+
+    paymentStatusLabel(status: string | null | undefined): string {
+        const normalized = normalizeOrderStatus(status);
+        if (!normalized) {
+            return '—';
+        }
+        const key = `admin.orders.paymentStatus.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? String(status) : translated;
+    }
+
+    itemCountOf(order: AdminOrderDetail): number {
+        return Array.isArray(order.items) ? order.items.length : 0;
     }
 
     openCancel(row: AdminOrderDetail, template: TemplateRef<unknown>): void {

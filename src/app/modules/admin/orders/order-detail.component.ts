@@ -26,7 +26,11 @@ import { describeApiError } from 'app/core/api/error-codes';
 import { AdminService } from '../admin.service';
 import { AdminOrderDetail } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import { canCancelOrder, orderStatusPillClass } from './orders-list.component';
+import {
+    canCancelOrder,
+    normalizeOrderStatus,
+    orderStatusPillClass,
+} from './orders-list.component';
 
 const DERIVED_ROW_KEYS = new Set(['orderId', 'items']);
 
@@ -131,7 +135,7 @@ export class OrderDetailComponent implements OnInit {
         return this._rawScalars(row)
             .filter(([key]) => !DERIVED_ROW_KEYS.has(key))
             .map(([key, value]) => ({
-                label: this._humanize(key),
+                label: this._fieldLabel('orderField', key),
                 value: this._displayValue(key, value),
             }));
     }
@@ -145,9 +149,19 @@ export class OrderDetailComponent implements OnInit {
         item: Record<string, unknown>
     ): { label: string; value: string }[] {
         return this._rawScalars(item).map(([key, value]) => ({
-            label: this._humanize(key),
+            label: this._fieldLabel('itemField', key),
             value: this._displayValue(key, value),
         }));
+    }
+
+    statusLabel(status: string | null | undefined): string {
+        const normalized = normalizeOrderStatus(status);
+        if (!normalized) {
+            return '—';
+        }
+        const key = `admin.orders.status.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? String(status) : translated;
     }
 
     private _fetch(id: string): void {
@@ -183,9 +197,33 @@ export class OrderDetailComponent implements OnInit {
         return spaced.charAt(0).toUpperCase() + spaced.slice(1);
     }
 
+    private _fieldLabel(
+        scope: 'orderField' | 'itemField',
+        key: string
+    ): string {
+        const translated = this._transloco.translate(
+            `admin.orders.${scope}.${key}`
+        );
+        return translated === `admin.orders.${scope}.${key}`
+            ? this._humanize(key)
+            : translated;
+    }
+
     private _displayValue(key: string, value: unknown): string {
         if (value === null || value === undefined || value === '') {
             return '—';
+        }
+        if (key === 'status') {
+            return this.statusLabel(String(value));
+        }
+        if (key === 'paymentStatus') {
+            const token = normalizeOrderStatus(String(value));
+            const translated = this._transloco.translate(
+                `admin.orders.paymentStatus.${token}`
+            );
+            return translated === `admin.orders.paymentStatus.${token}`
+                ? String(value)
+                : translated;
         }
         if (typeof value === 'boolean') {
             return value ? '✓' : '✗';

@@ -136,6 +136,7 @@ const NAVIGATION: AreaNavItem[] = [
                 title: 'Tất cả nhà hàng',
                 type: 'basic',
                 link: '/admin/restaurants',
+                exactMatch: true,
             },
             {
                 id: 'admin-invoices',
@@ -163,6 +164,7 @@ const NAVIGATION: AreaNavItem[] = [
                 title: 'Tất cả chợ đầu mối',
                 type: 'basic',
                 link: '/admin/markets',
+                exactMatch: true,
             },
             {
                 id: 'admin-market-products',
@@ -193,28 +195,28 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'admin.operations',
-        title: 'Vận hành',
+        title: 'Đơn hàng phiên chợ',
         type: 'collapsable',
         icon: 'heroicons_outline:rectangle-group',
         area: 'admin',
         children: [
             {
-                id: 'admin-orders',
-                title: 'Đơn hàng',
-                type: 'basic',
-                link: '/admin/orders',
-            },
-            {
                 id: 'admin-order-groups',
-                title: 'Gom đơn',
+                title: 'Danh sách phiên',
                 type: 'basic',
                 link: '/admin/order-groups',
             },
             {
-                id: 'admin-audit-logs',
-                title: 'Nhật ký hệ thống',
+                id: 'admin-orders',
+                title: 'Danh sách đơn',
                 type: 'basic',
-                link: '/admin/audit-logs',
+                link: '/admin/orders',
+            },
+            {
+                id: 'admin-order-group-settings',
+                title: 'Cấu hình phiên chợ',
+                type: 'basic',
+                link: '/admin/order-group-settings',
             },
         ],
     },

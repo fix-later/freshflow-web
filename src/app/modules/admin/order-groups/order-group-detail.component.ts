@@ -538,7 +538,11 @@ export class OrderGroupDetailComponent implements OnInit {
         if (!status) {
             return '—';
         }
-        const token = String(status).trim().toLowerCase();
+        const token = String(status)
+            .trim()
+            .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+            .replace(/[\s-]+/g, '_')
+            .toLowerCase();
         return this._translateOrFallback(
             `admin.orderGroups.paymentStatus.${token}`,
             String(status)

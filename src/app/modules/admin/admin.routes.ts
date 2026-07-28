@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { AdminDashboardComponent } from './analytics/analytics-dashboard.component';
-import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { CategoriesComponent } from './catalog/categories.component';
 import { MarketCreateComponent } from './catalog/market-create.component';
 import { MarketEditComponent } from './catalog/market-edit.component';
@@ -20,8 +19,10 @@ import { OrderGroupDetailComponent } from './order-groups/order-group-detail.com
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
 import { OrderDetailComponent } from './orders/order-detail.component';
 import { OrdersListComponent } from './orders/orders-list.component';
+import { RestaurantDetailComponent } from './restaurants/restaurant-detail.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
 import { RestaurantsCreateComponent } from './restaurants/restaurants-create.component';
+import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
 import { UsersCreateComponent } from './users/users-create.component';
 import { UsersListComponent } from './users/users-list.component';
 
@@ -42,6 +43,10 @@ export default [
     {
         path: 'restaurants/new',
         component: RestaurantsCreateComponent,
+    },
+    {
+        path: 'restaurants/:userId',
+        component: RestaurantDetailComponent,
     },
     {
         path: 'restaurants',
@@ -124,10 +129,9 @@ export default [
         path: 'order-groups/:batchId',
         component: OrderGroupDetailComponent,
     },
-    // Audit trail (M13)
     {
-        path: 'audit-logs',
-        component: AuditLogsComponent,
+        path: 'order-group-settings',
+        component: OrderGroupSettingsPageComponent,
     },
     // Financial oversight (extends M6 Credit)
     {

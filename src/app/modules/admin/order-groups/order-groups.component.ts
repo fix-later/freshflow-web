@@ -44,7 +44,6 @@ import {
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
-import { AdminSettingsDialogComponent } from '../settings/settings.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ADMIN_DEFAULT_PAGE_SIZE } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
@@ -136,8 +135,6 @@ export class OrderGroupsComponent implements OnInit {
 
     private _batchDialogRef: MatDialogRef<unknown> | null = null;
     private _agentDialogRef: MatDialogRef<unknown> | null = null;
-    private _settingsDialogRef: MatDialogRef<AdminSettingsDialogComponent> | null =
-        null;
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
     readonly agents = signal<AdminUserRow[]>([]);
@@ -368,23 +365,6 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     // ---- Auto-batch -------------------------------------------------------
-
-    openSettings(): void {
-        if (this._settingsDialogRef) {
-            return;
-        }
-        this._settingsDialogRef = this._dialog.open(
-            AdminSettingsDialogComponent,
-            {
-                autoFocus: 'first-tabbable',
-                width: '40rem',
-                maxWidth: '95vw',
-            }
-        );
-        this._settingsDialogRef.afterClosed().subscribe(() => {
-            this._settingsDialogRef = null;
-        });
-    }
 
     openAutoBatch(template: TemplateRef<unknown>): void {
         if (this._batchDialogRef) {

@@ -1,0 +1,206 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.restaurants.createPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.restaurants.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ t('admin.restaurants.create.title') }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 md:p-8">
+            <form
+                #createNgForm="ngForm"
+                class="flex w-full max-w-2xl flex-col gap-6"
+                [formGroup]="createForm"
+                (ngSubmit)="createRestaurant(createNgForm)"
+            >
+                <div class="flex flex-col gap-3">
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.users.create.email')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="email"
+                            formControlName="email"
+                            required
+                        />
+                        @if (createForm.controls.email.hasError('required')) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.emailRequired')
+                            }}</mat-error>
+                        } @else if (
+                            createForm.controls.email.hasError('email')
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.emailInvalid')
+                            }}</mat-error>
+                        } @else if (
+                            createForm.controls.email.hasError('maxlength')
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.emailMax')
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.users.create.password')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="password"
+                            formControlName="password"
+                            required
+                        />
+                        @if (
+                            createForm.controls.password.hasError('required')
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.passwordRequired')
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    @if (
+                        createForm.controls.password.value ||
+                        createForm.controls.password.touched
+                    ) {
+                        <ul
+                            class="text-secondary -mt-1 flex flex-col gap-1 text-xs"
+                        >
+                            @for (
+                                rule of [
+                                    { key: 'minLength', label: 'minLength' },
+                                    { key: 'uppercase', label: 'uppercase' },
+                                    { key: 'digit', label: 'digit' },
+                                    { key: 'special', label: 'special' },
+                                ];
+                                track rule.key
+                            ) {
+                                <li class="flex items-center gap-1.5">
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-green-600]="
+                                            !passwordRuleFailing(rule.key)
+                                        "
+                                        [class.text-secondary]="
+                                            passwordRuleFailing(rule.key)
+                                        "
+                                        [svgIcon]="
+                                            passwordRuleFailing(rule.key)
+                                                ? 'heroicons_outline:minus-circle'
+                                                : 'heroicons_outline:check-circle'
+                                        "
+                                    ></mat-icon>
+                                    {{
+                                        t(
+                                            'admin.users.create.password.' +
+                                                rule.label
+                                        )
+                                    }}
+                                </li>
+                            }
+                        </ul>
+                    }
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.users.create.restaurantName')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            formControlName="restaurantName"
+                            required
+                        />
+                        @if (
+                            createForm.controls.restaurantName.hasError(
+                                'required'
+                            )
+                        ) {
+                            <mat-error>{{
+                                t(
+                                    'admin.users.create.errors.restaurantRequired'
+                                )
+                            }}</mat-error>
+                        } @else if (
+                            createForm.controls.restaurantName.hasError(
+                                'maxlength'
+                            )
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.restaurantMax')
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.users.create.phone')
+                        }}</mat-label>
+                        <input matInput formControlName="phone" />
+                        @if (
+                            createForm.controls.phone.hasError('phoneNumber')
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.phoneInvalid')
+                            }}</mat-error>
+                        } @else if (
+                            createForm.controls.phone.hasError('maxlength')
+                        ) {
+                            <mat-error>{{
+                                t('admin.users.create.errors.phoneMax')
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+                </div>
+
+                <div
+                    class="flex w-full flex-wrap items-center justify-end gap-3 border-t pt-4"
+                >
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="saving()"
+                        (click)="goBack()"
+                    >
+                        {{ t('admin.users.create.cancel') }}
+                    </button>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="submit"
+                        [disabled]="createForm.invalid || createForm.disabled"
+                    >
+                        {{ t('admin.restaurants.create.submit') }}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

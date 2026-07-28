@@ -115,6 +115,38 @@ body {
     @apply bg-red-900 text-red-100;
 }
 
+.admin-pill-indigo {
+    @apply bg-indigo-100 text-indigo-800;
+}
+
+.dark .admin-pill-indigo {
+    @apply bg-indigo-900 text-indigo-100;
+}
+
+.admin-pill-teal {
+    @apply bg-teal-100 text-teal-800;
+}
+
+.dark .admin-pill-teal {
+    @apply bg-teal-900 text-teal-100;
+}
+
+.admin-pill-pink {
+    @apply bg-pink-100 text-pink-800;
+}
+
+.dark .admin-pill-pink {
+    @apply bg-pink-900 text-pink-100;
+}
+
+.admin-pill-lime {
+    @apply bg-lime-100 text-lime-800;
+}
+
+.dark .admin-pill-lime {
+    @apply bg-lime-900 text-lime-100;
+}
+
 /**
  * Sortable table header. Renders as the header text it replaces (inheriting the
  * thead's uppercase/tracking treatment) plus a trailing direction indicator,

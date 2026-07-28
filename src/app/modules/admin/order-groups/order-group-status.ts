@@ -37,9 +37,21 @@ export function statusPillClass(status: string | null | undefined): string {
 
 /** Lowercased status token used for pills / i18n keys. */
 export function statusKey(status: string | null | undefined): string {
-    return String(status ?? '')
+    const normalized = String(status ?? '')
         .trim()
+        .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+        .replace(/[\s-]+/g, '_')
         .toLowerCase();
+    switch (normalized) {
+        case 'handed_off':
+            return 'handedoff';
+        case 'at_hub':
+            return 'athub';
+        case 'picked_up':
+            return 'pickedup';
+        default:
+            return normalized;
+    }
 }
 
 /**
