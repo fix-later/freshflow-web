@@ -19,6 +19,7 @@ import {
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -42,6 +43,15 @@ type RestaurantAction =
     | 'creditLimit'
     | 'settle';
 
+interface ProfileField {
+    label: string;
+    value: string;
+}
+
+const RESTAURANT_ROLE = 'restaurant';
+const USER_LOOKUP_PAGE_SIZE = 100;
+const USER_LOOKUP_MAX_PAGES = 20;
+
 @Component({
     selector: 'admin-restaurant-detail',
     templateUrl: './restaurant-detail.component.html',
@@ -57,6 +67,7 @@ type RestaurantAction =
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
+        MatMenuModule,
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
@@ -94,6 +105,10 @@ export class RestaurantDetailComponent implements OnInit {
         return limit != null && !Number.isNaN(Number(limit));
     });
 
+    readonly needsCreditLimitSave = computed(
+        () => !this.hasCreditLimit() && this.editingCreditLimit()
+    );
+
     readonly creditLimitForm = this._formBuilder.nonNullable.group({
         creditLimit: [0, [Validators.required, Validators.min(0)]],
         note: [''],
@@ -125,6 +140,17 @@ export class RestaurantDetailComponent implements OnInit {
             this.notFound.set(true);
             return;
         }
+
+        const passed = (history.state?.user ?? null) as AdminUserRow | null;
+        if (passed?.id === userId) {
+            this.user.set(passed);
+            if (passed.restaurantId) {
+                this._loadCreditSnapshot(passed.restaurantId);
+            }
+            void this._refreshUser(userId);
+            return;
+        }
+
         void this._loadUser(userId);
     }
 
@@ -132,10 +158,60 @@ export class RestaurantDetailComponent implements OnInit {
         void this._router.navigate(['/admin/restaurants']);
     }
 
+    detailTitle(): string {
+        const current = this.user();
+        return (
+            current?.restaurantName?.trim() ||
+            current?.email?.trim() ||
+            this._transloco.translate('admin.restaurants.unnamed')
+        );
+    }
+
     statusLabel(): string {
         return this.user()?.isActive
             ? this._transloco.translate('admin.users.filters.active')
             : this._transloco.translate('admin.users.filters.inactive');
+    }
+
+    profileFields(u: AdminUserRow): ProfileField[] {
+        return [
+            {
+                label: this._transloco.translate(
+                    'admin.restaurants.table.restaurant'
+                ),
+                value:
+                    u.restaurantName?.trim() ||
+                    this._transloco.translate('admin.restaurants.unnamed'),
+            },
+            {
+                label: this._transloco.translate(
+                    'admin.restaurants.table.email'
+                ),
+                value: u.email?.trim() || '—',
+            },
+            {
+                label: this._transloco.translate(
+                    'admin.restaurants.table.phone'
+                ),
+                value: u.phone?.trim() || '—',
+            },
+            {
+                label: this._transloco.translate(
+                    'admin.restaurants.table.status'
+                ),
+                value: this.statusLabel(),
+            },
+            {
+                label: this._transloco.translate(
+                    'admin.restaurants.lookup.label'
+                ),
+                value:
+                    u.restaurantId?.trim() ||
+                    this._transloco.translate(
+                        'admin.restaurants.noRestaurantId'
+                    ),
+            },
+        ];
     }
 
     startEditingCreditLimit(): void {
@@ -286,20 +362,22 @@ export class RestaurantDetailComponent implements OnInit {
             .finally(() => this.downloadingStatementId.set(null));
     }
 
+    private async _refreshUser(userId: string): Promise<void> {
+        try {
+            const matched = await this._findRestaurantUser(userId);
+            if (matched) {
+                this.user.set(matched);
+            }
+        } catch {
+            // Keep router state data when background refresh fails.
+        }
+    }
+
     private async _loadUser(userId: string): Promise<void> {
         this.loading.set(true);
         this.notFound.set(false);
         try {
-            const result = await this._admin.getUsers({
-                search: userId,
-                role: 'restaurant',
-                page: 1,
-                pageSize: 100,
-            });
-            const matched =
-                result.users.find((u) => u.id === userId) ??
-                result.users.find((u) => u.restaurantId === userId) ??
-                null;
+            const matched = await this._findRestaurantUser(userId);
             this.user.set(matched);
             this.notFound.set(!matched);
             if (matched?.restaurantId) {
@@ -313,6 +391,48 @@ export class RestaurantDetailComponent implements OnInit {
         }
     }
 
+    private async _findRestaurantUser(
+        userId: string
+    ): Promise<AdminUserRow | null> {
+        const bySearch = await this._admin.getUsers({
+            role: RESTAURANT_ROLE,
+            search: userId,
+            pageSize: USER_LOOKUP_PAGE_SIZE,
+        });
+        const fromSearch = this._matchUser(bySearch.users, userId);
+        if (fromSearch) {
+            return fromSearch;
+        }
+
+        for (let page = 1; page <= USER_LOOKUP_MAX_PAGES; page++) {
+            const result = await this._admin.getUsers({
+                role: RESTAURANT_ROLE,
+                page,
+                pageSize: USER_LOOKUP_PAGE_SIZE,
+            });
+            const matched = this._matchUser(result.users, userId);
+            if (matched) {
+                return matched;
+            }
+            if (result.users.length < USER_LOOKUP_PAGE_SIZE) {
+                break;
+            }
+        }
+
+        return null;
+    }
+
+    private _matchUser(
+        users: AdminUserRow[],
+        userId: string
+    ): AdminUserRow | null {
+        return (
+            users.find((u) => u.id === userId) ??
+            users.find((u) => u.restaurantId === userId) ??
+            null
+        );
+    }
+
     private _runLifecycleAction(
         kind: RestaurantAction,
         action: (restaurantId: string) => Promise<void>,
@@ -321,6 +441,7 @@ export class RestaurantDetailComponent implements OnInit {
         const current = this.user();
         const restaurantId = current?.restaurantId;
         if (!current || !restaurantId) {
+            this._notify('admin.restaurants.noRestaurantId');
             return;
         }
         this.busyAction.set(kind);
