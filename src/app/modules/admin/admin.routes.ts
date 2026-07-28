@@ -18,7 +18,10 @@ import { RoutesListComponent } from './logistics/routes-list.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupDetailComponent } from './order-groups/order-group-detail.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
+import { OrderDetailComponent } from './orders/order-detail.component';
+import { OrdersListComponent } from './orders/orders-list.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
+import { RestaurantsCreateComponent } from './restaurants/restaurants-create.component';
 import { UsersCreateComponent } from './users/users-create.component';
 import { UsersListComponent } from './users/users-list.component';
 
@@ -35,6 +38,10 @@ export default [
     {
         path: 'users',
         component: UsersListComponent,
+    },
+    {
+        path: 'restaurants/new',
+        component: RestaurantsCreateComponent,
     },
     {
         path: 'restaurants',
@@ -98,6 +105,15 @@ export default [
     {
         path: 'delivery-zones',
         component: DeliveryZonesComponent,
+    },
+    // Orders (M5)
+    {
+        path: 'orders',
+        component: OrdersListComponent,
+    },
+    {
+        path: 'orders/:orderId',
+        component: OrderDetailComponent,
     },
     // Procurement batching (M5)
     {

@@ -189,8 +189,34 @@ export interface AdminOrderDetail {
     notes?: string | null;
     items?: AdminOrderItem[] | null;
     createdAt?: string | null;
+    cancelledAt?: string | null;
+    cancellationReason?: string | null;
     [key: string]: unknown;
 }
+
+/** Filters for `GET /orders` (M5 Orders — Admin sees every restaurant's orders). */
+export interface AdminOrderListFilters {
+    restaurantId?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+}
+
+export interface AdminOrdersResult {
+    orders: AdminOrderDetail[];
+    totalCount: number;
+    page?: number;
+    pageSize?: number;
+}
+
+/** Order statuses the backend rejects a cancel for (BR: §PATCH /orders/{id}/cancel). */
+export const ORDER_NOT_CANCELLABLE_STATUSES = new Set([
+    'processing',
+    'in_transit',
+    'delivered',
+]);
 
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];

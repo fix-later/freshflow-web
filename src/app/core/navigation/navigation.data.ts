@@ -116,9 +116,24 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/users',
                 exactMatch: true,
             },
+        ],
+    },
+    {
+        id: 'admin.restaurants',
+        title: 'Nhà hàng',
+        type: 'collapsable',
+        icon: 'heroicons_outline:building-office-2',
+        area: 'admin',
+        children: [
             {
-                id: 'admin-restaurants',
-                title: 'Nhà hàng',
+                id: 'admin-restaurants-add',
+                title: 'Thêm nhà hàng',
+                type: 'basic',
+                link: '/admin/restaurants/new',
+            },
+            {
+                id: 'admin-restaurants-all',
+                title: 'Tất cả nhà hàng',
                 type: 'basic',
                 link: '/admin/restaurants',
             },
@@ -148,7 +163,6 @@ const NAVIGATION: AreaNavItem[] = [
                 title: 'Tất cả chợ đầu mối',
                 type: 'basic',
                 link: '/admin/markets',
-                exactMatch: true,
             },
             {
                 id: 'admin-market-products',
@@ -184,6 +198,12 @@ const NAVIGATION: AreaNavItem[] = [
         icon: 'heroicons_outline:rectangle-group',
         area: 'admin',
         children: [
+            {
+                id: 'admin-orders',
+                title: 'Đơn hàng',
+                type: 'basic',
+                link: '/admin/orders',
+            },
             {
                 id: 'admin-order-groups',
                 title: 'Gom đơn',

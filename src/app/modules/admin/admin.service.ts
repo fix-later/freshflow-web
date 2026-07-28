@@ -34,6 +34,8 @@ import {
     AdminOrderDetail,
     AdminOrderGroupRow,
     AdminOrderGroupsResult,
+    AdminOrderListFilters,
+    AdminOrdersResult,
     AdminPricingSettings,
     AdminRestaurantCredit,
     AdminRoleEntry,
@@ -560,6 +562,46 @@ export class AdminService {
     async getOrder(orderId: string): Promise<AdminOrderDetail | null> {
         const res = await ordersApi.apiV1OrdersOrderIdGetRaw({ orderId });
         return unwrapData<AdminOrderDetail>(await parseJson(res.raw)) ?? null;
+    }
+
+    // -------------------------------------------------------------------
+    // Orders (M5 — Admin sees and can cancel every restaurant's orders)
+    // -------------------------------------------------------------------
+
+    /** Every restaurant's orders, filterable — `GET /orders` (admin = no ownership scoping). */
+    async getOrders(
+        filters: AdminOrderListFilters = {}
+    ): Promise<AdminOrdersResult> {
+        const res = await ordersApi.apiV1OrdersGetRaw({
+            restaurantId: filters.restaurantId || undefined,
+            status: filters.status || undefined,
+            from: filters.from ? new Date(filters.from) : undefined,
+            to: filters.to ? new Date(filters.to) : undefined,
+            page: filters.page,
+            pageSize: filters.pageSize,
+        });
+        const body = await parseJson<unknown>(res.raw);
+        const orders = extractList<AdminOrderDetail>(body);
+        const p = extractPagination(body);
+        return {
+            orders,
+            totalCount: p?.total ?? extractTotal(body) ?? orders.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
+    }
+
+    /**
+     * Cancels any order regardless of owning restaurant (per
+     * `PATCH /orders/{orderId}/cancel` doc: "Admin — any order in any
+     * cancellable status"). Rejected with `ORDER_NOT_CANCELLABLE` (409) for
+     * `processing` / `in_transit` / `delivered` orders.
+     */
+    async cancelOrder(orderId: string, reason?: string): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdCancelPatchRaw({
+            orderId,
+            cancelOrderRequest: { reason: reason || undefined },
+        });
     }
 
     async cancelOrderGroup(batchId: string, reason?: string): Promise<void> {
