@@ -30,10 +30,11 @@ const adminStub: Partial<AdminService> = {
     getHubs: () => Promise.resolve([]),
     getAgentOptions: () => Promise.resolve([]),
     getOrder: () => Promise.resolve(null),
+    getUsers: () => Promise.resolve({ users: [], totalCount: 0 }),
 };
 
 describe('OrderGroupDetailComponent', () => {
-    it('renders batch fields, items, members and exceptions', async () => {
+    it('renders batch summary on the info tab', async () => {
         TestBed.configureTestingModule({
             imports: [OrderGroupDetailComponent],
             providers: [
@@ -57,9 +58,11 @@ describe('OrderGroupDetailComponent', () => {
         await fixture.whenStable();
         fixture.detectChanges();
 
-        const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-        expect(text).toContain('Bơ'); // item
-        expect(text).toContain('order-abc'); // member order id
-        expect(text).toContain('PriceDiscrepancy'); // exception
+        const root = fixture.nativeElement as HTMLElement;
+        const text = root.textContent ?? '';
+        expect(text).toContain('batch-1');
+        expect(text).toContain('market-1');
+        expect(text).toContain('hub-1');
+        expect(text).toContain('agent-1');
     });
 });

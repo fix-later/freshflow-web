@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { MatDialog } from '@angular/material/dialog';
+import { ActivatedRoute, Router } from '@angular/router';
 import { provideTransloco } from '@jsverse/transloco';
 import { of } from 'rxjs';
 import { ResourceCrudComponent } from './resource-crud.component';
@@ -51,6 +52,11 @@ function createComponent(rows: CrudRow[], calls: Calls): ResourceCrudComponent {
                 config: { availableLangs: ['en'], defaultLang: 'en' },
                 loader: StubTranslocoLoader,
             }),
+            {
+                provide: Router,
+                useValue: { navigate: () => Promise.resolve(true) },
+            },
+            { provide: ActivatedRoute, useValue: {} },
         ],
     });
     // The component imports MatDialogModule, which provides the real MatDialog;
@@ -93,11 +99,11 @@ describe('ResourceCrudComponent — edit vs create', () => {
         expect(calls.updated).toEqual([]);
     });
 
-    it('creates when the dialog was opened for a new row', () => {
+    it('creates on the dedicated create page', () => {
         const calls: Calls = { created: 0, updated: [] };
         const component = createComponent([], calls);
-
-        component.openCreate();
+        component.pageMode = 'create';
+        component.ngOnInit();
         component.controlOf('name').setValue('New hub');
         component.save();
 
@@ -105,12 +111,15 @@ describe('ResourceCrudComponent — edit vs create', () => {
         expect(calls.updated).toEqual([]);
     });
 
-    it('goes back to create mode after editing', () => {
+    it('creates after leaving edit mode on the create page', () => {
         const calls: Calls = { created: 0, updated: [] };
         const component = createComponent([], calls);
+        component.pageMode = 'create';
 
         component.openEdit({ id: 'hub-1', name: 'Hub 1' });
-        component.openCreate();
+        component.editing.set(false);
+        component.editingId.set(null);
+        component.ngOnInit();
         component.controlOf('name').setValue('New hub');
         component.save();
 

@@ -5,6 +5,8 @@ import { NoAuthGuard } from 'app/core/auth/guards/noAuth.guard';
 import { OptionalAuthGuard } from 'app/core/auth/guards/optionalAuth.guard';
 import { roleGuard } from 'app/core/auth/guards/role.guard';
 import { LayoutComponent } from 'app/layout/layout.component';
+import { Error404Component } from 'app/modules/errors/error-404.component';
+import { Error500Component } from 'app/modules/errors/error-500.component';
 
 // Admin console area: roleGuard checks auth itself (redirects guests to
 // sign-in with a redirectURL), so no separate AuthGuard is needed.
@@ -210,6 +212,24 @@ export const appRoutes: Route[] = [
                 path: 'admin',
                 loadChildren: () => import('app/modules/admin/admin.routes'),
             },
+        ],
+    },
+
+    // Error pages — reachable regardless of auth state (a mistyped URL can
+    // come from a guest or a signed-in user); `**` must stay last so it
+    // never shadows a route from an earlier group.
+    {
+        path: '',
+        canActivate: [OptionalAuthGuard],
+        canActivateChild: [OptionalAuthGuard],
+        component: LayoutComponent,
+        data: {
+            layout: 'empty',
+        },
+        children: [
+            { path: '500', component: Error500Component },
+            { path: '404', component: Error404Component },
+            { path: '**', redirectTo: '404' },
         ],
     },
 ];

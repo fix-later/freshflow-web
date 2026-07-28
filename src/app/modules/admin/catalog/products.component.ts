@@ -1,6 +1,7 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
     OnInit,
     TemplateRef,
     ViewEncapsulation,
@@ -30,10 +31,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
+import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     toApiPage,
@@ -54,6 +57,7 @@ import { CatalogAdminService } from './catalog-admin.service';
     encapsulation: ViewEncapsulation.None,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        AdminLoadingStateComponent,
         MatAutocompleteModule,
         MatButtonModule,
         MatDialogModule,
@@ -94,11 +98,12 @@ import { CatalogAdminService } from './catalog-admin.service';
 export class ProductsComponent implements OnInit {
     private readonly _catalog = inject(CatalogAdminService);
     private readonly _dialog = inject(MatDialog);
+    private readonly _router = inject(Router);
     private readonly _confirmation = inject(FuseConfirmationService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _destroyRef = inject(DestroyRef);
 
-    private _createDialogRef: MatDialogRef<unknown> | null = null;
     private _editDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly rows = signal<CrudRow[]>([]);
@@ -127,11 +132,9 @@ export class ProductsComponent implements OnInit {
 
     /** All active categories (carry `parentId`) — feed the cascade selects. */
     readonly activeCategoryRows = signal<CrudRow[]>([]);
-    /** Parent category chosen in the create / edit dialog. */
-    readonly createParentId = signal('');
+    /** Parent category chosen in the edit dialog. */
     readonly editParentId = signal('');
-    /** In-dropdown search term for the sub-category select, per dialog. */
-    readonly createChildSearch = signal('');
+    /** In-dropdown search term for the sub-category select. */
     readonly editChildSearch = signal('');
 
     /** Top-level active categories (no parent) — the "parent" dropdown. */
@@ -140,10 +143,7 @@ export class ProductsComponent implements OnInit {
             .filter((c) => !String(c['parentId'] ?? '').trim())
             .map((c) => ({ value: c.id, label: String(c['name'] ?? '') }))
     );
-    /** Active sub-categories of the parent chosen in each dialog. */
-    readonly createChildOptions = computed(() =>
-        this._childOptions(this.createParentId())
-    );
+    /** Active sub-categories of the parent chosen in the edit dialog. */
     readonly editChildOptions = computed(() =>
         this._childOptions(this.editParentId())
     );
@@ -164,19 +164,6 @@ export class ProductsComponent implements OnInit {
         categoryId: new FormControl('', { nonNullable: true }),
         description: new FormControl('', { nonNullable: true }),
         imageUrl: new FormControl('', { nonNullable: true }),
-    });
-
-    readonly createForm = new FormGroup({
-        name: new FormControl('', {
-            nonNullable: true,
-            validators: [Validators.required],
-        }),
-        unitId: new FormControl('', {
-            nonNullable: true,
-            validators: [Validators.required],
-        }),
-        categoryId: new FormControl('', { nonNullable: true }),
-        description: new FormControl('', { nonNullable: true }),
     });
 
     /**
@@ -319,31 +306,8 @@ export class ProductsComponent implements OnInit {
         });
     }
 
-    openCreate(template: TemplateRef<unknown>): void {
-        this.createForm.reset({
-            name: '',
-            unitId: '',
-            categoryId: '',
-            description: '',
-        });
-        this.createParentId.set('');
-        this.createChildSearch.set('');
-        this._createDialogRef = this._dialog.open(template, {
-            width: '560px',
-            maxWidth: '95vw',
-            autoFocus: 'first-tabbable',
-        });
-    }
-
-    closeCreate(): void {
-        this._createDialogRef?.close();
-        this._createDialogRef = null;
-    }
-
-    /** Pick a parent category → reset the sub-category so it re-filters. */
-    onCreateParentChange(parentId: string): void {
-        this.createParentId.set(parentId);
-        this.createForm.controls.categoryId.setValue('');
+    openCreate(): void {
+        void this._router.navigate(['/admin/products/new']);
     }
 
     onEditParentChange(parentId: string): void {
@@ -352,17 +316,10 @@ export class ProductsComponent implements OnInit {
     }
 
     /** Type-to-search options for the sub-category autocomplete. */
-    visibleChildOptions(mode: 'create' | 'edit'): CrudOption[] {
-        const options =
-            mode === 'create'
-                ? this.createChildOptions()
-                : this.editChildOptions();
-        const term = (
-            mode === 'create'
-                ? this.createChildSearch()
-                : this.editChildSearch()
-        ).trim();
-        const selectedId = this._childControl(mode).value;
+    visibleChildOptions(): CrudOption[] {
+        const options = this.editChildOptions();
+        const term = this.editChildSearch().trim();
+        const selectedId = this.selectedForm.controls.categoryId.value;
         // Empty box, or still showing the current selection → full list.
         if (!term || term === this._categoryLabel(selectedId)) {
             return options;
@@ -370,49 +327,33 @@ export class ProductsComponent implements OnInit {
         return options.filter((opt) => includesFolded(opt.label, term));
     }
 
-    onChildSearch(mode: 'create' | 'edit', term: string): void {
-        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
-            term
-        );
+    onChildSearch(term: string): void {
+        this.editChildSearch.set(term);
     }
 
     /** Pick a sub-category → store it, show its label, auto-fill the parent. */
-    onChildSelected(mode: 'create' | 'edit', childId: string): void {
-        this._childControl(mode).setValue(childId);
-        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
-            this._categoryLabel(childId)
-        );
+    onChildSelected(childId: string): void {
+        this.selectedForm.controls.categoryId.setValue(childId);
+        this.editChildSearch.set(this._categoryLabel(childId));
         const parent = this._parentOf(childId);
         if (parent) {
-            (mode === 'create' ? this.createParentId : this.editParentId).set(
-                parent
-            );
+            this.editParentId.set(parent);
         }
     }
 
     /** On close, drop any unselected typed text — revert to the selection. */
-    onChildBlur(mode: 'create' | 'edit'): void {
-        const id = this._childControl(mode).value;
-        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
-            id ? this._categoryLabel(id) : ''
-        );
+    onChildBlur(): void {
+        const id = this.selectedForm.controls.categoryId.value;
+        this.editChildSearch.set(id ? this._categoryLabel(id) : '');
     }
 
-    clearChild(mode: 'create' | 'edit'): void {
-        this._childControl(mode).setValue('');
-        (mode === 'create' ? this.createChildSearch : this.editChildSearch).set(
-            ''
-        );
+    clearChild(): void {
+        this.selectedForm.controls.categoryId.setValue('');
+        this.editChildSearch.set('');
     }
 
     /** Maps the stored category id → its name for the autocomplete display. */
     readonly childLabel = (id: string): string => this._categoryLabel(id);
-
-    private _childControl(mode: 'create' | 'edit') {
-        return mode === 'create'
-            ? this.createForm.controls.categoryId
-            : this.selectedForm.controls.categoryId;
-    }
 
     private _categoryLabel(id: string): string {
         if (!id) {
@@ -420,27 +361,6 @@ export class ProductsComponent implements OnInit {
         }
         const cat = this.activeCategoryRows().find((c) => c.id === id);
         return cat ? String(cat['name'] ?? '') : '';
-    }
-
-    saveCreate(): void {
-        if (this.createForm.invalid) {
-            this.createForm.markAllAsTouched();
-            return;
-        }
-        const value = this.createForm.getRawValue();
-        this.saving.set(true);
-        this._catalog
-            .createProduct({
-                ...value,
-                categoryId: value.categoryId || this.createParentId(),
-            })
-            .then(() => {
-                this._notify('admin.crud.createSuccess');
-                this.closeCreate();
-                this.load();
-            })
-            .catch((err) => void this._notifyError(err, 'admin.crud.saveError'))
-            .finally(() => this.saving.set(false));
     }
 
     updateSelected(): void {

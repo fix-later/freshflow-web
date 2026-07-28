@@ -2,16 +2,24 @@ import { Routes } from '@angular/router';
 import { AdminDashboardComponent } from './analytics/analytics-dashboard.component';
 import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { CategoriesComponent } from './catalog/categories.component';
-import { MarketProductsComponent } from './catalog/market-products.component';
+import { MarketCreateComponent } from './catalog/market-create.component';
+import { MarketEditComponent } from './catalog/market-edit.component';
 import { MarketsComponent } from './catalog/markets.component';
+import { PackingCodesComponent } from './catalog/packing-codes.component';
+import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
+import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
+import { InvoicesListComponent } from './invoices/invoices-list.component';
 import { DeliveryZonesComponent } from './logistics/delivery-zones.component';
 import { HubsComponent } from './logistics/hubs.component';
+import { RouteDetailComponent } from './logistics/route-detail.component';
+import { RoutesListComponent } from './logistics/routes-list.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupDetailComponent } from './order-groups/order-group-detail.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
+import { UsersCreateComponent } from './users/users-create.component';
 import { UsersListComponent } from './users/users-list.component';
 
 export default [
@@ -19,7 +27,11 @@ export default [
         path: '',
         component: AdminDashboardComponent,
     },
-    // Accounts & restaurants (M13)
+    // Accounts (M13)
+    {
+        path: 'users/new',
+        component: UsersCreateComponent,
+    },
     {
         path: 'users',
         component: UsersListComponent,
@@ -38,8 +50,20 @@ export default [
         component: UnitsComponent,
     },
     {
+        path: 'products/new',
+        component: ProductCreateComponent,
+    },
+    {
         path: 'products',
         component: ProductsComponent,
+    },
+    {
+        path: 'packing-codes',
+        component: PackingCodesComponent,
+    },
+    {
+        path: 'markets/new',
+        component: MarketCreateComponent,
     },
     {
         path: 'markets',
@@ -47,12 +71,25 @@ export default [
     },
     {
         path: 'markets/:marketId/products',
-        component: MarketProductsComponent,
+        component: MarketEditComponent,
+        data: { tab: 'pricing' },
+    },
+    {
+        path: 'markets/:marketId',
+        component: MarketEditComponent,
     },
     // Logistics configuration (M8 / M9)
     {
         path: 'hubs',
         component: HubsComponent,
+    },
+    {
+        path: 'routes',
+        component: RoutesListComponent,
+    },
+    {
+        path: 'routes/:routeId',
+        component: RouteDetailComponent,
     },
     {
         path: 'vehicles',
@@ -62,7 +99,7 @@ export default [
         path: 'delivery-zones',
         component: DeliveryZonesComponent,
     },
-    // Procurement batching (M5) — settings dialog opens from this screen
+    // Procurement batching (M5)
     {
         path: 'order-groups',
         component: OrderGroupsComponent,
@@ -75,5 +112,14 @@ export default [
     {
         path: 'audit-logs',
         component: AuditLogsComponent,
+    },
+    // Financial oversight (extends M6 Credit)
+    {
+        path: 'invoices',
+        component: InvoicesListComponent,
+    },
+    {
+        path: 'invoices/:invoiceId',
+        component: InvoiceDetailComponent,
     },
 ] as Routes;

@@ -61,7 +61,6 @@ export class CategoriesComponent {
         title: 'admin.categories.title',
         subtitle: 'admin.categories.subtitle',
         createLabel: 'admin.categories.create',
-        inlineDetail: false,
         searchKeys: ['name', 'parentName'],
         searchPlaceholder: 'admin.categories.searchPlaceholder',
         filters: [

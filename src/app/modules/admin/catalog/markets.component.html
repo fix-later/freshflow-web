@@ -40,7 +40,7 @@
                 mat-flat-button
                 color="primary"
                 type="button"
-                (click)="openCreate(createDialog)"
+                (click)="openCreate()"
             >
                 <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
                 <span class="ml-2 mr-1">{{ t('admin.markets.create') }}</span>
@@ -136,7 +136,6 @@
                                 ></mat-icon>
                             </button>
                         </div>
-                        <div>{{ t('admin.markets.pricing') }}</div>
                         <div class="text-right">
                             {{ t('admin.markets.details') }}
                         </div>
@@ -181,161 +180,21 @@
                                     }}</span>
                                 </button>
                             </div>
-                            <div>
-                                <button
-                                    class="h-7 min-h-7 px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    [matTooltip]="t('admin.markets.pricing')"
-                                    (click)="openPricing(row)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:currency-dollar"
-                                    ></mat-icon>
-                                </button>
-                            </div>
                             <div class="flex justify-end">
                                 <button
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
-                                    (click)="toggleDetails(row)"
+                                    [matTooltip]="t('admin.crud.edit')"
+                                    (click)="openEdit(row)"
                                 >
                                     <mat-icon
                                         class="icon-size-5"
-                                        [svgIcon]="
-                                            selectedId() === row.id
-                                                ? 'heroicons_solid:chevron-up'
-                                                : 'heroicons_solid:chevron-down'
-                                        "
+                                        svgIcon="heroicons_outline:arrow-right"
                                     ></mat-icon>
                                 </button>
                             </div>
                         </div>
-
-                        @if (selectedId() === row.id) {
-                            <div
-                                class="overflow-hidden shadow-lg"
-                                (animate.enter)="expandOnEnter($event)"
-                                (animate.leave)="collapseOnLeave($event)"
-                            >
-                                <form
-                                    class="flex w-full flex-col"
-                                    [formGroup]="selectedForm"
-                                    (ngSubmit)="updateSelected()"
-                                >
-                                    <div class="flex flex-col gap-4 p-6 md:p-8">
-                                        <div
-                                            class="flex flex-col gap-0 sm:flex-row sm:gap-4"
-                                        >
-                                            <mat-form-field
-                                                class="w-full sm:w-1/2"
-                                            >
-                                                <mat-label>{{
-                                                    t('admin.markets.name')
-                                                }}</mat-label>
-                                                <input
-                                                    matInput
-                                                    formControlName="name"
-                                                />
-                                                @if (
-                                                    selectedForm.controls.name
-                                                        .touched &&
-                                                    selectedForm.controls.name.hasError(
-                                                        'required'
-                                                    )
-                                                ) {
-                                                    <mat-error>{{
-                                                        t(
-                                                            'admin.crud.errors.required'
-                                                        )
-                                                    }}</mat-error>
-                                                }
-                                            </mat-form-field>
-                                            <mat-form-field
-                                                class="w-full sm:w-1/2"
-                                            >
-                                                <mat-label>{{
-                                                    t('admin.markets.location')
-                                                }}</mat-label>
-                                                <input
-                                                    matInput
-                                                    formControlName="location"
-                                                />
-                                            </mat-form-field>
-                                        </div>
-                                        <app-location-picker
-                                            [latControl]="
-                                                selectedForm.controls.latitude
-                                            "
-                                            [lngControl]="
-                                                selectedForm.controls.longitude
-                                            "
-                                            [queryControl]="
-                                                selectedForm.controls.address
-                                            "
-                                            searchLabelKey="admin.markets.address"
-                                        ></app-location-picker>
-                                    </div>
-
-                                    <div
-                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
-                                    >
-                                        <button
-                                            class="-ml-2"
-                                            mat-button
-                                            color="warn"
-                                            type="button"
-                                            [disabled]="
-                                                isInactive(row) || saving()
-                                            "
-                                            (click)="deactivateSelected()"
-                                        >
-                                            {{ t('admin.crud.deactivate') }}
-                                        </button>
-                                        <div class="flex items-center gap-3">
-                                            @if (flashMessage(); as flash) {
-                                                <div
-                                                    class="mr-1 flex items-center"
-                                                >
-                                                    @if (flash === 'success') {
-                                                        <mat-icon
-                                                            class="text-green-500"
-                                                            svgIcon="heroicons_outline:check"
-                                                        ></mat-icon>
-                                                        <span class="ml-2">{{
-                                                            t(
-                                                                'admin.crud.updateSuccess'
-                                                            )
-                                                        }}</span>
-                                                    }
-                                                    @if (flash === 'error') {
-                                                        <mat-icon
-                                                            class="text-red-500"
-                                                            svgIcon="heroicons_outline:x-mark"
-                                                        ></mat-icon>
-                                                        <span class="ml-2">{{
-                                                            t(
-                                                                'admin.crud.saveError'
-                                                            )
-                                                        }}</span>
-                                                    }
-                                                </div>
-                                            }
-                                            <button
-                                                mat-flat-button
-                                                color="primary"
-                                                type="submit"
-                                                [disabled]="saving()"
-                                            >
-                                                {{ t('admin.crud.save') }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                </form>
-                            </div>
-                        }
                     }
                 </div>
 
@@ -349,7 +208,9 @@
                     [showFirstLastButtons]="true"
                     (page)="onPageChange($event)"
                 ></mat-paginator>
-            } @else if (!loading()) {
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
                 >
@@ -359,69 +220,6 @@
         </div>
     </div>
 </div>
-
-<!-- Create dialog (new markets only; edit is inline detail) -->
-<ng-template #createDialog>
-    <div
-        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
-        *transloco="let t"
-    >
-        <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold">
-                {{ t('admin.markets.create') }}
-            </h2>
-            <button mat-icon-button type="button" (click)="closeCreate()">
-                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
-            </button>
-        </div>
-
-        <form
-            class="mt-4 flex flex-col gap-1"
-            [formGroup]="createForm"
-            (ngSubmit)="saveCreate()"
-        >
-            <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
-                <mat-form-field class="w-full sm:w-1/2">
-                    <mat-label>{{ t('admin.markets.name') }}</mat-label>
-                    <input matInput formControlName="name" />
-                    @if (
-                        createForm.controls.name.touched &&
-                        createForm.controls.name.hasError('required')
-                    ) {
-                        <mat-error>{{
-                            t('admin.crud.errors.required')
-                        }}</mat-error>
-                    }
-                </mat-form-field>
-                <mat-form-field class="w-full sm:w-1/2">
-                    <mat-label>{{ t('admin.markets.location') }}</mat-label>
-                    <input matInput formControlName="location" />
-                </mat-form-field>
-            </div>
-            <app-location-picker
-                [latControl]="createForm.controls.latitude"
-                [lngControl]="createForm.controls.longitude"
-                [queryControl]="createForm.controls.address"
-                searchLabelKey="admin.markets.address"
-            ></app-location-picker>
-
-            <div class="mt-4 flex justify-end gap-2">
-                <button mat-button type="button" (click)="closeCreate()">
-                    {{ t('admin.crud.cancel') }}
-                </button>
-                <button
-                    mat-flat-button
-                    color="primary"
-                    type="submit"
-                    [disabled]="saving()"
-                >
-                    {{ t('admin.crud.save') }}
-                </button>
-            </div>
-        </form>
-    </div>
-</ng-template>
-
 <!-- Assign market agent -->
 <ng-template #agentDialog>
     <div

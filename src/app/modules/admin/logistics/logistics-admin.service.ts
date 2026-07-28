@@ -1,14 +1,24 @@
 import { Injectable } from '@angular/core';
 import {
     extractList,
+    extractNextCursor,
     extractPagination,
     extractTotal,
     fetchAllCursor,
     fetchAllOffset,
     parseJson,
+    unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { adminApi, deliveryZonesApi, hubsApi, vehiclesApi } from 'contract';
+import {
+    adminApi,
+    deliveryZonesApi,
+    hubInboundApi,
+    hubStaffAssignmentsApi,
+    hubsApi,
+    routesApi,
+    vehiclesApi,
+} from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -94,6 +104,32 @@ export class LogisticsAdminService {
         }
     }
 
+    /** Single hub by id (edit page). Resolves manager label like {@link listHubs}. */
+    async getHub(id: string): Promise<CrudRow | null> {
+        const [res, managers] = await Promise.all([
+            hubsApi.apiV1HubsIdGetRaw({ id }),
+            this.hubManagerOptions(),
+        ]);
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'hubId');
+        if (!row?.id) {
+            return null;
+        }
+        const nameById = new Map(managers.map((m) => [m.value, m.label]));
+        return {
+            ...row,
+            managedByName: row['managedBy']
+                ? nameById.get(String(row['managedBy'])) ??
+                  String(row['managedBy'])
+                : '',
+        };
+    }
+
     async createHub(value: CrudFormValue): Promise<void> {
         await hubsApi.apiV1HubsPost({
             createHubRequest: {
@@ -123,6 +159,140 @@ export class LogisticsAdminService {
 
     async deleteHub(id: string): Promise<void> {
         await hubsApi.apiV1HubsIdDelete({ id });
+    }
+
+    // ---- Hub staff assignments (M8 Hub management, admin = Full) ----------
+
+    /** Hub-staff ids currently assigned to work at `hubId`. */
+    async getHubStaffAssignments(hubId: string): Promise<string[]> {
+        const res =
+            await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsGetRaw({
+                hubId,
+            });
+        const data = unwrapData<unknown>(await parseJson(res.raw));
+        return this._assignmentUserIds(data);
+    }
+
+    /** Replaces the full staff roster for `hubId` (mirrors market assignments). */
+    async replaceHubStaffAssignments(
+        hubId: string,
+        staffUserIds: string[]
+    ): Promise<void> {
+        await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsPutRaw({
+            hubId,
+            replaceHubStaffAssignmentsRequest: { staffUserIds },
+        });
+    }
+
+    /**
+     * Pulls assigned user ids out of the (untyped) staff-assignments body,
+     * tolerating a bare array or an object wrapper (`staffUserIds` / `items` /
+     * …), and entries that are either plain id strings or objects.
+     */
+    private _assignmentUserIds(data: unknown): string[] {
+        let list: unknown[] = [];
+        if (Array.isArray(data)) {
+            list = data;
+        } else if (data && typeof data === 'object') {
+            const record = data as Record<string, unknown>;
+            for (const key of [
+                'staffUserIds',
+                'userIds',
+                'assignments',
+                'items',
+                'results',
+                'value',
+                'data',
+            ]) {
+                if (Array.isArray(record[key])) {
+                    list = record[key] as unknown[];
+                    break;
+                }
+            }
+        }
+        return list
+            .map((entry) => {
+                if (typeof entry === 'string') {
+                    return entry;
+                }
+                if (entry && typeof entry === 'object') {
+                    const e = entry as Record<string, unknown>;
+                    const value = e['userId'] ?? e['staffUserId'] ?? e['id'];
+                    return typeof value === 'string' ? value : null;
+                }
+                return null;
+            })
+            .filter((id): id is string => !!id);
+    }
+
+    // ---- Hub inbound/discrepancy oversight (M8 Hub, admin = read-only) ----
+
+    /**
+     * Pending inbound shipments for `hubId` (goods expected but not yet
+     * checked in). Read-only oversight — recording the actual inbound is Hub
+     * Staff's mobile workflow.
+     */
+    async getPendingInbound(hubId: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdPendingInboundGetRaw({
+            hubId,
+            pageSize: 50,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /**
+     * Discrepancies logged at `hubId`, optionally narrowed by status. An open
+     * discrepancy blocks dispatch (BR-HUB-2) — surfaced so Admin can see what's
+     * currently stuck without needing hub-staff mobile access.
+     */
+    async getDiscrepancies(hubId: string, status?: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdDiscrepanciesGetRaw({
+            hubId,
+            status,
+            pageSize: 50,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    // ---- Routes (M9 Logistics, admin = read-only oversight) ---------------
+
+    /**
+     * One cursor page of delivery routes, optionally narrowed by service date
+     * / status. Admin only has read access here (VRP calculate/optimize/assign
+     * is Operations Manager's workflow, per ROLE_MATRIX M9) — this is an
+     * oversight view, not a dispatch console.
+     */
+    async listRoutes(query: {
+        serviceDate?: string;
+        status?: string;
+        cursor?: string;
+    }): Promise<{ rows: CrudRow[]; nextCursor?: string }> {
+        const res = await routesApi.apiV1LogisticsRoutesGetRaw({
+            serviceDate: query.serviceDate
+                ? new Date(query.serviceDate)
+                : undefined,
+            status: query.status || undefined,
+            cursor: query.cursor,
+            pageSize: 50,
+        });
+        const body = await parseJson(res.raw);
+        return {
+            rows: withId<CrudRow>(extractList(body), 'routeId'),
+            nextCursor: extractNextCursor(body),
+        };
+    }
+
+    /** Single route by id (detail page) — raw fields, rendered generically. */
+    async getRoute(id: string): Promise<CrudRow | null> {
+        const res = await routesApi.apiV1LogisticsRoutesIdGetRaw({ id });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'routeId');
+        return row?.id ? row : null;
     }
 
     // ---- Vehicles ---------------------------------------------------------

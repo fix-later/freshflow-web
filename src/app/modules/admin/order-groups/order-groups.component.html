@@ -3,64 +3,183 @@
     *transloco="let t"
 >
     <!-- Header -->
-    <div
-        class="relative flex flex-0 flex-col border-b px-6 py-8 sm:flex-row sm:items-center sm:justify-between md:px-8"
-    >
+    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
         @if (loading() || batching()) {
             <div class="absolute inset-x-0 bottom-0">
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div class="min-w-0">
-            <div class="text-4xl font-extrabold tracking-tight">
-                {{ t('admin.orderGroups.title') }}
+        <div
+            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
+        >
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.orderGroups.title') }}
+                </div>
+                <div class="text-secondary mt-1 text-sm">
+                    {{ t('admin.orderGroups.subtitle') }}
+                </div>
+            </div>
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
+                <mat-form-field
+                    class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        matPrefix
+                        svgIcon="heroicons_solid:magnifying-glass"
+                    ></mat-icon>
+                    <input
+                        matInput
+                        class="overflow-hidden text-ellipsis whitespace-nowrap"
+                        autocomplete="off"
+                        [value]="search()"
+                        [placeholder]="t('admin.orderGroups.searchPlaceholder')"
+                        (input)="onSearch($any($event.target).value)"
+                    />
+                </mat-form-field>
+                <button
+                    mat-flat-button
+                    color="accent"
+                    class="shrink-0"
+                    type="button"
+                    (click)="openSettings()"
+                >
+                    <mat-icon
+                        svgIcon="heroicons_outline:cog-6-tooth"
+                    ></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.settings.title')
+                    }}</span>
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    class="shrink-0"
+                    type="button"
+                    (click)="openAutoBatch(autoBatchDialog)"
+                >
+                    <mat-icon
+                        svgIcon="heroicons_outline:rectangle-group"
+                    ></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.orderGroups.autoBatch.title')
+                    }}</span>
+                </button>
             </div>
         </div>
-        <div
-            class="mt-6 flex min-w-0 shrink flex-wrap items-center gap-3 sm:ml-4 sm:mt-0"
-        >
+
+        <!-- Filters — order matches table columns: market → status → created → agent -->
+        <div class="mt-6 flex flex-nowrap items-end gap-3 overflow-x-auto pb-1">
             <mat-form-field
-                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                class="fuse-mat-dense w-48 shrink-0"
                 subscriptSizing="dynamic"
             >
-                <mat-icon
-                    class="icon-size-5"
-                    matPrefix
-                    svgIcon="heroicons_solid:magnifying-glass"
-                ></mat-icon>
-                <input
-                    matInput
-                    class="overflow-hidden text-ellipsis whitespace-nowrap"
-                    autocomplete="off"
-                    [value]="search()"
-                    [placeholder]="t('admin.orderGroups.searchPlaceholder')"
-                    (input)="onSearch($any($event.target).value)"
-                />
+                <mat-label>{{
+                    t('admin.orderGroups.filter.market')
+                }}</mat-label>
+                <mat-select
+                    [value]="marketFilter()"
+                    (selectionChange)="onMarketFilterChange($event.value)"
+                >
+                    <mat-option value="">{{
+                        t('admin.orderGroups.filter.allMarkets')
+                    }}</mat-option>
+                    @for (market of markets(); track market.id) {
+                        <mat-option [value]="market.id">{{
+                            market.name
+                        }}</mat-option>
+                    }
+                </mat-select>
             </mat-form-field>
-            <button
-                mat-flat-button
-                color="accent"
-                class="shrink-0"
-                type="button"
-                (click)="openSettings()"
+
+            <mat-form-field
+                class="fuse-mat-dense w-44 shrink-0"
+                subscriptSizing="dynamic"
             >
-                <mat-icon svgIcon="heroicons_outline:cog-6-tooth"></mat-icon>
-                <span class="ml-2 mr-1">{{ t('admin.settings.title') }}</span>
-            </button>
-            <button
-                mat-flat-button
-                color="primary"
-                class="shrink-0"
-                type="button"
-                (click)="openAutoBatch(autoBatchDialog)"
+                <mat-label>{{
+                    t('admin.orderGroups.filter.status')
+                }}</mat-label>
+                <mat-select
+                    [value]="statusFilter()"
+                    (selectionChange)="onStatusFilterChange($event.value)"
+                >
+                    <mat-option value="">{{
+                        t('admin.orderGroups.filter.allStatuses')
+                    }}</mat-option>
+                    @for (status of statusOptions; track status) {
+                        <mat-option [value]="status">{{
+                            statusLabel(status)
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field
+                class="fuse-mat-dense w-64 shrink-0"
+                subscriptSizing="dynamic"
             >
-                <mat-icon
-                    svgIcon="heroicons_outline:rectangle-group"
-                ></mat-icon>
-                <span class="ml-2 mr-1">{{
-                    t('admin.orderGroups.autoBatch.title')
-                }}</span>
-            </button>
+                <mat-label>{{
+                    t('admin.orderGroups.filter.dateRange')
+                }}</mat-label>
+                <mat-date-range-input [rangePicker]="dateRangePicker">
+                    <input
+                        matStartDate
+                        [placeholder]="t('admin.orderGroups.filter.from')"
+                        [value]="dateFrom()"
+                        (dateChange)="onDateFromChange($event.value)"
+                    />
+                    <input
+                        matEndDate
+                        [placeholder]="t('admin.orderGroups.filter.to')"
+                        [value]="dateTo()"
+                        (dateChange)="onDateToChange($event.value)"
+                    />
+                </mat-date-range-input>
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="dateRangePicker"
+                ></mat-datepicker-toggle>
+                <mat-date-range-picker #dateRangePicker></mat-date-range-picker>
+            </mat-form-field>
+
+            <mat-form-field
+                class="fuse-mat-dense w-72 shrink-0"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.orderGroups.filter.agent') }}</mat-label>
+                <mat-select
+                    panelClass="order-groups-agent-select-panel"
+                    [value]="agentFilter()"
+                    (selectionChange)="onAgentFilterChange($event.value)"
+                >
+                    <mat-option value="">{{
+                        t('admin.orderGroups.filter.allAgents')
+                    }}</mat-option>
+                    @for (agent of agents(); track agent.id) {
+                        <mat-option [value]="agent.id">
+                            <span class="break-all">{{
+                                agent.email || agent.id
+                            }}</span>
+                        </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    class="mb-1 h-10 shrink-0"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.crud.clearFilters')
+                    }}</span>
+                </button>
+            }
         </div>
     </div>
 
@@ -69,75 +188,6 @@
         <div
             class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
         >
-            <!-- Live batching progress (today) -->
-            @if (progress(); as p) {
-                <div
-                    class="bg-default mx-6 mt-6 rounded-2xl border p-5 md:mx-8 md:p-6"
-                >
-                    <div class="flex flex-wrap items-center gap-2">
-                        <div class="text-lg font-semibold">
-                            {{ t('admin.orderGroups.progress.title') }}
-                        </div>
-                        @if (p.batchDate) {
-                            <span class="text-secondary text-xs">{{
-                                formatDate(p.batchDate)
-                            }}</span>
-                        }
-                    </div>
-                    <div
-                        class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
-                    >
-                        @for (
-                            tile of [
-                                {
-                                    label: 'admin.orderGroups.progress.batches',
-                                    value: p.totalBatches ?? 0,
-                                },
-                                {
-                                    label: 'admin.orderGroups.progress.totalItems',
-                                    value: p.totalItems ?? 0,
-                                },
-                                {
-                                    label: 'admin.orderGroups.progress.purchased',
-                                    value: p.itemsPurchased ?? 0,
-                                },
-                                {
-                                    label: 'admin.orderGroups.progress.pending',
-                                    value: p.itemsPending ?? 0,
-                                },
-                                {
-                                    label: 'admin.orderGroups.progress.exceptions',
-                                    value: p.openExceptions ?? 0,
-                                },
-                            ];
-                            track tile.label
-                        ) {
-                            <div class="rounded-xl border p-4">
-                                <div
-                                    class="text-secondary text-xs uppercase tracking-wide"
-                                >
-                                    {{ t(tile.label) }}
-                                </div>
-                                <div
-                                    class="mt-1 text-2xl font-bold tabular-nums"
-                                >
-                                    {{ tile.value }}
-                                </div>
-                            </div>
-                        }
-                    </div>
-                    @if (progressStatusCounts().length) {
-                        <div class="mt-4 flex flex-wrap items-center gap-2">
-                            @for (sc of progressStatusCounts(); track sc[0]) {
-                                <span [class]="statusPillClass(sc[0])">
-                                    {{ sc[0] }}: {{ sc[1] }}
-                                </span>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-
             <!-- Auto-batch failure -->
             @if (autoBatchError(); as err) {
                 <div
@@ -321,18 +371,13 @@
                 </div>
             }
 
-            @if (sortedGroups().length > 0) {
+            @if (pagedGroups().length > 0) {
                 <div class="grid">
                     <div
                         class="order-groups-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                     >
                         @for (
                             col of [
-                                {
-                                    key: 'batch',
-                                    label: 'admin.orderGroups.table.batch',
-                                    hide: '',
-                                },
                                 {
                                     key: 'marketName',
                                     label: 'admin.orderGroups.table.market',
@@ -380,49 +425,24 @@
                             </div>
                         }
                         <div>{{ t('admin.orderGroups.table.agent') }}</div>
-                        <div class="text-right">
-                            {{ t('admin.orderGroups.table.actions') }}
+                        <div class="whitespace-nowrap text-right">
+                            {{ t('admin.orderGroups.table.detail') }}
                         </div>
                     </div>
 
                     @for (
-                        group of sortedGroups();
+                        group of pagedGroups();
                         track trackById($index, group)
                     ) {
                         <div
-                            class="order-groups-grid grid cursor-pointer items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
-                            (click)="openDetail(group)"
+                            class="order-groups-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
                         >
-                            <div class="min-w-0">
-                                <button
-                                    type="button"
-                                    class="group/copy flex min-w-0 max-w-full items-center gap-1.5 font-medium hover:text-primary"
-                                    [cdkCopyToClipboard]="
-                                        group.batchNumber || batchIdOf(group)
-                                    "
-                                    (click)="$event.stopPropagation()"
-                                    (cdkCopyToClipboardCopied)="
-                                        onCopied($event)
-                                    "
-                                    [matTooltip]="
-                                        t('admin.orderGroups.table.copyId')
-                                    "
-                                >
-                                    <span class="truncate">{{
-                                        group.batchNumber || batchIdOf(group)
-                                    }}</span>
-                                    <mat-icon
-                                        class="flex-shrink-0 opacity-0 transition-opacity icon-size-4 group-hover/copy:opacity-100"
-                                        svgIcon="heroicons_outline:clipboard-document"
-                                    ></mat-icon>
-                                </button>
-                            </div>
                             <div class="min-w-0 truncate">
                                 {{ group.marketName || '—' }}
                             </div>
                             <div>
                                 <span [class]="statusPillClass(group.status)">
-                                    {{ group.status || '—' }}
+                                    {{ statusLabel(group.status) }}
                                 </span>
                             </div>
                             <div class="hidden tabular-nums md:block">
@@ -433,112 +453,43 @@
                             >
                                 {{ formatDate(group.createdAt) || '—' }}
                             </div>
-                            <div
-                                class="min-w-0"
-                                (click)="$event.stopPropagation()"
-                            >
-                                <mat-form-field
-                                    class="fuse-mat-dense w-full max-w-56"
-                                    subscriptSizing="dynamic"
+                            <div class="min-w-0">
+                                <button
+                                    class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [matTooltip]="agentLabel(group)"
+                                    (click)="
+                                        openAgentDialog(group, agentDialog)
+                                    "
                                 >
-                                    <mat-select
-                                        [value]="group.agentId || ''"
-                                        [attr.aria-label]="
-                                            t(
-                                                'admin.orderGroups.assignAgent.label'
-                                            )
-                                        "
-                                        (selectionChange)="
-                                            assignAgent(group, $event.value)
-                                        "
-                                    >
-                                        <mat-option value="">{{
+                                    <mat-icon
+                                        class="flex-shrink-0 icon-size-5"
+                                        svgIcon="heroicons_outline:user"
+                                    ></mat-icon>
+                                    <span class="agent-label ml-1">{{
+                                        agentLabel(group) ||
                                             t(
                                                 'admin.orderGroups.assignAgent.none'
                                             )
-                                        }}</mat-option>
-                                        @for (
-                                            agent of agents();
-                                            track agent.id
-                                        ) {
-                                            <mat-option [value]="agent.id">{{
-                                                agent.email || agent.id
-                                            }}</mat-option>
-                                        }
-                                    </mat-select>
-                                </mat-form-field>
+                                    }}</span>
+                                </button>
                             </div>
-                            <div
-                                class="flex justify-end gap-1"
-                                (click)="$event.stopPropagation()"
-                            >
+                            <div class="flex justify-end">
                                 <button
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
                                     [matTooltip]="
-                                        t('admin.orderGroups.details.tooltip')
+                                        t('admin.orderGroups.table.detail')
                                     "
                                     (click)="openDetail(group)"
                                 >
                                     <mat-icon
                                         class="icon-size-5"
-                                        svgIcon="heroicons_outline:eye"
+                                        svgIcon="heroicons_outline:arrow-right"
                                     ></mat-icon>
                                 </button>
-                                <span
-                                    class="inline-flex"
-                                    [matTooltip]="
-                                        canManifest(group)
-                                            ? t(
-                                                  'admin.orderGroups.manifest.tooltip'
-                                              )
-                                            : t(
-                                                  'admin.orderGroups.manifest.disabledTooltip'
-                                              )
-                                    "
-                                >
-                                    <button
-                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="!canManifest(group)"
-                                        (click)="generateManifest(group)"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:document-text"
-                                        ></mat-icon>
-                                    </button>
-                                </span>
-                                <span
-                                    class="inline-flex"
-                                    [matTooltip]="
-                                        canCancel(group)
-                                            ? t(
-                                                  'admin.orderGroups.cancel.tooltip'
-                                              )
-                                            : t(
-                                                  'admin.orderGroups.cancel.disabledTooltip'
-                                              )
-                                    "
-                                >
-                                    <button
-                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                        mat-stroked-button
-                                        color="warn"
-                                        type="button"
-                                        [disabled]="!canCancel(group)"
-                                        (click)="
-                                            openCancel(group, cancelDialog)
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:x-circle"
-                                        ></mat-icon>
-                                    </button>
-                                </span>
                             </div>
                         </div>
                     }
@@ -547,18 +498,24 @@
                 <mat-paginator
                     class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
                     [class.pointer-events-none]="loading()"
-                    [length]="totalCount()"
+                    [length]="filteredTotal()"
                     [pageIndex]="pageIndex()"
                     [pageSize]="pageSize()"
                     [pageSizeOptions]="[10, 20, 50]"
                     [showFirstLastButtons]="true"
                     (page)="onPageChange($event)"
                 ></mat-paginator>
-            } @else if (!loading()) {
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
                 >
-                    {{ t('admin.orderGroups.empty') }}
+                    {{
+                        hasActiveFilters()
+                            ? t('admin.orderGroups.searchEmpty')
+                            : t('admin.orderGroups.empty')
+                    }}
                 </div>
             }
         </div>
@@ -689,23 +646,23 @@
     </div>
 </ng-template>
 
-<!-- Cancel batch dialog -->
-<ng-template #cancelDialog>
+<!-- Assign agent dialog -->
+<ng-template #agentDialog>
     <div
         class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
         *transloco="let t"
     >
         <div
-            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
         >
             <div class="text-lg font-medium">
-                {{ t('admin.orderGroups.cancel.title') }}
+                {{ t('admin.orderGroups.agentDialog.title') }}
             </div>
             <button
                 mat-icon-button
                 type="button"
                 [tabIndex]="-1"
-                (click)="closeCancel()"
+                (click)="closeAgentDialog()"
             >
                 <mat-icon
                     class="text-current"
@@ -714,46 +671,82 @@
             </button>
         </div>
 
-        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
-            <p class="text-secondary text-sm">
-                {{ t('admin.orderGroups.cancel.message') }}
-            </p>
-            @if (cancelTarget(); as target) {
-                <div class="mt-2 text-base font-medium">
-                    {{ target.batchNumber || batchIdOf(target) }}
+        <form
+            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+            [formGroup]="agentForm"
+            (ngSubmit)="saveAgentAssignment()"
+        >
+            @if (agentDialogBatch(); as batch) {
+                <div class="mb-1 text-base font-medium">
+                    {{ batch.marketName || '—' }}
+                </div>
+                <div class="text-secondary mb-6 text-sm">
+                    {{ statusLabel(batch.status) }}
+                </div>
+
+                <div class="mb-6">
+                    <div class="mb-2 text-sm font-medium">
+                        {{ t('admin.orderGroups.agentDialog.current') }}
+                    </div>
+                    @if (agentFor(batch); as agent) {
+                        <div
+                            class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm"
+                        >
+                            <span class="text-secondary">{{
+                                t('admin.userDetail.profile.email')
+                            }}</span>
+                            <span class="min-w-0 break-all">{{
+                                agent.email || '—'
+                            }}</span>
+                            <span class="text-secondary">{{
+                                t('admin.userDetail.profile.phone')
+                            }}</span>
+                            <span>{{ agent.phone || '—' }}</span>
+                        </div>
+                    } @else {
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.orderGroups.assignAgent.none') }}
+                        </div>
+                    }
                 </div>
             }
-            <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
+
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
-                    t('admin.orderGroups.cancel.reason')
+                    t('admin.orderGroups.agentDialog.select')
                 }}</mat-label>
-                <textarea
-                    matInput
-                    rows="3"
-                    [formControl]="cancelReason"
-                    [placeholder]="
-                        t('admin.orderGroups.cancel.reasonPlaceholder')
-                    "
-                ></textarea>
+                <mat-select formControlName="agentUserId">
+                    <mat-option value="">{{
+                        t('admin.orderGroups.assignAgent.none')
+                    }}</mat-option>
+                    @for (agent of agents(); track agent.id) {
+                        <mat-option [value]="agent.id">{{
+                            agent.email || agent.id
+                        }}</mat-option>
+                    }
+                </mat-select>
             </mat-form-field>
+
             <div class="mt-6 flex justify-end gap-3">
                 <button
                     mat-stroked-button
                     type="button"
-                    (click)="closeCancel()"
+                    (click)="closeAgentDialog()"
                 >
                     {{ t('admin.crud.cancel') }}
                 </button>
                 <button
                     mat-flat-button
-                    color="warn"
-                    type="button"
-                    [disabled]="cancelSaving()"
-                    (click)="confirmCancel()"
+                    color="primary"
+                    type="submit"
+                    [disabled]="
+                        agentDialogSaving() ||
+                        !agentForm.controls.agentUserId.value
+                    "
                 >
-                    {{ t('admin.orderGroups.cancel.confirm') }}
+                    {{ t('admin.orderGroups.agentDialog.save') }}
                 </button>
             </div>
-        </div>
+        </form>
     </div>
 </ng-template>

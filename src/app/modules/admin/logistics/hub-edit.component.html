@@ -1,0 +1,331 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading() || saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.hubs.editPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.hubs.editPage.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ hubName() || t('admin.hubs.editPage.title') }}
+                </div>
+            </div>
+        </div>
+        @if (hub()) {
+            @if (isActive()) {
+                <span class="admin-pill admin-pill-success">{{
+                    t('admin.crud.active')
+                }}</span>
+            } @else {
+                <span class="admin-pill admin-pill-neutral">{{
+                    t('admin.crud.inactive')
+                }}</span>
+            }
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 md:p-8">
+            @if (loading() && !hub()) {
+                <admin-loading-state />
+            } @else if (notFound()) {
+                <div
+                    class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.hubs.editPage.notFound') }}
+                </div>
+            } @else if (hub()) {
+                <div class="flex w-full flex-col gap-8">
+                    <!-- Read-only HubDto fields -->
+                    @if (metaEntries().length) {
+                        <section>
+                            <div class="mb-3 text-lg font-semibold">
+                                {{ t('admin.hubs.editPage.info') }}
+                            </div>
+                            <div
+                                class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
+                            >
+                                @for (
+                                    field of metaEntries();
+                                    track field.label
+                                ) {
+                                    <div
+                                        class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                                    >
+                                        <span
+                                            class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                            >{{ t(field.label) }}</span
+                                        >
+                                        <span
+                                            class="min-w-0 break-words font-medium"
+                                            >{{ field.value }}</span
+                                        >
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    <!-- Editable fields -->
+                    <form
+                        class="flex flex-col gap-6"
+                        [formGroup]="form"
+                        (ngSubmit)="save()"
+                    >
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.hubs.editPage.editSection') }}
+                        </div>
+
+                        <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
+                            <mat-form-field class="w-full sm:w-1/3">
+                                <mat-label>{{
+                                    t('admin.hubs.name')
+                                }}</mat-label>
+                                <input matInput formControlName="name" />
+                                @if (
+                                    form.controls.name.touched &&
+                                    form.controls.name.hasError('required')
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.required')
+                                    }}</mat-error>
+                                }
+                            </mat-form-field>
+                            <mat-form-field class="w-full sm:w-1/3">
+                                <mat-label>{{
+                                    t('admin.hubs.capacityKg')
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    type="number"
+                                    formControlName="capacityKg"
+                                />
+                                @if (
+                                    form.controls.capacityKg.touched &&
+                                    form.controls.capacityKg.hasError(
+                                        'required'
+                                    )
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.required')
+                                    }}</mat-error>
+                                }
+                                @if (
+                                    form.controls.capacityKg.touched &&
+                                    form.controls.capacityKg.hasError('min')
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.min', { min: 1 })
+                                    }}</mat-error>
+                                }
+                            </mat-form-field>
+                            <mat-form-field class="w-full sm:w-1/3">
+                                <mat-label>{{
+                                    t('admin.hubs.managedBy')
+                                }}</mat-label>
+                                <mat-select formControlName="managedBy">
+                                    <mat-option [value]="''">{{
+                                        t('admin.hubs.managerNone')
+                                    }}</mat-option>
+                                    @for (
+                                        opt of managerOptions();
+                                        track opt.value
+                                    ) {
+                                        <mat-option [value]="opt.value">{{
+                                            opt.label
+                                        }}</mat-option>
+                                    }
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <app-location-picker
+                            [latControl]="form.controls.latitude"
+                            [lngControl]="form.controls.longitude"
+                            [queryControl]="form.controls.address"
+                            searchLabelKey="admin.hubs.address"
+                            mapHeightClass="h-[32rem]"
+                        ></app-location-picker>
+
+                        <div
+                            class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
+                        >
+                            <button
+                                class="-ml-2"
+                                mat-button
+                                color="warn"
+                                type="button"
+                                [disabled]="saving()"
+                                (click)="remove()"
+                            >
+                                {{ t('admin.crud.delete') }}
+                            </button>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="saving()"
+                                    (click)="goBack()"
+                                >
+                                    {{ t('admin.crud.cancel') }}
+                                </button>
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    type="submit"
+                                    [disabled]="form.invalid || saving()"
+                                >
+                                    {{ t('admin.crud.save') }}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+
+                    <!-- Inbound/discrepancy oversight (M8 Hub, admin = read-only) -->
+                    <section class="flex flex-col gap-3 border-t pt-6">
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.hubs.oversight.title') }}
+                        </div>
+                        <p class="text-secondary -mt-1 text-sm">
+                            {{ t('admin.hubs.oversight.subtitle') }}
+                        </p>
+                        @if (loadingOversight()) {
+                            <admin-loading-state />
+                        } @else {
+                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                <div class="rounded-xl border p-4">
+                                    <div
+                                        class="text-secondary text-xs uppercase tracking-wide"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.hubs.oversight.pendingInbound'
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-2xl font-bold tabular-nums"
+                                    >
+                                        {{ pendingInbound().length }}
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border p-4">
+                                    <div
+                                        class="text-secondary text-xs uppercase tracking-wide"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.hubs.oversight.openDiscrepancies'
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-2xl font-bold tabular-nums"
+                                        [class.text-red-600]="
+                                            openDiscrepancies().length > 0
+                                        "
+                                    >
+                                        {{ openDiscrepancies().length }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            @if (openDiscrepancies().length) {
+                                <div class="mt-2 flex flex-col gap-2">
+                                    @for (
+                                        d of openDiscrepancies();
+                                        track $index
+                                    ) {
+                                        <div
+                                            class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-xl border border-red-200 p-4 text-sm dark:border-red-900 sm:grid-cols-2 lg:grid-cols-3"
+                                        >
+                                            @for (
+                                                f of entriesOf(d);
+                                                track f.label
+                                            ) {
+                                                <div
+                                                    class="flex min-w-0 flex-col border-b py-1"
+                                                >
+                                                    <span
+                                                        class="text-secondary text-xs uppercase tracking-wider"
+                                                        >{{ f.label }}</span
+                                                    >
+                                                    <span
+                                                        class="min-w-0 break-words"
+                                                        >{{ f.value }}</span
+                                                    >
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                    </section>
+
+                    <!-- Staff assignments (M8 Hub management, admin = Full) -->
+                    <section class="flex flex-col gap-3 border-t pt-6">
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.hubs.staff.title') }}
+                        </div>
+                        <p class="text-secondary -mt-1 text-sm">
+                            {{ t('admin.hubs.staff.subtitle') }}
+                        </p>
+                        @if (loadingStaff()) {
+                            <admin-loading-state />
+                        } @else if (staffOptions().length) {
+                            <div class="flex flex-col gap-1">
+                                @for (opt of staffOptions(); track opt.value) {
+                                    <mat-checkbox
+                                        [checked]="isStaffAssigned(opt.value)"
+                                        (change)="
+                                            toggleStaff(
+                                                opt.value,
+                                                $event.checked
+                                            )
+                                        "
+                                    >
+                                        {{ opt.label }}
+                                    </mat-checkbox>
+                                }
+                            </div>
+                            <div>
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="savingStaff()"
+                                    (click)="saveStaffAssignments()"
+                                >
+                                    {{ t('admin.hubs.staff.save') }}
+                                </button>
+                            </div>
+                        } @else {
+                            <div class="text-secondary text-sm">
+                                {{ t('admin.hubs.staff.empty') }}
+                            </div>
+                        }
+                    </section>
+                </div>
+            }
+        </div>
+    </div>
+</div>

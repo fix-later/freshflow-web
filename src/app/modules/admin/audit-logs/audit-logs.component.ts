@@ -25,6 +25,7 @@ import { DateTime } from 'luxon';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminAuditLogRow } from '../admin.types';
+import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     toApiPage,
@@ -46,6 +47,7 @@ import { TableSort } from '../shared/table-sort';
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        AdminLoadingStateComponent,
         MatButtonModule,
         MatDatepickerModule,
         MatFormFieldModule,

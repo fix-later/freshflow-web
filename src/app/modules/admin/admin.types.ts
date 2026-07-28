@@ -181,6 +181,7 @@ export interface AdminOrderItem {
 export interface AdminOrderDetail {
     orderId?: string | null;
     restaurantId?: string | null;
+    restaurantName?: string | null;
     status?: string | null;
     paymentStatus?: string | null;
     scheduledFor?: string | null;
@@ -196,24 +197,6 @@ export interface AdminOrderGroupsResult {
     totalCount: number;
     page?: number;
     pageSize?: number;
-}
-
-/** Live batching summary for a day (`GET /admin/order-groups/progress`). */
-export interface AdminOrderGroupProgressSummary {
-    batchDate?: string | null;
-    totalBatches?: number | null;
-    /** Count of batches per status, e.g. `{ Built: 1, Purchasing: 2 }`. */
-    statusCounts?: Record<string, number> | null;
-    totalItems?: number | null;
-    itemsPurchased?: number | null;
-    itemsPending?: number | null;
-    openExceptions?: number | null;
-    [key: string]: unknown;
-}
-
-export interface AdminOrderGroupProgress {
-    summary: AdminOrderGroupProgressSummary;
-    batches: AdminOrderGroupRow[];
 }
 
 export interface AdminAutoBatchPayload {
@@ -297,4 +280,31 @@ export interface AdminCreditTransaction {
 export interface AdminGenerateStatementPayload {
     year: number;
     month: number;
+}
+
+/** Filters for `GET /invoices` (financial oversight, admin = R). */
+export interface AdminInvoiceFilters {
+    restaurantId?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+}
+
+/** One invoice row (`GET /invoices`, untyped envelope). */
+export interface AdminInvoiceRow {
+    id: string;
+    restaurantId?: string | null;
+    restaurantName?: string | null;
+    status?: string | null;
+    totalAmount?: number | null;
+    issuedAt?: string | null;
+    dueAt?: string | null;
+    [key: string]: unknown;
+}
+
+export interface AdminInvoicesResult {
+    invoices: AdminInvoiceRow[];
+    totalCount: number;
+    page?: number;
+    pageSize?: number;
 }

@@ -1,0 +1,245 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.markets.createPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.markets.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ t('admin.markets.create') }}
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-2">
+            <button
+                mat-stroked-button
+                type="button"
+                [disabled]="saving()"
+                (click)="goBack()"
+            >
+                {{ t('admin.crud.cancel') }}
+            </button>
+            <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="saving()"
+                (click)="save()"
+            >
+                {{ t('admin.crud.save') }}
+            </button>
+        </div>
+        <nav
+            class="market-create-tabs"
+            mat-tab-nav-bar
+            [tabPanel]="createTabPanel"
+        >
+            <a
+                mat-tab-link
+                [active]="selectedTab() === 0"
+                (click)="onTabChange(0)"
+            >
+                {{ t('admin.markets.editPage.tabs.details') }}
+            </a>
+            <a
+                mat-tab-link
+                [active]="selectedTab() === 1"
+                (click)="onTabChange(1)"
+            >
+                {{ t('admin.markets.editPage.tabs.pricing') }}
+            </a>
+        </nav>
+    </div>
+
+    <div class="flex min-h-0 flex-auto overflow-hidden">
+        <mat-tab-nav-panel
+            #createTabPanel
+            class="flex min-h-0 flex-auto flex-col overflow-y-auto"
+        >
+            @if (selectedTab() === 0) {
+                <div class="flex flex-col gap-8 p-6 md:p-8">
+                    <form class="flex flex-col gap-6" [formGroup]="createForm">
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.markets.create') }}
+                        </div>
+
+                        <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
+                            <mat-form-field class="w-full sm:w-1/2">
+                                <mat-label>{{
+                                    t('admin.markets.name')
+                                }}</mat-label>
+                                <input matInput formControlName="name" />
+                                @if (
+                                    createForm.controls.name.touched &&
+                                    createForm.controls.name.hasError(
+                                        'required'
+                                    )
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.required')
+                                    }}</mat-error>
+                                }
+                            </mat-form-field>
+                            <mat-form-field class="w-full sm:w-1/2">
+                                <mat-label>{{
+                                    t('admin.markets.location')
+                                }}</mat-label>
+                                <input matInput formControlName="location" />
+                            </mat-form-field>
+                        </div>
+
+                        <app-location-picker
+                            [latControl]="createForm.controls.latitude"
+                            [lngControl]="createForm.controls.longitude"
+                            [queryControl]="createForm.controls.address"
+                            searchLabelKey="admin.markets.address"
+                            mapHeightClass="h-[32rem]"
+                        ></app-location-picker>
+                    </form>
+                </div>
+            } @else {
+                <div class="flex flex-col gap-6 p-6 md:p-8">
+                    <div
+                        class="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+                    >
+                        <mat-form-field
+                            class="w-full"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('admin.products.name')
+                            }}</mat-label>
+                            <mat-select
+                                [value]="selectedProductId()"
+                                (selectionChange)="
+                                    selectedProductId.set($event.value)
+                                "
+                            >
+                                @for (
+                                    opt of availableProductOptions();
+                                    track opt.value
+                                ) {
+                                    <mat-option [value]="opt.value">{{
+                                        opt.label
+                                    }}</mat-option>
+                                }
+                            </mat-select>
+                        </mat-form-field>
+                        <button
+                            class="h-12 sm:mt-1"
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            [disabled]="
+                                !selectedProductId() ||
+                                saving() ||
+                                loadingProducts()
+                            "
+                            (click)="addSelectedProduct()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:plus"
+                            ></mat-icon>
+                            <span class="ml-1">{{
+                                t('admin.markets.quickAdd')
+                            }}</span>
+                        </button>
+                    </div>
+
+                    @if (pricingRows().length) {
+                        <div class="grid">
+                            <div
+                                class="grid grid-cols-[minmax(0,1.5fr)_10rem_10rem_3rem] items-center gap-4 border-b bg-gray-50 px-4 py-3 text-sm font-semibold dark:bg-black dark:bg-opacity-5"
+                            >
+                                <div>{{ t('admin.products.name') }}</div>
+                                <div>{{ t('admin.markets.price') }}</div>
+                                <div>{{ t('admin.markets.quantity') }}</div>
+                                <div></div>
+                            </div>
+                            @for (row of pricingRows(); track row.productId) {
+                                <div
+                                    class="grid grid-cols-[minmax(0,1.5fr)_10rem_10rem_3rem] items-center gap-4 border-b px-4 py-3"
+                                >
+                                    <div class="truncate font-medium">
+                                        {{ row.name }}
+                                    </div>
+                                    <mat-form-field
+                                        class="w-full"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <input
+                                            matInput
+                                            type="number"
+                                            [value]="row.price ?? ''"
+                                            (input)="
+                                                updatePricingField(
+                                                    row.productId,
+                                                    'price',
+                                                    $any($event.target).value
+                                                )
+                                            "
+                                        />
+                                    </mat-form-field>
+                                    <mat-form-field
+                                        class="w-full"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <input
+                                            matInput
+                                            type="number"
+                                            [value]="row.quantity ?? ''"
+                                            (input)="
+                                                updatePricingField(
+                                                    row.productId,
+                                                    'quantity',
+                                                    $any($event.target).value
+                                                )
+                                            "
+                                        />
+                                    </mat-form-field>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [matTooltip]="t('admin.crud.remove')"
+                                        (click)="
+                                            removePricingRow(row.productId)
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:trash"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            }
+                        </div>
+                    } @else {
+                        <div
+                            class="text-secondary rounded-xl border p-8 text-center"
+                        >
+                            {{ t('admin.crud.empty') }}
+                        </div>
+                    }
+                </div>
+            }
+        </mat-tab-nav-panel>
+    </div>
+</div>

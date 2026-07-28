@@ -2,18 +2,30 @@ import {
     ChangeDetectionStrategy,
     Component,
     OnInit,
+    TemplateRef,
     ViewEncapsulation,
     WritableSignal,
     computed,
     inject,
     signal,
 } from '@angular/core';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import {
+    MatDialog,
+    MatDialogModule,
+    MatDialogRef,
+} from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { AdminService } from '../admin.service';
 import {
     AdminBatchItem,
@@ -22,49 +34,23 @@ import {
     AdminOrderGroupRow,
     AdminOrderItem,
 } from '../admin.types';
-import { statusPillClass } from './order-group-status';
+import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import {
+    canCancelBatch,
+    canGenerateManifest,
+    statusLabelKey,
+    statusPillClass,
+} from './order-group-status';
 
-/** Row keys the client synthesizes (not from the API) — hidden from the grid. */
-const DERIVED_ROW_KEYS = new Set([
-    'id',
-    'marketName',
-    'agentId',
-    'orderCount',
-    'createdAt',
-]);
-
-/** Raw field key → i18n key for its detail-grid label (batch + order fields). */
-const FIELD_LABEL_KEYS: Record<string, string> = {
-    batchNumber: 'admin.orderGroups.field.batchNumber',
-    batchDate: 'admin.orderGroups.field.batchDate',
-    marketId: 'admin.orderGroups.field.market',
-    hubId: 'admin.orderGroups.field.hub',
-    status: 'admin.orderGroups.field.status',
-    totalItemCount: 'admin.orderGroups.field.totalItemCount',
-    manifestedAt: 'admin.orderGroups.field.manifestedAt',
-    assignedAgentUserId: 'admin.orderGroups.field.agent',
-    assignedAt: 'admin.orderGroups.field.assignedAt',
-    handedOffAt: 'admin.orderGroups.field.handedOffAt',
-    isCompleted: 'admin.orderGroups.field.isCompleted',
-    cancelledAt: 'admin.orderGroups.field.cancelledAt',
-    cancellationReason: 'admin.orderGroups.field.cancellationReason',
-    orderId: 'admin.orderGroups.orderField.orderId',
-    restaurantId: 'admin.orderGroups.orderField.restaurantId',
-    paymentStatus: 'admin.orderGroups.orderField.paymentStatus',
-    scheduledFor: 'admin.orderGroups.orderField.scheduledFor',
-    totalAmount: 'admin.orderGroups.orderField.totalAmount',
-    notes: 'admin.orderGroups.orderField.notes',
-    orderGroupId: 'admin.orderGroups.orderField.orderGroupId',
-    scheduledOrderId: 'admin.orderGroups.orderField.scheduledOrderId',
-    confirmedReceiptAt: 'admin.orderGroups.orderField.confirmedReceiptAt',
-    createdAt: 'admin.orderGroups.orderField.createdAt',
-    updatedAt: 'admin.orderGroups.orderField.updatedAt',
-};
+/** Label + value pair for curated detail grids. */
+export interface DetailField {
+    label: string;
+    value: string;
+}
 
 /**
- * Admin ▸ Order groups ▸ Detail — a full-page overview of one procurement batch
- * (all raw fields, items, member orders with an order drill-down, and
- * exceptions), reached from the list so the list itself stays scannable.
+ * Admin ▸ Order groups ▸ Detail — curated overview of one procurement batch
+ * (summary, items, member orders, exceptions).
  */
 @Component({
     selector: 'admin-order-group-detail',
@@ -72,13 +58,71 @@ const FIELD_LABEL_KEYS: Record<string, string> = {
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    host: { class: 'flex flex-auto flex-col' },
+    host: { class: 'flex flex-auto flex-col admin-order-group-detail' },
     imports: [
+        AdminLoadingStateComponent,
         MatButtonModule,
+        MatDialogModule,
+        MatFormFieldModule,
         MatIconModule,
+        MatInputModule,
         MatProgressBarModule,
+        MatSnackBarModule,
+        MatTabsModule,
         MatTooltipModule,
+        ReactiveFormsModule,
         TranslocoModule,
+    ],
+    styles: [
+        `
+            /* Fill remaining height under the page header — Fuse tab layout. */
+            .admin-order-group-detail {
+                .mat-mdc-tab-group,
+                .mat-mdc-tab-body-wrapper,
+                .mat-mdc-tab-body,
+                .mat-mdc-tab-body-content {
+                    display: flex;
+                    flex: 1 1 auto;
+                    flex-direction: column;
+                    min-height: 0;
+                }
+
+                .mat-mdc-tab-body-content {
+                    overflow: auto;
+                }
+
+                .mat-mdc-tab .mdc-tab__text-label {
+                    font-size: 0.9375rem;
+                    font-weight: 600;
+                }
+
+                .order-group-items-grid {
+                    grid-template-columns:
+                        minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 0.9fr)
+                        minmax(0, 0.7fr) minmax(0, 0.9fr) minmax(0, 1.1fr);
+                }
+
+                .order-group-orders-grid {
+                    grid-template-columns:
+                        minmax(0, 1.15fr) minmax(0, 1.1fr) minmax(0, 0.85fr)
+                        minmax(0, 0.85fr) minmax(0, 0.85fr) minmax(0, 1fr)
+                        2.75rem;
+
+                    @screen lg {
+                        grid-template-columns:
+                            minmax(0, 1.15fr) minmax(0, 1.2fr) minmax(0, 0.8fr)
+                            minmax(0, 0.85fr) minmax(0, 0.75fr) minmax(0, 0.9fr)
+                            minmax(0, 1fr) 2.75rem;
+                    }
+                }
+
+                .order-group-order-items-grid {
+                    grid-template-columns:
+                        minmax(0, 1.5fr) minmax(0, 0.6fr) minmax(0, 0.9fr)
+                        minmax(0, 0.9fr) minmax(0, 0.7fr);
+                }
+            }
+        `,
     ],
 })
 export class OrderGroupDetailComponent implements OnInit {
@@ -86,33 +130,59 @@ export class OrderGroupDetailComponent implements OnInit {
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _dialog = inject(MatDialog);
+    private readonly _snackBar = inject(MatSnackBar);
+
+    private _cancelDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly statusPillClass = statusPillClass;
 
     readonly batch = signal<AdminOrderGroupRow | null>(null);
     readonly loading = signal(false);
     readonly notFound = signal(false);
+    readonly manifesting = signal(false);
+    readonly cancelSaving = signal(false);
+    readonly cancelReason = new FormControl('', { nonNullable: true });
 
     /** id → name lookups so ids resolve to names in the field grid. */
     readonly marketNames = signal<Map<string, string>>(new Map());
     readonly hubNames = signal<Map<string, string>>(new Map());
     readonly agentNames = signal<Map<string, string>>(new Map());
+    readonly restaurantNames = signal<Map<string, string>>(new Map());
 
     /** Member order drill-down: open ids, fetched-detail cache, in-flight ids. */
     readonly expandedOrders = signal<Set<string>>(new Set());
     readonly orderDetails = signal<Map<string, AdminOrderDetail>>(new Map());
     readonly loadingOrders = signal<Set<string>>(new Set());
+    /** True while member orders are being prefetched for the Orders tab. */
+    readonly ordersPrefetching = signal(false);
 
     readonly batchId = computed(() => this.batch()?.id ?? '');
+    /** Header title — batch id (UUID). */
+    readonly detailTitle = computed(
+        () =>
+            this.batchId() ||
+            this._transloco.translate('admin.orderGroups.detailPage.title')
+    );
+    readonly canManifest = computed(() =>
+        canGenerateManifest(this.batch()?.status)
+    );
+    readonly canCancel = computed(() => canCancelBatch(this.batch()?.status));
+
+    readonly itemCount = computed(() => this.itemsOf(this.batch()).length);
+    readonly memberCount = computed(() => this.membersOf(this.batch()).length);
+    readonly exceptionCount = computed(
+        () => this.exceptionsOf(this.batch()).length
+    );
 
     ngOnInit(): void {
         this._loadLookups();
         const id = this._route.snapshot.paramMap.get('batchId') ?? '';
-        // The list passes the row via router state for an instant render.
         const passed = (history.state?.batch ??
             null) as AdminOrderGroupRow | null;
         if (passed && passed.id === id) {
             this.batch.set(passed);
+            this._prefetchMemberOrders(passed);
         } else if (id) {
             this._fetch(id);
         } else {
@@ -124,33 +194,238 @@ export class OrderGroupDetailComponent implements OnInit {
         this._router.navigate(['/admin/order-groups']);
     }
 
-    // ---- Field rendering --------------------------------------------------
-
-    detailEntries(row: AdminOrderGroupRow): { label: string; value: string }[] {
-        return this._rawScalars(row)
-            .filter(([key]) => !DERIVED_ROW_KEYS.has(key))
-            .map(([key, value]) => ({
-                label: this.fieldLabel(key),
-                value: this._fieldValue(row, key, value),
-            }));
-    }
-
-    entriesOf(obj: unknown): { label: string; value: string }[] {
-        return this._rawScalars(obj).map(([key, value]) => ({
-            label: this.fieldLabel(key),
-            value: this._displayValue(key, value),
-        }));
-    }
-
-    fieldLabel(key: string): string {
-        const translationKey = FIELD_LABEL_KEYS[key];
-        if (translationKey) {
-            const label = this._transloco.translate(translationKey);
-            if (label && label !== translationKey) {
-                return label;
-            }
+    generateManifest(): void {
+        const id = this.batchId();
+        if (!id || !this.canManifest()) {
+            return;
         }
-        return this._humanize(key);
+        this.manifesting.set(true);
+        this._admin
+            .generateManifest(id)
+            .then(() => {
+                this._notifyKey('admin.orderGroups.manifest.success');
+                this._fetch(id);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.manifesting.set(false));
+    }
+
+    openCancel(template: TemplateRef<unknown>): void {
+        if (!this.canCancel()) {
+            return;
+        }
+        this.cancelReason.reset('');
+        this.cancelSaving.set(false);
+        this._cancelDialogRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._cancelDialogRef.afterClosed().subscribe(() => {
+            this._cancelDialogRef = null;
+        });
+    }
+
+    closeCancel(): void {
+        this._cancelDialogRef?.close();
+    }
+
+    confirmCancel(): void {
+        const id = this.batchId();
+        if (!id) {
+            return;
+        }
+        this.cancelSaving.set(true);
+        this._admin
+            .cancelOrderGroup(id, this.cancelReason.value.trim() || undefined)
+            .then(() => {
+                this._notifyKey('admin.orderGroups.cancel.success');
+                this.closeCancel();
+                this.goBack();
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.cancelSaving.set(false));
+    }
+
+    summaryCards(row: AdminOrderGroupRow): DetailField[] {
+        const marketId = String(row.marketId ?? '');
+        const hubId = String(row.hubId ?? '');
+        const agentId = String(row.agentId ?? row['assignedAgentUserId'] ?? '');
+        const orderCount =
+            row.orderCount ??
+            (Array.isArray(row['members']) ? row['members'].length : null);
+        const itemCount =
+            row.itemCount ??
+            (row['totalItemCount'] as number | null | undefined) ??
+            (Array.isArray(row['items']) ? row['items'].length : null);
+
+        return [
+            {
+                label: this._t('admin.orderGroups.field.market'),
+                value:
+                    row.marketName ||
+                    this.marketNames().get(marketId) ||
+                    marketId ||
+                    '—',
+            },
+            {
+                label: this._t('admin.orderGroups.field.hub'),
+                value: this.hubNames().get(hubId) || hubId || '—',
+            },
+            {
+                label: this._t('admin.orderGroups.field.agent'),
+                value:
+                    row.agentEmail ||
+                    this.agentNames().get(agentId) ||
+                    agentId ||
+                    this._t('admin.orderGroups.assignAgent.none'),
+            },
+            {
+                label: this._t('admin.orderGroups.field.batchDate'),
+                value:
+                    this.formatDateShort(row['batchDate'] ?? row.createdAt) ||
+                    '—',
+            },
+            {
+                label: this._t('admin.orderGroups.field.orderCount'),
+                value:
+                    orderCount === null || orderCount === undefined
+                        ? '—'
+                        : String(orderCount),
+            },
+            {
+                label: this._t('admin.orderGroups.field.totalItemCount'),
+                value:
+                    itemCount === null || itemCount === undefined
+                        ? '—'
+                        : String(itemCount),
+            },
+        ];
+    }
+
+    timelineEntries(row: AdminOrderGroupRow): DetailField[] {
+        const entries: {
+            key: string;
+            labelKey: string;
+            format?: 'date' | 'bool' | 'text';
+        }[] = [
+            {
+                key: 'manifestedAt',
+                labelKey: 'admin.orderGroups.field.manifestedAt',
+                format: 'date',
+            },
+            {
+                key: 'assignedAt',
+                labelKey: 'admin.orderGroups.field.assignedAt',
+                format: 'date',
+            },
+            {
+                key: 'handedOffAt',
+                labelKey: 'admin.orderGroups.field.handedOffAt',
+                format: 'date',
+            },
+            {
+                key: 'isCompleted',
+                labelKey: 'admin.orderGroups.field.isCompleted',
+                format: 'bool',
+            },
+            {
+                key: 'cancelledAt',
+                labelKey: 'admin.orderGroups.field.cancelledAt',
+                format: 'date',
+            },
+            {
+                key: 'cancellationReason',
+                labelKey: 'admin.orderGroups.field.cancellationReason',
+                format: 'text',
+            },
+        ];
+
+        return entries
+            .map(({ key, labelKey, format }) => {
+                const raw = row[key];
+                if (raw === null || raw === undefined || raw === '') {
+                    return null;
+                }
+                let value = '—';
+                if (format === 'date') {
+                    value = this.formatDate(raw) || '—';
+                } else if (format === 'bool') {
+                    value =
+                        raw === true
+                            ? this._t('admin.orderGroups.yes')
+                            : this._t('admin.orderGroups.no');
+                } else {
+                    value = String(raw);
+                }
+                if (value === '—') {
+                    return null;
+                }
+                return { label: this._t(labelKey), value };
+            })
+            .filter((e): e is DetailField => e !== null);
+    }
+
+    orderSummaryEntries(detail: AdminOrderDetail): DetailField[] {
+        return [
+            {
+                label: this._t('admin.orderGroups.orderField.restaurantId'),
+                value: String(detail.restaurantId ?? '—'),
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.status'),
+                value: this.statusLabel(detail.status),
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.paymentStatus'),
+                value: this.paymentStatusLabel(detail.paymentStatus),
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.scheduledFor'),
+                value: this.formatDate(detail.scheduledFor) || '—',
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.totalAmount'),
+                value: this.money(detail.totalAmount),
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.notes'),
+                value: String(detail.notes ?? '—') || '—',
+            },
+            {
+                label: this._t('admin.orderGroups.orderField.createdAt'),
+                value: this.formatDate(detail.createdAt) || '—',
+            },
+        ];
+    }
+
+    exceptionEntries(ex: Record<string, unknown>): DetailField[] {
+        const type = ex['type'] ?? ex['exceptionType'];
+        const fields: DetailField[] = [
+            {
+                label: this._t('admin.orderGroups.exception.type'),
+                value: this.exceptionTypeLabel(
+                    type === null || type === undefined ? null : String(type)
+                ),
+            },
+            {
+                label: this._t('admin.orderGroups.exception.reportedQuantity'),
+                value: String(ex['reportedQuantity'] ?? '—'),
+            },
+            {
+                label: this._t('admin.orderGroups.exception.note'),
+                value: String(ex['note'] ?? ex['notes'] ?? '—') || '—',
+            },
+            {
+                label: this._t('admin.orderGroups.exception.reportedAt'),
+                value:
+                    this.formatDate(ex['reportedAt'] ?? ex['createdAt']) || '—',
+            },
+        ];
+        return fields.filter(
+            (f) =>
+                f.value !== '—' ||
+                f.label === this._t('admin.orderGroups.exception.type')
+        );
     }
 
     itemsOf(row: AdminOrderGroupRow | null): AdminBatchItem[] {
@@ -170,8 +445,6 @@ export class OrderGroupDetailComponent implements OnInit {
             : [];
     }
 
-    // ---- Member order drill-down -----------------------------------------
-
     isOrderExpanded(orderId: string | null | undefined): boolean {
         return !!orderId && this.expandedOrders().has(orderId);
     }
@@ -182,6 +455,50 @@ export class OrderGroupDetailComponent implements OnInit {
 
     orderDetail(orderId: string | null | undefined): AdminOrderDetail | null {
         return orderId ? this.orderDetails().get(orderId) ?? null : null;
+    }
+
+    /** Merged member + fetched detail for the Orders inventory row. */
+    orderStatus(member: AdminBatchMember): string | null | undefined {
+        const detail = this.orderDetail(member.orderId);
+        return detail?.status ?? member.status;
+    }
+
+    restaurantLabel(member: AdminBatchMember): string {
+        const detail = this.orderDetail(member.orderId);
+        const fromDetail = detail?.restaurantName?.trim();
+        if (fromDetail) {
+            return fromDetail;
+        }
+        const restaurantId = String(
+            detail?.restaurantId ?? member['restaurantId'] ?? ''
+        );
+        if (!restaurantId) {
+            return '—';
+        }
+        return this.restaurantNames().get(restaurantId) || restaurantId;
+    }
+
+    orderTotal(member: AdminBatchMember): string {
+        const detail = this.orderDetail(member.orderId);
+        return detail ? this.money(detail.totalAmount) : '—';
+    }
+
+    orderScheduled(member: AdminBatchMember): string {
+        const detail = this.orderDetail(member.orderId);
+        return detail ? this.formatDate(detail.scheduledFor) || '—' : '—';
+    }
+
+    orderPayment(member: AdminBatchMember): string {
+        const detail = this.orderDetail(member.orderId);
+        return detail ? this.paymentStatusLabel(detail.paymentStatus) : '—';
+    }
+
+    orderItemCount(member: AdminBatchMember): string {
+        const detail = this.orderDetail(member.orderId);
+        if (!detail) {
+            return '—';
+        }
+        return String(this.orderItemsOf(detail).length);
     }
 
     orderItemsOf(detail: AdminOrderDetail | null): AdminOrderItem[] {
@@ -206,7 +523,47 @@ export class OrderGroupDetailComponent implements OnInit {
         }
     }
 
-    // ---- Presentation helpers --------------------------------------------
+    statusLabel(status: string | null | undefined): string {
+        if (!status) {
+            return '—';
+        }
+        const key = statusLabelKey(status);
+        if (!key) {
+            return String(status);
+        }
+        return this._translateOrFallback(key, String(status));
+    }
+
+    paymentStatusLabel(status: string | null | undefined): string {
+        if (!status) {
+            return '—';
+        }
+        const token = String(status).trim().toLowerCase();
+        return this._translateOrFallback(
+            `admin.orderGroups.paymentStatus.${token}`,
+            String(status)
+        );
+    }
+
+    exceptionTypeLabel(type: string | null | undefined): string {
+        if (!type) {
+            return '—';
+        }
+        const knownByLower: Record<string, string> = {
+            unavailable: 'Unavailable',
+            shortfall: 'Shortfall',
+            pricediscrepancy: 'PriceDiscrepancy',
+            damaged: 'Damaged',
+        };
+        const known = knownByLower[String(type).trim().toLowerCase()];
+        if (known) {
+            return this._translateOrFallback(
+                `admin.orderGroups.exceptionType.${known}`,
+                known
+            );
+        }
+        return String(type);
+    }
 
     money(value: unknown): string {
         if (value === null || value === undefined || value === '') {
@@ -228,7 +585,15 @@ export class OrderGroupDetailComponent implements OnInit {
             : date.toLocaleString(this._transloco.getActiveLang());
     }
 
-    // ---- Data -------------------------------------------------------------
+    formatDateShort(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime())
+            ? ''
+            : date.toLocaleDateString(this._transloco.getActiveLang());
+    }
 
     private _fetch(id: string): void {
         this.loading.set(true);
@@ -237,6 +602,7 @@ export class OrderGroupDetailComponent implements OnInit {
             .then((batch) => {
                 this.batch.set(batch);
                 this.notFound.set(!batch);
+                this._prefetchMemberOrders(batch);
             })
             .catch(() => this.notFound.set(true))
             .finally(() => this.loading.set(false));
@@ -271,6 +637,60 @@ export class OrderGroupDetailComponent implements OnInit {
                 )
             )
             .catch(() => this.agentNames.set(new Map()));
+        this._admin
+            .getUsers({ role: 'restaurant', pageSize: 100 })
+            .then((result) => {
+                const map = new Map<string, string>();
+                for (const user of result.users) {
+                    const restaurantId = String(user.restaurantId ?? '');
+                    const name = String(user.restaurantName ?? '').trim();
+                    if (restaurantId && name) {
+                        map.set(restaurantId, name);
+                    }
+                }
+                this.restaurantNames.set(map);
+            })
+            .catch(() => this.restaurantNames.set(new Map()));
+    }
+
+    /** Parallel GET /orders/{id} for every member so the Orders tab is ready. */
+    private _prefetchMemberOrders(batch: AdminOrderGroupRow | null): void {
+        const ids = this.membersOf(batch)
+            .map((m) => String(m.orderId ?? '').trim())
+            .filter(Boolean);
+        const missing = ids.filter((id) => !this.orderDetails().has(id));
+        if (!missing.length) {
+            return;
+        }
+        this.ordersPrefetching.set(true);
+        void Promise.all(
+            missing.map((orderId) =>
+                this._admin
+                    .getOrder(orderId)
+                    .then((detail) => ({ orderId, detail }))
+                    .catch(() => ({ orderId, detail: null }))
+            )
+        )
+            .then((results) => {
+                const cache = new Map(this.orderDetails());
+                for (const { orderId, detail } of results) {
+                    if (!detail) {
+                        continue;
+                    }
+                    const normalizedId =
+                        detail.orderId ||
+                        (typeof detail['id'] === 'string'
+                            ? detail['id']
+                            : '') ||
+                        orderId;
+                    cache.set(orderId, {
+                        ...detail,
+                        orderId: normalizedId,
+                    });
+                }
+                this.orderDetails.set(cache);
+            })
+            .finally(() => this.ordersPrefetching.set(false));
     }
 
     private _loadOrder(orderId: string): void {
@@ -280,7 +700,13 @@ export class OrderGroupDetailComponent implements OnInit {
             .then((detail) => {
                 if (detail) {
                     const cache = new Map(this.orderDetails());
-                    cache.set(orderId, detail);
+                    const normalizedId =
+                        detail.orderId ||
+                        (typeof detail['id'] === 'string'
+                            ? detail['id']
+                            : '') ||
+                        orderId;
+                    cache.set(orderId, { ...detail, orderId: normalizedId });
                     this.orderDetails.set(cache);
                 }
             })
@@ -302,64 +728,27 @@ export class OrderGroupDetailComponent implements OnInit {
         target.set(next);
     }
 
-    private _rawScalars(obj: unknown): [string, unknown][] {
-        if (!obj || typeof obj !== 'object') {
-            return [];
-        }
-        return Object.entries(obj as Record<string, unknown>).filter(
-            ([, v]) =>
-                v === null ||
-                v === undefined ||
-                ['string', 'number', 'boolean'].includes(typeof v)
+    private _t(key: string): string {
+        return this._transloco.translate(key);
+    }
+
+    private _translateOrFallback(key: string, fallback: string): string {
+        const label = this._transloco.translate(key);
+        return label && label !== key ? label : fallback;
+    }
+
+    private _notifyKey(key: string): void {
+        this._snackBar.open(this._transloco.translate(key), undefined, {
+            duration: 3000,
+        });
+    }
+
+    private async _notifyError(err: unknown): Promise<void> {
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            'admin.orderGroups.actionError'
         );
-    }
-
-    private _fieldValue(
-        row: AdminOrderGroupRow,
-        key: string,
-        value: unknown
-    ): string {
-        if (value === null || value === undefined || value === '') {
-            return '—';
-        }
-        const id = String(value);
-        switch (key) {
-            case 'marketId':
-                return row.marketName || this.marketNames().get(id) || id;
-            case 'hubId':
-                return this.hubNames().get(id) || id;
-            case 'assignedAgentUserId':
-                return this.agentNames().get(id) || id;
-            default:
-                return this._displayValue(key, value);
-        }
-    }
-
-    private _humanize(key: string): string {
-        const spaced = key
-            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-            .replace(/[_-]+/g, ' ')
-            .replace(/\bId\b/gi, 'ID')
-            .trim();
-        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-    }
-
-    private _displayValue(key: string, value: unknown): string {
-        if (value === null || value === undefined || value === '') {
-            return '—';
-        }
-        if (typeof value === 'boolean') {
-            return value ? '✓' : '✗';
-        }
-        if (typeof value === 'number' && /(amount|price|subtotal)/i.test(key)) {
-            return this.money(value);
-        }
-        if (typeof value === 'string' && /(At|Date|For)$/.test(key)) {
-            const formatted = this.formatDate(value);
-            if (formatted) {
-                return formatted;
-            }
-        }
-        return String(value);
+        this._snackBar.open(message, undefined, { duration: 5000 });
     }
 }

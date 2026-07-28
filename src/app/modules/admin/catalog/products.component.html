@@ -40,7 +40,7 @@
                     mat-flat-button
                     color="primary"
                     type="button"
-                    (click)="openCreate(createDialog)"
+                    (click)="openCreate()"
                 >
                     <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
                     <span class="ml-2 mr-1">{{
@@ -267,7 +267,9 @@
                         (page)="onPageChange($event)"
                     ></mat-paginator>
                 }
-            } @else if (!loading()) {
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
                 >
@@ -277,150 +279,6 @@
         </div>
     </div>
 </div>
-
-<!-- Create dialog -->
-<ng-template #createDialog>
-    <div
-        class="no-scrollbar flex max-h-[85vh] w-full flex-col overflow-y-auto p-6"
-        *transloco="let t"
-    >
-        <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold">
-                {{ t('admin.products.create') }}
-            </h2>
-            <button mat-icon-button type="button" (click)="closeCreate()">
-                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
-            </button>
-        </div>
-
-        <form
-            class="mt-4 flex flex-col gap-1"
-            [formGroup]="createForm"
-            (ngSubmit)="saveCreate()"
-        >
-            <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
-                <mat-form-field class="w-full sm:w-2/3">
-                    <mat-label>{{ t('admin.products.name') }}</mat-label>
-                    <input matInput formControlName="name" />
-                    @if (
-                        createForm.controls.name.touched &&
-                        createForm.controls.name.hasError('required')
-                    ) {
-                        <mat-error>{{
-                            t('admin.crud.errors.required')
-                        }}</mat-error>
-                    }
-                </mat-form-field>
-                <mat-form-field class="w-full sm:w-1/3">
-                    <mat-label>{{ t('admin.products.unit') }}</mat-label>
-                    <mat-select formControlName="unitId">
-                        @for (opt of unitOptions(); track opt.value) {
-                            <mat-option [value]="opt.value">{{
-                                opt.label
-                            }}</mat-option>
-                        }
-                    </mat-select>
-                    @if (
-                        createForm.controls.unitId.touched &&
-                        createForm.controls.unitId.hasError('required')
-                    ) {
-                        <mat-error>{{
-                            t('admin.crud.errors.required')
-                        }}</mat-error>
-                    }
-                </mat-form-field>
-            </div>
-            <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
-                <mat-form-field class="w-full sm:w-1/2">
-                    <mat-label>{{
-                        t('admin.products.parentCategory')
-                    }}</mat-label>
-                    <mat-select
-                        [value]="createParentId()"
-                        (selectionChange)="onCreateParentChange($event.value)"
-                    >
-                        <mat-option [value]="''">—</mat-option>
-                        @for (opt of parentCategoryOptions(); track opt.value) {
-                            <mat-option [value]="opt.value">{{
-                                opt.label
-                            }}</mat-option>
-                        }
-                    </mat-select>
-                </mat-form-field>
-                <mat-form-field class="w-full sm:w-1/2">
-                    <mat-label>{{
-                        t('admin.products.childCategory')
-                    }}</mat-label>
-                    <input
-                        matInput
-                        [matAutocomplete]="autoCreateChild"
-                        [placeholder]="t('admin.crud.optionSearch')"
-                        [value]="createChildSearch()"
-                        (input)="
-                            onChildSearch('create', $any($event.target).value)
-                        "
-                        (blur)="onChildBlur('create')"
-                    />
-                    @if (createForm.controls.categoryId.value) {
-                        <button
-                            matSuffix
-                            mat-icon-button
-                            type="button"
-                            (click)="clearChild('create')"
-                        >
-                            <mat-icon
-                                class="icon-size-5"
-                                svgIcon="heroicons_outline:x-mark"
-                            ></mat-icon>
-                        </button>
-                    }
-                    <mat-autocomplete
-                        #autoCreateChild
-                        [displayWith]="childLabel"
-                        (optionSelected)="
-                            onChildSelected('create', $event.option.value)
-                        "
-                    >
-                        @for (
-                            opt of visibleChildOptions('create');
-                            track opt.value
-                        ) {
-                            <mat-option [value]="opt.value">{{
-                                opt.label
-                            }}</mat-option>
-                        } @empty {
-                            <mat-option disabled>{{
-                                t('admin.crud.optionSearchEmpty')
-                            }}</mat-option>
-                        }
-                    </mat-autocomplete>
-                </mat-form-field>
-            </div>
-            <mat-form-field class="w-full">
-                <mat-label>{{ t('admin.products.description') }}</mat-label>
-                <textarea
-                    matInput
-                    rows="3"
-                    formControlName="description"
-                ></textarea>
-            </mat-form-field>
-
-            <div class="mt-4 flex justify-end gap-2">
-                <button mat-button type="button" (click)="closeCreate()">
-                    {{ t('admin.crud.cancel') }}
-                </button>
-                <button
-                    mat-flat-button
-                    color="primary"
-                    type="submit"
-                    [disabled]="saving()"
-                >
-                    {{ t('admin.crud.save') }}
-                </button>
-            </div>
-        </form>
-    </div>
-</ng-template>
 
 <!-- Edit dialog -->
 <ng-template #editDialog>
@@ -622,19 +480,16 @@
                                 [placeholder]="t('admin.crud.optionSearch')"
                                 [value]="editChildSearch()"
                                 (input)="
-                                    onChildSearch(
-                                        'edit',
-                                        $any($event.target).value
-                                    )
+                                    onChildSearch($any($event.target).value)
                                 "
-                                (blur)="onChildBlur('edit')"
+                                (blur)="onChildBlur()"
                             />
                             @if (selectedForm.controls.categoryId.value) {
                                 <button
                                     matSuffix
                                     mat-icon-button
                                     type="button"
-                                    (click)="clearChild('edit')"
+                                    (click)="clearChild()"
                                 >
                                     <mat-icon
                                         class="icon-size-5"
@@ -646,11 +501,11 @@
                                 #autoEditChild
                                 [displayWith]="childLabel"
                                 (optionSelected)="
-                                    onChildSelected('edit', $event.option.value)
+                                    onChildSelected($event.option.value)
                                 "
                             >
                                 @for (
-                                    opt of visibleChildOptions('edit');
+                                    opt of visibleChildOptions();
                                     track opt.value
                                 ) {
                                     <mat-option [value]="opt.value">{{

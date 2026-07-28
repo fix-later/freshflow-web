@@ -32,6 +32,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute, Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -48,6 +49,7 @@ import {
     AdminRestaurantCredit,
     AdminUserRow,
 } from '../admin.types';
+import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     toApiPage,
@@ -81,6 +83,7 @@ type RestaurantAction =
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        AdminLoadingStateComponent,
         DecimalPipe,
         MatButtonModule,
         MatDialogModule,
@@ -114,6 +117,8 @@ export class RestaurantsAdminComponent implements OnInit {
 
     private readonly _admin = inject(AdminService);
     private readonly _dialog = inject(MatDialog);
+    private readonly _route = inject(ActivatedRoute);
+    private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);

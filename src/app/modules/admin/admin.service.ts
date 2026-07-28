@@ -11,6 +11,7 @@ import {
 import {
     adminApi,
     hubsApi,
+    invoicesApi,
     marketsApi,
     ordersApi,
     restaurantCreditApi,
@@ -25,11 +26,12 @@ import {
     AdminCreditStatement,
     AdminCreditTransaction,
     AdminGenerateStatementPayload,
+    AdminInvoiceFilters,
+    AdminInvoiceRow,
+    AdminInvoicesResult,
     AdminMarketOption,
     AdminOperationalSettings,
     AdminOrderDetail,
-    AdminOrderGroupProgress,
-    AdminOrderGroupProgressSummary,
     AdminOrderGroupRow,
     AdminOrderGroupsResult,
     AdminPricingSettings,
@@ -41,6 +43,10 @@ import {
     AdminUserRow,
     AdminUsersResult,
 } from './admin.types';
+import {
+    deriveBatchNumber,
+    resolveBatchNumber,
+} from './order-groups/order-group-batch-code';
 
 /** Role eligible to be assigned a procurement batch (see ROLE_MATRIX). */
 const MARKET_AGENT_ROLE = 'market_agent';
@@ -427,7 +433,12 @@ export class AdminService {
         const body = await parseJson<unknown>(res.raw);
         // The list nests the array at `data.batches` (see extractList); batch
         // routes use {batchId}, but the rows carry `id`.
-        const rows = withId<AdminOrderGroupRow>(extractList(body), 'batchId');
+        const rows = withId<AdminOrderGroupRow>(
+            extractList(body),
+            'batchId',
+            'BatchId',
+            'procurementBatchId'
+        );
         const groups = await this._normalizeOrderGroups(rows);
         const p = extractPagination(body);
         return {
@@ -451,8 +462,12 @@ export class AdminService {
         const marketNames = await this._marketNameMap();
         return rows.map((row) => {
             const members = row['members'];
+            const raw = row as Record<string, unknown>;
+            const batchNumber =
+                resolveBatchNumber(raw) || deriveBatchNumber(raw) || null;
             return {
                 ...row,
+                batchNumber,
                 marketName:
                     row.marketName ??
                     marketNames.get(String(row.marketId ?? '')) ??
@@ -460,6 +475,7 @@ export class AdminService {
                 agentId:
                     row.agentId ??
                     (row['assignedAgentUserId'] as string | null) ??
+                    (row['AssignedAgentUserId'] as string | null) ??
                     null,
                 orderCount:
                     row.orderCount ??
@@ -469,6 +485,7 @@ export class AdminService {
                 createdAt:
                     row.createdAt ??
                     (row['batchDate'] as string | null) ??
+                    (row['BatchDate'] as string | null) ??
                     null,
             };
         });
@@ -495,30 +512,6 @@ export class AdminService {
     async getOrderGroup(batchId: string): Promise<AdminOrderGroupRow | null> {
         const { groups } = await this.getOrderGroups(1, 100);
         return groups.find((group) => group.id === batchId) ?? null;
-    }
-
-    /**
-     * Live batching progress for a day, optionally narrowed to one status.
-     * Returns the day's summary counts alongside the batch rows (`data.summary`
-     * / `data.batches`).
-     */
-    async getOrderGroupProgress(
-        date?: string,
-        status?: string
-    ): Promise<AdminOrderGroupProgress> {
-        const res = await adminApi.apiV1AdminOrderGroupsProgressGetRaw({
-            date: date ? new Date(date) : undefined,
-            status: status || undefined,
-        });
-        const body = await parseJson<unknown>(res.raw);
-        const data = unwrapData<Record<string, unknown>>(body) ?? {};
-        const summary =
-            (data['summary'] as AdminOrderGroupProgressSummary) ?? {};
-        const batches = withId<AdminOrderGroupRow>(
-            extractList(body),
-            'batchId'
-        );
-        return { summary, batches };
     }
 
     /**
@@ -625,6 +618,50 @@ export class AdminService {
         return withId(rows, 'hubId')
             .map((hub) => ({ id: hub.id, name: String(hub['name'] ?? '') }))
             .filter((hub) => !!hub.id);
+    }
+
+    // -------------------------------------------------------------------
+    // Invoices (financial oversight — natural read extension of M6 Credit)
+    // -------------------------------------------------------------------
+
+    async getInvoices(
+        filters: AdminInvoiceFilters = {}
+    ): Promise<AdminInvoicesResult> {
+        const res = await invoicesApi.apiV1InvoicesGetRaw({
+            restaurantId: filters.restaurantId || undefined,
+            status: filters.status || undefined,
+            page: filters.page,
+            pageSize: filters.pageSize,
+        });
+        const body = await parseJson<unknown>(res.raw);
+        const invoices = withId<AdminInvoiceRow>(
+            extractList(body),
+            'invoiceId'
+        );
+        const p = extractPagination(body);
+        return {
+            invoices,
+            totalCount: p?.total ?? extractTotal(body) ?? invoices.length,
+            page: p?.page,
+            pageSize: p?.pageSize,
+        };
+    }
+
+    async getInvoice(invoiceId: string): Promise<AdminInvoiceRow | null> {
+        const res = await invoicesApi.apiV1InvoicesInvoiceIdGetRaw({
+            invoiceId,
+        });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId<AdminInvoiceRow>(
+            [data as AdminInvoiceRow],
+            'invoiceId'
+        );
+        return row?.id ? row : null;
     }
 }
 
