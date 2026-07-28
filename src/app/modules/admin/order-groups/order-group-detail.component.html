@@ -21,185 +21,395 @@
                 <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
             </button>
             <div class="min-w-0">
-                <div class="text-secondary text-xs uppercase tracking-wide">
+                <div
+                    class="text-secondary text-sm font-medium uppercase tracking-wide"
+                >
                     {{ t('admin.orderGroups.detailPage.title') }}
                 </div>
-                <div class="truncate text-2xl font-extrabold tracking-tight">
-                    {{ batch()?.batchNumber || batchId() || '—' }}
+                <div class="mt-1 flex min-w-0 flex-wrap items-center gap-3">
+                    <div
+                        class="truncate font-mono text-2xl font-extrabold tracking-tight sm:text-3xl"
+                    >
+                        {{ detailTitle() }}
+                    </div>
+                    @if (batch(); as b) {
+                        <span
+                            [class]="
+                                statusPillClass(b.status) + ' admin-pill-lg'
+                            "
+                            >{{ statusLabel(b.status) }}</span
+                        >
+                    }
                 </div>
             </div>
         </div>
-        @if (batch(); as b) {
-            <span [class]="statusPillClass(b.status)">{{
-                b.status || '—'
-            }}</span>
+        @if (batch()) {
+            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+                <span
+                    class="inline-flex"
+                    [matTooltip]="
+                        canManifest()
+                            ? ''
+                            : t('admin.orderGroups.manifest.disabledTooltip')
+                    "
+                >
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="
+                            !canManifest() || manifesting() || loading()
+                        "
+                        (click)="generateManifest()"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:document-text"
+                        ></mat-icon>
+                        <span class="ml-2 mr-1">{{
+                            t('admin.orderGroups.manifest.tooltip')
+                        }}</span>
+                    </button>
+                </span>
+                <span
+                    class="inline-flex"
+                    [matTooltip]="
+                        canCancel()
+                            ? ''
+                            : t('admin.orderGroups.cancel.disabledTooltip')
+                    "
+                >
+                    <button
+                        mat-stroked-button
+                        color="warn"
+                        type="button"
+                        [disabled]="!canCancel() || cancelSaving() || loading()"
+                        (click)="openCancel(cancelDialog)"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:x-circle"
+                        ></mat-icon>
+                        <span class="ml-2 mr-1">{{
+                            t('admin.orderGroups.cancel.tooltip')
+                        }}</span>
+                    </button>
+                </span>
+            </div>
         }
     </div>
 
     <!-- Body -->
-    <div class="flex flex-auto overflow-hidden">
-        <div class="flex flex-auto flex-col gap-6 overflow-y-auto p-6 md:p-8">
-            @if (notFound()) {
-                <div
-                    class="border-t p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
-                >
-                    {{ t('admin.orderGroups.detailPage.notFound') }}
-                </div>
-            } @else if (batch(); as b) {
-                <!-- Batch info -->
-                <section>
-                    <div class="mb-3 text-lg font-semibold">
-                        {{ t('admin.orderGroups.details.fields') }}
-                    </div>
-                    <div
-                        class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
-                    >
-                        @for (field of detailEntries(b); track field.label) {
-                            <div
-                                class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
-                            >
-                                <span
-                                    class="text-secondary text-xs font-medium uppercase tracking-wider"
-                                    >{{ field.label }}</span
+    <div class="flex flex-auto flex-col overflow-hidden">
+        @if (loading() && !batch()) {
+            <admin-loading-state />
+        } @else if (notFound()) {
+            <div
+                class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+            >
+                {{ t('admin.orderGroups.detailPage.notFound') }}
+            </div>
+        } @else if (batch(); as b) {
+            <mat-tab-group
+                class="flex flex-auto flex-col"
+                animationDuration="160ms"
+                [mat-stretch-tabs]="false"
+                mat-align-tabs="start"
+            >
+                <!-- Info -->
+                <mat-tab>
+                    <ng-template mat-tab-label>
+                        <span>{{ t('admin.orderGroups.tabs.info') }}</span>
+                    </ng-template>
+                    <div class="flex flex-col gap-6">
+                        <div class="text-xl font-semibold tracking-tight">
+                            {{ t('admin.orderGroups.details.fields') }}
+                        </div>
+                        <div
+                            class="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border bg-gray-200 dark:bg-gray-700 sm:grid-cols-3 lg:grid-cols-6"
+                        >
+                            @for (card of summaryCards(b); track card.label) {
+                                <div
+                                    class="bg-card flex min-w-0 flex-col gap-2 p-5"
                                 >
-                                <span class="min-w-0 break-words font-medium">{{
-                                    field.value
-                                }}</span>
-                            </div>
+                                    <span
+                                        class="text-secondary text-xs font-semibold uppercase tracking-wider"
+                                        >{{ card.label }}</span
+                                    >
+                                    <span
+                                        class="min-w-0 break-words text-lg font-semibold leading-snug"
+                                        >{{ card.value }}</span
+                                    >
+                                </div>
+                            }
+                        </div>
+
+                        @if (timelineEntries(b); as timeline) {
+                            @if (timeline.length) {
+                                <div class="rounded-2xl border">
+                                    <div class="border-b px-5 py-4">
+                                        <div
+                                            class="text-lg font-semibold tracking-tight"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.details.timeline'
+                                                )
+                                            }}
+                                        </div>
+                                    </div>
+                                    <div
+                                        class="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+                                    >
+                                        @for (
+                                            field of timeline;
+                                            track field.label
+                                        ) {
+                                            <div
+                                                class="bg-hover flex min-w-0 flex-col gap-1.5 rounded-xl px-4 py-3"
+                                            >
+                                                <span
+                                                    class="text-secondary text-xs font-semibold uppercase tracking-wider"
+                                                    >{{ field.label }}</span
+                                                >
+                                                <span
+                                                    class="min-w-0 break-words text-base font-semibold"
+                                                    >{{ field.value }}</span
+                                                >
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
                         }
                     </div>
-                </section>
+                </mat-tab>
 
                 <!-- Items -->
-                @if (itemsOf(b).length) {
-                    <section>
-                        <div class="mb-3 text-lg font-semibold">
-                            {{ t('admin.orderGroups.details.items') }}
-                        </div>
-                        <div class="overflow-x-auto rounded-xl border">
-                            <table
-                                class="w-full min-w-[40rem] text-left text-sm"
+                <mat-tab>
+                    <ng-template mat-tab-label>
+                        <span>{{ t('admin.orderGroups.tabs.items') }}</span>
+                        <span
+                            class="text-secondary ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold tabular-nums dark:bg-gray-700"
+                            >{{ itemCount() }}</span
+                        >
+                    </ng-template>
+                    @if (itemsOf(b).length) {
+                        <div class="grid min-w-0">
+                            <div
+                                class="order-group-items-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                             >
-                                <thead
-                                    class="text-secondary bg-gray-50 text-xs uppercase tracking-wide dark:bg-black dark:bg-opacity-5"
-                                >
-                                    <tr>
-                                        <th class="px-4 py-2">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.product'
-                                                )
-                                            }}
-                                        </th>
-                                        <th class="px-4 py-2 text-right">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.plannedQty'
-                                                )
-                                            }}
-                                        </th>
-                                        <th class="px-4 py-2 text-right">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.refPrice'
-                                                )
-                                            }}
-                                        </th>
-                                        <th class="px-4 py-2 text-right">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.actualQty'
-                                                )
-                                            }}
-                                        </th>
-                                        <th class="px-4 py-2 text-right">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.actualPrice'
-                                                )
-                                            }}
-                                        </th>
-                                        <th class="px-4 py-2">
-                                            {{
-                                                t(
-                                                    'admin.orderGroups.details.item.purchasedAt'
-                                                )
-                                            }}
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @for (item of itemsOf(b); track $index) {
-                                        <tr class="border-t">
-                                            <td class="px-4 py-2 font-medium">
-                                                {{
-                                                    item.productNameSnapshot ||
-                                                        item.marketProductId ||
-                                                        '—'
-                                                }}
-                                            </td>
-                                            <td
-                                                class="px-4 py-2 text-right tabular-nums"
-                                            >
-                                                {{ item.totalQuantity ?? '—' }}
-                                            </td>
-                                            <td
-                                                class="px-4 py-2 text-right tabular-nums"
-                                            >
-                                                {{
-                                                    money(
-                                                        item.referenceUnitPrice
-                                                    )
-                                                }}
-                                            </td>
-                                            <td
-                                                class="px-4 py-2 text-right tabular-nums"
-                                            >
-                                                {{ item.actualQuantity ?? '—' }}
-                                            </td>
-                                            <td
-                                                class="px-4 py-2 text-right tabular-nums"
-                                            >
-                                                {{
-                                                    money(item.actualUnitPrice)
-                                                }}
-                                            </td>
-                                            <td
-                                                class="text-secondary px-4 py-2"
-                                            >
-                                                {{
-                                                    formatDate(
-                                                        item.purchasedAt
-                                                    ) || '—'
-                                                }}
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </section>
-                }
+                                <div>
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.product'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.plannedQty'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.refPrice'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.actualQty'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.actualPrice'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.details.item.purchasedAt'
+                                        )
+                                    }}
+                                </div>
+                            </div>
 
-                <!-- Member orders -->
-                @if (membersOf(b).length) {
-                    <section>
-                        <div class="mb-3 text-lg font-semibold">
-                            {{ t('admin.orderGroups.details.members') }}
+                            @for (item of itemsOf(b); track $index) {
+                                <div
+                                    class="order-group-items-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
+                                >
+                                    <div class="min-w-0 truncate font-medium">
+                                        {{
+                                            item.productNameSnapshot ||
+                                                item.marketProductId ||
+                                                '—'
+                                        }}
+                                    </div>
+                                    <div class="text-right tabular-nums">
+                                        {{ item.totalQuantity ?? '—' }}
+                                    </div>
+                                    <div class="text-right tabular-nums">
+                                        {{ money(item.referenceUnitPrice) }}
+                                    </div>
+                                    <div class="text-right tabular-nums">
+                                        {{ item.actualQuantity ?? '—' }}
+                                    </div>
+                                    <div class="text-right tabular-nums">
+                                        {{ money(item.actualUnitPrice) }}
+                                    </div>
+                                    <div
+                                        class="text-secondary text-right text-sm"
+                                    >
+                                        {{
+                                            formatDate(item.purchasedAt) || '—'
+                                        }}
+                                    </div>
+                                </div>
+                            }
                         </div>
-                        <div class="flex flex-col gap-2">
-                            @for (member of membersOf(b); track $index) {
-                                <div class="rounded-xl border">
+                    } @else {
+                        <div
+                            class="text-secondary p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                        >
+                            {{ t('admin.orderGroups.details.itemsEmpty') }}
+                        </div>
+                    }
+                </mat-tab>
+
+                <!-- Members -->
+                <mat-tab>
+                    <ng-template mat-tab-label>
+                        <span>{{ t('admin.orderGroups.tabs.members') }}</span>
+                        <span
+                            class="text-secondary ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold tabular-nums dark:bg-gray-700"
+                            >{{ memberCount() }}</span
+                        >
+                    </ng-template>
+                    @if (ordersPrefetching()) {
+                        <mat-progress-bar
+                            mode="indeterminate"
+                        ></mat-progress-bar>
+                    }
+                    @if (membersOf(b).length) {
+                        <div class="grid min-w-0">
+                            <div
+                                class="order-group-orders-grid text-secondary sticky top-0 z-10 grid items-center gap-x-4 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:gap-x-6 md:px-8"
+                            >
+                                <div>
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.orderId'
+                                        )
+                                    }}
+                                </div>
+                                <div>
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.restaurant'
+                                        )
+                                    }}
+                                </div>
+                                <div>
+                                    {{
+                                        t('admin.orderGroups.orderField.status')
+                                    }}
+                                </div>
+                                <div class="hidden lg:block">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.paymentStatus'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.totalAmount'
+                                        )
+                                    }}
+                                </div>
+                                <div class="hidden text-right lg:block">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.itemCount'
+                                        )
+                                    }}
+                                </div>
+                                <div class="text-right">
+                                    {{
+                                        t(
+                                            'admin.orderGroups.orderField.scheduledFor'
+                                        )
+                                    }}
+                                </div>
+                                <div class="justify-self-end"></div>
+                            </div>
+
+                            @for (
+                                member of membersOf(b);
+                                track member.orderId || $index
+                            ) {
+                                <div class="border-b">
                                     <button
                                         type="button"
-                                        class="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm hover:bg-hover"
+                                        class="order-group-orders-grid grid w-full items-center gap-x-4 px-6 py-3 text-left hover:bg-hover md:gap-x-6 md:px-8"
                                         (click)="toggleOrder(member.orderId)"
                                     >
-                                        <span
-                                            class="flex items-center gap-2 font-mono"
+                                        <div
+                                            class="min-w-0 truncate font-mono text-sm font-medium"
+                                            [matTooltip]="member.orderId || ''"
                                         >
+                                            {{ member.orderId || '—' }}
+                                        </div>
+                                        <div
+                                            class="min-w-0 truncate font-medium"
+                                        >
+                                            {{ restaurantLabel(member) }}
+                                        </div>
+                                        <div>
+                                            <span
+                                                [class]="
+                                                    statusPillClass(
+                                                        orderStatus(member)
+                                                    )
+                                                "
+                                                >{{
+                                                    statusLabel(
+                                                        orderStatus(member)
+                                                    )
+                                                }}</span
+                                            >
+                                        </div>
+                                        <div
+                                            class="text-secondary hidden truncate text-sm lg:block"
+                                        >
+                                            {{ orderPayment(member) }}
+                                        </div>
+                                        <div
+                                            class="text-right font-medium tabular-nums"
+                                        >
+                                            {{ orderTotal(member) }}
+                                        </div>
+                                        <div
+                                            class="text-secondary hidden text-right tabular-nums lg:block"
+                                        >
+                                            {{ orderItemCount(member) }}
+                                        </div>
+                                        <div
+                                            class="text-secondary text-right text-sm"
+                                        >
+                                            {{ orderScheduled(member) }}
+                                        </div>
+                                        <div class="justify-self-end">
                                             <mat-icon
-                                                class="transition-transform icon-size-4"
+                                                class="text-secondary transition-transform icon-size-5"
                                                 [class.rotate-90]="
                                                     isOrderExpanded(
                                                         member.orderId
@@ -207,17 +417,13 @@
                                                 "
                                                 svgIcon="heroicons_outline:chevron-right"
                                             ></mat-icon>
-                                            {{ member.orderId || '—' }}
-                                        </span>
-                                        <span
-                                            [class]="
-                                                statusPillClass(member.status)
-                                            "
-                                            >{{ member.status || '—' }}</span
-                                        >
+                                        </div>
                                     </button>
+
                                     @if (isOrderExpanded(member.orderId)) {
-                                        <div class="border-t px-4 py-3">
+                                        <div
+                                            class="bg-gray-50 px-6 py-5 dark:bg-black dark:bg-opacity-5 md:px-8"
+                                        >
                                             @if (
                                                 isOrderLoading(member.orderId)
                                             ) {
@@ -228,34 +434,24 @@
                                                 orderDetail(member.orderId);
                                                 as od
                                             ) {
-                                                <div
-                                                    class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2 lg:grid-cols-3"
-                                                >
-                                                    @for (
-                                                        f of entriesOf(od);
-                                                        track f.label
-                                                    ) {
-                                                        <div
-                                                            class="flex min-w-0 flex-col border-b py-1"
+                                                @if (od.notes) {
+                                                    <div
+                                                        class="text-secondary mb-4 text-sm"
+                                                    >
+                                                        <span
+                                                            class="text-default font-semibold"
+                                                            >{{
+                                                                t(
+                                                                    'admin.orderGroups.orderField.notes'
+                                                                )
+                                                            }}:</span
                                                         >
-                                                            <span
-                                                                class="text-secondary text-xs uppercase tracking-wider"
-                                                                >{{
-                                                                    f.label
-                                                                }}</span
-                                                            >
-                                                            <span
-                                                                class="min-w-0 break-words"
-                                                                >{{
-                                                                    f.value
-                                                                }}</span
-                                                            >
-                                                        </div>
-                                                    }
-                                                </div>
+                                                        {{ od.notes }}
+                                                    </div>
+                                                }
                                                 @if (orderItemsOf(od).length) {
                                                     <div
-                                                        class="mb-1 mt-4 text-sm font-semibold"
+                                                        class="text-secondary mb-3 text-sm font-semibold"
                                                     >
                                                         {{
                                                             t(
@@ -263,123 +459,121 @@
                                                             )
                                                         }}
                                                     </div>
-                                                    <div
-                                                        class="overflow-x-auto rounded-lg border"
-                                                    >
-                                                        <table
-                                                            class="w-full min-w-[34rem] text-left text-sm"
+                                                    <div class="grid min-w-0">
+                                                        <div
+                                                            class="order-group-order-items-grid text-secondary grid items-center gap-x-4 border-b px-2 py-2 text-sm font-semibold md:gap-x-6"
                                                         >
-                                                            <thead
-                                                                class="text-secondary bg-gray-50 text-xs uppercase dark:bg-black dark:bg-opacity-5"
+                                                            <div>
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.details.item.product'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-right"
                                                             >
-                                                                <tr>
-                                                                    <th
-                                                                        class="px-3 py-2"
-                                                                    >
-                                                                        {{
-                                                                            t(
-                                                                                'admin.orderGroups.details.item.product'
-                                                                            )
-                                                                        }}
-                                                                    </th>
-                                                                    <th
-                                                                        class="px-3 py-2 text-right"
-                                                                    >
-                                                                        {{
-                                                                            t(
-                                                                                'admin.orderGroups.orderDetail.qty'
-                                                                            )
-                                                                        }}
-                                                                    </th>
-                                                                    <th
-                                                                        class="px-3 py-2 text-right"
-                                                                    >
-                                                                        {{
-                                                                            t(
-                                                                                'admin.orderGroups.orderDetail.unitPrice'
-                                                                            )
-                                                                        }}
-                                                                    </th>
-                                                                    <th
-                                                                        class="px-3 py-2 text-right"
-                                                                    >
-                                                                        {{
-                                                                            t(
-                                                                                'admin.orderGroups.orderDetail.subtotal'
-                                                                            )
-                                                                        }}
-                                                                    </th>
-                                                                    <th
-                                                                        class="px-3 py-2 text-right"
-                                                                    >
-                                                                        {{
-                                                                            t(
-                                                                                'admin.orderGroups.details.item.actualQty'
-                                                                            )
-                                                                        }}
-                                                                    </th>
-                                                                </tr>
-                                                            </thead>
-                                                            <tbody>
-                                                                @for (
-                                                                    it of orderItemsOf(
-                                                                        od
-                                                                    );
-                                                                    track $index
-                                                                ) {
-                                                                    <tr
-                                                                        class="border-t"
-                                                                    >
-                                                                        <td
-                                                                            class="px-3 py-2 font-medium"
-                                                                        >
-                                                                            {{
-                                                                                it.productNameSnapshot ||
-                                                                                    it.marketProductId ||
-                                                                                    '—'
-                                                                            }}
-                                                                        </td>
-                                                                        <td
-                                                                            class="px-3 py-2 text-right tabular-nums"
-                                                                        >
-                                                                            {{
-                                                                                it.quantity ??
-                                                                                    '—'
-                                                                            }}
-                                                                        </td>
-                                                                        <td
-                                                                            class="px-3 py-2 text-right tabular-nums"
-                                                                        >
-                                                                            {{
-                                                                                money(
-                                                                                    it.unitPrice
-                                                                                )
-                                                                            }}
-                                                                        </td>
-                                                                        <td
-                                                                            class="px-3 py-2 text-right tabular-nums"
-                                                                        >
-                                                                            {{
-                                                                                money(
-                                                                                    it.subtotal
-                                                                                )
-                                                                            }}
-                                                                        </td>
-                                                                        <td
-                                                                            class="px-3 py-2 text-right tabular-nums"
-                                                                        >
-                                                                            {{
-                                                                                it.actualQuantity ??
-                                                                                    '—'
-                                                                            }}
-                                                                        </td>
-                                                                    </tr>
-                                                                }
-                                                            </tbody>
-                                                        </table>
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.orderDetail.qty'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-right"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.orderDetail.unitPrice'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-right"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.orderDetail.subtotal'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                            <div
+                                                                class="text-right"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.details.item.actualQty'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                        </div>
+                                                        @for (
+                                                            it of orderItemsOf(
+                                                                od
+                                                            );
+                                                            track $index
+                                                        ) {
+                                                            <div
+                                                                class="order-group-order-items-grid grid items-center gap-x-4 border-b px-2 py-2.5 md:gap-x-6"
+                                                            >
+                                                                <div
+                                                                    class="min-w-0 truncate font-medium"
+                                                                >
+                                                                    {{
+                                                                        it.productNameSnapshot ||
+                                                                            it.marketProductId ||
+                                                                            '—'
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="text-right tabular-nums"
+                                                                >
+                                                                    {{
+                                                                        it.quantity ??
+                                                                            '—'
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="text-right tabular-nums"
+                                                                >
+                                                                    {{
+                                                                        money(
+                                                                            it.unitPrice
+                                                                        )
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="text-right tabular-nums"
+                                                                >
+                                                                    {{
+                                                                        money(
+                                                                            it.subtotal
+                                                                        )
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="text-right tabular-nums"
+                                                                >
+                                                                    {{
+                                                                        it.actualQuantity ??
+                                                                            '—'
+                                                                    }}
+                                                                </div>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                } @else {
+                                                    <div
+                                                        class="text-secondary text-sm"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.orderDetail.itemsEmpty'
+                                                            )
+                                                        }}
                                                     </div>
                                                 }
-                                            } @else {
+                                            } @else if (!ordersPrefetching()) {
                                                 <div
                                                     class="text-secondary text-sm"
                                                 >
@@ -395,39 +589,167 @@
                                 </div>
                             }
                         </div>
-                    </section>
-                }
+                    } @else {
+                        <div
+                            class="text-secondary flex flex-auto items-center justify-center p-12 text-center text-base"
+                        >
+                            {{ t('admin.orderGroups.details.membersEmpty') }}
+                        </div>
+                    }
+                </mat-tab>
 
                 <!-- Exceptions -->
-                @if (exceptionsOf(b).length) {
-                    <section>
-                        <div class="mb-3 text-lg font-semibold">
+                <mat-tab>
+                    <ng-template mat-tab-label>
+                        <span>{{
+                            t('admin.orderGroups.tabs.exceptions')
+                        }}</span>
+                        <span
+                            class="text-secondary ml-2 rounded-full bg-gray-200 px-2 py-0.5 text-xs font-bold tabular-nums dark:bg-gray-700"
+                            >{{ exceptionCount() }}</span
+                        >
+                    </ng-template>
+                    <div class="flex min-w-0 flex-col gap-4">
+                        <div class="text-xl font-semibold tracking-tight">
                             {{ t('admin.orderGroups.details.exceptions') }}
                         </div>
-                        <div class="flex flex-col gap-2">
-                            @for (ex of exceptionsOf(b); track $index) {
-                                <div
-                                    class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-xl border p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
-                                >
-                                    @for (f of entriesOf(ex); track f.label) {
-                                        <div
-                                            class="flex min-w-0 flex-col border-b py-1"
-                                        >
-                                            <span
-                                                class="text-secondary text-xs uppercase tracking-wider"
-                                                >{{ f.label }}</span
+                        @if (exceptionsOf(b).length) {
+                            <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                                @for (ex of exceptionsOf(b); track $index) {
+                                    <div class="rounded-2xl border">
+                                        <div class="p-5 md:p-6">
+                                            <div class="mb-5">
+                                                <span
+                                                    class="admin-pill admin-pill-warning admin-pill-lg"
+                                                    >{{
+                                                        exceptionTypeLabel(
+                                                            $any(
+                                                                ex['type'] ??
+                                                                    ex[
+                                                                        'exceptionType'
+                                                                    ]
+                                                            )
+                                                        )
+                                                    }}</span
+                                                >
+                                            </div>
+                                            <div
+                                                class="grid grid-cols-1 gap-3 sm:grid-cols-2"
                                             >
-                                            <span class="min-w-0 break-words">{{
-                                                f.value
-                                            }}</span>
+                                                @for (
+                                                    f of exceptionEntries(ex);
+                                                    track f.label
+                                                ) {
+                                                    @if (
+                                                        f.label !==
+                                                        t(
+                                                            'admin.orderGroups.exception.type'
+                                                        )
+                                                    ) {
+                                                        <div
+                                                            class="bg-hover flex min-w-0 flex-col gap-1.5 rounded-xl px-4 py-3"
+                                                        >
+                                                            <span
+                                                                class="text-secondary text-xs font-semibold uppercase tracking-wider"
+                                                                >{{
+                                                                    f.label
+                                                                }}</span
+                                                            >
+                                                            <span
+                                                                class="min-w-0 break-words text-base font-semibold"
+                                                                >{{
+                                                                    f.value
+                                                                }}</span
+                                                            >
+                                                        </div>
+                                                    }
+                                                }
+                                            </div>
                                         </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </section>
-                }
-            }
-        </div>
+                                    </div>
+                                }
+                            </div>
+                        } @else {
+                            <div
+                                class="text-secondary rounded-2xl border border-dashed px-6 py-12 text-center text-base"
+                            >
+                                {{
+                                    t(
+                                        'admin.orderGroups.details.exceptionsEmpty'
+                                    )
+                                }}
+                            </div>
+                        }
+                    </div>
+                </mat-tab>
+            </mat-tab-group>
+        }
     </div>
 </div>
+
+<!-- Cancel batch dialog -->
+<ng-template #cancelDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.orderGroups.cancel.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeCancel()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            <p class="text-secondary text-sm">
+                {{ t('admin.orderGroups.cancel.message') }}
+            </p>
+            <div class="mt-2 break-all font-mono text-base font-medium">
+                {{ detailTitle() }}
+            </div>
+            <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.orderGroups.cancel.reason')
+                }}</mat-label>
+                <textarea
+                    matInput
+                    rows="3"
+                    [formControl]="cancelReason"
+                    [placeholder]="
+                        t('admin.orderGroups.cancel.reasonPlaceholder')
+                    "
+                ></textarea>
+            </mat-form-field>
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeCancel()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="warn"
+                    type="button"
+                    [disabled]="cancelSaving()"
+                    (click)="confirmCancel()"
+                >
+                    {{ t('admin.orderGroups.cancel.confirm') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>

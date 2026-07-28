@@ -181,6 +181,7 @@ export interface AdminOrderItem {
 export interface AdminOrderDetail {
     orderId?: string | null;
     restaurantId?: string | null;
+    restaurantName?: string | null;
     status?: string | null;
     paymentStatus?: string | null;
     scheduledFor?: string | null;
@@ -188,32 +189,40 @@ export interface AdminOrderDetail {
     notes?: string | null;
     items?: AdminOrderItem[] | null;
     createdAt?: string | null;
+    cancelledAt?: string | null;
+    cancellationReason?: string | null;
     [key: string]: unknown;
 }
+
+/** Filters for `GET /orders` (M5 Orders — Admin sees every restaurant's orders). */
+export interface AdminOrderListFilters {
+    restaurantId?: string;
+    status?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    pageSize?: number;
+}
+
+export interface AdminOrdersResult {
+    orders: AdminOrderDetail[];
+    totalCount: number;
+    page?: number;
+    pageSize?: number;
+}
+
+/** Order statuses the backend rejects a cancel for (BR: §PATCH /orders/{id}/cancel). */
+export const ORDER_NOT_CANCELLABLE_STATUSES = new Set([
+    'processing',
+    'in_transit',
+    'delivered',
+]);
 
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];
     totalCount: number;
     page?: number;
     pageSize?: number;
-}
-
-/** Live batching summary for a day (`GET /admin/order-groups/progress`). */
-export interface AdminOrderGroupProgressSummary {
-    batchDate?: string | null;
-    totalBatches?: number | null;
-    /** Count of batches per status, e.g. `{ Built: 1, Purchasing: 2 }`. */
-    statusCounts?: Record<string, number> | null;
-    totalItems?: number | null;
-    itemsPurchased?: number | null;
-    itemsPending?: number | null;
-    openExceptions?: number | null;
-    [key: string]: unknown;
-}
-
-export interface AdminOrderGroupProgress {
-    summary: AdminOrderGroupProgressSummary;
-    batches: AdminOrderGroupRow[];
 }
 
 export interface AdminAutoBatchPayload {
@@ -297,4 +306,31 @@ export interface AdminCreditTransaction {
 export interface AdminGenerateStatementPayload {
     year: number;
     month: number;
+}
+
+/** Filters for `GET /invoices` (financial oversight, admin = R). */
+export interface AdminInvoiceFilters {
+    restaurantId?: string;
+    status?: string;
+    page?: number;
+    pageSize?: number;
+}
+
+/** One invoice row (`GET /invoices`, untyped envelope). */
+export interface AdminInvoiceRow {
+    id: string;
+    restaurantId?: string | null;
+    restaurantName?: string | null;
+    status?: string | null;
+    totalAmount?: number | null;
+    issuedAt?: string | null;
+    dueAt?: string | null;
+    [key: string]: unknown;
+}
+
+export interface AdminInvoicesResult {
+    invoices: AdminInvoiceRow[];
+    totalCount: number;
+    page?: number;
+    pageSize?: number;
 }

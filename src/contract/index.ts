@@ -22,10 +22,12 @@ import {
     HubInboundApi,
     HubStaffAssignmentsApi,
     HubsApi,
+    InvoicesApi,
     MarketsApi,
     NotificationApi,
     NotificationDeviceApi,
     OrdersApi,
+    PackingCodesApi,
     PricingApi,
     ProcurementApi,
     ProductsApi,
@@ -57,12 +59,14 @@ export const hubStaffAssignmentsApi = new HubStaffAssignmentsApi(
     apiConfiguration
 );
 export const hubsApi = new HubsApi(apiConfiguration);
+export const invoicesApi = new InvoicesApi(apiConfiguration);
 export const marketsApi = new MarketsApi(apiConfiguration);
 export const notificationApi = new NotificationApi(apiConfiguration);
 export const notificationDeviceApi = new NotificationDeviceApi(
     apiConfiguration
 );
 export const ordersApi = new OrdersApi(apiConfiguration);
+export const packingCodesApi = new PackingCodesApi(apiConfiguration);
 export const pricingApi = new PricingApi(apiConfiguration);
 export const procurementApi = new ProcurementApi(apiConfiguration);
 export const productsApi = new ProductsApi(apiConfiguration);

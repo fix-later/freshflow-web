@@ -1,287 +1,449 @@
-<div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
-    *transloco="let t"
->
-    <!-- Header -->
-    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
-        @if (loading()) {
-            <div class="absolute inset-x-0 bottom-0">
-                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            </div>
-        }
+@if (pageMode === 'create') {
+    <div
+        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+        *transloco="let t"
+    >
         <div
-            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+            class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
         >
-            <div class="min-w-0">
-                <div class="text-4xl font-extrabold tracking-tight">
-                    {{ t(resource.title) }}
+            @if (saving()) {
+                <div class="absolute inset-x-0 bottom-0">
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
                 </div>
-            </div>
-            <div
-                class="flex min-w-0 shrink flex-wrap items-center gap-2 sm:gap-3"
-            >
-                @if (resource.searchKeys?.length) {
-                    <mat-form-field
-                        class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
-                        subscriptSizing="dynamic"
-                    >
-                        <mat-icon
-                            class="icon-size-5"
-                            matPrefix
-                            svgIcon="heroicons_solid:magnifying-glass"
-                        ></mat-icon>
-                        <input
-                            matInput
-                            class="overflow-hidden text-ellipsis whitespace-nowrap"
-                            autocomplete="off"
-                            [value]="search()"
-                            [placeholder]="
-                                resource.searchPlaceholder
-                                    ? t(resource.searchPlaceholder)
-                                    : t('admin.crud.search')
-                            "
-                            (input)="onSearch($any($event.target).value)"
-                        />
-                    </mat-form-field>
-                }
-                @for (action of resource.headerActions; track action.label) {
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        (click)="action.run(rows(), reload)"
-                    >
-                        <mat-icon
-                            [svgIcon]="'heroicons_outline:' + action.icon"
-                        ></mat-icon>
-                        <span class="ml-2 mr-1">{{ t(action.label) }}</span>
-                    </button>
-                }
+            }
+            <div class="flex min-w-0 items-center gap-3">
                 <button
-                    mat-flat-button
-                    color="primary"
+                    mat-icon-button
                     type="button"
-                    (click)="openCreate()"
+                    [matTooltip]="t('admin.crud.createPage.back')"
+                    (click)="goBack()"
                 >
-                    <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-                    <span class="ml-2 mr-1">{{ t(resource.createLabel) }}</span>
+                    <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
                 </button>
+                <div class="min-w-0">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t(resource.title) }}
+                    </div>
+                    <div
+                        class="truncate text-2xl font-extrabold tracking-tight"
+                    >
+                        {{ t(resource.createLabel) }}
+                    </div>
+                </div>
             </div>
         </div>
 
-        @if (resource.filters?.length) {
-            <div class="mt-6 flex flex-wrap items-end gap-3">
-                @for (filter of resource.filters; track filter.name) {
-                    <mat-form-field
-                        class="fuse-mat-dense w-56"
-                        subscriptSizing="dynamic"
+        <div class="flex flex-auto overflow-hidden">
+            <div class="flex flex-auto flex-col overflow-y-auto p-6 md:p-8">
+                @if (form) {
+                    <form
+                        class="flex w-full max-w-4xl flex-col gap-6"
+                        [formGroup]="form"
+                        (ngSubmit)="save()"
                     >
-                        <mat-label>{{ t(filter.label) }}</mat-label>
-                        <mat-icon
-                            matPrefix
-                            svgIcon="heroicons_outline:funnel"
-                        ></mat-icon>
-                        <mat-select
-                            [value]="filterValues()[filter.name] ?? ''"
-                            (selectionChange)="
-                                onFilterChange(filter, $event.value)
-                            "
+                        <div [class]="dialogFieldsLayoutClass">
+                            <ng-container
+                                *ngTemplateOutlet="crudFields"
+                            ></ng-container>
+                        </div>
+                        <div
+                            class="flex w-full flex-wrap items-center justify-end gap-3 border-t pt-4"
                         >
-                            <mat-option [value]="''">{{
-                                t('admin.crud.filterAll')
-                            }}</mat-option>
-                            @for (
-                                opt of filterOptions()[filter.name];
-                                track opt.value
-                            ) {
-                                <mat-option [value]="opt.value">{{
-                                    opt.label
-                                }}</mat-option>
-                            }
-                        </mat-select>
-                    </mat-form-field>
-                }
-
-                @if (hasActiveFilters()) {
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        (click)="clearFilters()"
-                    >
-                        <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
-                        <span class="ml-2 mr-1">{{
-                            t('admin.crud.clearFilters')
-                        }}</span>
-                    </button>
-                }
-            </div>
-        }
-    </div>
-
-    <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
-        <div
-            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
-        >
-            @if (filteredRows().length > 0) {
-                <div class="grid">
-                    <!-- Header -->
-                    <div
-                        class="text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
-                        [style.grid-template-columns]="gridTemplateColumns"
-                    >
-                        @for (col of resource.columns; track col.label) {
-                            <div
-                                [attr.aria-sort]="
-                                    col.sortable
-                                        ? sort.ariaSort(col.label)
-                                        : null
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                [disabled]="saving()"
+                                (click)="goBack()"
+                            >
+                                {{ t('admin.crud.cancel') }}
+                            </button>
+                            <button
+                                mat-flat-button
+                                color="primary"
+                                type="submit"
+                                [disabled]="
+                                    form.invalid || saving() || anyUploading
                                 "
                             >
-                                @if (col.sortable) {
-                                    <button
-                                        type="button"
-                                        class="admin-sort-header"
-                                        (click)="sort.toggle(col.label)"
-                                    >
-                                        {{ t(col.label) }}
-                                        <mat-icon
-                                            class="icon-size-4"
-                                            [class.text-accent]="
-                                                sort.key() === col.label
-                                            "
-                                            [svgIcon]="
-                                                'heroicons_outline:' +
-                                                sort.icon(col.label)
-                                            "
-                                        ></mat-icon>
-                                    </button>
-                                } @else {
-                                    {{ t(col.label) }}
-                                }
-                            </div>
-                        }
-                        <div [attr.aria-sort]="sort.ariaSort(STATUS_SORT_KEY)">
-                            <button
-                                type="button"
-                                class="admin-sort-header"
-                                (click)="sort.toggle(STATUS_SORT_KEY)"
-                            >
-                                {{ t('admin.users.filters.status') }}
-                                <mat-icon
-                                    class="icon-size-4"
-                                    [class.text-accent]="
-                                        sort.key() === STATUS_SORT_KEY
-                                    "
-                                    [svgIcon]="
-                                        'heroicons_outline:' +
-                                        sort.icon(STATUS_SORT_KEY)
-                                    "
-                                ></mat-icon>
+                                {{ t('admin.crud.save') }}
                             </button>
                         </div>
-                        @if (usesInlineDetail && resource.rowActions?.length) {
-                            <div></div>
-                        }
-                        @if (usesInlineDetail) {
-                            <div class="text-right">
-                                {{ t('admin.crud.details') }}
-                            </div>
-                        } @else {
-                            <div class="text-right">
-                                {{ t('admin.users.table.actions') }}
-                            </div>
-                        }
+                    </form>
+                }
+            </div>
+        </div>
+    </div>
+} @else {
+    <div
+        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+        *transloco="let t"
+    >
+        <!-- Header -->
+        <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+            @if (loading()) {
+                <div class="absolute inset-x-0 bottom-0">
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                </div>
+            }
+            <div
+                class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+                <div class="min-w-0">
+                    <div class="text-4xl font-extrabold tracking-tight">
+                        {{ t(resource.title) }}
                     </div>
+                </div>
+                <div
+                    class="flex min-w-0 shrink flex-wrap items-center gap-2 sm:gap-3"
+                >
+                    @if (resource.searchKeys?.length) {
+                        <mat-form-field
+                            class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                matPrefix
+                                svgIcon="heroicons_solid:magnifying-glass"
+                            ></mat-icon>
+                            <input
+                                matInput
+                                class="overflow-hidden text-ellipsis whitespace-nowrap"
+                                autocomplete="off"
+                                [value]="search()"
+                                [placeholder]="
+                                    resource.searchPlaceholder
+                                        ? t(resource.searchPlaceholder)
+                                        : t('admin.crud.search')
+                                "
+                                (input)="onSearch($any($event.target).value)"
+                            />
+                        </mat-form-field>
+                    }
+                    @for (
+                        action of resource.headerActions;
+                        track action.label
+                    ) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="action.run(rows(), reload)"
+                        >
+                            <mat-icon
+                                [svgIcon]="'heroicons_outline:' + action.icon"
+                            ></mat-icon>
+                            <span class="ml-2 mr-1">{{ t(action.label) }}</span>
+                        </button>
+                    }
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        (click)="openCreate()"
+                    >
+                        <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                        <span class="ml-2 mr-1">{{
+                            t(resource.createLabel)
+                        }}</span>
+                    </button>
+                </div>
+            </div>
 
-                    <!-- Rows -->
-                    @for (row of pagedRows(); track row.id) {
+            @if (resource.filters?.length) {
+                <div class="mt-6 flex flex-wrap items-end gap-3">
+                    @for (filter of resource.filters; track filter.name) {
+                        <mat-form-field
+                            class="fuse-mat-dense w-56"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{ t(filter.label) }}</mat-label>
+                            <mat-icon
+                                matPrefix
+                                svgIcon="heroicons_outline:funnel"
+                            ></mat-icon>
+                            <mat-select
+                                [value]="filterValues()[filter.name] ?? ''"
+                                (selectionChange)="
+                                    onFilterChange(filter, $event.value)
+                                "
+                            >
+                                <mat-option [value]="''">{{
+                                    t('admin.crud.filterAll')
+                                }}</mat-option>
+                                @for (
+                                    opt of filterOptions()[filter.name];
+                                    track opt.value
+                                ) {
+                                    <mat-option [value]="opt.value">{{
+                                        opt.label
+                                    }}</mat-option>
+                                }
+                            </mat-select>
+                        </mat-form-field>
+                    }
+
+                    @if (hasActiveFilters()) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="clearFilters()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:x-mark"
+                            ></mat-icon>
+                            <span class="ml-2 mr-1">{{
+                                t('admin.crud.clearFilters')
+                            }}</span>
+                        </button>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Main -->
+        <div class="flex flex-auto overflow-hidden">
+            <div
+                class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+            >
+                @if (filteredRows().length > 0) {
+                    <div class="grid">
+                        <!-- Header -->
                         <div
-                            class="grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                            class="text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                             [style.grid-template-columns]="gridTemplateColumns"
                         >
-                            @for (
-                                col of resource.columns;
-                                track col.label;
-                                let i = $index
+                            @for (col of resource.columns; track col.label) {
+                                <div
+                                    [attr.aria-sort]="
+                                        col.sortable
+                                            ? sort.ariaSort(col.label)
+                                            : null
+                                    "
+                                >
+                                    @if (col.sortable) {
+                                        <button
+                                            type="button"
+                                            class="admin-sort-header"
+                                            (click)="sort.toggle(col.label)"
+                                        >
+                                            {{ t(col.label) }}
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [class.text-accent]="
+                                                    sort.key() === col.label
+                                                "
+                                                [svgIcon]="
+                                                    'heroicons_outline:' +
+                                                    sort.icon(col.label)
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                    } @else {
+                                        {{ t(col.label) }}
+                                    }
+                                </div>
+                            }
+                            <div
+                                [attr.aria-sort]="
+                                    sort.ariaSort(STATUS_SORT_KEY)
+                                "
+                            >
+                                <button
+                                    type="button"
+                                    class="admin-sort-header"
+                                    (click)="sort.toggle(STATUS_SORT_KEY)"
+                                >
+                                    {{ t('admin.users.filters.status') }}
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [class.text-accent]="
+                                            sort.key() === STATUS_SORT_KEY
+                                        "
+                                        [svgIcon]="
+                                            'heroicons_outline:' +
+                                            sort.icon(STATUS_SORT_KEY)
+                                        "
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                            @if (
+                                (usesInlineDetail || usesPageDetail) &&
+                                resource.rowActions?.length
                             ) {
-                                @if (col.image) {
-                                    <div>
-                                        @if (col.cell(row)) {
-                                            <img
-                                                [src]="col.cell(row)"
-                                                [alt]="t(col.label)"
-                                                class="h-10 w-10 rounded-lg object-cover"
-                                            />
-                                        } @else {
-                                            <div
-                                                class="text-secondary bg-hover flex h-10 w-10 items-center justify-center rounded-lg"
+                                <div></div>
+                            }
+                            @if (usesInlineDetail || usesPageDetail) {
+                                <div class="text-right">
+                                    {{ t('admin.crud.details') }}
+                                </div>
+                            } @else {
+                                <div class="text-right">
+                                    {{ t('admin.users.table.actions') }}
+                                </div>
+                            }
+                        </div>
+
+                        <!-- Rows -->
+                        @for (row of pagedRows(); track row.id) {
+                            <div
+                                class="grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                                [style.grid-template-columns]="
+                                    gridTemplateColumns
+                                "
+                            >
+                                @for (
+                                    col of resource.columns;
+                                    track col.label;
+                                    let i = $index
+                                ) {
+                                    @if (col.image) {
+                                        <div>
+                                            @if (col.cell(row)) {
+                                                <img
+                                                    [src]="col.cell(row)"
+                                                    [alt]="t(col.label)"
+                                                    class="h-10 w-10 rounded-lg object-cover"
+                                                />
+                                            } @else {
+                                                <div
+                                                    class="text-secondary bg-hover flex h-10 w-10 items-center justify-center rounded-lg"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4"
+                                                        svgIcon="heroicons_outline:photo"
+                                                    ></mat-icon>
+                                                </div>
+                                            }
+                                        </div>
+                                    } @else if (col.assign) {
+                                        <div class="min-w-0">
+                                            <button
+                                                class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
+                                                mat-stroked-button
+                                                type="button"
+                                                [matTooltip]="col.cell(row)"
+                                                (click)="
+                                                    openAssignDialog(row, col)
+                                                "
                                             >
                                                 <mat-icon
-                                                    class="icon-size-4"
-                                                    svgIcon="heroicons_outline:photo"
+                                                    class="flex-shrink-0 icon-size-5"
+                                                    svgIcon="heroicons_outline:user"
                                                 ></mat-icon>
-                                            </div>
-                                        }
-                                    </div>
-                                } @else if (col.assign) {
-                                    <div class="min-w-0">
+                                                <span
+                                                    class="agent-label ml-1"
+                                                    >{{
+                                                        col.cell(row) ||
+                                                            t(
+                                                                col.assign
+                                                                    .noneLabel
+                                                            )
+                                                    }}</span
+                                                >
+                                            </button>
+                                        </div>
+                                    } @else {
+                                        <div
+                                            class="min-w-0 truncate"
+                                            [class.font-medium]="
+                                                i === nameColumnIndex
+                                            "
+                                        >
+                                            {{ col.cell(row) || '—' }}
+                                        </div>
+                                    }
+                                }
+
+                                <div>
+                                    @if (isInactive(row)) {
+                                        <span
+                                            class="admin-pill admin-pill-neutral"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.users.filters.inactive'
+                                                )
+                                            }}
+                                        </span>
+                                    } @else {
+                                        <span
+                                            class="admin-pill admin-pill-success"
+                                        >
+                                            {{
+                                                t('admin.users.filters.active')
+                                            }}
+                                        </span>
+                                    }
+                                </div>
+
+                                @if (usesInlineDetail || usesPageDetail) {
+                                    @if (resource.rowActions?.length) {
+                                        <div class="flex items-center gap-1">
+                                            @for (
+                                                action of resource.rowActions;
+                                                track action.icon
+                                            ) {
+                                                <button
+                                                    class="h-7 min-h-7 px-2 leading-6"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    [matTooltip]="
+                                                        t(action.tooltip)
+                                                    "
+                                                    (click)="action.run(row)"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:' +
+                                                            action.icon
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                        </div>
+                                    }
+
+                                    <div class="flex justify-end">
                                         <button
-                                            class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
+                                            class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                             mat-stroked-button
                                             type="button"
-                                            [matTooltip]="col.cell(row)"
-                                            (click)="openAssignDialog(row, col)"
+                                            [matTooltip]="
+                                                usesPageDetail
+                                                    ? t('admin.crud.edit')
+                                                    : null
+                                            "
+                                            (click)="toggleDetails(row)"
                                         >
                                             <mat-icon
-                                                class="flex-shrink-0 icon-size-5"
-                                                svgIcon="heroicons_outline:user"
+                                                class="icon-size-5"
+                                                [svgIcon]="
+                                                    usesPageDetail
+                                                        ? 'heroicons_outline:arrow-right'
+                                                        : selectedId() ===
+                                                            row.id
+                                                          ? 'heroicons_solid:chevron-up'
+                                                          : 'heroicons_solid:chevron-down'
+                                                "
                                             ></mat-icon>
-                                            <span class="agent-label ml-1">{{
-                                                col.cell(row) ||
-                                                    t(col.assign.noneLabel)
-                                            }}</span>
                                         </button>
                                     </div>
                                 } @else {
                                     <div
-                                        class="min-w-0 truncate"
-                                        [class.font-medium]="
-                                            i === nameColumnIndex
-                                        "
+                                        class="flex items-center justify-end gap-1"
                                     >
-                                        {{ col.cell(row) || '—' }}
-                                    </div>
-                                }
-                            }
-
-                            <div>
-                                @if (isInactive(row)) {
-                                    <span class="admin-pill admin-pill-neutral">
-                                        {{ t('admin.users.filters.inactive') }}
-                                    </span>
-                                } @else {
-                                    <span class="admin-pill admin-pill-success">
-                                        {{ t('admin.users.filters.active') }}
-                                    </span>
-                                }
-                            </div>
-
-                            @if (usesInlineDetail) {
-                                @if (resource.rowActions?.length) {
-                                    <div class="flex items-center gap-1">
                                         @for (
                                             action of resource.rowActions;
                                             track action.icon
                                         ) {
                                             <button
-                                                class="h-7 min-h-7 px-2 leading-6"
-                                                mat-stroked-button
+                                                mat-icon-button
                                                 type="button"
                                                 [matTooltip]="t(action.tooltip)"
                                                 (click)="action.run(row)"
                                             >
                                                 <mat-icon
-                                                    class="icon-size-5"
                                                     [svgIcon]="
                                                         'heroicons_outline:' +
                                                         action.icon
@@ -289,198 +451,177 @@
                                                 ></mat-icon>
                                             </button>
                                         }
-                                    </div>
-                                }
-
-                                <div class="flex justify-end">
-                                    <button
-                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                        mat-stroked-button
-                                        type="button"
-                                        (click)="toggleDetails(row)"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            [svgIcon]="
-                                                selectedId() === row.id
-                                                    ? 'heroicons_solid:chevron-up'
-                                                    : 'heroicons_solid:chevron-down'
-                                            "
-                                        ></mat-icon>
-                                    </button>
-                                </div>
-                            } @else {
-                                <div
-                                    class="flex items-center justify-end gap-1"
-                                >
-                                    @for (
-                                        action of resource.rowActions;
-                                        track action.icon
-                                    ) {
                                         <button
                                             mat-icon-button
                                             type="button"
-                                            [matTooltip]="t(action.tooltip)"
-                                            (click)="action.run(row)"
+                                            [matTooltip]="t('admin.crud.edit')"
+                                            (click)="openEdit(row)"
                                         >
                                             <mat-icon
-                                                [svgIcon]="
-                                                    'heroicons_outline:' +
-                                                    action.icon
-                                                "
+                                                svgIcon="heroicons_outline:pencil-square"
                                             ></mat-icon>
                                         </button>
-                                    }
-                                    <button
-                                        mat-icon-button
-                                        type="button"
-                                        [matTooltip]="t('admin.crud.edit')"
-                                        (click)="openEdit(row)"
-                                    >
-                                        <mat-icon
-                                            svgIcon="heroicons_outline:pencil-square"
-                                        ></mat-icon>
-                                    </button>
-                                    @if (resource.remove) {
-                                        <button
-                                            mat-icon-button
-                                            type="button"
-                                            [disabled]="
-                                                isAlreadyInactive(row) &&
-                                                !isReactivate(row)
-                                            "
-                                            [matTooltip]="
-                                                t(removeTooltipFor(row))
-                                            "
-                                            (click)="remove(row)"
-                                        >
-                                            <mat-icon
-                                                [svgIcon]="
-                                                    'heroicons_outline:' +
-                                                    removeIconFor(row)
-                                                "
-                                            ></mat-icon>
-                                        </button>
-                                    }
-                                </div>
-                            }
-                        </div>
-
-                        @if (
-                            usesInlineDetail && selectedId() === row.id && form
-                        ) {
-                            <div
-                                class="overflow-hidden shadow-lg"
-                                (animate.enter)="expandOnEnter($event)"
-                                (animate.leave)="collapseOnLeave($event)"
-                            >
-                                <form
-                                    class="flex w-full flex-col"
-                                    [formGroup]="form"
-                                    (ngSubmit)="save()"
-                                >
-                                    <div
-                                        class="p-6 md:p-8"
-                                        [class]="fieldsLayoutClass"
-                                    >
-                                        <ng-container
-                                            *ngTemplateOutlet="crudFields"
-                                        ></ng-container>
-                                    </div>
-
-                                    <div
-                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
-                                    >
                                         @if (resource.remove) {
                                             <button
-                                                class="-ml-2"
-                                                mat-button
-                                                color="warn"
+                                                mat-icon-button
                                                 type="button"
                                                 [disabled]="
-                                                    (isAlreadyInactive(row) &&
-                                                        !isReactivate(row)) ||
-                                                    saving()
+                                                    isAlreadyInactive(row) &&
+                                                    !isReactivate(row)
                                                 "
                                                 [matTooltip]="
                                                     t(removeTooltipFor(row))
                                                 "
-                                                (click)="removeSelected()"
+                                                (click)="remove(row)"
                                             >
-                                                {{ t(removeLabelFor(row)) }}
+                                                <mat-icon
+                                                    [svgIcon]="
+                                                        'heroicons_outline:' +
+                                                        removeIconFor(row)
+                                                    "
+                                                ></mat-icon>
                                             </button>
-                                        } @else {
-                                            <span></span>
                                         }
-                                        <div class="flex items-center gap-3">
-                                            @if (flashMessage(); as flash) {
-                                                <div
-                                                    class="mr-1 flex items-center"
-                                                >
-                                                    @if (flash === 'success') {
-                                                        <mat-icon
-                                                            class="text-green-500"
-                                                            svgIcon="heroicons_outline:check"
-                                                        ></mat-icon>
-                                                        <span class="ml-2">{{
-                                                            t(
-                                                                'admin.crud.updateSuccess'
-                                                            )
-                                                        }}</span>
-                                                    }
-                                                    @if (flash === 'error') {
-                                                        <mat-icon
-                                                            class="text-red-500"
-                                                            svgIcon="heroicons_outline:x-mark"
-                                                        ></mat-icon>
-                                                        <span class="ml-2">{{
-                                                            t(
-                                                                'admin.crud.saveError'
-                                                            )
-                                                        }}</span>
-                                                    }
-                                                </div>
-                                            }
-                                            <button
-                                                mat-flat-button
-                                                color="primary"
-                                                type="submit"
-                                                [disabled]="
-                                                    saving() || anyUploading
-                                                "
-                                            >
-                                                {{ t('admin.crud.save') }}
-                                            </button>
-                                        </div>
                                     </div>
-                                </form>
+                                }
                             </div>
-                        }
-                    }
-                </div>
 
-                @if (showPaginator()) {
-                    <mat-paginator
-                        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
-                        [class.pointer-events-none]="loading()"
-                        [length]="paginatorLength()"
-                        [pageIndex]="pageIndex()"
-                        [pageSize]="pageSize()"
-                        [pageSizeOptions]="pageSizeOptions"
-                        [showFirstLastButtons]="true"
-                        (page)="onPageChange($event)"
-                    ></mat-paginator>
+                            @if (
+                                usesInlineDetail &&
+                                selectedId() === row.id &&
+                                form
+                            ) {
+                                <div
+                                    class="overflow-hidden shadow-lg"
+                                    (animate.enter)="expandOnEnter($event)"
+                                    (animate.leave)="collapseOnLeave($event)"
+                                >
+                                    <form
+                                        class="flex w-full flex-col"
+                                        [formGroup]="form"
+                                        (ngSubmit)="save()"
+                                    >
+                                        <div
+                                            class="p-6 md:p-8"
+                                            [class]="fieldsLayoutClass"
+                                        >
+                                            <ng-container
+                                                *ngTemplateOutlet="crudFields"
+                                            ></ng-container>
+                                        </div>
+
+                                        <div
+                                            class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
+                                        >
+                                            @if (resource.remove) {
+                                                <button
+                                                    class="-ml-2"
+                                                    mat-button
+                                                    color="warn"
+                                                    type="button"
+                                                    [disabled]="
+                                                        (isAlreadyInactive(
+                                                            row
+                                                        ) &&
+                                                            !isReactivate(
+                                                                row
+                                                            )) ||
+                                                        saving()
+                                                    "
+                                                    [matTooltip]="
+                                                        t(removeTooltipFor(row))
+                                                    "
+                                                    (click)="removeSelected()"
+                                                >
+                                                    {{ t(removeLabelFor(row)) }}
+                                                </button>
+                                            } @else {
+                                                <span></span>
+                                            }
+                                            <div
+                                                class="flex items-center gap-3"
+                                            >
+                                                @if (flashMessage(); as flash) {
+                                                    <div
+                                                        class="mr-1 flex items-center"
+                                                    >
+                                                        @if (
+                                                            flash === 'success'
+                                                        ) {
+                                                            <mat-icon
+                                                                class="text-green-500"
+                                                                svgIcon="heroicons_outline:check"
+                                                            ></mat-icon>
+                                                            <span
+                                                                class="ml-2"
+                                                                >{{
+                                                                    t(
+                                                                        'admin.crud.updateSuccess'
+                                                                    )
+                                                                }}</span
+                                                            >
+                                                        }
+                                                        @if (
+                                                            flash === 'error'
+                                                        ) {
+                                                            <mat-icon
+                                                                class="text-red-500"
+                                                                svgIcon="heroicons_outline:x-mark"
+                                                            ></mat-icon>
+                                                            <span
+                                                                class="ml-2"
+                                                                >{{
+                                                                    t(
+                                                                        'admin.crud.saveError'
+                                                                    )
+                                                                }}</span
+                                                            >
+                                                        }
+                                                    </div>
+                                                }
+                                                <button
+                                                    mat-flat-button
+                                                    color="primary"
+                                                    type="submit"
+                                                    [disabled]="
+                                                        saving() || anyUploading
+                                                    "
+                                                >
+                                                    {{ t('admin.crud.save') }}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    @if (showPaginator()) {
+                        <mat-paginator
+                            class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                            [class.pointer-events-none]="loading()"
+                            [length]="paginatorLength()"
+                            [pageIndex]="pageIndex()"
+                            [pageSize]="pageSize()"
+                            [pageSizeOptions]="pageSizeOptions"
+                            [showFirstLastButtons]="true"
+                            (page)="onPageChange($event)"
+                        ></mat-paginator>
+                    }
+                } @else if (loading()) {
+                    <admin-loading-state />
+                } @else {
+                    <div
+                        class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                    >
+                        {{ t('admin.crud.empty') }}
+                    </div>
                 }
-            } @else if (!loading()) {
-                <div
-                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
-                >
-                    {{ t('admin.crud.empty') }}
-                </div>
-            }
+            </div>
         </div>
     </div>
-</div>
+}
 
 <!-- Create / edit dialog (Fuse compose / scrumboard card pattern) -->
 <ng-template #formDialog>

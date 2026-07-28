@@ -9,7 +9,13 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { categoriesApi, marketsApi, productsApi, unitsApi } from 'contract';
+import {
+    categoriesApi,
+    marketsApi,
+    packingCodesApi,
+    productsApi,
+    unitsApi,
+} from 'contract';
 import {
     CrudFormValue,
     CrudOption,
@@ -138,6 +144,37 @@ export class CatalogAdminService {
         await categoriesApi.apiV1CategoriesIdDeactivatePatch({ id });
     }
 
+    /** Single category by id (edit page). Resolves parentName when missing. */
+    async getCategory(id: string): Promise<CrudRow | null> {
+        const res = await categoriesApi.apiV1CategoriesIdGetRaw({ id });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'categoryId');
+        if (!row?.id) {
+            return null;
+        }
+        if (row['parentId'] && !row['parentName']) {
+            try {
+                const parent = await categoriesApi.apiV1CategoriesIdGetRaw({
+                    id: String(row['parentId']),
+                });
+                const parentData = unwrapData<Record<string, unknown>>(
+                    await parseJson(parent.raw)
+                );
+                if (parentData?.['name']) {
+                    return { ...row, parentName: String(parentData['name']) };
+                }
+            } catch {
+                // Fall through — parent name stays empty.
+            }
+        }
+        return row;
+    }
+
     /**
      * Reactivates a category through the dedicated
      * `PATCH /categories/{id}/activate` endpoint (added to the backend API).
@@ -181,6 +218,48 @@ export class CatalogAdminService {
 
     async deactivateUnit(id: string): Promise<void> {
         await unitsApi.apiV1UnitsIdDeactivatePatch({ id });
+    }
+
+    // ---- Packing codes ------------------------------------------------------
+
+    /**
+     * All packing codes in one request (mirrors {@link listUnits} — the admin
+     * table paginates client-side).
+     */
+    async listPackingCodes(activeOnly = false): Promise<CrudRow[]> {
+        const res = await packingCodesApi.apiV1CatalogPackingCodesGetRaw({
+            activeOnly,
+            pageSize: 100,
+        });
+        const body = await parseJson(res.raw);
+        return withId<CrudRow>(extractList(body), 'packingCodeId');
+    }
+
+    async createPackingCode(value: CrudFormValue): Promise<void> {
+        await packingCodesApi.apiV1CatalogPackingCodesPost({
+            createPackingCodeRequest: {
+                code: str(value['code']),
+                description: optStr(value['description']),
+                capacityKg: optNum(value['capacityKg']) ?? undefined,
+            },
+        });
+    }
+
+    async updatePackingCode(id: string, value: CrudFormValue): Promise<void> {
+        await packingCodesApi.apiV1CatalogPackingCodesIdPut({
+            id,
+            updatePackingCodeRequest: {
+                code: str(value['code']),
+                description: optStr(value['description']),
+                capacityKg: optNum(value['capacityKg']) ?? undefined,
+            },
+        });
+    }
+
+    async deactivatePackingCode(id: string): Promise<void> {
+        await packingCodesApi.apiV1CatalogPackingCodesIdDeactivatePatch({
+            id,
+        });
     }
 
     // ---- Products ---------------------------------------------------------
@@ -227,6 +306,16 @@ export class CatalogAdminService {
                 value: row.id,
                 label: String(row['name'] ?? ''),
             }));
+    }
+
+    /** All active products with full row data for selection tables. */
+    async listAllProductsForSelection(): Promise<CrudRow[]> {
+        const rows = await fetchAllOffset<CrudRow>((page, pageSize) =>
+            productsApi
+                .apiV1ProductsGetRaw({ includeInactive: false, page, pageSize })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rows, 'productId').filter((row) => !!row.id);
     }
 
     async createProduct(value: CrudFormValue): Promise<void> {
@@ -338,8 +427,8 @@ export class CatalogAdminService {
         };
     }
 
-    async createMarket(value: CrudFormValue): Promise<void> {
-        await marketsApi.apiV1MarketsPost({
+    async createMarket(value: CrudFormValue): Promise<CrudRow | null> {
+        const res = await marketsApi.apiV1MarketsPostRaw({
             createMarketRequest: {
                 name: str(value['name']),
                 location: optStr(value['location']),
@@ -348,6 +437,14 @@ export class CatalogAdminService {
                 longitude: optNum(value['longitude']),
             },
         });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'marketId');
+        return row?.id ? row : null;
     }
 
     async updateMarket(id: string, value: CrudFormValue): Promise<void> {
@@ -365,6 +462,19 @@ export class CatalogAdminService {
 
     async deactivateMarket(id: string): Promise<void> {
         await marketsApi.apiV1MarketsIdDeactivatePatch({ id });
+    }
+
+    /** Single market by id (edit page). */
+    async getMarket(id: string): Promise<CrudRow | null> {
+        const res = await marketsApi.apiV1MarketsIdGetRaw({ id });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'marketId');
+        return row?.id ? row : null;
     }
 
     // ---- Market products (pricing) ---------------------------------------

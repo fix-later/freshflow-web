@@ -21,6 +21,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -29,6 +30,7 @@ import { User } from 'app/core/user/user.types';
 import { DateTime } from 'luxon';
 import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
 import { Subject, takeUntil } from 'rxjs';
+import { AuditLogsComponent } from '../audit-logs/audit-logs.component';
 import {
     AnalyticsActivity,
     AnalyticsPoint,
@@ -57,7 +59,6 @@ interface OverviewTile {
     key: string;
     value: string;
     valueClass: string;
-    labelClass: string;
 }
 
 /** Quick-link cards under the analytics panels. */
@@ -71,22 +72,10 @@ interface DashboardCard {
 const EXPORT_DATASETS = ['orders', 'procurement', 'deliveries'] as const;
 
 const KPI_ACCENTS = [
-    {
-        valueClass: 'text-blue-500',
-        labelClass: 'text-blue-600 dark:text-blue-500',
-    },
-    {
-        valueClass: 'text-red-500',
-        labelClass: 'text-red-600 dark:text-red-500',
-    },
-    {
-        valueClass: 'text-amber-500',
-        labelClass: 'text-amber-600 dark:text-amber-500',
-    },
-    {
-        valueClass: 'text-green-500',
-        labelClass: 'text-green-600 dark:text-green-500',
-    },
+    'text-blue-500',
+    'text-red-500',
+    'text-amber-500',
+    'text-green-500',
 ] as const;
 
 /** `overviewTotalOrders` → `Overview total orders`. */
@@ -97,6 +86,15 @@ function humanize(key: string): string {
         .trim()
         .toLowerCase();
     return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/** Formats a raw overview value with locale thousands separators when numeric. */
+function formatKpiValue(value: unknown, lang: string): string {
+    const numeric =
+        typeof value === 'number' ? value : Number(String(value).trim());
+    return Number.isFinite(numeric) && String(value).trim() !== ''
+        ? numeric.toLocaleString(lang)
+        : String(value);
 }
 
 /**
@@ -118,10 +116,12 @@ function humanize(key: string): string {
         MatInputModule,
         MatProgressBarModule,
         MatSnackBarModule,
+        MatTabsModule,
         NgApexchartsModule,
         ReactiveFormsModule,
         RouterLink,
         TranslocoModule,
+        AuditLogsComponent,
     ],
 })
 export class AdminDashboardComponent implements OnInit, OnDestroy {
@@ -143,6 +143,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     readonly priceTrends = signal<AnalyticsPoint[]>([]);
     readonly demandDistribution = signal<AnalyticsPoint[]>([]);
     readonly activities = signal<AnalyticsActivity[]>([]);
+    readonly selectedTab = signal(0);
 
     readonly chartOrders = signal<ApexOptions>({});
     readonly chartProcurement = signal<ApexOptions>({});
@@ -212,6 +213,10 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         this.reload();
     }
 
+    setTab(index: number): void {
+        this.selectedTab.set(index);
+    }
+
     ngOnDestroy(): void {
         this._unsubscribeAll.next();
         this._unsubscribeAll.complete();
@@ -258,16 +263,15 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                                     typeof value === 'string'
                             )
                             .slice(0, 4)
-                            .map(([key, value], index) => {
-                                const accent =
-                                    KPI_ACCENTS[index % KPI_ACCENTS.length];
-                                return {
-                                    key: humanize(key),
-                                    value: String(value),
-                                    valueClass: accent.valueClass,
-                                    labelClass: accent.labelClass,
-                                };
-                            })
+                            .map(([key, value], index) => ({
+                                key: humanize(key),
+                                value: formatKpiValue(
+                                    value,
+                                    this._transloco.getActiveLang()
+                                ),
+                                valueClass:
+                                    KPI_ACCENTS[index % KPI_ACCENTS.length],
+                            }))
                     );
                     this.orderMetrics.set(orders);
                     this.procurementMetrics.set(procurement);

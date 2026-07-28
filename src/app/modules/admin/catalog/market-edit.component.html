@@ -1,0 +1,225 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading() || saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.markets.editPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.markets.editPage.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ marketName() || t('admin.markets.editPage.title') }}
+                </div>
+            </div>
+            @if (market()) {
+                @if (isActive()) {
+                    <span
+                        class="admin-pill admin-pill-success px-3 py-1 text-sm font-semibold"
+                        >{{ t('admin.crud.active') }}</span
+                    >
+                } @else {
+                    <span
+                        class="admin-pill admin-pill-neutral px-3 py-1 text-sm font-semibold"
+                        >{{ t('admin.crud.inactive') }}</span
+                    >
+                }
+            }
+        </div>
+        @if (market()) {
+            <div class="flex flex-wrap items-center gap-3">
+                <nav
+                    class="market-edit-tabs"
+                    mat-tab-nav-bar
+                    [tabPanel]="marketTabPanel"
+                >
+                    <a
+                        mat-tab-link
+                        [active]="selectedTab() === 0"
+                        (click)="onTabChange(0)"
+                    >
+                        {{ t('admin.markets.editPage.tabs.details') }}
+                    </a>
+                    <a
+                        mat-tab-link
+                        [active]="selectedTab() === 1"
+                        (click)="onTabChange(1)"
+                    >
+                        {{ t('admin.markets.editPage.tabs.pricing') }}
+                    </a>
+                </nav>
+            </div>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="flex min-h-0 flex-auto overflow-hidden">
+        @if (loading() && !market()) {
+            <admin-loading-state />
+        } @else if (notFound()) {
+            <div
+                class="flex flex-auto items-center justify-center p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+            >
+                {{ t('admin.markets.editPage.notFound') }}
+            </div>
+        } @else if (market(); as currentMarket) {
+            <mat-tab-nav-panel
+                #marketTabPanel
+                class="flex min-h-0 flex-auto flex-col overflow-y-auto"
+            >
+                @if (selectedTab() === 0) {
+                    <div class="flex flex-col gap-8 p-6 md:p-8">
+                        @if (metaEntries().length) {
+                            <section>
+                                <div class="mb-3 text-lg font-semibold">
+                                    {{ t('admin.markets.editPage.info') }}
+                                </div>
+                                <div
+                                    class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
+                                >
+                                    @for (
+                                        field of metaEntries();
+                                        track field.label
+                                    ) {
+                                        <div
+                                            class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                                        >
+                                            <span
+                                                class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                                >{{ t(field.label) }}</span
+                                            >
+                                            <span
+                                                class="min-w-0 break-words font-medium"
+                                                >{{ field.value }}</span
+                                            >
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+                        }
+
+                        <form
+                            class="flex flex-col gap-6"
+                            [formGroup]="form"
+                            (ngSubmit)="save()"
+                        >
+                            <div class="text-lg font-semibold">
+                                {{ t('admin.markets.editPage.editSection') }}
+                            </div>
+
+                            <div
+                                class="flex flex-col gap-0 sm:flex-row sm:gap-4"
+                            >
+                                <mat-form-field class="w-full sm:w-1/3">
+                                    <mat-label>{{
+                                        t('admin.markets.name')
+                                    }}</mat-label>
+                                    <input matInput formControlName="name" />
+                                    @if (
+                                        form.controls.name.touched &&
+                                        form.controls.name.hasError('required')
+                                    ) {
+                                        <mat-error>{{
+                                            t('admin.crud.errors.required')
+                                        }}</mat-error>
+                                    }
+                                </mat-form-field>
+                                <mat-form-field class="w-full sm:w-1/3">
+                                    <mat-label>{{
+                                        t('admin.markets.location')
+                                    }}</mat-label>
+                                    <input
+                                        matInput
+                                        formControlName="location"
+                                    />
+                                </mat-form-field>
+                                <mat-form-field class="w-full sm:w-1/3">
+                                    <mat-label>{{
+                                        t('admin.markets.agent')
+                                    }}</mat-label>
+                                    <mat-select formControlName="agentUserId">
+                                        <mat-option [value]="''">{{
+                                            t('admin.markets.agentNone')
+                                        }}</mat-option>
+                                        @for (
+                                            agent of agentOptions();
+                                            track agent.id
+                                        ) {
+                                            <mat-option [value]="agent.id">{{
+                                                agentLabel(agent)
+                                            }}</mat-option>
+                                        }
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+
+                            <app-location-picker
+                                [latControl]="form.controls.latitude"
+                                [lngControl]="form.controls.longitude"
+                                [queryControl]="form.controls.address"
+                                searchLabelKey="admin.markets.address"
+                                mapHeightClass="h-[32rem]"
+                            ></app-location-picker>
+
+                            <div
+                                class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
+                            >
+                                <button
+                                    class="-ml-2"
+                                    mat-button
+                                    color="warn"
+                                    type="button"
+                                    [disabled]="!isActive() || saving()"
+                                    (click)="deactivate()"
+                                >
+                                    {{ t('admin.crud.deactivate') }}
+                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="saving()"
+                                        (click)="goBack()"
+                                    >
+                                        {{ t('admin.crud.cancel') }}
+                                    </button>
+                                    <button
+                                        mat-flat-button
+                                        color="primary"
+                                        type="submit"
+                                        [disabled]="form.invalid || saving()"
+                                    >
+                                        {{ t('admin.crud.save') }}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                } @else {
+                    @if (pricingTabLoaded()) {
+                        <admin-market-products
+                            [marketId]="currentMarket.id"
+                            [embedded]="true"
+                        ></admin-market-products>
+                    }
+                }
+            </mat-tab-nav-panel>
+        }
+    </div>
+</div>

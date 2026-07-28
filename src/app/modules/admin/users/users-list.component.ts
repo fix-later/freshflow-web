@@ -3,26 +3,14 @@ import {
     Component,
     DestroyRef,
     OnInit,
-    TemplateRef,
-    ViewChild,
     ViewEncapsulation,
     computed,
     inject,
     signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
-import {
-    FormBuilder,
-    FormGroupDirective,
-    ReactiveFormsModule,
-    Validators,
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import {
-    MatDialog,
-    MatDialogModule,
-    MatDialogRef,
-} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -31,17 +19,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
-import {
-    EMAIL_MAX_LENGTH,
-    passwordStrengthValidator,
-    phoneNumberValidator,
-} from 'app/core/api/validators';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     toApiPage,
@@ -51,10 +36,6 @@ import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
-const AGENT_ROLES = ['market_agent', 'kiosk_staff'];
-const RESTAURANT_ROLE = 'restaurant';
-const RESTAURANT_NAME_MAX_LENGTH = 200;
-const PHONE_MAX_LENGTH = 20;
 
 /**
  * Admin ▸ Users — Fuse ecommerce inventory pattern: searchable list with an
@@ -69,8 +50,8 @@ const PHONE_MAX_LENGTH = 20;
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        AdminLoadingStateComponent,
         MatButtonModule,
-        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -96,16 +77,12 @@ export class UsersListComponent implements OnInit {
     protected readonly expandOnEnter = expandOnEnter;
     protected readonly collapseOnLeave = collapseOnLeave;
 
-    @ViewChild('createUserPanel') private _createPanel!: TemplateRef<unknown>;
-
     private readonly _admin = inject(AdminService);
-    private readonly _dialog = inject(MatDialog);
+    private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _destroyRef = inject(DestroyRef);
-
-    private _dialogRef: MatDialogRef<unknown> | null = null;
 
     readonly users = signal<AdminUserRow[]>([]);
     readonly sort = new TableSort<AdminUserRow>();
@@ -117,7 +94,6 @@ export class UsersListComponent implements OnInit {
     readonly totalCount = signal(0);
     readonly loading = signal(false);
     readonly roles = signal<string[]>([]);
-    readonly markets = signal<{ id: string; name: string }[]>([]);
     readonly pageIndex = signal(0);
     readonly pageSize = signal(DEFAULT_PAGE_SIZE);
 
@@ -156,41 +132,9 @@ export class UsersListComponent implements OnInit {
         role: ['', Validators.required],
     });
 
-    readonly createForm = this._formBuilder.nonNullable.group({
-        email: [
-            '',
-            [
-                Validators.required,
-                Validators.email,
-                Validators.maxLength(EMAIL_MAX_LENGTH),
-            ],
-        ],
-        password: ['', [Validators.required, passwordStrengthValidator]],
-        role: ['', Validators.required],
-        marketId: [''],
-        restaurantName: ['', Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH)],
-        phone: [
-            '',
-            [phoneNumberValidator, Validators.maxLength(PHONE_MAX_LENGTH)],
-        ],
-    });
-
-    readonly selectedRole = signal('');
-    readonly needsMarket = computed(() =>
-        AGENT_ROLES.includes(this.selectedRole())
-    );
-    readonly needsRestaurantName = computed(
-        () => this.selectedRole() === RESTAURANT_ROLE
-    );
-
     ngOnInit(): void {
         this._loadRoles();
-        this._loadMarkets();
         this._load();
-
-        this.createForm.controls.role.valueChanges
-            .pipe(takeUntilDestroyed(this._destroyRef))
-            .subscribe((role) => this._applyRoleValidators(role));
 
         this.filterForm.valueChanges
             .pipe(
@@ -232,69 +176,7 @@ export class UsersListComponent implements OnInit {
     }
 
     openCreatePanel(): void {
-        if (!this._createPanel || this._dialogRef) {
-            return;
-        }
-        this.closeDetails();
-        this.createForm.reset({
-            email: '',
-            password: '',
-            role: '',
-            marketId: '',
-            restaurantName: '',
-            phone: '',
-        });
-        this.selectedRole.set('');
-        this._applyRoleValidators('');
-        this._dialogRef = this._dialog.open(this._createPanel, {
-            autoFocus: false,
-            maxWidth: '100vw',
-        });
-        this._dialogRef.afterClosed().subscribe(() => {
-            this._dialogRef = null;
-            this.createForm.enable();
-        });
-    }
-
-    closeCreatePanel(): void {
-        this._dialogRef?.close();
-    }
-
-    createUser(ngForm: FormGroupDirective): void {
-        if (this.createForm.invalid) {
-            this.createForm.markAllAsTouched();
-            return;
-        }
-        const value = this.createForm.getRawValue();
-        this.createForm.disable();
-        this._admin
-            .createUser({
-                email: value.email.trim(),
-                password: value.password,
-                role: value.role,
-                marketId: this.needsMarket() ? value.marketId || null : null,
-                restaurantName: this.needsRestaurantName()
-                    ? value.restaurantName.trim() || null
-                    : null,
-                phone: value.phone.trim() || null,
-            })
-            .then(() => {
-                this._notify('admin.users.create.success');
-                this.closeCreatePanel();
-                this.pageIndex.set(0);
-                this._load();
-            })
-            .catch(async (err) => {
-                this.createForm.enable();
-                this._notifyText(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.users.create.error'
-                    )
-                );
-            })
-            .finally(() => ngForm.form.markAsPristine());
+        void this._router.navigate(['/admin/users/new']);
     }
 
     saveRole(): void {
@@ -346,17 +228,6 @@ export class UsersListComponent implements OnInit {
             .finally(() => this.unlocking.set(false));
     }
 
-    passwordRuleFailing(rule: string): boolean {
-        const control = this.createForm.controls.password;
-        if (!control.value) {
-            return true;
-        }
-        const strength = control.errors?.['passwordStrength'] as
-            | Record<string, boolean>
-            | undefined;
-        return strength ? !!strength[rule] : false;
-    }
-
     trackById(_: number, user: AdminUserRow): string {
         return user.id;
     }
@@ -365,26 +236,6 @@ export class UsersListComponent implements OnInit {
         this.users.update((list) =>
             list.map((u) => (u.id === id ? { ...u, ...patch } : u))
         );
-    }
-
-    private _applyRoleValidators(role: string): void {
-        this.selectedRole.set(role);
-        const market = this.createForm.controls.marketId;
-        const restaurantName = this.createForm.controls.restaurantName;
-
-        market.setValidators(
-            AGENT_ROLES.includes(role) ? [Validators.required] : []
-        );
-        restaurantName.setValidators(
-            role === RESTAURANT_ROLE
-                ? [
-                      Validators.required,
-                      Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH),
-                  ]
-                : [Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH)]
-        );
-        market.updateValueAndValidity();
-        restaurantName.updateValueAndValidity();
     }
 
     private _load(): void {
@@ -429,13 +280,6 @@ export class UsersListComponent implements OnInit {
             .getRoles()
             .then((roles) => this.roles.set(roles))
             .catch(() => this.roles.set([]));
-    }
-
-    private _loadMarkets(): void {
-        this._admin
-            .getMarkets()
-            .then((markets) => this.markets.set(markets))
-            .catch(() => this.markets.set([]));
     }
 
     private _notify(key: string): void {

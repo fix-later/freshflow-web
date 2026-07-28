@@ -1,0 +1,181 @@
+import {
+    ChangeDetectionStrategy,
+    Component,
+    OnInit,
+    ViewEncapsulation,
+    inject,
+    signal,
+} from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTimepickerModule } from '@angular/material/timepicker';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { Router } from '@angular/router';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
+import { DateTime } from 'luxon';
+import { AdminService } from '../admin.service';
+import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
+
+const ROUTE_TYPES = [
+    'direct',
+    'hub_and_spoke',
+    'milk_run',
+    'hub_relay',
+] as const;
+
+function parseCutoffTime(raw: string | null | undefined): DateTime | null {
+    const hhmm = (raw ?? '').trim().slice(0, 5);
+    if (!hhmm) {
+        return null;
+    }
+    const parsed = DateTime.fromFormat(hhmm, 'HH:mm');
+    return parsed.isValid ? parsed : null;
+}
+
+/** Admin ▸ Order-group settings — dedicated page version. */
+@Component({
+    selector: 'admin-order-group-settings-page',
+    templateUrl: './order-group-settings-page.component.html',
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    standalone: true,
+    host: { class: 'flex flex-auto flex-col' },
+    imports: [
+        MatButtonModule,
+        MatCheckboxModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatInputModule,
+        MatProgressBarModule,
+        MatSelectModule,
+        MatSnackBarModule,
+        MatTimepickerModule,
+        MatTooltipModule,
+        ReactiveFormsModule,
+        TranslocoModule,
+    ],
+})
+export class OrderGroupSettingsPageComponent implements OnInit {
+    private readonly _admin = inject(AdminService);
+    private readonly _snackBar = inject(MatSnackBar);
+    private readonly _transloco = inject(TranslocoService);
+    private readonly _formBuilder = inject(FormBuilder);
+    private readonly _router = inject(Router);
+
+    readonly loading = signal(false);
+    readonly saving = signal(false);
+    readonly routeTypes = signal<string[]>([...ROUTE_TYPES]);
+
+    readonly form = this._formBuilder.group({
+        dailyCutoffTime: this._formBuilder.control<DateTime | null>(null, {
+            validators: [Validators.required],
+        }),
+        batchingEnabled: this._formBuilder.nonNullable.control(false),
+        defaultRouteType: this._formBuilder.nonNullable.control(''),
+        priceAlertThresholdPercent: this._formBuilder.nonNullable.control(10, [
+            Validators.required,
+            Validators.min(0.01),
+            Validators.max(100),
+        ]),
+    });
+
+    ngOnInit(): void {
+        this._load();
+    }
+
+    goBack(): void {
+        void this._router.navigate(['/admin/order-groups']);
+    }
+
+    routeTypeLabel(type: string): string {
+        const key = `admin.settings.operational.routeType.${type}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? type : translated;
+    }
+
+    save(): void {
+        if (this.form.invalid) {
+            this.form.markAllAsTouched();
+            return;
+        }
+        const {
+            dailyCutoffTime,
+            batchingEnabled,
+            defaultRouteType,
+            priceAlertThresholdPercent,
+        } = this.form.getRawValue();
+        if (!dailyCutoffTime?.isValid) {
+            this.form.controls.dailyCutoffTime.setErrors({ required: true });
+            return;
+        }
+        const time = dailyCutoffTime.toFormat('HH:mm');
+        this.saving.set(true);
+        Promise.all([
+            this._admin.updateOperationalSettings({
+                dailyCutoffTime: time,
+                batchingEnabled: batchingEnabled ?? false,
+                defaultRouteType: defaultRouteType || null,
+            }),
+            this._admin.updatePricingSettings({
+                priceAlertThresholdPercent: priceAlertThresholdPercent ?? 10,
+            }),
+        ])
+            .then(() => {
+                this._notifyKey('admin.settings.saveSuccess');
+                this._load();
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.saving.set(false));
+    }
+
+    private _load(): void {
+        this.loading.set(true);
+        Promise.all([
+            this._admin
+                .getOperationalSettings()
+                .catch((): AdminOperationalSettings => ({})),
+            this._admin
+                .getPricingSettings()
+                .catch((): AdminPricingSettings => ({})),
+        ])
+            .then(([operational, pricing]) => {
+                const routeType = operational.defaultRouteType ?? '';
+                if (routeType && !this.routeTypes().includes(routeType)) {
+                    this.routeTypes.update((types) => [...types, routeType]);
+                }
+                this.form.patchValue({
+                    dailyCutoffTime: parseCutoffTime(
+                        operational.dailyCutoffTime
+                    ),
+                    batchingEnabled: operational.batchingEnabled ?? false,
+                    defaultRouteType: routeType,
+                    priceAlertThresholdPercent:
+                        pricing.priceAlertThresholdPercent ?? 10,
+                });
+            })
+            .finally(() => this.loading.set(false));
+    }
+
+    private _notifyKey(key: string): void {
+        this._snackBar.open(this._transloco.translate(key), undefined, {
+            duration: 3000,
+        });
+    }
+
+    private async _notifyError(err: unknown): Promise<void> {
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            'admin.settings.error'
+        );
+        this._snackBar.open(message, undefined, { duration: 5000 });
+    }
+}

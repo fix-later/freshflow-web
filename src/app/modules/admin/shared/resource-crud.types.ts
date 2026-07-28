@@ -220,6 +220,12 @@ export interface CrudResource {
      */
     inlineDetail?: boolean;
     /**
+     * When set, the Details control navigates (or otherwise handles the row)
+     * instead of expanding an inline editor. Use for long forms (map, many
+     * fields) that belong on a routed page — see SCREEN_RULES form guidance.
+     */
+    openDetail?: (row: CrudRow) => void;
+    /**
      * Server offset page loader. When set, the table sends `page` / `pageSize`
      * on each paginator change and uses `total` for MatPaginator length.
      * {@link list} is still used for pickers / header actions that need all rows.

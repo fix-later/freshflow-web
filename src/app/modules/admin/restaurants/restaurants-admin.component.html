@@ -225,15 +225,12 @@
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
-                                    (click)="toggleDetails(user)"
+                                    [matTooltip]="t('admin.crud.details')"
+                                    (click)="openDetail(user)"
                                 >
                                     <mat-icon
                                         class="icon-size-5"
-                                        [svgIcon]="
-                                            selectedId() === user.id
-                                                ? 'heroicons_solid:chevron-up'
-                                                : 'heroicons_solid:chevron-down'
-                                        "
+                                        svgIcon="heroicons_outline:arrow-right"
                                     ></mat-icon>
                                 </button>
                             </div>
@@ -796,7 +793,9 @@
                     [showFirstLastButtons]="true"
                     (page)="onPageChange($event)"
                 ></mat-paginator>
-            } @else if (!loading()) {
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
                 >

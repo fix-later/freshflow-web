@@ -10,6 +10,7 @@ import {
     MAT_DATE_FORMATS,
     MAT_DATE_LOCALE,
 } from '@angular/material/core';
+import { MatPaginatorIntl } from '@angular/material/paginator';
 import {
     PreloadAllModules,
     provideRouter,
@@ -20,6 +21,7 @@ import { provideFuse } from '@fuse';
 import { TranslocoService, provideTransloco } from '@jsverse/transloco';
 import { appRoutes } from 'app/app.routes';
 import { provideAuth } from 'app/core/auth/auth.provider';
+import { TranslocoMatPaginatorIntl } from 'app/core/i18n/transloco-mat-paginator-intl';
 import { provideIcons } from 'app/core/icons/icons.provider';
 import { mockApiServices } from 'app/mock-api';
 import { firstValueFrom } from 'rxjs';
@@ -64,6 +66,7 @@ export const appConfig: ApplicationConfig = {
             provide: MAT_DATE_FORMATS,
             useValue: VI_DATE_FORMATS,
         },
+        { provide: MatPaginatorIntl, useClass: TranslocoMatPaginatorIntl },
 
         // Transloco Config
         provideTransloco({

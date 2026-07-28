@@ -1,0 +1,290 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div class="relative flex flex-0 flex-col border-b px-6 py-6 md:px-8">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="min-w-0">
+            <div class="text-4xl font-extrabold tracking-tight">
+                {{ t('admin.orders.title') }}
+            </div>
+            <div class="text-secondary mt-1 text-sm">
+                {{ t('admin.orders.subtitle') }}
+            </div>
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-end gap-3">
+            <mat-form-field
+                class="fuse-mat-dense fuse-mat-rounded w-56 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    [formControl]="restaurantId"
+                    [placeholder]="t('admin.orders.filter.restaurantId')"
+                />
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-48"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.orders.filter.status') }}</mat-label>
+                <mat-select [formControl]="status">
+                    <mat-option value="">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (opt of statuses; track opt) {
+                        <mat-option [value]="opt">{{
+                            statusLabel(opt)
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-40"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.orders.filter.from') }}</mat-label>
+                <input
+                    matInput
+                    [matDatepicker]="fromPicker"
+                    [formControl]="from"
+                />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="fromPicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #fromPicker></mat-datepicker>
+            </mat-form-field>
+            <mat-form-field
+                class="fuse-mat-dense w-40"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.orders.filter.to') }}</mat-label>
+                <input matInput [matDatepicker]="toPicker" [formControl]="to" />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="toPicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #toPicker></mat-datepicker>
+            </mat-form-field>
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.crud.clearFilters')
+                    }}</span>
+                </button>
+            }
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex flex-auto overflow-hidden">
+        <div
+            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+        >
+            @if (orders().length > 0) {
+                <div class="grid">
+                    <div
+                        class="orders-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        <div>{{ t('admin.orders.table.id') }}</div>
+                        <div>{{ t('admin.orders.table.restaurant') }}</div>
+                        <div>{{ t('admin.orders.table.status') }}</div>
+                        <div>{{ t('admin.orders.table.paymentStatus') }}</div>
+                        <div class="hidden md:block">
+                            {{ t('admin.orders.table.itemCount') }}
+                        </div>
+                        <div class="hidden md:block">
+                            {{ t('admin.orders.table.amount') }}
+                        </div>
+                        <div class="hidden lg:block">
+                            {{ t('admin.orders.table.scheduledFor') }}
+                        </div>
+                        <div class="text-right">
+                            {{ t('admin.orders.table.actions') }}
+                        </div>
+                    </div>
+
+                    @for (row of orders(); track trackById($index, row)) {
+                        <div
+                            class="orders-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                        >
+                            <button
+                                type="button"
+                                class="min-w-0 truncate text-left font-mono text-sm hover:text-primary"
+                                (click)="openDetail(row)"
+                            >
+                                {{ row.orderId }}
+                            </button>
+                            <div class="min-w-0 truncate">
+                                {{
+                                    row.restaurantName ||
+                                        row.restaurantId ||
+                                        '—'
+                                }}
+                            </div>
+                            <div>
+                                <span [class]="statusPillClass(row.status)">
+                                    {{ statusLabel(row.status) }}
+                                </span>
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ paymentStatusLabel(row.paymentStatus) }}
+                            </div>
+                            <div class="hidden tabular-nums md:block">
+                                {{ itemCountOf(row) }}
+                            </div>
+                            <div class="hidden truncate tabular-nums md:block">
+                                {{ money(row.totalAmount) }}
+                            </div>
+                            <div
+                                class="text-secondary hidden truncate text-sm lg:block"
+                            >
+                                {{ formatDate(row.scheduledFor) || '—' }}
+                            </div>
+                            <div class="flex justify-end gap-1">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [matTooltip]="t('admin.crud.details')"
+                                    (click)="openDetail(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:arrow-right"
+                                    ></mat-icon>
+                                </button>
+                                <span
+                                    class="inline-flex"
+                                    [matTooltip]="
+                                        canCancel(row.status)
+                                            ? t('admin.orders.cancel.tooltip')
+                                            : t(
+                                                  'admin.orders.cancel.disabledTooltip'
+                                              )
+                                    "
+                                >
+                                    <button
+                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                        mat-stroked-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="!canCancel(row.status)"
+                                        (click)="openCancel(row, cancelDialog)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:x-circle"
+                                        ></mat-icon>
+                                    </button>
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <mat-paginator
+                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="[10, 20, 50]"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.orders.empty') }}
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<!-- Cancel order -->
+<ng-template #cancelDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.orders.cancel.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeCancel()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            <p class="text-secondary text-sm">
+                {{ t('admin.orders.cancel.message') }}
+            </p>
+            @if (cancelTarget(); as target) {
+                <div class="mt-2 break-all font-mono text-base font-medium">
+                    {{ target.orderId }}
+                </div>
+            }
+            <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.orders.cancel.reason') }}</mat-label>
+                <textarea
+                    matInput
+                    rows="3"
+                    [formControl]="cancelReason"
+                    [placeholder]="t('admin.orders.cancel.reasonPlaceholder')"
+                ></textarea>
+            </mat-form-field>
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeCancel()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="warn"
+                    type="button"
+                    [disabled]="cancelSaving()"
+                    (click)="confirmCancel()"
+                >
+                    {{ t('admin.orders.cancel.confirm') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>

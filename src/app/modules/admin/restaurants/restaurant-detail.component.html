@@ -1,0 +1,494 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.restaurants.detailPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.restaurants.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{
+                        user()?.restaurantName ||
+                            user()?.email ||
+                            t('admin.restaurants.unnamed')
+                    }}
+                </div>
+            </div>
+        </div>
+        @if (user()) {
+            <span
+                class="admin-pill px-3 py-1 text-sm font-semibold"
+                [class.admin-pill-success]="user()!.isActive"
+                [class.admin-pill-neutral]="!user()!.isActive"
+            >
+                {{ statusLabel() }}
+            </span>
+        }
+    </div>
+
+    <div class="flex flex-auto overflow-hidden">
+        @if (loading() && !user()) {
+            <admin-loading-state />
+        } @else if (notFound()) {
+            <div
+                class="flex flex-auto items-center justify-center p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+            >
+                {{ t('admin.restaurants.detailPage.notFound') }}
+            </div>
+        } @else if (user(); as u) {
+            <div class="flex flex-auto flex-col overflow-y-auto">
+                <div
+                    class="flex flex-col gap-6 border-b p-6 md:flex-row md:items-stretch md:gap-10 md:p-8"
+                >
+                    <div
+                        class="flex min-w-0 flex-1 flex-col justify-center gap-3"
+                    >
+                        <div
+                            class="text-secondary text-sm font-medium uppercase tracking-wide"
+                        >
+                            {{ t('admin.userDetail.profile.title') }}
+                        </div>
+                        <div class="text-2xl font-semibold tracking-tight">
+                            {{
+                                u.restaurantName ||
+                                    t('admin.restaurants.unnamed')
+                            }}
+                        </div>
+                        <div class="flex flex-col gap-1 text-sm">
+                            <div class="flex min-w-0 items-center gap-2">
+                                <mat-icon
+                                    class="text-hint icon-size-5"
+                                    svgIcon="heroicons_outline:envelope"
+                                ></mat-icon>
+                                <span class="min-w-0 break-all">{{
+                                    u.email || '—'
+                                }}</span>
+                            </div>
+                            <div class="flex min-w-0 items-center gap-2">
+                                <mat-icon
+                                    class="text-hint icon-size-5"
+                                    svgIcon="heroicons_outline:phone"
+                                ></mat-icon>
+                                <span>{{ u.phone || '—' }}</span>
+                            </div>
+                            <div class="text-secondary font-mono text-xs">
+                                {{
+                                    u.restaurantId ||
+                                        t('admin.restaurants.noRestaurantId')
+                                }}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div
+                        class="bg-default flex min-w-0 flex-[1.4] flex-col justify-center gap-4 rounded-2xl border p-5 md:max-w-2xl"
+                        [formGroup]="creditLimitForm"
+                    >
+                        <div class="text-secondary text-sm font-medium">
+                            {{ t('admin.restaurants.credit.snapshot') }}
+                        </div>
+                        @if (loadingCredit()) {
+                            <mat-progress-bar
+                                mode="indeterminate"
+                            ></mat-progress-bar>
+                        } @else {
+                            <div
+                                class="grid grid-cols-1 gap-4 sm:grid-cols-3 sm:gap-5"
+                            >
+                                <div class="min-w-0">
+                                    <div class="text-secondary text-xs">
+                                        {{
+                                            t('admin.restaurants.credit.limit')
+                                        }}
+                                    </div>
+                                    @if (hasCreditLimit()) {
+                                        <div
+                                            class="mt-1 text-lg font-semibold tabular-nums"
+                                        >
+                                            {{
+                                                credit()!.creditLimit
+                                                    | number: '1.0-0'
+                                            }}₫
+                                        </div>
+                                    } @else if (editingCreditLimit()) {
+                                        <mat-form-field
+                                            class="fuse-mat-dense mt-1 w-full"
+                                            subscriptSizing="dynamic"
+                                        >
+                                            <input
+                                                matInput
+                                                type="number"
+                                                min="0"
+                                                formControlName="creditLimit"
+                                                [placeholder]="
+                                                    t(
+                                                        'admin.restaurants.creditLimit.amount'
+                                                    )
+                                                "
+                                            />
+                                            <span
+                                                class="text-secondary"
+                                                matTextSuffix
+                                                >₫</span
+                                            >
+                                        </mat-form-field>
+                                    } @else {
+                                        <button
+                                            class="mt-2 h-8 min-h-8 px-3 text-sm leading-6"
+                                            mat-stroked-button
+                                            type="button"
+                                            [disabled]="!u.restaurantId"
+                                            (click)="startEditingCreditLimit()"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.restaurants.creditLimit.activate'
+                                                )
+                                            }}
+                                        </button>
+                                    }
+                                </div>
+                                <div>
+                                    <div class="text-secondary text-xs">
+                                        {{
+                                            t(
+                                                'admin.restaurants.credit.balance'
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-lg font-semibold tabular-nums"
+                                    >
+                                        @if (
+                                            credit()?.currentBalance !== null &&
+                                            credit()?.currentBalance !==
+                                                undefined
+                                        ) {
+                                            {{
+                                                credit()!.currentBalance
+                                                    | number: '1.0-0'
+                                            }}₫
+                                        } @else {
+                                            —
+                                        }
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="text-secondary text-xs">
+                                        {{
+                                            t(
+                                                'admin.restaurants.credit.available'
+                                            )
+                                        }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-lg font-semibold tabular-nums"
+                                    >
+                                        @if (
+                                            credit()?.availableCredit !==
+                                                null &&
+                                            credit()?.availableCredit !==
+                                                undefined
+                                        ) {
+                                            {{
+                                                credit()!.availableCredit
+                                                    | number: '1.0-0'
+                                            }}₫
+                                        } @else {
+                                            —
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (u.restaurantId) {
+                    <div
+                        class="flex flex-col gap-5 border-b px-6 py-5 md:px-8"
+                        [formGroup]="statementForm"
+                    >
+                        <div
+                            class="flex flex-wrap items-end justify-between gap-3"
+                        >
+                            <div class="text-secondary text-sm font-medium">
+                                {{ t('admin.restaurants.statements.title') }}
+                            </div>
+                            <div class="flex flex-wrap items-center gap-2">
+                                <mat-form-field
+                                    class="fuse-mat-dense w-24"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('admin.restaurants.statements.year')
+                                    }}</mat-label>
+                                    <input
+                                        matInput
+                                        type="number"
+                                        formControlName="year"
+                                    />
+                                </mat-form-field>
+                                <mat-form-field
+                                    class="fuse-mat-dense w-28"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('admin.restaurants.statements.month')
+                                    }}</mat-label>
+                                    <mat-select formControlName="month">
+                                        @for (m of months; track m) {
+                                            <mat-option [value]="m">{{
+                                                m
+                                            }}</mat-option>
+                                        }
+                                    </mat-select>
+                                </mat-form-field>
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="
+                                        statementForm.invalid ||
+                                        generatingStatement()
+                                    "
+                                    (click)="generateStatement()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:document-plus"
+                                    ></mat-icon>
+                                    <span class="ml-1">{{
+                                        t(
+                                            'admin.restaurants.statements.generate'
+                                        )
+                                    }}</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        @if (loadingCreditHistory()) {
+                            <mat-progress-bar
+                                mode="indeterminate"
+                            ></mat-progress-bar>
+                        } @else {
+                            @if (statements().length) {
+                                <div class="flex flex-col gap-2">
+                                    @for (st of statements(); track st.id) {
+                                        <div
+                                            class="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-2 text-sm"
+                                        >
+                                            <span class="font-medium"
+                                                >{{ st.month }}/{{
+                                                    st.year
+                                                }}</span
+                                            >
+                                            <span class="text-secondary"
+                                                >{{
+                                                    t(
+                                                        'admin.restaurants.statements.closing'
+                                                    )
+                                                }}:
+                                                {{ st.closingBalance | number }}
+                                                ₫</span
+                                            >
+                                            <button
+                                                mat-stroked-button
+                                                class="h-7 min-h-7 px-2 leading-6"
+                                                type="button"
+                                                [disabled]="
+                                                    downloadingStatementId() ===
+                                                    st.id
+                                                "
+                                                [matTooltip]="
+                                                    t(
+                                                        'admin.restaurants.statements.download'
+                                                    )
+                                                "
+                                                (click)="
+                                                    downloadStatementPdf(st)
+                                                "
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-5"
+                                                    svgIcon="heroicons_outline:arrow-down-tray"
+                                                ></mat-icon>
+                                            </button>
+                                        </div>
+                                    }
+                                </div>
+                            } @else {
+                                <div class="text-secondary text-sm">
+                                    {{
+                                        t('admin.restaurants.statements.empty')
+                                    }}
+                                </div>
+                            }
+                        }
+                    </div>
+                }
+
+                <div
+                    class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 md:px-8"
+                >
+                    <div class="flex gap-2">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="
+                                !u.restaurantId || busyAction() !== null
+                            "
+                            (click)="approve()"
+                        >
+                            {{ t('admin.restaurants.approve.submit') }}
+                        </button>
+                        @if (u.isActive) {
+                            <button
+                                mat-stroked-button
+                                color="warn"
+                                type="button"
+                                [disabled]="
+                                    !u.restaurantId || busyAction() !== null
+                                "
+                                (click)="suspend()"
+                            >
+                                {{ t('admin.crud.deactivate') }}
+                            </button>
+                        } @else {
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                [disabled]="
+                                    !u.restaurantId || busyAction() !== null
+                                "
+                                (click)="reactivate()"
+                            >
+                                {{ t('admin.crud.reactivate') }}
+                            </button>
+                        }
+                    </div>
+                    <div class="flex gap-2">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="
+                                !u.restaurantId || busyAction() !== null
+                            "
+                            (click)="openSettleDialog(settleDialog)"
+                        >
+                            {{ t('admin.restaurants.settle.title') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            [disabled]="
+                                !u.restaurantId ||
+                                hasCreditLimit() ||
+                                !editingCreditLimit() ||
+                                creditLimitForm.invalid ||
+                                busyAction() === 'creditLimit'
+                            "
+                            (click)="saveCreditLimit()"
+                        >
+                            {{ t('admin.crud.save') }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+<ng-template #settleDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.restaurants.settle.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeActionDialog()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+        <form
+            class="flex flex-auto flex-col gap-3 overflow-y-auto p-6 sm:p-8"
+            [formGroup]="settleForm"
+            (ngSubmit)="settleCredit()"
+        >
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.amount')
+                }}</mat-label>
+                <input
+                    matInput
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    formControlName="amount"
+                />
+            </mat-form-field>
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.paymentMethod')
+                }}</mat-label>
+                <input matInput formControlName="paymentMethod" />
+            </mat-form-field>
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.restaurants.settle.reference')
+                }}</mat-label>
+                <input matInput formControlName="reference" />
+            </mat-form-field>
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.restaurants.settle.note') }}</mat-label>
+                <input matInput formControlName="note" />
+            </mat-form-field>
+            <div class="mt-4 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeActionDialog()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="settleForm.invalid || busyAction() === 'settle'"
+                >
+                    {{ t('admin.restaurants.settle.submit') }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>

@@ -1,0 +1,38 @@
+<div
+    class="bg-default flex min-h-screen w-full flex-auto flex-col items-center justify-center gap-6 p-6 text-center sm:p-10"
+    *transloco="let t"
+>
+    <div
+        class="flex h-24 w-24 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-900"
+    >
+        <mat-icon
+            class="text-primary icon-size-12"
+            svgIcon="heroicons_outline:map-pin"
+        ></mat-icon>
+    </div>
+
+    <div>
+        <div
+            class="text-7xl font-extrabold leading-none tracking-tight text-primary sm:text-8xl"
+        >
+            404
+        </div>
+        <div class="mt-4 text-2xl font-bold tracking-tight sm:text-3xl">
+            {{ t('errorPage.notFound.title') }}
+        </div>
+        <p class="text-secondary mx-auto mt-2 max-w-md text-base">
+            {{ t('errorPage.notFound.description') }}
+        </p>
+    </div>
+
+    <div class="mt-2 flex flex-wrap items-center justify-center gap-3">
+        <button mat-stroked-button type="button" (click)="goBack()">
+            <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            <span class="ml-2">{{ t('errorPage.back') }}</span>
+        </button>
+        <a mat-flat-button color="primary" routerLink="/home">
+            <mat-icon svgIcon="heroicons_outline:home"></mat-icon>
+            <span class="ml-2">{{ t('errorPage.home') }}</span>
+        </a>
+    </div>
+</div>

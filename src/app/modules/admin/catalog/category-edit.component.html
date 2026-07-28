@@ -1,0 +1,214 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+    >
+        @if (loading() || saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div class="flex min-w-0 items-center gap-3">
+            <button
+                mat-icon-button
+                type="button"
+                [matTooltip]="t('admin.categories.editPage.back')"
+                (click)="goBack()"
+            >
+                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+            </button>
+            <div class="min-w-0">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.categories.editPage.title') }}
+                </div>
+                <div class="truncate text-2xl font-extrabold tracking-tight">
+                    {{ categoryName() || t('admin.categories.editPage.title') }}
+                </div>
+            </div>
+        </div>
+        @if (category()) {
+            @if (isActive()) {
+                <span class="admin-pill admin-pill-success">{{
+                    t('admin.crud.active')
+                }}</span>
+            } @else {
+                <span class="admin-pill admin-pill-neutral">{{
+                    t('admin.crud.inactive')
+                }}</span>
+            }
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="flex flex-auto overflow-hidden">
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 md:p-8">
+            @if (loading() && !category()) {
+                <admin-loading-state />
+            } @else if (notFound()) {
+                <div
+                    class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.categories.editPage.notFound') }}
+                </div>
+            } @else if (category()) {
+                <div class="flex w-full flex-col gap-8">
+                    @if (metaEntries().length) {
+                        <section>
+                            <div class="mb-3 text-lg font-semibold">
+                                {{ t('admin.categories.editPage.info') }}
+                            </div>
+                            <div
+                                class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
+                            >
+                                @for (
+                                    field of metaEntries();
+                                    track field.label
+                                ) {
+                                    <div
+                                        class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                                    >
+                                        <span
+                                            class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                            >{{ t(field.label) }}</span
+                                        >
+                                        <span
+                                            class="min-w-0 break-words font-medium"
+                                            >{{ field.value }}</span
+                                        >
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    <form
+                        class="flex flex-col gap-6"
+                        [formGroup]="form"
+                        (ngSubmit)="save()"
+                    >
+                        <div class="text-lg font-semibold">
+                            {{ t('admin.categories.editPage.editSection') }}
+                        </div>
+
+                        <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
+                            <mat-form-field class="w-full sm:w-1/2">
+                                <mat-label>{{
+                                    t('admin.categories.name')
+                                }}</mat-label>
+                                <input matInput formControlName="name" />
+                                @if (
+                                    form.controls.name.touched &&
+                                    form.controls.name.hasError('required')
+                                ) {
+                                    <mat-error>{{
+                                        t('admin.crud.errors.required')
+                                    }}</mat-error>
+                                }
+                            </mat-form-field>
+                            <mat-form-field class="w-full sm:w-1/2">
+                                <mat-label>{{
+                                    t('admin.categories.parent')
+                                }}</mat-label>
+                                <input
+                                    matInput
+                                    [matAutocomplete]="autoParent"
+                                    [placeholder]="t('admin.crud.optionSearch')"
+                                    [value]="parentSearch()"
+                                    (input)="
+                                        onParentSearch(
+                                            $any($event.target).value
+                                        )
+                                    "
+                                    (blur)="onParentBlur()"
+                                />
+                                @if (form.controls.parentId.value) {
+                                    <button
+                                        matSuffix
+                                        mat-icon-button
+                                        type="button"
+                                        (click)="clearParent()"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:x-mark"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                                <mat-autocomplete
+                                    #autoParent
+                                    [displayWith]="parentLabel"
+                                    (optionSelected)="
+                                        onParentSelected($event.option.value)
+                                    "
+                                >
+                                    <mat-option [value]="''">—</mat-option>
+                                    @for (
+                                        opt of visibleParentOptions();
+                                        track opt.value
+                                    ) {
+                                        <mat-option [value]="opt.value">{{
+                                            opt.label
+                                        }}</mat-option>
+                                    } @empty {
+                                        <mat-option disabled>{{
+                                            t('admin.crud.optionSearchEmpty')
+                                        }}</mat-option>
+                                    }
+                                </mat-autocomplete>
+                            </mat-form-field>
+                        </div>
+
+                        <div
+                            class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
+                        >
+                            @if (isActive()) {
+                                <button
+                                    class="-ml-2"
+                                    mat-button
+                                    color="warn"
+                                    type="button"
+                                    [disabled]="saving()"
+                                    (click)="deactivate()"
+                                >
+                                    {{ t('admin.crud.deactivate') }}
+                                </button>
+                            } @else {
+                                <button
+                                    class="-ml-2"
+                                    mat-button
+                                    color="primary"
+                                    type="button"
+                                    [disabled]="saving()"
+                                    (click)="reactivate()"
+                                >
+                                    {{ t('admin.crud.reactivate') }}
+                                </button>
+                            }
+                            <div class="flex items-center gap-2">
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="saving()"
+                                    (click)="goBack()"
+                                >
+                                    {{ t('admin.crud.cancel') }}
+                                </button>
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    type="submit"
+                                    [disabled]="form.invalid || saving()"
+                                >
+                                    {{ t('admin.crud.save') }}
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            }
+        </div>
+    </div>
+</div>

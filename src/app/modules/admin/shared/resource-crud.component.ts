@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
     Input,
     OnInit,
     TemplateRef,
@@ -32,12 +33,14 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute, Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { includesFolded } from 'app/core/util/text-search';
+import { AdminLoadingStateComponent } from './admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     ADMIN_PAGE_SIZE_OPTIONS,
@@ -74,6 +77,7 @@ import { TableSort } from './table-sort';
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         NgTemplateOutlet,
+        AdminLoadingStateComponent,
         MatButtonModule,
         MatDialogModule,
         MatFormFieldModule,
@@ -96,13 +100,18 @@ export class ResourceCrudComponent implements OnInit {
     protected readonly collapseOnLeave = collapseOnLeave;
 
     @Input({ required: true }) resource!: CrudResource;
+    /** `create` renders a full-page create form at `/…/new`. */
+    @Input() pageMode: 'list' | 'create' = 'list';
     @ViewChild('formDialog') private _formDialog!: TemplateRef<unknown>;
     @ViewChild('assignDialog') private _assignDialog!: TemplateRef<unknown>;
 
     private readonly _dialog = inject(MatDialog);
+    private readonly _route = inject(ActivatedRoute);
+    private readonly _router = inject(Router);
     private readonly _confirmation = inject(FuseConfirmationService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _destroyRef = inject(DestroyRef);
 
     private _dialogRef: MatDialogRef<unknown> | null = null;
     private _assignDialogRef: MatDialogRef<unknown> | null = null;
@@ -246,12 +255,12 @@ export class ResourceCrudComponent implements OnInit {
             return 'minmax(0, 1fr)';
         });
         tracks.push('8rem'); // status pill
-        if (this.usesInlineDetail) {
+        if (this.usesInlineDetail || this.usesPageDetail) {
             if (this.resource.rowActions?.length) {
                 const n = this.resource.rowActions.length;
                 tracks.push(`${Math.max(2.75, n * 2.75)}rem`);
             }
-            tracks.push('5rem'); // details chevron
+            tracks.push('5rem'); // details chevron / arrow
         } else {
             // Edit (+ remove) + optional row actions — fixed so header/body match.
             const n =
@@ -270,10 +279,18 @@ export class ResourceCrudComponent implements OnInit {
 
     /**
      * Expandable inline editor (markets pattern). Disabled for compact
-     * resources that use dialog edit + row action icons instead.
+     * resources that use dialog edit + row action icons instead, and when
+     * {@link CrudResource.openDetail} routes to a separate page.
      */
     get usesInlineDetail(): boolean {
-        return this.resource.inlineDetail !== false;
+        return (
+            this.resource.inlineDetail !== false && !this.resource.openDetail
+        );
+    }
+
+    /** True when Details navigates to a routed edit/detail page. */
+    get usesPageDetail(): boolean {
+        return typeof this.resource.openDetail === 'function';
     }
 
     /**
@@ -335,7 +352,19 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        if (this.pageMode === 'create') {
+            this.editing.set(false);
+            this.editingId.set(null);
+            this.form = this._buildForm(null);
+            this.optionSearch.set({});
+            void this._loadSelectOptions();
+            return;
+        }
         this.load();
+    }
+
+    goBack(): void {
+        void this._router.navigate(['..'], { relativeTo: this._route });
     }
 
     /**
@@ -507,6 +536,10 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     toggleDetails(row: CrudRow): void {
+        if (this.resource.openDetail) {
+            this.resource.openDetail(row);
+            return;
+        }
         if (this.selectedId() === row.id) {
             this.closeDetails();
             return;
@@ -536,12 +569,9 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     openCreate(): void {
-        this.closeDetails();
-        this.editing.set(false);
-        this.editingId.set(null);
-        this.form = this._buildForm(null);
-        this.optionSearch.set({});
-        void this._loadSelectOptions();
+        if (this.pageMode === 'create' || this._dialogRef) {
+            return;
+        }
         this._open();
     }
 
@@ -677,7 +707,13 @@ export class ResourceCrudComponent implements OnInit {
                     }
                 } else {
                     this._notify('admin.crud.createSuccess');
-                    this.closeDialog();
+                    if (this.pageMode === 'create') {
+                        this.goBack();
+                    } else {
+                        this.closeDialog();
+                        this.load();
+                    }
+                    return;
                 }
                 this.load();
             })
@@ -936,7 +972,9 @@ export class ResourceCrudComponent implements OnInit {
             autoFocus: false,
             maxWidth: '100vw',
         });
-        this._dialogRef.afterClosed().subscribe(() => (this._dialogRef = null));
+        this._dialogRef.afterClosed().subscribe(() => {
+            this._dialogRef = null;
+        });
     }
 
     private _buildForm(row: CrudRow | null): FormGroup {

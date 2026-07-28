@@ -1,5 +1,5 @@
 <div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
     *transloco="let t"
 >
     <!-- Header -->
@@ -122,11 +122,8 @@
     </div>
 
     <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
-        <div
-            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
-            *transloco="let t"
-        >
+    <div class="flex flex-auto">
+        <div class="flex flex-auto flex-col" *transloco="let t">
             @if (sortedEntries().length > 0) {
                 <div class="grid">
                     <div
@@ -220,7 +217,7 @@
                 </div>
 
                 <mat-paginator
-                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                    class="border-t bg-gray-50 dark:bg-transparent"
                     [class.pointer-events-none]="loading()"
                     [length]="totalCount()"
                     [pageIndex]="pageIndex()"
@@ -229,7 +226,9 @@
                     [showFirstLastButtons]="true"
                     (page)="onPageChange($event)"
                 ></mat-paginator>
-            } @else if (!loading()) {
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
                 <div
                     class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
                 >

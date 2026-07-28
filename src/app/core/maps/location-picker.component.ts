@@ -14,7 +14,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { TranslocoModule } from '@jsverse/transloco';
 import { Subject, Subscription } from 'rxjs';
 import { debounceTime, switchMap } from 'rxjs/operators';
@@ -41,7 +41,7 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
         MatFormFieldModule,
         MatInputModule,
         MatIconModule,
-        MatProgressBarModule,
+        MatProgressSpinnerModule,
         TranslocoModule,
     ],
     template: `
@@ -85,18 +85,32 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
             <!-- Interactive map (progressive enhancement) -->
             @if (mapsEnabled) {
                 <div class="relative overflow-hidden rounded-xl border">
+                    <div
+                        #mapContainer
+                        [class]="'w-full ' + mapHeightClass"
+                    ></div>
                     @if (mapLoading()) {
-                        <mat-progress-bar
-                            mode="indeterminate"
-                            class="absolute inset-x-0 top-0 z-10"
-                        ></mat-progress-bar>
+                        <div
+                            class="bg-card/80 absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 backdrop-blur-sm"
+                            role="status"
+                            [attr.aria-label]="t('maps.loading')"
+                        >
+                            <mat-progress-spinner
+                                mode="indeterminate"
+                                [diameter]="36"
+                                color="primary"
+                            ></mat-progress-spinner>
+                            <span class="text-secondary text-xs font-medium">
+                                {{ t('maps.loading') }}
+                            </span>
+                        </div>
+                    } @else {
+                        <p
+                            class="text-secondary pointer-events-none absolute bottom-1 left-2 text-xs"
+                        >
+                            {{ t('maps.mapHint') }}
+                        </p>
                     }
-                    <div #mapContainer class="h-56 w-full"></div>
-                    <p
-                        class="text-secondary pointer-events-none absolute bottom-1 left-2 text-xs"
-                    >
-                        {{ t('maps.mapHint') }}
-                    </p>
                 </div>
             }
 
@@ -142,6 +156,8 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
      * still write coordinates). Used when a single address field owns the pick.
      */
     @Input() showManualCoords = true;
+    /** Tailwind height class for the map pane (default `h-56`). */
+    @Input() mapHeightClass = 'h-56';
     @ViewChild('mapContainer') private _mapContainer?: ElementRef<HTMLElement>;
 
     private readonly _goong = inject(GoongMapService);
@@ -150,7 +166,8 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
     readonly query = signal('');
     readonly suggestions = signal<GoongPlaceSuggestion[]>([]);
     readonly showSuggestions = signal(false);
-    readonly mapLoading = signal(false);
+    /** True from first paint until the Goong SDK + tiles are ready. */
+    readonly mapLoading = signal(this._goong.mapsEnabled);
 
     private readonly _search$ = new Subject<string>();
     private readonly _subs = new Subscription();
@@ -219,9 +236,9 @@ export class LocationPickerComponent implements AfterViewInit, OnDestroy {
 
     private async _initMap(): Promise<void> {
         if (!this.mapsEnabled || !this._mapContainer) {
+            this.mapLoading.set(false);
             return;
         }
-        this.mapLoading.set(true);
         try {
             const lat = this._num(this.latControl.value);
             const lng = this._num(this.lngControl.value);

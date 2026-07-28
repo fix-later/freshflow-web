@@ -1,158 +1,343 @@
-<div class="flex w-full flex-col p-6 md:p-8" *transloco="let t">
-    <a
-        routerLink="/admin/markets"
-        class="text-secondary mb-4 inline-flex w-fit items-center gap-1 text-sm font-medium hover:text-accent"
+@if (!embedded()) {
+    <div
+        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+        *transloco="let t"
     >
-        <mat-icon
-            class="icon-size-4"
-            svgIcon="heroicons_outline:arrow-left"
-        ></mat-icon>
-        {{ t('admin.markets.title') }}
-    </a>
+        <ng-container
+            *ngTemplateOutlet="pageHeader; context: { t: t, showBack: true }"
+        ></ng-container>
+        <ng-container
+            *ngTemplateOutlet="mainList; context: { t: t }"
+        ></ng-container>
+    </div>
+} @else {
+    <div class="flex min-h-0 flex-auto flex-col" *transloco="let t">
+        <ng-container
+            *ngTemplateOutlet="pageHeader; context: { t: t, showBack: false }"
+        ></ng-container>
+        <ng-container
+            *ngTemplateOutlet="mainList; context: { t: t }"
+        ></ng-container>
+    </div>
+}
 
-    <h1 class="text-3xl font-bold tracking-tight">
-        {{ t('admin.markets.pricingTitle') }}
-    </h1>
-
-    <!-- Add product to this market -->
-    <form
-        [formGroup]="addForm"
-        class="mt-6 flex flex-wrap items-end gap-3"
-        (ngSubmit)="addProduct()"
+<ng-template #pageHeader let-t="t" let-showBack="showBack">
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 py-6 md:px-8"
+        [class.py-8]="showBack"
     >
-        <mat-form-field class="w-64" subscriptSizing="dynamic">
-            <mat-label>{{ t('admin.markets.addProduct') }}</mat-label>
-            <mat-select formControlName="productId">
-                @for (opt of availableProductOptions(); track opt.value) {
-                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
-                } @empty {
-                    <mat-option disabled>{{
-                        t('admin.markets.allProductsAdded')
-                    }}</mat-option>
-                }
-            </mat-select>
-        </mat-form-field>
-        <mat-form-field class="w-36" subscriptSizing="dynamic">
-            <mat-label>{{ t('admin.markets.price') }}</mat-label>
-            <input matInput type="number" formControlName="initialPrice" />
-        </mat-form-field>
-        <mat-form-field class="w-36" subscriptSizing="dynamic">
-            <mat-label>{{ t('admin.markets.quantity') }}</mat-label>
-            <input matInput type="number" formControlName="initialQuantity" />
-        </mat-form-field>
-        <button
-            mat-flat-button
-            color="accent"
-            type="submit"
-            [disabled]="!addForm.value.productId || saving()"
+        @if (loading() || saving()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
         >
-            <mat-icon svgIcon="heroicons_outline:plus" class="mr-1"></mat-icon>
-            {{ t('admin.crud.save') }}
-        </button>
-    </form>
-
-    @if (loading()) {
-        <mat-progress-bar mode="indeterminate" class="mt-4"></mat-progress-bar>
-    }
-
-    <div class="bg-card mt-4 overflow-x-auto rounded-2xl border">
-        <table class="w-full min-w-[640px] text-left text-sm">
-            <thead
-                class="text-secondary border-b text-xs uppercase tracking-wide"
-            >
-                <tr>
-                    @for (
-                        col of [
-                            { key: 'name', label: 'admin.products.name' },
-                            { key: 'price', label: 'admin.markets.price' },
-                            {
-                                key: 'quantity',
-                                label: 'admin.markets.quantity',
-                            },
-                        ];
-                        track col.key
-                    ) {
-                        <th
-                            class="px-4 py-3 font-medium"
-                            [attr.aria-sort]="sort.ariaSort(col.key)"
+            @if (showBack) {
+                <div class="flex min-w-0 items-center gap-3">
+                    <button
+                        mat-icon-button
+                        type="button"
+                        [matTooltip]="t('admin.markets.pricingPage.back')"
+                        (click)="goBack()"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:arrow-left"
+                        ></mat-icon>
+                    </button>
+                    <div class="min-w-0">
+                        <div
+                            class="text-secondary text-xs uppercase tracking-wide"
                         >
+                            {{ t('admin.markets.pricingTitle') }}
+                        </div>
+                        <div
+                            class="truncate text-2xl font-extrabold tracking-tight"
+                        >
+                            {{
+                                marketName() || t('admin.markets.pricingTitle')
+                            }}
+                        </div>
+                    </div>
+                </div>
+            } @else {
+                <div class="min-w-0">
+                    <div class="text-lg font-semibold tracking-tight">
+                        {{ t('admin.markets.editPage.tabs.pricing') }}
+                    </div>
+                    <p class="text-secondary mt-1 text-sm">
+                        {{ t('admin.markets.pricingTitle') }}
+                    </p>
+                </div>
+            }
+            <div class="flex min-w-0 shrink items-center gap-3">
+                <mat-form-field
+                    class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        matPrefix
+                        svgIcon="heroicons_solid:magnifying-glass"
+                    ></mat-icon>
+                    <input
+                        matInput
+                        class="overflow-hidden text-ellipsis whitespace-nowrap"
+                        autocomplete="off"
+                        [value]="search()"
+                        [placeholder]="
+                            t('admin.markets.pricingPage.searchPlaceholder')
+                        "
+                        (input)="onSearch($any($event.target).value)"
+                    />
+                </mat-form-field>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="
+                        !selectableProducts().length || loadingProducts()
+                    "
+                    [matTooltip]="
+                        selectableProducts().length
+                            ? null
+                            : t('admin.markets.allProductsAdded')
+                    "
+                    (click)="openQuickAdd()"
+                >
+                    <mat-icon
+                        svgIcon="heroicons_outline:squares-plus"
+                    ></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.markets.quickAdd')
+                    }}</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #mainList let-t="t">
+    <div class="flex min-h-0 flex-auto overflow-hidden">
+        <div class="flex min-h-0 flex-auto flex-col overflow-y-auto">
+            @if (pickerOpen()) {
+                <section class="border-b p-6 md:p-8">
+                    <div class="mb-4 flex items-center justify-between gap-3">
+                        <div class="text-lg font-semibold tracking-tight">
+                            {{ t('admin.markets.quickAdd') }}
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                (click)="closeQuickAdd()"
+                            >
+                                {{ t('admin.crud.cancel') }}
+                            </button>
+                            <button
+                                mat-flat-button
+                                color="primary"
+                                type="button"
+                                [disabled]="!pickerSelectedCount() || saving()"
+                                (click)="saveQuickAdd()"
+                            >
+                                {{ t('admin.crud.save') }}
+                            </button>
+                        </div>
+                    </div>
+
+                    <mat-form-field
+                        class="admin-header-search fuse-mat-dense fuse-mat-rounded mb-4 w-full max-w-md"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            matPrefix
+                            svgIcon="heroicons_solid:magnifying-glass"
+                        ></mat-icon>
+                        <input
+                            matInput
+                            autocomplete="off"
+                            [value]="pickerSearch()"
+                            [placeholder]="
+                                t('admin.markets.pricingPage.searchPlaceholder')
+                            "
+                            (input)="onPickerSearch($any($event.target).value)"
+                        />
+                    </mat-form-field>
+
+                    <div class="overflow-hidden rounded-xl border">
+                        <div
+                            class="product-picker-grid text-secondary grid items-center gap-4 border-b bg-gray-50 px-4 py-3 text-sm font-semibold dark:bg-black dark:bg-opacity-5"
+                        >
+                            <mat-checkbox
+                                [checked]="allVisibleSelected()"
+                                [indeterminate]="
+                                    pickerSelectedCount() > 0 &&
+                                    !allVisibleSelected()
+                                "
+                                (change)="
+                                    toggleSelectAllVisible(!!$event.checked)
+                                "
+                            >
+                            </mat-checkbox>
+                            <div>{{ t('admin.products.name') }}</div>
+                            <div>{{ t('admin.products.category') }}</div>
+                            <div>{{ t('admin.products.unit') }}</div>
+                            <div>{{ t('admin.products.description') }}</div>
+                        </div>
+                        @for (row of filteredPickerProducts(); track row.id) {
+                            <div
+                                class="product-picker-grid grid items-center gap-4 border-b px-4 py-3 last:border-b-0"
+                            >
+                                <mat-checkbox
+                                    [checked]="isPickerSelected(row.id)"
+                                    (change)="togglePickerSelect(row.id)"
+                                >
+                                </mat-checkbox>
+                                <div class="truncate font-medium">
+                                    {{ row.name || '—' }}
+                                </div>
+                                <div class="truncate">
+                                    {{ row.category || '—' }}
+                                </div>
+                                <div class="truncate">
+                                    {{ row.unit || '—' }}
+                                </div>
+                                <div class="truncate">
+                                    {{ row.description || '—' }}
+                                </div>
+                            </div>
+                        } @empty {
+                            <div class="text-secondary px-4 py-8 text-center">
+                                {{ t('admin.crud.empty') }}
+                            </div>
+                        }
+                    </div>
+                </section>
+            }
+
+            @if (sortedRows().length > 0) {
+                <div class="grid">
+                    <div
+                        class="market-products-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                    >
+                        <div [attr.aria-sort]="sort.ariaSort('name')">
                             <button
                                 type="button"
                                 class="admin-sort-header"
-                                (click)="sort.toggle(col.key)"
+                                (click)="sort.toggle('name')"
                             >
-                                {{ t(col.label) }}
+                                {{ t('admin.products.name') }}
                                 <mat-icon
                                     class="icon-size-4"
-                                    [class.text-accent]="sort.key() === col.key"
+                                    [class.text-accent]="sort.key() === 'name'"
                                     [svgIcon]="
-                                        'heroicons_outline:' +
-                                        sort.icon(col.key)
+                                        'heroicons_outline:' + sort.icon('name')
                                     "
                                 ></mat-icon>
                             </button>
-                        </th>
-                    }
-                    <th class="px-4 py-3 text-right font-medium">
-                        {{ t('admin.users.table.actions') }}
-                    </th>
-                </tr>
-            </thead>
-            <tbody>
-                @for (row of sortedRows(); track row.productId) {
-                    <tr class="border-b last:border-0">
-                        <td class="px-4 py-3 font-medium">
-                            {{ row.name || '—' }}
-                        </td>
-                        <td class="px-4 py-3">
-                            <mat-form-field
-                                class="w-32"
-                                subscriptSizing="dynamic"
-                            >
-                                <input
-                                    matInput
-                                    type="number"
-                                    [(ngModel)]="priceDraft[row.productId]"
-                                />
-                            </mat-form-field>
-                        </td>
-                        <td class="px-4 py-3">
-                            <mat-form-field
-                                class="w-32"
-                                subscriptSizing="dynamic"
-                            >
-                                <input
-                                    matInput
-                                    type="number"
-                                    [(ngModel)]="quantityDraft[row.productId]"
-                                />
-                            </mat-form-field>
-                        </td>
-                        <td class="px-4 py-3 text-right">
+                        </div>
+                        <div [attr.aria-sort]="sort.ariaSort('price')">
                             <button
-                                mat-icon-button
                                 type="button"
-                                [matTooltip]="t('admin.crud.save')"
-                                [disabled]="saving()"
-                                (click)="saveRow(row)"
+                                class="admin-sort-header"
+                                (click)="sort.toggle('price')"
                             >
+                                {{ t('admin.markets.price') }}
                                 <mat-icon
-                                    svgIcon="heroicons_outline:check-circle"
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'price'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('price')
+                                    "
                                 ></mat-icon>
                             </button>
-                        </td>
-                    </tr>
-                } @empty {
-                    <tr>
-                        <td
-                            class="text-secondary px-4 py-8 text-center"
-                            colspan="4"
+                        </div>
+                        <div [attr.aria-sort]="sort.ariaSort('quantity')">
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle('quantity')"
+                            >
+                                {{ t('admin.markets.quantity') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'quantity'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('quantity')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div class="text-right">
+                            {{ t('admin.users.table.actions') }}
+                        </div>
+                    </div>
+
+                    @for (row of sortedRows(); track row.productId) {
+                        <div
+                            class="market-products-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
                         >
-                            {{ t('admin.crud.empty') }}
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
+                            <div class="min-w-0 truncate font-medium">
+                                {{ row.name || '—' }}
+                            </div>
+                            <div>
+                                <mat-form-field
+                                    class="fuse-mat-dense w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <input
+                                        matInput
+                                        type="number"
+                                        [(ngModel)]="priceDraft[row.productId]"
+                                    />
+                                </mat-form-field>
+                            </div>
+                            <div>
+                                <mat-form-field
+                                    class="fuse-mat-dense w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <input
+                                        matInput
+                                        type="number"
+                                        [(ngModel)]="
+                                            quantityDraft[row.productId]
+                                        "
+                                    />
+                                </mat-form-field>
+                            </div>
+                            <div class="flex justify-end">
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="t('admin.crud.save')"
+                                    [disabled]="saving()"
+                                    (click)="saveRow(row)"
+                                >
+                                    <mat-icon
+                                        svgIcon="heroicons_outline:check"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            } @else if (loading()) {
+                <admin-loading-state />
+            } @else {
+                <div
+                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                >
+                    {{ t('admin.crud.empty') }}
+                </div>
+            }
+        </div>
     </div>
-</div>
+</ng-template>
