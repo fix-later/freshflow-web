@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AdminDashboardComponent } from './analytics/analytics-dashboard.component';
+import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { CategoriesComponent } from './catalog/categories.component';
 import { MarketCreateComponent } from './catalog/market-create.component';
 import { MarketEditComponent } from './catalog/market-edit.component';
@@ -141,5 +142,10 @@ export default [
     {
         path: 'invoices/:invoiceId',
         component: InvoiceDetailComponent,
+    },
+    // Audit trail (M13)
+    {
+        path: 'audit-logs',
+        component: AuditLogsComponent,
     },
 ] as Routes;

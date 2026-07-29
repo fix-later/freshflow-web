@@ -94,6 +94,22 @@ export interface ApiV1HubsHubIdPendingInboundGetRequest {
     pageSize?: number;
 }
 
+export interface ApiV1HubsHubIdProcurementPlanGetRequest {
+    hubId: string;
+    date?: Date;
+}
+
+export interface ApiV1HubsHubIdOrdersByRestaurantGetRequest {
+    hubId: string;
+    serviceDate?: Date;
+    includeBatched?: boolean;
+}
+
+export interface ApiV1HubsHubIdRoutesRouteIdSortingProgressGetRequest {
+    hubId: string;
+    routeId: string;
+}
+
 export interface ApiV1HubsScanPostRequest {
     scanInboundRequest?: ScanInboundRequest;
 }
@@ -859,6 +875,237 @@ export class HubInboundApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1HubsHubIdPendingInboundGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdProcurementPlanGet without sending the request
+     */
+    async apiV1HubsHubIdProcurementPlanGetRequestOpts(
+        requestParameters: ApiV1HubsHubIdProcurementPlanGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdProcurementPlanGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['date'] != null) {
+            queryParameters['date'] = (requestParameters['date'] as any)
+                .toISOString()
+                .substring(0, 10);
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/procurement-plan`;
+        urlPath = urlPath.replace(
+            '{hubId}',
+            encodeURIComponent(String(requestParameters['hubId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdProcurementPlanGetRaw(
+        requestParameters: ApiV1HubsHubIdProcurementPlanGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1HubsHubIdProcurementPlanGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdProcurementPlanGet(
+        requestParameters: ApiV1HubsHubIdProcurementPlanGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1HubsHubIdProcurementPlanGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdOrdersByRestaurantGet without sending the request
+     */
+    async apiV1HubsHubIdOrdersByRestaurantGetRequestOpts(
+        requestParameters: ApiV1HubsHubIdOrdersByRestaurantGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdOrdersByRestaurantGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['serviceDate'] != null) {
+            queryParameters['service_date'] = (
+                requestParameters['serviceDate'] as any
+            )
+                .toISOString()
+                .substring(0, 10);
+        }
+
+        if (requestParameters['includeBatched'] != null) {
+            queryParameters['include_batched'] =
+                requestParameters['includeBatched'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/orders-by-restaurant`;
+        urlPath = urlPath.replace(
+            '{hubId}',
+            encodeURIComponent(String(requestParameters['hubId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdOrdersByRestaurantGetRaw(
+        requestParameters: ApiV1HubsHubIdOrdersByRestaurantGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1HubsHubIdOrdersByRestaurantGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdOrdersByRestaurantGet(
+        requestParameters: ApiV1HubsHubIdOrdersByRestaurantGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1HubsHubIdOrdersByRestaurantGetRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdRoutesRouteIdSortingProgressGet without sending the request
+     */
+    async apiV1HubsHubIdRoutesRouteIdSortingProgressGetRequestOpts(
+        requestParameters: ApiV1HubsHubIdRoutesRouteIdSortingProgressGetRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdRoutesRouteIdSortingProgressGet().'
+            );
+        }
+
+        if (requestParameters['routeId'] == null) {
+            throw new runtime.RequiredError(
+                'routeId',
+                'Required parameter "routeId" was null or undefined when calling apiV1HubsHubIdRoutesRouteIdSortingProgressGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/routes/{routeId}/sorting-progress`;
+        urlPath = urlPath.replace(
+            '{hubId}',
+            encodeURIComponent(String(requestParameters['hubId']))
+        );
+        urlPath = urlPath.replace(
+            '{routeId}',
+            encodeURIComponent(String(requestParameters['routeId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdRoutesRouteIdSortingProgressGetRaw(
+        requestParameters: ApiV1HubsHubIdRoutesRouteIdSortingProgressGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1HubsHubIdRoutesRouteIdSortingProgressGetRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdRoutesRouteIdSortingProgressGet(
+        requestParameters: ApiV1HubsHubIdRoutesRouteIdSortingProgressGetRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1HubsHubIdRoutesRouteIdSortingProgressGetRaw(
             requestParameters,
             initOverrides
         );

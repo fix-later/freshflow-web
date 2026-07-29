@@ -377,6 +377,34 @@
                                 </p>
                             }
                         </div>
+
+                        <div
+                            class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow md:col-span-2"
+                        >
+                            <div class="text-lg font-medium tracking-tight">
+                                {{ t('admin.analytics.demandHeatmap') }}
+                            </div>
+                            @if (demandHeatmap().length) {
+                                <div class="mt-4 flex h-80 flex-auto flex-col">
+                                    <apx-chart
+                                        class="h-full w-full flex-auto"
+                                        [chart]="chartHeatmap().chart!"
+                                        [colors]="chartHeatmap().colors!"
+                                        [dataLabels]="
+                                            chartHeatmap().dataLabels!
+                                        "
+                                        [series]="chartHeatmap().series!"
+                                        [tooltip]="chartHeatmap().tooltip!"
+                                        [xaxis]="chartHeatmap().xaxis!"
+                                        [yaxis]="chartHeatmap().yaxis!"
+                                    ></apx-chart>
+                                </div>
+                            } @else {
+                                <p class="text-secondary mt-6 text-sm">
+                                    {{ t('admin.analytics.noData') }}
+                                </p>
+                            }
+                        </div>
                     </div>
 
                     <!-- Export -->

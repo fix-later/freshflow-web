@@ -35,6 +35,7 @@ import {
     AnalyticsActivity,
     AnalyticsPoint,
     AnalyticsService,
+    HeatmapSeries,
 } from './analytics.service';
 
 /** Optional Luxon day from the Material datepicker. */
@@ -142,6 +143,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     readonly deliveryPerformance = signal<AnalyticsPoint[]>([]);
     readonly priceTrends = signal<AnalyticsPoint[]>([]);
     readonly demandDistribution = signal<AnalyticsPoint[]>([]);
+    readonly demandHeatmap = signal<HeatmapSeries[]>([]);
     readonly activities = signal<AnalyticsActivity[]>([]);
     readonly selectedTab = signal(0);
 
@@ -151,6 +153,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
     readonly chartDelivery = signal<ApexOptions>({});
     readonly chartPrices = signal<ApexOptions>({});
     readonly chartDemand = signal<ApexOptions>({});
+    readonly chartHeatmap = signal<ApexOptions>({});
 
     readonly exportDatasets = [...EXPORT_DATASETS];
 
@@ -242,6 +245,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             this._analytics.getDeliveryPerformance(from, to).catch(() => []),
             this._analytics.getPriceTrends(from, to).catch(() => []),
             this._analytics.getDemandTimeDistribution(from, to).catch(() => []),
+            this._analytics.getDemandHeatmap(from, to).catch(() => []),
             this._analytics.getRecentActivities().catch(() => []),
         ])
             .then(
@@ -253,6 +257,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                     deliveries,
                     prices,
                     demand,
+                    heatmap,
                     activities,
                 ]) => {
                     this.tiles.set(
@@ -279,6 +284,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                     this.deliveryPerformance.set(deliveries);
                     this.priceTrends.set(prices);
                     this.demandDistribution.set(demand);
+                    this.demandHeatmap.set(heatmap);
                     this.activities.set(activities);
 
                     this.chartOrders.set(this._areaChart(orders, '#34D399'));
@@ -291,6 +297,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
                     );
                     this.chartPrices.set(this._areaChart(prices, '#F87171'));
                     this.chartDemand.set(this._columnChart(demand, '#2DD4BF'));
+                    this.chartHeatmap.set(this._heatmapChart(heatmap));
                 }
             )
             .finally(() => this.loading.set(false));
@@ -440,6 +447,40 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
             yaxis: {
                 labels: {
                     offsetX: -16,
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+        };
+    }
+
+    private _heatmapChart(series: HeatmapSeries[]): ApexOptions {
+        return {
+            chart: {
+                animations: { enabled: true },
+                fontFamily: 'inherit',
+                foreColor: 'inherit',
+                height: '100%',
+                type: 'heatmap',
+                toolbar: { show: false },
+            },
+            colors: ['#2DD4BF'],
+            dataLabels: { enabled: false },
+            series: series.map((s) => ({
+                name: s.name,
+                data: s.data.map((c) => ({ x: c.x, y: c.y })),
+            })),
+            tooltip: {
+                theme: 'dark',
+            },
+            xaxis: {
+                axisBorder: { show: false },
+                axisTicks: { color: 'var(--fuse-border)' },
+                labels: {
+                    style: { colors: 'var(--fuse-text-secondary)' },
+                },
+            },
+            yaxis: {
+                labels: {
                     style: { colors: 'var(--fuse-text-secondary)' },
                 },
             },

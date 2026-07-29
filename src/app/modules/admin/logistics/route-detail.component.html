@@ -68,6 +68,39 @@
                     </div>
                 </section>
 
+                @if (loadingSortingProgress() || sortingProgress()) {
+                    <section>
+                        <div class="mb-3 text-lg font-semibold">
+                            {{ t('admin.routes.detailPage.sortingProgress') }}
+                        </div>
+                        @if (loadingSortingProgress()) {
+                            <admin-loading-state />
+                        } @else if (sortingProgress(); as progress) {
+                            <div
+                                class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
+                            >
+                                @for (
+                                    f of sortingProgressEntries(progress);
+                                    track f.label
+                                ) {
+                                    <div
+                                        class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                                    >
+                                        <span
+                                            class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                            >{{ f.label }}</span
+                                        >
+                                        <span
+                                            class="min-w-0 break-words font-medium"
+                                            >{{ f.value }}</span
+                                        >
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </section>
+                }
+
                 @if (stopsOf(r).length) {
                     <section>
                         <div class="mb-3 text-lg font-semibold">

@@ -111,6 +111,10 @@ export class HubEditComponent implements OnInit {
     /** M8 Hub inbound/discrepancy oversight (admin = read-only, ROLE_MATRIX). */
     readonly pendingInbound = signal<CrudRow[]>([]);
     readonly openDiscrepancies = signal<CrudRow[]>([]);
+    readonly crossDock = signal<CrudRow[]>([]);
+    readonly outbound = signal<CrudRow[]>([]);
+    readonly procurementPlan = signal<CrudRow[]>([]);
+    readonly ordersByRestaurant = signal<CrudRow[]>([]);
     readonly loadingOversight = signal(false);
 
     /** Read-only HubDto fields for the detail grid. */
@@ -279,14 +283,35 @@ export class HubEditComponent implements OnInit {
         Promise.all([
             this._logistics.getPendingInbound(hubId),
             this._logistics.getDiscrepancies(hubId, 'open'),
+            this._logistics.getCrossDock(hubId),
+            this._logistics.getOutbound(hubId),
+            this._logistics.getProcurementPlan(hubId),
+            this._logistics.getOrdersByRestaurant(hubId),
         ])
-            .then(([pending, discrepancies]) => {
-                this.pendingInbound.set(pending);
-                this.openDiscrepancies.set(discrepancies);
-            })
+            .then(
+                ([
+                    pending,
+                    discrepancies,
+                    crossDock,
+                    outbound,
+                    procurementPlan,
+                    ordersByRestaurant,
+                ]) => {
+                    this.pendingInbound.set(pending);
+                    this.openDiscrepancies.set(discrepancies);
+                    this.crossDock.set(crossDock);
+                    this.outbound.set(outbound);
+                    this.procurementPlan.set(procurementPlan);
+                    this.ordersByRestaurant.set(ordersByRestaurant);
+                }
+            )
             .catch(() => {
                 this.pendingInbound.set([]);
                 this.openDiscrepancies.set([]);
+                this.crossDock.set([]);
+                this.outbound.set([]);
+                this.procurementPlan.set([]);
+                this.ordersByRestaurant.set([]);
             })
             .finally(() => this.loadingOversight.set(false));
     }

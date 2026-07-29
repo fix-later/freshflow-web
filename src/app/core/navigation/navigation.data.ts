@@ -107,6 +107,12 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/users',
                 exactMatch: true,
             },
+            {
+                id: 'admin-audit-logs',
+                title: 'Nhật ký hệ thống',
+                type: 'basic',
+                link: '/admin/audit-logs',
+            },
         ],
     },
     {

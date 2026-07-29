@@ -278,6 +278,67 @@ export class LogisticsAdminService {
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
     }
 
+    /** In-flight cross-dock transfers at `hubId`, optionally narrowed by status. */
+    async getCrossDock(hubId: string, status?: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdCrossDockGetRaw({
+            hubId,
+            status,
+            pageSize: 50,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /** Outbound shipments dispatched from `hubId` on `date` (defaults to today). */
+    async getOutbound(hubId: string, date?: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdOutboundGetRaw({
+            hubId,
+            date: date ? new Date(date) : undefined,
+            pageSize: 50,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /** What this hub needs to procure for `date` (defaults to today), aggregated from confirmed orders. */
+    async getProcurementPlan(hubId: string, date?: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdProcurementPlanGetRaw({
+            hubId,
+            date: date ? new Date(date) : undefined,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /** Orders routed through `hubId`, grouped by restaurant, for `serviceDate`. */
+    async getOrdersByRestaurant(
+        hubId: string,
+        serviceDate?: string,
+        includeBatched = false
+    ): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdOrdersByRestaurantGetRaw({
+            hubId,
+            serviceDate: serviceDate ? new Date(serviceDate) : undefined,
+            includeBatched,
+        });
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /** Sorting progress for `routeId`'s shipments at `hubId` (hub-staff's mobile sort task). */
+    async getSortingProgress(
+        hubId: string,
+        routeId: string
+    ): Promise<CrudRow | null> {
+        const res =
+            await hubInboundApi.apiV1HubsHubIdRoutesRouteIdSortingProgressGetRaw(
+                { hubId, routeId }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        return withId([data as CrudRow], 'id')[0];
+    }
+
     // ---- Routes (M9 Logistics, admin = read-only oversight) ---------------
 
     /**

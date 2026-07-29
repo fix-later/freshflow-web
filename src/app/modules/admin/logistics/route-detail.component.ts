@@ -50,11 +50,16 @@ export class RouteDetailComponent implements OnInit {
     readonly loading = signal(false);
     readonly notFound = signal(false);
 
+    /** Hub-staff's sorting task progress for this route (admin = read-only). */
+    readonly sortingProgress = signal<CrudRow | null>(null);
+    readonly loadingSortingProgress = signal(false);
+
     ngOnInit(): void {
         const id = this._route.snapshot.paramMap.get('routeId') ?? '';
         const passed = (history.state?.route ?? null) as CrudRow | null;
         if (passed && passed.id === id) {
             this.route.set(passed);
+            this._loadSortingProgress(passed, id);
         } else if (id) {
             this._fetch(id);
         } else {
@@ -89,6 +94,13 @@ export class RouteDetailComponent implements OnInit {
         }));
     }
 
+    sortingProgressEntries(row: CrudRow): { label: string; value: string }[] {
+        return this._rawScalars(row).map(([key, value]) => ({
+            label: this._humanize(key),
+            value: this._displayValue(key, value),
+        }));
+    }
+
     private _fetch(id: string): void {
         this.loading.set(true);
         this._logistics
@@ -96,9 +108,24 @@ export class RouteDetailComponent implements OnInit {
             .then((row) => {
                 this.route.set(row);
                 this.notFound.set(!row);
+                this._loadSortingProgress(row, id);
             })
             .catch(() => this.notFound.set(true))
             .finally(() => this.loading.set(false));
+    }
+
+    /** Only fetched when the route's own record names its hub (`hubId`). */
+    private _loadSortingProgress(row: CrudRow | null, routeId: string): void {
+        const hubId = row?.['hubId'];
+        if (typeof hubId !== 'string' || !hubId) {
+            return;
+        }
+        this.loadingSortingProgress.set(true);
+        this._logistics
+            .getSortingProgress(hubId, routeId)
+            .then((progress) => this.sortingProgress.set(progress))
+            .catch(() => this.sortingProgress.set(null))
+            .finally(() => this.loadingSortingProgress.set(false));
     }
 
     private _rawScalars(obj: unknown): [string, unknown][] {
