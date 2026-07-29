@@ -60,6 +60,7 @@ export class ProductCreateComponent implements OnInit {
     readonly saving = signal(false);
     readonly optionsLoading = signal(false);
     readonly unitOptions = signal<CrudOption[]>([]);
+    readonly packingCodeOptions = signal<CrudOption[]>([]);
     readonly unitSearch = signal('');
     readonly activeCategoryRows = signal<CrudRow[]>([]);
     readonly createParentId = signal('');
@@ -95,6 +96,7 @@ export class ProductCreateComponent implements OnInit {
         }),
         categoryId: new FormControl('', { nonNullable: true }),
         description: new FormControl('', { nonNullable: true }),
+        packingCodeId: new FormControl('', { nonNullable: true }),
     });
 
     ngOnInit(): void {
@@ -191,9 +193,10 @@ export class ProductCreateComponent implements OnInit {
     private async _loadOptions(): Promise<void> {
         this.optionsLoading.set(true);
         try {
-            const [units, categories] = await Promise.all([
+            const [units, categories, packingCodes] = await Promise.all([
                 this._catalog.listUnits(),
                 this._catalog.listCategories(),
+                this._catalog.packingCodeOptions(),
             ]);
             this.unitOptions.set(
                 units.map((u) => ({
@@ -204,9 +207,11 @@ export class ProductCreateComponent implements OnInit {
             this.activeCategoryRows.set(
                 categories.filter((c) => c.isActive !== false)
             );
+            this.packingCodeOptions.set(packingCodes);
         } catch {
             this.unitOptions.set([]);
             this.activeCategoryRows.set([]);
+            this.packingCodeOptions.set([]);
         } finally {
             this.optionsLoading.set(false);
         }

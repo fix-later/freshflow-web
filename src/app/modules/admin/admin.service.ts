@@ -426,11 +426,14 @@ export class AdminService {
 
     async getOrderGroups(
         page = 1,
-        pageSize = 10
+        pageSize = 10,
+        filters?: { date?: string; marketId?: string }
     ): Promise<AdminOrderGroupsResult> {
         const res = await adminApi.apiV1AdminOrderGroupsGetRaw({
             page,
             pageSize,
+            date: filters?.date ? new Date(filters.date) : undefined,
+            marketId: filters?.marketId || undefined,
         });
         const body = await parseJson<unknown>(res.raw);
         // The list nests the array at `data.batches` (see extractList); batch

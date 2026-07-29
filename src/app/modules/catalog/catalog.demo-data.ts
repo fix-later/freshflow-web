@@ -79,6 +79,12 @@ const THUMBS = [
 
 let seq = 0;
 
+const MARKET_IDS: Record<string, string> = {
+    'Chợ Bình Điền': 'demo-market-binh-dien',
+    'Chợ Hóc Môn': 'demo-market-hoc-mon',
+    'Chợ Thủ Đức': 'demo-market-thu-duc',
+};
+
 function demo(
     name: string,
     nameEn: string,
@@ -88,8 +94,11 @@ function demo(
     marketSource: string
 ): CatalogProduct {
     seq += 1;
+    const productId = `demo-${String(seq).padStart(2, '0')}`;
     return {
-        id: `demo-${String(seq).padStart(2, '0')}`,
+        id: `${productId}:${MARKET_IDS[marketSource]}`,
+        productId,
+        marketProductId: `${productId}:${MARKET_IDS[marketSource]}`,
         name,
         nameEn,
         description: `${name} tươi mỗi ngày, tuyển chọn từ ${marketSource}.`,
@@ -97,10 +106,14 @@ function demo(
         categoryId,
         unit,
         unitEn,
+        marketId: MARKET_IDS[marketSource],
         marketSource,
+        // Deterministic placeholder price (VND) — varies by item, not real pricing.
+        price: 15000 + ((seq * 4231) % 235000),
+        quantity: 100 + ((seq * 37) % 400),
         thumbnail: THUMBS[(seq - 1) % THUMBS.length],
         images: [THUMBS[(seq - 1) % THUMBS.length]],
-        active: true,
+        active: seq % 9 !== 0,
     };
 }
 

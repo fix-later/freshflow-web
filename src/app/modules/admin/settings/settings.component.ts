@@ -91,6 +91,11 @@ export class AdminSettingsDialogComponent implements OnInit {
         }),
         batchingEnabled: this._formBuilder.nonNullable.control(false),
         defaultRouteType: this._formBuilder.nonNullable.control(''),
+        deliveryWindowDays: this._formBuilder.nonNullable.control(7, [
+            Validators.required,
+            Validators.min(1),
+            Validators.max(30),
+        ]),
         priceAlertThresholdPercent: this._formBuilder.nonNullable.control(10, [
             Validators.required,
             Validators.min(0.01),
@@ -127,6 +132,7 @@ export class AdminSettingsDialogComponent implements OnInit {
                     ),
                     batchingEnabled: operational.batchingEnabled ?? false,
                     defaultRouteType: routeType,
+                    deliveryWindowDays: operational.deliveryWindowDays ?? 7,
                     priceAlertThresholdPercent:
                         pricing.priceAlertThresholdPercent ?? 10,
                 });
@@ -143,6 +149,7 @@ export class AdminSettingsDialogComponent implements OnInit {
             dailyCutoffTime,
             batchingEnabled,
             defaultRouteType,
+            deliveryWindowDays,
             priceAlertThresholdPercent,
         } = this.form.getRawValue();
         if (!dailyCutoffTime?.isValid) {
@@ -156,6 +163,7 @@ export class AdminSettingsDialogComponent implements OnInit {
                 dailyCutoffTime: time,
                 batchingEnabled: batchingEnabled ?? false,
                 defaultRouteType: defaultRouteType || null,
+                deliveryWindowDays: deliveryWindowDays ?? 7,
             }),
             this._admin.updatePricingSettings({
                 priceAlertThresholdPercent: priceAlertThresholdPercent ?? 10,

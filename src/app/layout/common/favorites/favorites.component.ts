@@ -1,6 +1,7 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    OnInit,
     ViewEncapsulation,
     inject,
 } from '@angular/core';
@@ -24,7 +25,13 @@ import { FavoritesService } from 'app/layout/common/favorites/favorites.service'
     standalone: true,
     imports: [MatIconModule, MatTooltipModule, TranslocoModule],
 })
-export class FavoritesComponent {
+export class FavoritesComponent implements OnInit {
     protected readonly favoritesService = inject(FavoritesService);
     readonly count = this.favoritesService.count;
+
+    ngOnInit(): void {
+        // Eagerly-rendered header trigger — load once so the badge count and
+        // drawer are ready regardless of how the user reaches the catalog.
+        void this.favoritesService.ensureLoaded();
+    }
 }

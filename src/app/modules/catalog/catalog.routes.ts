@@ -26,7 +26,7 @@ export default [
                 const catalogService = inject(CatalogService);
                 return forkJoin([
                     catalogService.getCategories(),
-                    catalogService.getProducts({ page: 0, size: 12 }),
+                    catalogService.getProducts(),
                 ]).pipe(tolerateUnauthorized());
             },
         },

@@ -2,8 +2,6 @@ import { Injectable } from '@angular/core';
 import {
     extractList,
     extractNextCursor,
-    extractPagination,
-    extractTotal,
     fetchAllCursor,
     fetchAllOffset,
     parseJson,
@@ -16,6 +14,7 @@ import {
     hubInboundApi,
     hubStaffAssignmentsApi,
     hubsApi,
+    marketsApi,
     routesApi,
     vehiclesApi,
 } from 'contract';
@@ -55,15 +54,17 @@ export class LogisticsAdminService {
     // ---- Hubs -------------------------------------------------------------
 
     async listHubs(): Promise<CrudRow[]> {
-        const [rawRows, managers] = await Promise.all([
+        const [rawRows, managers, markets] = await Promise.all([
             fetchAllCursor<CrudRow>((cursor, pageSize) =>
                 hubsApi
                     .apiV1HubsGetRaw({ cursor, pageSize })
                     .then((res) => res.raw)
             ),
             this.hubManagerOptions(),
+            this.marketOptions(),
         ]);
         const nameById = new Map(managers.map((m) => [m.value, m.label]));
+        const marketNameById = new Map(markets.map((m) => [m.value, m.label]));
         // Hub routes name the key both ways (`/hubs/{id}` but
         // `/hubs/{hubId}/...`), so accept either as the row identifier.
         const rows = withId<CrudRow>(rawRows, 'hubId');
@@ -74,7 +75,28 @@ export class LogisticsAdminService {
                 ? nameById.get(String(row['managedBy'])) ??
                   String(row['managedBy'])
                 : '',
+            marketName: row['marketId']
+                ? marketNameById.get(String(row['marketId'])) ??
+                  String(row['marketId'])
+                : '',
         }));
+    }
+
+    /** Active markets as `{ value: id, label: name }` — a hub belongs to exactly one. */
+    async marketOptions(): Promise<CrudOption[]> {
+        try {
+            const res = await marketsApi.apiV1MarketsGetRaw({
+                activeOnly: true,
+            });
+            const rows = extractList<{ id?: string; name?: string }>(
+                await parseJson(res.raw)
+            );
+            return rows
+                .filter((m): m is { id: string; name?: string } => !!m.id)
+                .map((m) => ({ value: m.id, label: m.name || m.id }));
+        } catch {
+            return [];
+        }
     }
 
     /** Hub-staff users as `{ value: id, label: email }` for the manager select. */
@@ -133,6 +155,7 @@ export class LogisticsAdminService {
     async createHub(value: CrudFormValue): Promise<void> {
         await hubsApi.apiV1HubsPost({
             createHubRequest: {
+                marketId: str(value['marketId']),
                 name: str(value['name']),
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']) ?? null,
@@ -147,6 +170,7 @@ export class LogisticsAdminService {
         await hubsApi.apiV1HubsIdPatch({
             id,
             updateHubRequest: {
+                marketId: optStr(value['marketId']),
                 name: str(value['name']),
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']) ?? null,
@@ -333,49 +357,16 @@ export class LogisticsAdminService {
 
     // ---- Delivery zones ---------------------------------------------------
 
-    /** All zones (pages to completion) for pickers. */
+    /**
+     * All zones in one request (BE has no offset pagination). The admin
+     * table paginates client-side from this list.
+     */
     async listZones(): Promise<CrudRow[]> {
-        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
-            deliveryZonesApi
-                .apiV1LogisticsDeliveryZonesGetRaw({
-                    activeOnly: false,
-                    page,
-                    pageSize,
-                })
-                .then((res) => res.raw)
-        );
-        return withId<CrudRow>(rawRows, 'zoneId', 'deliveryZoneId');
-    }
-
-    /** One offset page of delivery zones for the admin table. */
-    async listZonesPage(query: {
-        page: number;
-        pageSize: number;
-        activeOnly?: boolean;
-    }): Promise<{
-        rows: CrudRow[];
-        total: number;
-        page?: number;
-        pageSize?: number;
-    }> {
         const res = await deliveryZonesApi.apiV1LogisticsDeliveryZonesGetRaw({
-            activeOnly: query.activeOnly ?? false,
-            page: query.page,
-            pageSize: query.pageSize,
+            activeOnly: false,
         });
         const body = await parseJson(res.raw);
-        const rows = withId<CrudRow>(
-            extractList(body),
-            'zoneId',
-            'deliveryZoneId'
-        );
-        const info = extractPagination(body);
-        return {
-            rows,
-            total: info?.total ?? extractTotal(body) ?? rows.length,
-            page: info?.page,
-            pageSize: info?.pageSize,
-        };
+        return withId<CrudRow>(extractList(body), 'zoneId', 'deliveryZoneId');
     }
 
     async createZone(value: CrudFormValue): Promise<void> {

@@ -30,27 +30,12 @@ export interface ProductsPage {
     pageSize?: number;
 }
 
-/** Offset page for catalog master-data tables (categories, units, markets). */
-export interface CatalogPage {
-    rows: CrudRow[];
-    total: number;
-    page?: number;
-    pageSize?: number;
-}
-
 /** Query for a single products page. */
 export interface ProductsQuery {
     page: number;
     pageSize: number;
     search?: string;
     categoryId?: string;
-}
-
-/** Query for a catalog master-data page. */
-export interface CatalogPageQuery {
-    page: number;
-    pageSize: number;
-    activeOnly?: boolean;
 }
 
 /** Coerce a form value to a required (non-empty) string. */
@@ -325,6 +310,7 @@ export class CatalogAdminService {
                 unitId: str(value['unitId']),
                 categoryId: optStr(value['categoryId']),
                 description: optStr(value['description']),
+                packingCodeId: optStr(value['packingCodeId']),
             },
         });
     }
@@ -338,6 +324,7 @@ export class CatalogAdminService {
                 categoryId: optStr(value['categoryId']),
                 description: optStr(value['description']),
                 imageUrl: optStr(value['imageUrl']),
+                packingCodeId: optStr(value['packingCodeId']),
             },
         });
     }
@@ -393,38 +380,26 @@ export class CatalogAdminService {
         return this._toOptions(units, 'abbreviation');
     }
 
-    // ---- Markets ----------------------------------------------------------
-
-    /** All markets (pages to completion) for pickers. */
-    async listMarkets(): Promise<CrudRow[]> {
-        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
-            marketsApi
-                .apiV1MarketsGetRaw({
-                    activeOnly: false,
-                    page,
-                    pageSize,
-                })
-                .then((res) => res.raw)
+    /** Active-only packing-code id/code options for the product form select. */
+    async packingCodeOptions(): Promise<CrudOption[]> {
+        const codes = (await this.listPackingCodes(true)).filter(
+            (c) => c['isActive'] !== false
         );
-        return withId<CrudRow>(rawRows, 'marketId');
+        return codes
+            .filter((row) => !!row.id)
+            .map((row) => ({ value: row.id, label: str(row['code']) }));
     }
 
-    /** One offset page of markets for the admin table. */
-    async listMarketsPage(query: CatalogPageQuery): Promise<CatalogPage> {
-        const res = await marketsApi.apiV1MarketsGetRaw({
-            activeOnly: query.activeOnly ?? false,
-            page: query.page,
-            pageSize: query.pageSize,
-        });
+    // ---- Markets ----------------------------------------------------------
+
+    /**
+     * All markets in one request (BE has no offset pagination). The admin
+     * table paginates client-side from this list.
+     */
+    async listMarkets(activeOnly = false): Promise<CrudRow[]> {
+        const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly });
         const body = await parseJson(res.raw);
-        const rows = withId<CrudRow>(extractList(body), 'marketId');
-        const info = extractPagination(body);
-        return {
-            rows,
-            total: info?.total ?? extractTotal(body) ?? rows.length,
-            page: info?.page,
-            pageSize: info?.pageSize,
-        };
+        return withId<CrudRow>(extractList(body), 'marketId');
     }
 
     async createMarket(value: CrudFormValue): Promise<CrudRow | null> {
@@ -528,6 +503,17 @@ export class CatalogAdminService {
             marketId,
             productId,
             updateAvailableQuantityRequest: { quantity },
+        });
+    }
+
+    /** Delists a product from a market (does not deactivate the base product). */
+    async removeMarketProduct(
+        marketId: string,
+        productId: string
+    ): Promise<void> {
+        await marketsApi.apiV1MarketsMarketIdProductsProductIdDelete({
+            marketId,
+            productId,
         });
     }
 

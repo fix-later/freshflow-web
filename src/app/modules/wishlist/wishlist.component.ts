@@ -1,6 +1,7 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    OnInit,
     ViewEncapsulation,
     computed,
     inject,
@@ -31,7 +32,7 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
         TranslocoModule,
     ],
 })
-export class WishlistComponent {
+export class WishlistComponent implements OnInit {
     private readonly _favorites = inject(FavoritesService);
     private readonly _draftOrder = inject(DraftOrderService);
     private readonly _transloco = inject(TranslocoService);
@@ -39,6 +40,12 @@ export class WishlistComponent {
 
     readonly items = this._favorites.items;
     readonly count = this._favorites.count;
+
+    ngOnInit(): void {
+        // Deep-linkable route — ensure favorites are loaded even if the
+        // header trigger never rendered first.
+        void this._favorites.ensureLoaded();
+    }
 
     readonly isVi = computed(() => this._transloco.getActiveLang() === 'vi');
 
@@ -50,8 +57,8 @@ export class WishlistComponent {
         return this.isVi() ? product.unit : product.unitEn;
     }
 
-    remove(productId: string): void {
-        this._favorites.remove(productId);
+    remove(marketProductId: string): void {
+        void this._favorites.remove(marketProductId);
     }
 
     addToDraftOrder(product: CatalogProduct): void {

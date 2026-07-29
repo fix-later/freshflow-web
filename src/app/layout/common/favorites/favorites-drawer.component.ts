@@ -57,8 +57,8 @@ export class FavoritesDrawerComponent {
         return this.isVi() ? product.unit : product.unitEn;
     }
 
-    remove(productId: string): void {
-        this.favoritesService.remove(productId);
+    remove(marketProductId: string): void {
+        void this.favoritesService.remove(marketProductId);
     }
 
     addToDraftOrder(product: CatalogProduct): void {

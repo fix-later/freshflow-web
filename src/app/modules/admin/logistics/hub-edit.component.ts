@@ -98,6 +98,7 @@ export class HubEditComponent implements OnInit {
     readonly saving = signal(false);
     readonly notFound = signal(false);
     readonly managerOptions = signal<CrudOption[]>([]);
+    readonly marketOptions = signal<CrudOption[]>([]);
     readonly hubName = computed(() => String(this.hub()?.['name'] ?? ''));
     readonly isActive = computed(() => this.hub()?.isActive !== false);
 
@@ -125,6 +126,10 @@ export class HubEditComponent implements OnInit {
     });
 
     readonly form = new FormGroup({
+        marketId: new FormControl('', {
+            nonNullable: true,
+            validators: [Validators.required],
+        }),
         name: new FormControl('', {
             nonNullable: true,
             validators: [Validators.required, Validators.maxLength(200)],
@@ -145,6 +150,9 @@ export class HubEditComponent implements OnInit {
         void this._logistics
             .hubManagerOptions()
             .then((opts) => this.staffOptions.set(opts));
+        void this._logistics
+            .marketOptions()
+            .then((opts) => this.marketOptions.set(opts));
 
         const id = this._route.snapshot.paramMap.get('hubId') ?? '';
         const passed = (history.state?.hub ?? null) as CrudRow | null;
@@ -179,6 +187,7 @@ export class HubEditComponent implements OnInit {
         const value = this.form.getRawValue();
         void this._logistics
             .updateHub(row.id, {
+                marketId: value.marketId,
                 name: value.name,
                 capacityKg: value.capacityKg,
                 address: value.address || null,
@@ -307,6 +316,7 @@ export class HubEditComponent implements OnInit {
         this.hub.set(row);
         this.notFound.set(false);
         this.form.reset({
+            marketId: row['marketId'] == null ? '' : String(row['marketId']),
             name: String(row['name'] ?? ''),
             capacityKg:
                 row['capacityKg'] == null || row['capacityKg'] === ''

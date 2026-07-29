@@ -91,6 +91,8 @@ export interface AdminOperationalSettings {
     dailyCutoffTime?: string;
     batchingEnabled?: boolean;
     defaultRouteType?: string | null;
+    /** Days ahead a delivery route may be scheduled (1–30). */
+    deliveryWindowDays?: number;
 }
 
 /** Pricing settings (`GET/PUT /admin/pricing-settings`). */

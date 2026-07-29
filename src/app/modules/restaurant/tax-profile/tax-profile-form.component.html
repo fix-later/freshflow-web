@@ -1,0 +1,51 @@
+<ng-container *transloco="let t">
+    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-4">
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{
+                t('restaurantProfile.taxProfile.taxCode')
+            }}</mat-label>
+            <input matInput formControlName="taxCode" />
+        </mat-form-field>
+
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{
+                t('restaurantProfile.taxProfile.legalName')
+            }}</mat-label>
+            <input matInput formControlName="legalName" />
+        </mat-form-field>
+
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{
+                t('restaurantProfile.taxProfile.address')
+            }}</mat-label>
+            <input matInput formControlName="address" />
+        </mat-form-field>
+
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{ t('restaurantProfile.taxProfile.email') }}</mat-label>
+            <input matInput type="email" formControlName="email" />
+            @if (form.controls.email.hasError('email')) {
+                <mat-error>{{
+                    t('restaurantProfile.taxProfile.emailInvalid')
+                }}</mat-error>
+            }
+        </mat-form-field>
+
+        <div class="flex justify-end">
+            <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="saving()"
+            >
+                @if (saving()) {
+                    <mat-icon
+                        class="animate-spin icon-size-5"
+                        [svgIcon]="'heroicons_outline:arrow-path'"
+                    ></mat-icon>
+                }
+                <span>{{ t('restaurantProfile.taxProfile.save') }}</span>
+            </button>
+        </div>
+    </form>
+</ng-container>

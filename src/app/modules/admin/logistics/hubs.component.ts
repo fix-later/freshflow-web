@@ -26,7 +26,7 @@ export class HubsComponent {
         title: 'admin.hubs.title',
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
-        searchKeys: ['name', 'address', 'managedByName'],
+        searchKeys: ['name', 'address', 'managedByName', 'marketName'],
         searchPlaceholder: 'admin.hubs.searchPlaceholder',
         columns: [
             {
@@ -34,6 +34,12 @@ export class HubsComponent {
                 sortable: true,
                 width: 'minmax(0, 1.2fr)',
                 cell: (row) => String(row['name'] ?? ''),
+            },
+            {
+                label: 'admin.hubs.market',
+                sortable: true,
+                width: 'minmax(0, 1fr)',
+                cell: (row) => String(row['marketName'] ?? ''),
             },
             {
                 label: 'admin.hubs.address',
@@ -77,6 +83,14 @@ export class HubsComponent {
             },
         ],
         fields: [
+            {
+                name: 'marketId',
+                label: 'admin.hubs.market',
+                type: 'select',
+                required: true,
+                searchable: true,
+                options: () => this._logistics.marketOptions(),
+            },
             {
                 name: 'name',
                 label: 'admin.hubs.name',

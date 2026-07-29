@@ -78,14 +78,51 @@
 
             <!-- Details -->
             <div class="flex flex-1 flex-col gap-4 md:w-1/2">
-                <span
-                    class="text-hint text-sm font-medium uppercase tracking-wider"
-                >
-                    {{ categoryName(product.categoryId) }}
-                </span>
+                <div class="flex items-start justify-between gap-4">
+                    <span
+                        class="text-hint text-sm font-medium uppercase tracking-wider"
+                    >
+                        {{ categoryName(product.categoryId) }}
+                    </span>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [matTooltip]="
+                            isFavorite(product)
+                                ? t('favorites.remove')
+                                : t('favorites.add')
+                        "
+                        (click)="toggleFavorite(product)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [class.text-red-500]="isFavorite(product)"
+                            [svgIcon]="
+                                isFavorite(product)
+                                    ? 'heroicons_solid:heart'
+                                    : 'heroicons_outline:heart'
+                            "
+                        ></mat-icon>
+                        <span>{{
+                            isFavorite(product)
+                                ? t('favorites.remove')
+                                : t('favorites.add')
+                        }}</span>
+                    </button>
+                </div>
 
                 <!-- Attribute table -->
                 <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <span class="text-hint text-sm">
+                            {{ t('catalog.price') }}
+                        </span>
+                        <p
+                            class="mt-1 font-mono text-2xl font-semibold tabular-nums text-primary"
+                        >
+                            {{ formatPrice(product.price) }}
+                        </p>
+                    </div>
                     <div>
                         <span class="text-hint text-sm">
                             {{ t('catalog.unit') }}

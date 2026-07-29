@@ -1,11 +1,14 @@
 import {
+    afterNextRender,
     ChangeDetectionStrategy,
     Component,
     computed,
     DestroyRef,
+    ElementRef,
     inject,
     OnInit,
     signal,
+    viewChild,
     ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -15,22 +18,20 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
-import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { CatalogService } from './catalog.service';
 import { CatalogProduct } from './catalog.types';
 
 type SortOption = '' | 'name-asc' | 'name-desc';
-type ViewMode = 'grid' | 'list';
+
+const DEFAULT_BATCH_SIZE = 12;
 
 @Component({
     selector: 'catalog',
@@ -43,9 +44,7 @@ type ViewMode = 'grid' | 'list';
         MatInputModule,
         MatIconModule,
         MatChipsModule,
-        MatPaginatorModule,
         MatButtonModule,
-        MatProgressBarModule,
         MatRadioModule,
         MatSelectModule,
         MatTooltipModule,
@@ -60,27 +59,33 @@ export class CatalogComponent implements OnInit {
     private _translocoService = inject(TranslocoService);
     private _destroyRef = inject(DestroyRef);
     private _favoritesService = inject(FavoritesService);
-    private _draftOrderService = inject(DraftOrderService);
+
+    readonly resultsSection =
+        viewChild<ElementRef<HTMLElement>>('resultsSection');
+    readonly sentinel = viewChild<ElementRef<HTMLElement>>('sentinel');
+
+    private _sentinelObserver: IntersectionObserver | null = null;
 
     readonly searchControl = new FormControl('', { nonNullable: true });
     readonly selectedCategory = signal<string>('');
     readonly searchTerm = signal<string>('');
-    readonly loading = signal(false);
+    readonly lastLoadedCount = signal(0);
 
-    /** Client-side refinements (the products API has no such params yet). */
+    /** How many matching products are currently revealed (infinite-scroll cursor). */
+    readonly visibleCount = signal(DEFAULT_BATCH_SIZE);
+    readonly batchSize = signal(DEFAULT_BATCH_SIZE);
+
     readonly selectedMarket = signal<string>('');
     readonly sortOption = signal<SortOption>('');
-    readonly viewMode = signal<ViewMode>('grid');
 
     readonly categories = this._catalogService.categories;
     readonly products = this._catalogService.products;
-    readonly pagination = this._catalogService.pagination;
 
     readonly isVi = computed(
         () => this._translocoService.getActiveLang() === 'vi'
     );
 
-    /** Distinct market sources on the current page (client-side filter). */
+    /** Distinct market sources across the full (already fully-loaded) catalog. */
     readonly marketSources = computed(() => [
         ...new Set(
             this.products()
@@ -89,13 +94,26 @@ export class CatalogComponent implements OnInit {
         ),
     ]);
 
-    /** Page products after the client-side market filter + name sort. */
-    readonly visibleProducts = computed(() => {
+    /** Full catalog after category/market/search filters + sort — everything is
+     *  already loaded, so this is a pure client-side computation. */
+    readonly filteredProducts = computed(() => {
+        const category = this.selectedCategory();
         const market = this.selectedMarket();
+        const search = this.searchTerm().trim().toLowerCase();
         const sort = this.sortOption();
         let items = this.products();
+        if (category) {
+            items = items.filter((product) => product.categoryId === category);
+        }
         if (market) {
             items = items.filter((product) => product.marketSource === market);
+        }
+        if (search) {
+            items = items.filter(
+                (product) =>
+                    product.name.toLowerCase().includes(search) ||
+                    product.nameEn.toLowerCase().includes(search)
+            );
         }
         if (sort) {
             const direction = sort === 'name-asc' ? 1 : -1;
@@ -108,11 +126,12 @@ export class CatalogComponent implements OnInit {
         return items;
     });
 
-    readonly resultCount = computed(() =>
-        this.selectedMarket()
-            ? this.visibleProducts().length
-            : this.pagination()?.length ?? 0
+    /** The slice of `filteredProducts()` revealed so far. */
+    readonly visibleProducts = computed(() =>
+        this.filteredProducts().slice(0, this.visibleCount())
     );
+
+    readonly resultCount = computed(() => this.filteredProducts().length);
 
     readonly hasActiveFilters = computed(
         () =>
@@ -121,45 +140,72 @@ export class CatalogComponent implements OnInit {
             !!this.selectedMarket()
     );
 
+    readonly hasMore = computed(
+        () => this.visibleCount() < this.filteredProducts().length
+    );
+
+    constructor() {
+        // The sentinel <div> is unconditionally rendered (see template), so
+        // it already exists in the DOM by the first post-construction render.
+        afterNextRender(() => {
+            const el = this.sentinel()?.nativeElement;
+            if (!el) {
+                return;
+            }
+            this._sentinelObserver = new IntersectionObserver(
+                (entries) => {
+                    if (entries.some((entry) => entry.isIntersecting)) {
+                        this.loadMore();
+                    }
+                },
+                { rootMargin: '400px' }
+            );
+            this._sentinelObserver.observe(el);
+            this._destroyRef.onDestroy(() =>
+                this._sentinelObserver?.disconnect()
+            );
+        });
+    }
+
     ngOnInit(): void {
+        void this._favoritesService.ensureLoaded();
         this.searchControl.valueChanges
             .pipe(
-                debounceTime(300),
+                debounceTime(150),
                 distinctUntilChanged(),
                 takeUntilDestroyed(this._destroyRef)
             )
             .subscribe((search) => {
                 this.searchTerm.set(search);
-                this._loadProducts({ search });
+                this._resetReveal();
             });
     }
 
     filterByCategory(categoryId: string): void {
         this.selectedCategory.set(categoryId);
         this.selectedMarket.set('');
-        this._loadProducts({ category: categoryId });
+        this._resetReveal();
     }
 
     filterByMarket(source: string): void {
         this.selectedMarket.set(source);
+        this._resetReveal();
     }
 
     setSort(option: SortOption): void {
         this.sortOption.set(option);
-    }
-
-    setViewMode(mode: ViewMode): void {
-        this.viewMode.set(mode);
+        this._resetReveal();
     }
 
     setPageSize(size: number): void {
-        this._loadProducts({ page: 0, size });
+        this.batchSize.set(size);
+        this.visibleCount.set(size);
     }
 
     clearSearch(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
-        this._loadProducts({ search: '' });
+        this._resetReveal();
     }
 
     clearFilters(): void {
@@ -167,11 +213,20 @@ export class CatalogComponent implements OnInit {
         this.searchTerm.set('');
         this.selectedCategory.set('');
         this.selectedMarket.set('');
-        this._loadProducts({ search: '', category: '' });
+        this._resetReveal();
     }
 
-    onPageChange(event: PageEvent): void {
-        this._loadProducts({ page: event.pageIndex, size: event.pageSize });
+    /** Reveals the next batch of already-loaded products. */
+    loadMore(): void {
+        if (!this.hasMore()) {
+            return;
+        }
+        const revealed = Math.min(
+            this.visibleCount() + this.batchSize(),
+            this.filteredProducts().length
+        );
+        this.lastLoadedCount.set(revealed - this.visibleCount());
+        this.visibleCount.set(revealed);
     }
 
     categoryName(categoryId: string): string {
@@ -186,41 +241,30 @@ export class CatalogComponent implements OnInit {
         return this.isVi() ? product.name : product.nameEn;
     }
 
-    isFavorite(productId: string): boolean {
-        return this._favoritesService.isFavorite(productId);
+    productDescription(product: CatalogProduct): string {
+        return this.isVi() ? product.description : product.descriptionEn;
     }
 
+    formatPrice(price: number | null): string {
+        if (price === null) {
+            return '—';
+        }
+        return `${price.toLocaleString(this._translocoService.getActiveLang())} ₫`;
+    }
+
+    isFavorite(product: CatalogProduct): boolean {
+        return this._favoritesService.isFavorite(product.marketProductId);
+    }
+
+    /** `preventDefault`/`stopPropagation` so the heart doesn't trigger the card's own link. */
     toggleFavorite(product: CatalogProduct, event: Event): void {
         event.preventDefault();
         event.stopPropagation();
-        this._favoritesService.toggle(product);
+        void this._favoritesService.toggle(product);
     }
 
-    addToDraftOrder(product: CatalogProduct, event: Event): void {
-        event.preventDefault();
-        event.stopPropagation();
-        this._draftOrderService.add(product);
-    }
-
-    private _loadProducts(
-        overrides: {
-            search?: string;
-            category?: string;
-            page?: number;
-            size?: number;
-        } = {}
-    ): void {
-        this.loading.set(true);
-        const params = {
-            search: overrides.search ?? this.searchControl.value,
-            category: overrides.category ?? this.selectedCategory(),
-            page: overrides.page ?? 0,
-            size: overrides.size ?? this.pagination()?.size ?? 12,
-        };
-
-        this._catalogService
-            .getProducts(params)
-            .pipe(takeUntilDestroyed(this._destroyRef))
-            .subscribe(() => this.loading.set(false));
+    private _resetReveal(): void {
+        this.visibleCount.set(this.batchSize());
+        this.resultsSection()?.nativeElement.scrollIntoView({ block: 'start' });
     }
 }
