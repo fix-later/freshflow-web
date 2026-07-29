@@ -1,0 +1,156 @@
+<div class="flex flex-col gap-4" *transloco="let t">
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    @if (!formOpen()) {
+        <div class="flex flex-col gap-3">
+            @for (address of addresses(); track address.id) {
+                <div
+                    class="flex items-start justify-between gap-4 rounded-xl border p-4"
+                >
+                    <div class="flex min-w-0 flex-col gap-0.5">
+                        <div class="flex items-center gap-2">
+                            <span class="font-medium">{{
+                                address.addressLine
+                            }}</span>
+                            @if (address.isDefault) {
+                                <span class="admin-pill admin-pill-success">{{
+                                    t(
+                                        'restaurantProfile.deliveryAddresses.default'
+                                    )
+                                }}</span>
+                            }
+                        </div>
+                        @if (address.recipientName || address.phone) {
+                            <span class="text-secondary text-sm">
+                                {{ address.recipientName }}
+                                @if (address.recipientName && address.phone) {
+                                    ·
+                                }
+                                {{ address.phone }}
+                            </span>
+                        }
+                    </div>
+                    <div class="flex shrink-0 items-center gap-1">
+                        <button
+                            mat-icon-button
+                            type="button"
+                            [disabled]="saving()"
+                            (click)="openEdit(address)"
+                            [matTooltip]="
+                                t('restaurantProfile.deliveryAddresses.edit')
+                            "
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:pencil-square"
+                            ></mat-icon>
+                        </button>
+                        <button
+                            mat-icon-button
+                            type="button"
+                            [disabled]="saving()"
+                            (click)="remove(address)"
+                            [matTooltip]="
+                                t('restaurantProfile.deliveryAddresses.delete')
+                            "
+                        >
+                            <mat-icon
+                                class="text-hint icon-size-5"
+                                svgIcon="heroicons_outline:trash"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                </div>
+            } @empty {
+                @if (!loading()) {
+                    <p class="text-secondary text-sm">
+                        {{ t('restaurantProfile.deliveryAddresses.empty') }}
+                    </p>
+                }
+            }
+        </div>
+
+        <div>
+            <button mat-stroked-button type="button" (click)="openAdd()">
+                <mat-icon
+                    class="icon-size-5"
+                    svgIcon="heroicons_outline:plus"
+                ></mat-icon>
+                <span>{{ t('restaurantProfile.deliveryAddresses.add') }}</span>
+            </button>
+        </div>
+    } @else {
+        <form
+            [formGroup]="form"
+            (ngSubmit)="save()"
+            class="flex flex-col gap-4"
+        >
+            <app-location-picker
+                [latControl]="form.controls.latitude"
+                [lngControl]="form.controls.longitude"
+                [queryControl]="form.controls.addressLine"
+                searchLabelKey="restaurantProfile.deliveryAddresses.addressLine"
+                [showManualCoords]="false"
+                mapHeightClass="h-48"
+            ></app-location-picker>
+            @if (
+                form.controls.addressLine.touched &&
+                form.controls.addressLine.hasError('required')
+            ) {
+                <div class="text-sm text-red-600">
+                    {{
+                        t('restaurantProfile.deliveryAddresses.addressRequired')
+                    }}
+                </div>
+            }
+
+            <div class="flex flex-col gap-4 sm:flex-row">
+                <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.deliveryAddresses.recipientName')
+                    }}</mat-label>
+                    <input matInput formControlName="recipientName" />
+                </mat-form-field>
+                <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.deliveryAddresses.phone')
+                    }}</mat-label>
+                    <input matInput formControlName="phone" />
+                </mat-form-field>
+            </div>
+
+            <mat-checkbox formControlName="isDefault" [color]="'primary'">
+                {{ t('restaurantProfile.deliveryAddresses.setDefault') }}
+            </mat-checkbox>
+
+            <div class="flex justify-end gap-2">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="saving()"
+                    (click)="closeForm()"
+                >
+                    {{ t('restaurantProfile.deliveryAddresses.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving()"
+                >
+                    @if (saving()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            svgIcon="heroicons_outline:arrow-path"
+                        ></mat-icon>
+                    }
+                    <span>{{
+                        t('restaurantProfile.deliveryAddresses.save')
+                    }}</span>
+                </button>
+            </div>
+        </form>
+    }
+</div>

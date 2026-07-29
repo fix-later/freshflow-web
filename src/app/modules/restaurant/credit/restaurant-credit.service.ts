@@ -1,0 +1,97 @@
+import { Injectable, inject } from '@angular/core';
+import {
+    extractList,
+    extractNextCursor,
+    parseJson,
+    unwrapData,
+    withId,
+} from 'app/core/api/envelope';
+import { UserService } from 'app/core/user/user.service';
+import { restaurantCreditApi } from 'contract';
+import { firstValueFrom } from 'rxjs';
+import {
+    CreditStatement,
+    CreditTransaction,
+    RestaurantCreditBalance,
+} from './restaurant-credit.types';
+
+/**
+ * The signed-in restaurant's own credit/debt balance, statements, and
+ * transaction ledger. `RestaurantCreditApi` requires an explicit
+ * `restaurantId` (no "me" variant) — the signed-in user's own id doubles as
+ * their restaurant id in this backend, so it's resolved from `UserService`
+ * rather than passed in by callers. Read-only: generating a statement is an
+ * admin-only action (ROLE_MATRIX M6 Credit).
+ */
+@Injectable({ providedIn: 'root' })
+export class RestaurantCreditService {
+    private readonly _userService = inject(UserService);
+
+    async getBalance(): Promise<RestaurantCreditBalance | null> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditGetRaw({
+                restaurantId,
+            });
+        return (
+            unwrapData<RestaurantCreditBalance>(await parseJson(res.raw)) ??
+            null
+        );
+    }
+
+    async listTransactions(cursor?: string): Promise<{
+        transactions: CreditTransaction[];
+        nextCursor?: string;
+    }> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw(
+                { restaurantId, cursor, pageSize: 20 }
+            );
+        const body = await parseJson<unknown>(res.raw);
+        const transactions = withId<CreditTransaction>(
+            extractList(body),
+            'transactionId'
+        );
+        return { transactions, nextCursor: extractNextCursor(body) };
+    }
+
+    async listStatements(cursor?: string): Promise<{
+        statements: CreditStatement[];
+        nextCursor?: string;
+    }> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGetRaw(
+                { restaurantId, cursor, pageSize: 20 }
+            );
+        const body = await parseJson<unknown>(res.raw);
+        const statements = withId<CreditStatement>(
+            extractList(body),
+            'statementId'
+        );
+        return { statements, nextCursor: extractNextCursor(body) };
+    }
+
+    /** Fetches a statement PDF as a Blob for download. */
+    async downloadStatementPdf(statementId: string): Promise<Blob> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdPdfGetRaw(
+                { restaurantId, statementId }
+            );
+        return res.raw.blob();
+    }
+
+    private async _restaurantId(): Promise<string> {
+        const current =
+            this._userService.current ??
+            (await firstValueFrom(this._userService.user$));
+        if (!current?.id) {
+            throw new Error(
+                'No signed-in user to resolve a restaurant id from'
+            );
+        }
+        return current.id;
+    }
+}

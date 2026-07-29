@@ -127,6 +127,11 @@ export const appRoutes: Route[] = [
                     import('app/modules/restaurant/profile.routes'),
             },
             {
+                path: 'invoices',
+                loadChildren: () =>
+                    import('app/modules/restaurant/invoices/invoices.routes'),
+            },
+            {
                 path: 'wishlist',
                 loadChildren: () =>
                     import('app/modules/wishlist/wishlist.routes'),
@@ -176,20 +181,10 @@ export const appRoutes: Route[] = [
                     ),
                 data: { title: 'Hot Deals' },
             },
-            // Order management area (header "Theo dõi đơn hàng"). Stub until
-            // the M5 Order Management feature (list/detail, real-time
-            // status) has its own spec — see specs/product/PRD.md §5.
+            // Order management area (header "Theo dõi đơn hàng").
             {
                 path: 'orders',
-                loadComponent: () =>
-                    import('app/modules/pages/placeholder-page.component').then(
-                        (m) => m.PlaceholderPageComponent
-                    ),
-                data: {
-                    title: 'Đơn hàng của tôi',
-                    description:
-                        'Danh sách và trạng thái đơn hàng đang được xây dựng.',
-                },
+                loadChildren: () => import('app/modules/orders/orders.routes'),
             },
         ],
     },

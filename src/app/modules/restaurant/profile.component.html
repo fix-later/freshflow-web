@@ -1,28 +1,142 @@
 <div class="restaurant-profile flex flex-col" *transloco="let t">
     <!-- Page header -->
     <div class="bg-card border-b px-6 py-8 sm:px-10">
-        <div class="mx-auto w-full max-w-3xl">
-            <h1 class="text-3xl font-extrabold tracking-tight">
-                {{ t('restaurantProfile.title') }}
-            </h1>
-            <p class="text-secondary mt-1">
-                {{ t('restaurantProfile.subtitle') }}
-            </p>
+        <div class="mx-auto w-full max-w-4xl">
+            @if (isRestaurant()) {
+                <h1 class="text-3xl font-extrabold tracking-tight">
+                    {{ t('restaurantProfile.title') }}
+                </h1>
+                <p class="text-secondary mt-1">
+                    {{ t('restaurantProfile.subtitle') }}
+                </p>
+            } @else {
+                <h1 class="text-3xl font-extrabold tracking-tight">
+                    {{ t('accountInfo.title') }}
+                </h1>
+                <p class="text-secondary mt-1">
+                    {{ t('accountInfo.subtitle') }}
+                </p>
+            }
         </div>
     </div>
 
     <!-- Content -->
     <div class="flex-auto px-6 py-8 sm:px-10">
-        <div class="mx-auto flex w-full max-w-3xl flex-col gap-8">
-            <section class="bg-card rounded-2xl p-6 shadow sm:p-8">
-                <h2 class="mb-1 text-xl font-semibold">
-                    {{ t('restaurantProfile.profile.sectionTitle') }}
-                </h2>
-                <p class="text-secondary mb-6 text-sm">
-                    {{ t('restaurantProfile.profile.sectionSubtitle') }}
-                </p>
-                <business-profile-form></business-profile-form>
-            </section>
+        <div class="mx-auto w-full max-w-4xl">
+            @if (isRestaurant()) {
+                <mat-tab-group
+                    class="flex flex-auto flex-col"
+                    animationDuration="160ms"
+                    [mat-stretch-tabs]="false"
+                    [selectedIndex]="tabIndex()"
+                    (selectedIndexChange)="tabIndex.set($event)"
+                >
+                    <mat-tab>
+                        <ng-template mat-tab-label>
+                            <span>{{ t('restaurantProfile.tabs.info') }}</span>
+                        </ng-template>
+                        <div class="flex flex-col gap-8 py-6">
+                            <section
+                                class="bg-card rounded-2xl p-6 shadow sm:p-8"
+                            >
+                                <h2 class="mb-1 text-xl font-semibold">
+                                    {{
+                                        t(
+                                            'restaurantProfile.profile.sectionTitle'
+                                        )
+                                    }}
+                                </h2>
+                                <p class="text-secondary mb-6 text-sm">
+                                    {{
+                                        t(
+                                            'restaurantProfile.profile.sectionSubtitle'
+                                        )
+                                    }}
+                                </p>
+                                <business-profile-form></business-profile-form>
+                            </section>
+
+                            <section
+                                class="bg-card rounded-2xl p-6 shadow sm:p-8"
+                            >
+                                <h2 class="mb-1 text-xl font-semibold">
+                                    {{
+                                        t(
+                                            'restaurantProfile.taxProfile.sectionTitle'
+                                        )
+                                    }}
+                                </h2>
+                                <p class="text-secondary mb-6 text-sm">
+                                    {{
+                                        t(
+                                            'restaurantProfile.taxProfile.sectionSubtitle'
+                                        )
+                                    }}
+                                </p>
+                                <tax-profile-form></tax-profile-form>
+                            </section>
+
+                            <section
+                                class="bg-card rounded-2xl p-6 shadow sm:p-8"
+                            >
+                                <h2 class="mb-1 text-xl font-semibold">
+                                    {{
+                                        t(
+                                            'restaurantProfile.deliveryAddresses.sectionTitle'
+                                        )
+                                    }}
+                                </h2>
+                                <p class="text-secondary mb-6 text-sm">
+                                    {{
+                                        t(
+                                            'restaurantProfile.deliveryAddresses.sectionSubtitle'
+                                        )
+                                    }}
+                                </p>
+                                <delivery-addresses></delivery-addresses>
+                            </section>
+
+                            <section
+                                class="bg-card rounded-2xl p-6 shadow sm:p-8"
+                            >
+                                <h2 class="mb-1 text-xl font-semibold">
+                                    {{ t('restaurantCredit.title') }}
+                                </h2>
+                                <p class="text-secondary mb-6 text-sm">
+                                    {{ t('restaurantCredit.subtitle') }}
+                                </p>
+                                <restaurant-credit></restaurant-credit>
+                            </section>
+                        </div>
+                    </mat-tab>
+
+                    <mat-tab>
+                        <ng-template mat-tab-label>
+                            <span>{{
+                                t('restaurantProfile.tabs.orders')
+                            }}</span>
+                        </ng-template>
+                        <div class="py-6">
+                            <orders-list></orders-list>
+                        </div>
+                    </mat-tab>
+
+                    <mat-tab>
+                        <ng-template mat-tab-label>
+                            <span>{{
+                                t('restaurantProfile.tabs.invoices')
+                            }}</span>
+                        </ng-template>
+                        <div class="py-6">
+                            <restaurant-invoices-list></restaurant-invoices-list>
+                        </div>
+                    </mat-tab>
+                </mat-tab-group>
+            } @else {
+                <section class="bg-card rounded-2xl p-6 shadow sm:p-8">
+                    <account-info></account-info>
+                </section>
+            }
         </div>
     </div>
 </div>

@@ -1,9 +1,8 @@
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
-    ChangeDetectorRef,
     Component,
     OnDestroy,
     OnInit,
@@ -11,14 +10,14 @@ import {
     ViewChild,
     ViewContainerRef,
     ViewEncapsulation,
+    inject,
 } from '@angular/core';
 import { MatButton, MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
+import { TranslocoModule } from '@jsverse/transloco';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
-import { Notification } from 'app/layout/common/notifications/notifications.types';
-import { Subject, takeUntil } from 'rxjs';
+import { NotificationView } from 'app/layout/common/notifications/notifications.types';
 
 @Component({
     selector: 'notifications',
@@ -31,10 +30,8 @@ import { Subject, takeUntil } from 'rxjs';
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
-        NgClass,
-        NgTemplateOutlet,
-        RouterLink,
         DatePipe,
+        TranslocoModule,
     ],
 })
 export class NotificationsComponent implements OnInit, OnDestroy {
@@ -42,137 +39,55 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     @ViewChild('notificationsPanel')
     private _notificationsPanel: TemplateRef<any>;
 
-    notifications: Notification[];
-    unreadCount: number = 0;
+    private readonly _overlay = inject(Overlay);
+    private readonly _viewContainerRef = inject(ViewContainerRef);
+    protected readonly notificationsService = inject(NotificationsService);
+
+    readonly items = this.notificationsService.items;
+    readonly unreadCount = this.notificationsService.unreadCount;
+    readonly hasMore = this.notificationsService.hasMore;
+
     private _overlayRef: OverlayRef;
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    /**
-     * Constructor
-     */
-    constructor(
-        private _changeDetectorRef: ChangeDetectorRef,
-        private _notificationsService: NotificationsService,
-        private _overlay: Overlay,
-        private _viewContainerRef: ViewContainerRef
-    ) {}
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * On init
-     */
     ngOnInit(): void {
-        // Subscribe to notification changes
-        this._notificationsService.notifications$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((notifications: Notification[]) => {
-                // Load the notifications
-                this.notifications = notifications;
-
-                // Calculate the unread count
-                this._calculateUnreadCount();
-
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+        // Eagerly-rendered header trigger — load once so the badge count and
+        // panel are ready regardless of which page the user lands on.
+        void this.notificationsService.ensureLoaded();
     }
 
-    /**
-     * On destroy
-     */
     ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-
-        // Dispose the overlay
-        if (this._overlayRef) {
-            this._overlayRef.dispose();
-        }
+        this._overlayRef?.dispose();
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Open the notifications panel
-     */
     openPanel(): void {
-        // Return if the notifications panel or its origin is not defined
         if (!this._notificationsPanel || !this._notificationsOrigin) {
             return;
         }
-
-        // Create the overlay if it doesn't exist
         if (!this._overlayRef) {
             this._createOverlay();
         }
-
-        // Attach the portal to the overlay
         this._overlayRef.attach(
             new TemplatePortal(this._notificationsPanel, this._viewContainerRef)
         );
     }
 
-    /**
-     * Close the notifications panel
-     */
     closePanel(): void {
         this._overlayRef.detach();
     }
 
-    /**
-     * Mark all notifications as read
-     */
-    markAllAsRead(): void {
-        // Mark all as read
-        this._notificationsService.markAllAsRead().subscribe();
+    open(notification: NotificationView): void {
+        void this.notificationsService.markRead(notification.id);
     }
 
-    /**
-     * Toggle read status of the given notification
-     */
-    toggleRead(notification: Notification): void {
-        // Toggle the read status
-        notification.read = !notification.read;
-
-        // Update the notification
-        this._notificationsService
-            .update(notification.id, notification)
-            .subscribe();
+    loadMore(): void {
+        void this.notificationsService.loadMore();
     }
 
-    /**
-     * Delete the given notification
-     */
-    delete(notification: Notification): void {
-        // Delete the notification
-        this._notificationsService.delete(notification.id).subscribe();
+    trackByFn(_: number, item: NotificationView): string {
+        return item.id;
     }
 
-    /**
-     * Track by function for ngFor loops
-     *
-     * @param index
-     * @param item
-     */
-    trackByFn(index: number, item: any): any {
-        return item.id || index;
-    }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ Private methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Create the overlay
-     */
     private _createOverlay(): void {
-        // Create the overlay
         this._overlayRef = this._overlay.create({
             hasBackdrop: true,
             backdropClass: 'fuse-backdrop-on-mobile',
@@ -212,26 +127,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 ]),
         });
 
-        // Detach the overlay from the portal on backdrop click
         this._overlayRef.backdropClick().subscribe(() => {
             this._overlayRef.detach();
         });
-    }
-
-    /**
-     * Calculate the unread count
-     *
-     * @private
-     */
-    private _calculateUnreadCount(): void {
-        let count = 0;
-
-        if (this.notifications && this.notifications.length) {
-            count = this.notifications.filter(
-                (notification) => !notification.read
-            ).length;
-        }
-
-        this.unreadCount = count;
     }
 }

@@ -6,6 +6,7 @@ import {
     Component,
     ElementRef,
     OnDestroy,
+    OnInit,
     TemplateRef,
     ViewChild,
     ViewContainerRef,
@@ -16,6 +17,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
 import { OrderTrackingService } from 'app/layout/common/order-tracking/order-tracking.service';
+import {
+    normalizeOrderStatus,
+    orderStatusPillClass,
+} from 'app/modules/orders/orders.types';
 
 /** Delay before the hover card closes, so moving the pointer from the
  * trigger into the card itself doesn't dismiss it. */
@@ -34,7 +39,7 @@ const CLOSE_DELAY_MS = 150;
     standalone: true,
     imports: [MatIconModule, RouterLink, TranslocoModule, DatePipe],
 })
-export class OrderTrackingComponent implements OnDestroy {
+export class OrderTrackingComponent implements OnInit, OnDestroy {
     @ViewChild('orderTrackingOrigin', { read: ElementRef })
     private _origin: ElementRef<HTMLElement>;
     @ViewChild('orderTrackingPanel') private _panel: TemplateRef<unknown>;
@@ -46,6 +51,13 @@ export class OrderTrackingComponent implements OnDestroy {
 
     protected readonly orderTrackingService = inject(OrderTrackingService);
     readonly latestOrder = this.orderTrackingService.latestOrder;
+    readonly statusPillClass = orderStatusPillClass;
+    readonly statusKey = (status: string): string =>
+        `orders.status.${normalizeOrderStatus(status) || 'unknown'}`;
+
+    ngOnInit(): void {
+        void this.orderTrackingService.ensureLoaded();
+    }
 
     ngOnDestroy(): void {
         this._cancelScheduledClose();

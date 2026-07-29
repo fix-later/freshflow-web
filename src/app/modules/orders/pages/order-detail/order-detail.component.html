@@ -1,0 +1,144 @@
+<div class="flex w-full flex-col" *transloco="let t">
+    <div class="px-6 pt-6 md:px-8">
+        <nav
+            class="text-hint flex items-center gap-1 text-sm"
+            aria-label="Breadcrumb"
+        >
+            <a
+                routerLink="/profile"
+                [queryParams]="{ tab: 'orders' }"
+                class="font-medium text-primary hover:underline"
+            >
+                {{ t('orders.title') }}
+            </a>
+            <mat-icon
+                class="text-hint icon-size-4"
+                svgIcon="heroicons_mini:chevron-right"
+            ></mat-icon>
+            <span>{{ order()?.id?.slice(0, 8) }}</span>
+        </nav>
+    </div>
+
+    @if (notFound()) {
+        <div
+            class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+        >
+            {{ t('orders.detail.notFound') }}
+        </div>
+    } @else if (order(); as order) {
+        <div class="flex flex-col gap-6 px-6 py-6 md:px-8">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl font-semibold tracking-tight">
+                        {{ order.id?.slice(0, 8) }}
+                    </h1>
+                    <span [class]="statusPillClass(order.status)">
+                        {{ t(statusKey(order.status)) }}
+                    </span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="acting()"
+                        (click)="reorder()"
+                    >
+                        {{ t('orders.detail.reorder') }}
+                    </button>
+                    @if (canCancel()) {
+                        <button
+                            mat-stroked-button
+                            color="warn"
+                            type="button"
+                            [disabled]="acting()"
+                            (click)="cancel()"
+                        >
+                            {{ t('orders.detail.cancel') }}
+                        </button>
+                    }
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
+                <div class="flex flex-col gap-0.5 border-b py-1.5">
+                    <span
+                        class="text-secondary text-xs font-medium uppercase tracking-wider"
+                        >{{ t('orders.detail.createdAt') }}</span
+                    >
+                    <span class="font-medium">{{
+                        formatDate(order.createdAt)
+                    }}</span>
+                </div>
+                <div class="flex flex-col gap-0.5 border-b py-1.5">
+                    <span
+                        class="text-secondary text-xs font-medium uppercase tracking-wider"
+                        >{{ t('orders.detail.scheduledFor') }}</span
+                    >
+                    <span class="font-medium">{{
+                        formatDate(order.scheduledFor)
+                    }}</span>
+                </div>
+                <div class="flex flex-col gap-0.5 border-b py-1.5">
+                    <span
+                        class="text-secondary text-xs font-medium uppercase tracking-wider"
+                        >{{ t('orders.detail.totalAmount') }}</span
+                    >
+                    <span class="font-mono font-semibold">{{
+                        formatAmount(order.totalAmount)
+                    }}</span>
+                </div>
+            </div>
+
+            @if (order.notes) {
+                <div class="rounded-xl border p-4 text-sm">
+                    <div
+                        class="text-secondary mb-1 text-xs uppercase tracking-wide"
+                    >
+                        {{ t('orders.detail.notes') }}
+                    </div>
+                    {{ order.notes }}
+                </div>
+            }
+
+            @if (order.cancellationReason) {
+                <div
+                    class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                >
+                    <div class="mb-1 text-xs uppercase tracking-wide">
+                        {{ t('orders.detail.cancellationReason') }}
+                    </div>
+                    {{ order.cancellationReason }}
+                </div>
+            }
+
+            <div class="overflow-hidden rounded-xl border">
+                <div
+                    class="text-secondary bg-hover grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide"
+                >
+                    <span>{{ t('orders.detail.item') }}</span>
+                    <span>{{ t('orders.detail.quantity') }}</span>
+                    <span>{{ t('orders.detail.unitPrice') }}</span>
+                    <span>{{ t('orders.detail.subtotal') }}</span>
+                </div>
+                @for (item of order.items; track item.orderItemId) {
+                    <div
+                        class="grid grid-cols-4 gap-4 border-b px-4 py-3 text-sm last:border-b-0"
+                    >
+                        <span>{{ item.productNameSnapshot }}</span>
+                        <span>{{ item.quantity }}</span>
+                        <span class="font-mono">{{
+                            formatAmount(item.unitPrice)
+                        }}</span>
+                        <span class="font-mono">{{
+                            formatAmount(item.subtotal)
+                        }}</span>
+                    </div>
+                } @empty {
+                    <div class="text-secondary px-4 py-6 text-center text-sm">
+                        {{ t('orders.detail.noItems') }}
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>

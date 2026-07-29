@@ -1,16 +1,19 @@
 import { Routes } from '@angular/router';
-import { roleGuard } from 'app/core/auth/guards/role.guard';
+import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { ProfileComponent } from './profile.component';
 
 /**
- * Restaurant self-service profile area (`/profile`, M2). Restaurant-only:
- * `roleGuard` redirects guests to sign-in and other roles to `/home`, keeping
- * RBAC server-authoritative (BR-AUTH-4) while blocking unauthorized deep-links.
+ * Own-profile area (`/profile`, M2 — every role has a full personal profile).
+ * Reached from the header's account menu, not the sidebar nav. Restaurant
+ * users get the full self-service area (business/tax profile, delivery
+ * addresses, credit, orders, invoices); other roles see basic account info —
+ * `ProfileComponent` branches on the signed-in role. Any authenticated user
+ * may open it — `AuthGuard` only redirects guests to sign-in.
  */
 export default [
     {
         path: '',
-        canActivate: [roleGuard(['restaurant'])],
+        canActivate: [AuthGuard],
         component: ProfileComponent,
     },
 ] as Routes;

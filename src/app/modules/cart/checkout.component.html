@@ -71,7 +71,16 @@
                             class="text-primary icon-size-5"
                             [svgIcon]="'heroicons_outline:map-pin'"
                         ></mat-icon>
-                        <p>{{ demoAddress }}</p>
+                        @if (defaultAddress(); as address) {
+                            <p>{{ address }}</p>
+                        } @else {
+                            <p>
+                                {{ t('checkout.shipping.noAddress') }}
+                                <a routerLink="/profile">{{
+                                    t('checkout.shipping.manageAddresses')
+                                }}</a>
+                            </p>
+                        }
                     </div>
                 </div>
 
@@ -297,7 +306,7 @@
                         mat-flat-button
                         color="primary"
                         type="button"
-                        [disabled]="!lines().length"
+                        [disabled]="!lines().length || submitting()"
                         (click)="placeOrder()"
                     >
                         {{ t('cart.totals.placeOrder') }}

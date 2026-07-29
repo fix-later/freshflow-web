@@ -19,9 +19,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { apiErrorMessage } from 'app/core/api/envelope';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
+import { OrdersService } from 'app/modules/orders/orders.service';
+import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { DateTime } from 'luxon';
 
 /** Daily order cutoff (BR-ORD-2): 22:00 — after this, earliest delivery +1 extra day. */
@@ -75,11 +78,14 @@ export class CheckoutComponent implements OnInit {
     private readonly _draftOrder = inject(DraftOrderService);
     private readonly _transloco = inject(TranslocoService);
     private readonly _snackBar = inject(MatSnackBar);
+    private readonly _orders = inject(OrdersService);
+    private readonly _restaurantProfile = inject(RestaurantProfileService);
 
     readonly lines = this._draftOrder.lines;
     readonly subtotal = this._draftOrder.subtotal;
 
     readonly placed = signal(false);
+    readonly submitting = signal(false);
     readonly voucherOpen = signal(false);
     readonly couponCode = signal('');
     readonly appliedCoupon = signal<string | null>(null);
@@ -101,8 +107,12 @@ export class CheckoutComponent implements OnInit {
         '16:00-18:00',
     ] as const;
 
-    readonly demoAddress =
-        'PASSION COFFEE, (Nhà Văn hóa Sinh viên TP.HCM) Số 1 Lưu Hữu Phước, Thành phố Hồ Chí Minh, Phường Đông Hòa, Thành phố Hồ Chí Minh';
+    /** The restaurant's default saved delivery address, once loaded. */
+    readonly defaultAddress = computed(
+        () =>
+            this._restaurantProfile.defaultDeliveryAddress()?.addressLine ??
+            null
+    );
 
     readonly discount = computed(() => {
         if (!this.appliedCoupon()) {
@@ -131,6 +141,9 @@ export class CheckoutComponent implements OnInit {
         if (!this.lines().length && !this.placed()) {
             void this._router.navigateByUrl('/cart');
         }
+        this._restaurantProfile.loadDeliveryAddresses().catch(() => {
+            // The summary just shows no address; not fatal to checkout.
+        });
     }
 
     productName(product: CatalogProduct): string {
@@ -173,7 +186,7 @@ export class CheckoutComponent implements OnInit {
     }
 
     placeOrder(): void {
-        if (!this.lines().length) {
+        if (!this.lines().length || this.submitting()) {
             return;
         }
         if (this.deliveryDate() < this.minDeliveryDate) {
@@ -185,13 +198,44 @@ export class CheckoutComponent implements OnInit {
             );
             return;
         }
-        this.placed.set(true);
-        this._draftOrder.clear();
-        this._snackBar.open(
-            this._transloco.translate('cart.orderPlaced'),
-            undefined,
-            { duration: 3000 }
-        );
+
+        const items = this.lines().map((line) => ({
+            marketProductId: line.product.marketProductId,
+            quantity: line.quantity,
+        }));
+        const scheduledFor = this._scheduledFor();
+        const notes = this.extraNote().trim() || undefined;
+
+        this.submitting.set(true);
+        this._orders
+            .createOrder(items, scheduledFor, notes)
+            .then((orderId) => this._orders.confirmOrder(orderId))
+            .then(() => {
+                this.placed.set(true);
+                this._draftOrder.clear();
+                this._snackBar.open(
+                    this._transloco.translate('cart.orderPlaced'),
+                    undefined,
+                    { duration: 3000 }
+                );
+            })
+            .catch(async (err) => {
+                // Keep the cart intact so the restaurant can retry.
+                const message =
+                    (await apiErrorMessage(err)) ??
+                    this._transloco.translate('checkout.placeOrderError');
+                this._snackBar.open(message, undefined, { duration: 6000 });
+            })
+            .finally(() => this.submitting.set(false));
+    }
+
+    /** Combines the selected delivery day with the chosen slot's start time. */
+    private _scheduledFor(): Date {
+        const slotStart = this.deliverySlot().split('-')[0] ?? '00:00';
+        const [hour, minute] = slotStart.split(':').map(Number);
+        return this.deliveryDate()
+            .set({ hour, minute, second: 0, millisecond: 0 })
+            .toJSDate();
     }
 
     trackByLine(_: number, line: DraftOrderLine): string {

@@ -1,0 +1,51 @@
+<ng-container *transloco="let t">
+    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-4">
+        <div class="flex items-center gap-4">
+            @if (avatarUrl(); as avatar) {
+                <img
+                    [src]="avatar"
+                    class="h-16 w-16 rounded-full object-cover"
+                    [alt]="email()"
+                />
+            } @else {
+                <mat-icon
+                    class="text-hint icon-size-16"
+                    svgIcon="heroicons_outline:user-circle"
+                ></mat-icon>
+            }
+            <div class="flex flex-col">
+                <span class="text-secondary text-sm">{{
+                    t('accountInfo.email')
+                }}</span>
+                <span class="font-medium">{{ email() }}</span>
+            </div>
+        </div>
+
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{ t('accountInfo.fullName') }}</mat-label>
+            <input matInput formControlName="fullName" />
+        </mat-form-field>
+
+        <mat-form-field subscriptSizing="dynamic">
+            <mat-label>{{ t('accountInfo.phone') }}</mat-label>
+            <input matInput formControlName="phone" />
+        </mat-form-field>
+
+        <div class="flex justify-end">
+            <button
+                mat-flat-button
+                color="primary"
+                type="submit"
+                [disabled]="saving()"
+            >
+                @if (saving()) {
+                    <mat-icon
+                        class="animate-spin icon-size-5"
+                        svgIcon="heroicons_outline:arrow-path"
+                    ></mat-icon>
+                }
+                <span>{{ t('accountInfo.save') }}</span>
+            </button>
+        </div>
+    </form>
+</ng-container>
