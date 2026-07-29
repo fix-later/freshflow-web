@@ -23,6 +23,12 @@ export interface CreateHubRequest {
      * @type {string}
      * @memberof CreateHubRequest
      */
+    marketId: string;
+    /**
+     *
+     * @type {string}
+     * @memberof CreateHubRequest
+     */
     name: string;
     /**
      *
@@ -62,6 +68,8 @@ export interface CreateHubRequest {
 export function instanceOfCreateHubRequest(
     value: object
 ): value is CreateHubRequest {
+    if (!('marketId' in value) || value['marketId'] === undefined)
+        return false;
     if (!('name' in value) || value['name'] === undefined) return false;
     return true;
 }
@@ -78,6 +86,7 @@ export function CreateHubRequestFromJSONTyped(
         return json;
     }
     return {
+        marketId: json['marketId'],
         name: json['name'],
         address: json['address'] == null ? undefined : json['address'],
         latitude: json['latitude'] == null ? undefined : json['latitude'],
@@ -100,6 +109,7 @@ export function CreateHubRequestToJSONTyped(
     }
 
     return {
+        marketId: value['marketId'],
         name: value['name'],
         address: value['address'],
         latitude: value['latitude'],

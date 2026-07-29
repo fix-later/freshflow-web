@@ -33,6 +33,7 @@ import {
     ProductsApi,
     ProfileApi,
     RestaurantCreditApi,
+    RestaurantFavoritesApi,
     RestaurantProfileApi,
     RoutesApi,
     UnitsApi,
@@ -72,6 +73,9 @@ export const procurementApi = new ProcurementApi(apiConfiguration);
 export const productsApi = new ProductsApi(apiConfiguration);
 export const profileApi = new ProfileApi(apiConfiguration);
 export const restaurantCreditApi = new RestaurantCreditApi(apiConfiguration);
+export const restaurantFavoritesApi = new RestaurantFavoritesApi(
+    apiConfiguration
+);
 export const restaurantProfileApi = new RestaurantProfileApi(apiConfiguration);
 export const routesApi = new RoutesApi(apiConfiguration);
 export const unitsApi = new UnitsApi(apiConfiguration);

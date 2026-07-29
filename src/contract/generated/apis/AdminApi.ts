@@ -93,6 +93,8 @@ export interface ApiV1AdminOrderGroupsBatchIdManifestPostRequest {
 export interface ApiV1AdminOrderGroupsGetRequest {
     page?: number;
     pageSize?: number;
+    date?: Date;
+    marketId?: string;
 }
 
 export interface ApiV1AdminOrderGroupsProgressGetRequest {
@@ -643,6 +645,16 @@ export class AdminApi extends runtime.BaseAPI {
 
         if (requestParameters['pageSize'] != null) {
             queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        if (requestParameters['date'] != null) {
+            queryParameters['date'] = (requestParameters['date'] as any)
+                .toISOString()
+                .substring(0, 10);
+        }
+
+        if (requestParameters['marketId'] != null) {
+            queryParameters['marketId'] = requestParameters['marketId'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

@@ -36,6 +36,12 @@ export interface HubInboundItemCommand {
      * @memberof HubInboundItemCommand
      */
     quantityKg?: number;
+    /**
+     *
+     * @type {string}
+     * @memberof HubInboundItemCommand
+     */
+    productName?: string | null;
 }
 
 /**
@@ -66,6 +72,8 @@ export function HubInboundItemCommandFromJSONTyped(
         marketProductId: json['marketProductId'],
         productId: json['productId'] == null ? undefined : json['productId'],
         quantityKg: json['quantityKg'] == null ? undefined : json['quantityKg'],
+        productName:
+            json['productName'] == null ? undefined : json['productName'],
     };
 }
 
@@ -85,5 +93,6 @@ export function HubInboundItemCommandToJSONTyped(
         marketProductId: value['marketProductId'],
         productId: value['productId'],
         quantityKg: value['quantityKg'],
+        productName: value['productName'],
     };
 }

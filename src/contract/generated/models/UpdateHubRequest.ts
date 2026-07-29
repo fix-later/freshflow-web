@@ -23,6 +23,12 @@ export interface UpdateHubRequest {
      * @type {string}
      * @memberof UpdateHubRequest
      */
+    marketId?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof UpdateHubRequest
+     */
     name: string;
     /**
      *
@@ -78,6 +84,7 @@ export function UpdateHubRequestFromJSONTyped(
         return json;
     }
     return {
+        marketId: json['marketId'] == null ? undefined : json['marketId'],
         name: json['name'],
         address: json['address'] == null ? undefined : json['address'],
         latitude: json['latitude'] == null ? undefined : json['latitude'],
@@ -100,6 +107,7 @@ export function UpdateHubRequestToJSONTyped(
     }
 
     return {
+        marketId: value['marketId'],
         name: value['name'],
         address: value['address'],
         latitude: value['latitude'],

@@ -36,6 +36,12 @@ export interface UpdateOperationalSettingsRequest {
      * @memberof UpdateOperationalSettingsRequest
      */
     defaultRouteType?: string | null;
+    /**
+     *
+     * @type {number}
+     * @memberof UpdateOperationalSettingsRequest
+     */
+    deliveryWindowDays?: number;
 }
 
 /**
@@ -73,6 +79,10 @@ export function UpdateOperationalSettingsRequestFromJSONTyped(
             json['defaultRouteType'] == null
                 ? undefined
                 : json['defaultRouteType'],
+        deliveryWindowDays:
+            json['deliveryWindowDays'] == null
+                ? undefined
+                : json['deliveryWindowDays'],
     };
 }
 
@@ -94,5 +104,6 @@ export function UpdateOperationalSettingsRequestToJSONTyped(
         dailyCutoffTime: value['dailyCutoffTime'],
         batchingEnabled: value['batchingEnabled'],
         defaultRouteType: value['defaultRouteType'],
+        deliveryWindowDays: value['deliveryWindowDays'],
     };
 }

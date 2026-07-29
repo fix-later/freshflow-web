@@ -22,6 +22,7 @@ export * from './ProcurementApi';
 export * from './ProductsApi';
 export * from './ProfileApi';
 export * from './RestaurantCreditApi';
+export * from './RestaurantFavoritesApi';
 export * from './RestaurantProfileApi';
 export * from './RoutesApi';
 export * from './UnitsApi';

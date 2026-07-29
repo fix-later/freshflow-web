@@ -20,6 +20,10 @@ import {
     type UpdateRestaurantProfileRequest,
     UpdateRestaurantProfileRequestToJSON,
 } from '../models/UpdateRestaurantProfileRequest';
+import {
+    type UpdateTaxProfileRequest,
+    UpdateTaxProfileRequestToJSON,
+} from '../models/UpdateTaxProfileRequest';
 import * as runtime from '../runtime';
 
 export interface ApiV1RestaurantsMeDeliveryAddressesIdDeleteRequest {
@@ -37,6 +41,10 @@ export interface ApiV1RestaurantsMeDeliveryAddressesPostRequest {
 
 export interface ApiV1RestaurantsMeProfilePutRequest {
     updateRestaurantProfileRequest?: UpdateRestaurantProfileRequest;
+}
+
+export interface ApiV1RestaurantsMeTaxProfilePutRequest {
+    updateTaxProfileRequest?: UpdateTaxProfileRequest;
 }
 
 /**
@@ -489,6 +497,67 @@ export class RestaurantProfileApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1RestaurantsMeProfilePutRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1RestaurantsMeTaxProfilePut without sending the request
+     */
+    async apiV1RestaurantsMeTaxProfilePutRequestOpts(
+        requestParameters: ApiV1RestaurantsMeTaxProfilePutRequest
+    ): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/restaurants/me/tax-profile`;
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: UpdateTaxProfileRequestToJSON(
+                requestParameters['updateTaxProfileRequest']
+            ),
+        };
+    }
+
+    /**
+     */
+    async apiV1RestaurantsMeTaxProfilePutRaw(
+        requestParameters: ApiV1RestaurantsMeTaxProfilePutRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1RestaurantsMeTaxProfilePutRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1RestaurantsMeTaxProfilePut(
+        requestParameters: ApiV1RestaurantsMeTaxProfilePutRequest = {},
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1RestaurantsMeTaxProfilePutRaw(
             requestParameters,
             initOverrides
         );

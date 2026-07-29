@@ -24,8 +24,6 @@ import * as runtime from '../runtime';
 
 export interface ApiV1UnitsGetRequest {
     activeOnly?: boolean;
-    page?: number;
-    pageSize?: number;
 }
 
 export interface ApiV1UnitsIdDeactivatePatchRequest {
@@ -59,14 +57,6 @@ export class UnitsApi extends runtime.BaseAPI {
 
         if (requestParameters['activeOnly'] != null) {
             queryParameters['activeOnly'] = requestParameters['activeOnly'];
-        }
-
-        if (requestParameters['page'] != null) {
-            queryParameters['page'] = requestParameters['page'];
-        }
-
-        if (requestParameters['pageSize'] != null) {
-            queryParameters['pageSize'] = requestParameters['pageSize'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};

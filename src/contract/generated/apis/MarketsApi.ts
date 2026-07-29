@@ -36,8 +36,6 @@ import * as runtime from '../runtime';
 
 export interface ApiV1MarketsGetRequest {
     activeOnly?: boolean;
-    page?: number;
-    pageSize?: number;
 }
 
 export interface ApiV1MarketsIdDeactivatePatchRequest {
@@ -67,6 +65,11 @@ export interface ApiV1MarketsMarketIdProductsGetRequest {
 export interface ApiV1MarketsMarketIdProductsPostRequest {
     marketId: string;
     createMarketProductRequest?: CreateMarketProductRequest;
+}
+
+export interface ApiV1MarketsMarketIdProductsProductIdDeleteRequest {
+    marketId: string;
+    productId: string;
 }
 
 export interface ApiV1MarketsMarketIdProductsProductIdPriceHistoryGetRequest {
@@ -108,14 +111,6 @@ export class MarketsApi extends runtime.BaseAPI {
 
         if (requestParameters['activeOnly'] != null) {
             queryParameters['activeOnly'] = requestParameters['activeOnly'];
-        }
-
-        if (requestParameters['page'] != null) {
-            queryParameters['page'] = requestParameters['page'];
-        }
-
-        if (requestParameters['pageSize'] != null) {
-            queryParameters['pageSize'] = requestParameters['pageSize'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -565,6 +560,84 @@ export class MarketsApi extends runtime.BaseAPI {
         initOverrides?: RequestInit | runtime.InitOverrideFunction
     ): Promise<void> {
         await this.apiV1MarketsMarketIdProductsPostRaw(
+            requestParameters,
+            initOverrides
+        );
+    }
+
+    /**
+     * Creates request options for apiV1MarketsMarketIdProductsProductIdDelete without sending the request
+     */
+    async apiV1MarketsMarketIdProductsProductIdDeleteRequestOpts(
+        requestParameters: ApiV1MarketsMarketIdProductsProductIdDeleteRequest
+    ): Promise<runtime.RequestOpts> {
+        if (requestParameters['marketId'] == null) {
+            throw new runtime.RequiredError(
+                'marketId',
+                'Required parameter "marketId" was null or undefined when calling apiV1MarketsMarketIdProductsProductIdDelete().'
+            );
+        }
+
+        if (requestParameters['productId'] == null) {
+            throw new runtime.RequiredError(
+                'productId',
+                'Required parameter "productId" was null or undefined when calling apiV1MarketsMarketIdProductsProductIdDelete().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token('Bearer', []);
+
+            if (tokenString) {
+                headerParameters['Authorization'] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/markets/{marketId}/products/{productId}`;
+        urlPath = urlPath.replace(
+            '{marketId}',
+            encodeURIComponent(String(requestParameters['marketId']))
+        );
+        urlPath = urlPath.replace(
+            '{productId}',
+            encodeURIComponent(String(requestParameters['productId']))
+        );
+
+        return {
+            path: urlPath,
+            method: 'DELETE',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1MarketsMarketIdProductsProductIdDeleteRaw(
+        requestParameters: ApiV1MarketsMarketIdProductsProductIdDeleteRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<runtime.ApiResponse<void>> {
+        const requestOptions =
+            await this.apiV1MarketsMarketIdProductsProductIdDeleteRequestOpts(
+                requestParameters
+            );
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1MarketsMarketIdProductsProductIdDelete(
+        requestParameters: ApiV1MarketsMarketIdProductsProductIdDeleteRequest,
+        initOverrides?: RequestInit | runtime.InitOverrideFunction
+    ): Promise<void> {
+        await this.apiV1MarketsMarketIdProductsProductIdDeleteRaw(
             requestParameters,
             initOverrides
         );

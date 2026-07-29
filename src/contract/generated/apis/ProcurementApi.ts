@@ -17,10 +17,6 @@ import {
     ConfirmPurchaseRequestToJSON,
 } from '../models/ConfirmPurchaseRequest';
 import {
-    type HandoverRequest,
-    HandoverRequestToJSON,
-} from '../models/HandoverRequest';
-import {
     type ReportProcurementExceptionRequest,
     ReportProcurementExceptionRequestToJSON,
 } from '../models/ReportProcurementExceptionRequest';
@@ -41,7 +37,6 @@ export interface ApiV1ProcurementTasksBatchIdGetRequest {
 
 export interface ApiV1ProcurementTasksBatchIdHandoverPatchRequest {
     batchId: string;
-    handoverRequest?: HandoverRequest;
 }
 
 export interface ApiV1ProcurementTasksBatchIdPurchasePatchRequest {
@@ -281,8 +276,6 @@ export class ProcurementApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        headerParameters['Content-Type'] = 'application/json';
-
         if (this.configuration && this.configuration.accessToken) {
             const token = this.configuration.accessToken;
             const tokenString = await token('Bearer', []);
@@ -303,7 +296,6 @@ export class ProcurementApi extends runtime.BaseAPI {
             method: 'PATCH',
             headers: headerParameters,
             query: queryParameters,
-            body: HandoverRequestToJSON(requestParameters['handoverRequest']),
         };
     }
 

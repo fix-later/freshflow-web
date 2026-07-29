@@ -48,6 +48,12 @@ export interface UpdateProductRequest {
      * @memberof UpdateProductRequest
      */
     imageUrl?: string | null;
+    /**
+     *
+     * @type {string}
+     * @memberof UpdateProductRequest
+     */
+    packingCodeId?: string | null;
 }
 
 /**
@@ -79,6 +85,8 @@ export function UpdateProductRequestFromJSONTyped(
         description:
             json['description'] == null ? undefined : json['description'],
         imageUrl: json['imageUrl'] == null ? undefined : json['imageUrl'],
+        packingCodeId:
+            json['packingCodeId'] == null ? undefined : json['packingCodeId'],
     };
 }
 
@@ -100,5 +108,6 @@ export function UpdateProductRequestToJSONTyped(
         categoryId: value['categoryId'],
         description: value['description'],
         imageUrl: value['imageUrl'],
+        packingCodeId: value['packingCodeId'],
     };
 }

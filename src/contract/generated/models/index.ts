@@ -1,6 +1,7 @@
 /* tslint:disable */
 /* eslint-disable */
 export * from './ActivateRequest';
+export * from './AddFavoriteRequest';
 export * from './AddOrderItemRequest';
 export * from './AdvanceOrderStatusRequest';
 export * from './AssignAgentRequest';
@@ -31,7 +32,6 @@ export * from './DeliveryAddressRequest';
 export * from './DraftOrderItemRequest';
 export * from './ForgotPasswordRequest';
 export * from './GenerateStatementRequest';
-export * from './HandoverRequest';
 export * from './HubInboundItemCommand';
 export * from './HubOutboundItemCommand';
 export * from './LoginRequest';
@@ -78,6 +78,7 @@ export * from './UpdateProductPriceRequest';
 export * from './UpdateProductRequest';
 export * from './UpdateRestaurantProfileRequest';
 export * from './UpdateScheduledOrderRequest';
+export * from './UpdateTaxProfileRequest';
 export * from './UpdateUnitRequest';
 export * from './UpdateVehicleRequest';
 export * from './VerifyRequest';
