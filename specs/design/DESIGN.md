@@ -25,37 +25,42 @@ and let operators act with confidence. The short directive brief is
 
 ## Color usage
 
-Brand is **FreshFlow green** (`#3BB77E`, the Tailwind `primary`/`--fuse-primary`). Color is
-**functional, not decorative**:
+Brand is **FreshFlow navy** (`#313F90`, the Tailwind `primary`/`--fuse-primary`) with
+**FreshFlow mint** (`#50F0A3`, `accent`) as the secondary. Color is **functional, not
+decorative**:
 
-- **Primary (green)** — primary actions, active nav, key links. Use sparingly.
-- **Accent (slate)** — neutral structure: text, surfaces, borders.
-- **Warn (red)** — destructive actions and errors only.
-- **Status colors** — semantic only (success/warn/error/info) for order/delivery/credit states.
+-   **Primary (navy)** — headings, prices, primary actions, active nav.
+-   **Secondary (mint)** — highlights and hover states, in small doses; and anything sitting on
+    a dark surface, where navy is unreadable.
+-   **Sale (pink)** — discounted prices only, never as decoration.
+-   **Neutral structure** — text, surfaces and borders come from the theme's slate greys
+    (`text-default`/`bg-card`/`--fuse-border`), not from a brand color.
+-   **Warn (red)** — destructive actions and errors only.
+-   **Status colors** — semantic only (success/warn/error/info) for order/delivery/credit states.
 
 Never use raw hex in components — bind to tokens (see [`TOKENS.md`](./TOKENS.md)). Light and
 dark themes both supported via the Fuse theming system; design must read in both.
 
 ## Hierarchy
 
-- Establish hierarchy with **type scale + weight + spacing**, then color as a last resort.
-- Page header → section → row. Keep to **three visual levels** per screen.
-- Tables: emphasize the identifying column (name/ID) and the actionable column (status/total);
-  de-emphasize metadata.
+-   Establish hierarchy with **type scale + weight + spacing**, then color as a last resort.
+-   Page header → section → row. Keep to **three visual levels** per screen.
+-   Tables: emphasize the identifying column (name/ID) and the actionable column (status/total);
+    de-emphasize metadata.
 
 ## Accessibility (non-negotiable)
 
-- WCAG AA contrast for text and UI; never rely on color alone for status (pair with label/icon).
-- Full keyboard operability; visible focus (Material focus rings — do not remove).
-- Respect `prefers-reduced-motion` (see [`MOTION.md`](./MOTION.md)).
-- All interactive elements have accessible names; tables use proper header semantics.
+-   WCAG AA contrast for text and UI; never rely on color alone for status (pair with label/icon).
+-   Full keyboard operability; visible focus (Material focus rings — do not remove).
+-   Respect `prefers-reduced-motion` (see [`MOTION.md`](./MOTION.md)).
+-   All interactive elements have accessible names; tables use proper header semantics.
 
 ## Do / Don't
 
-| Do | Don't |
-|----|-------|
-| Flat sections with dividers | Nested cards with heavy shadows |
-| Green for the one primary action | Green as a background/decoration |
-| Dense tables for lists | Card grids for long operational lists |
-| Tokens for color/type/elevation | Hardcoded hex / px / custom CSS |
-| Tailwind for layout | Tailwind for colors/typography/shadows |
+| Do                              | Don't                                  |
+| ------------------------------- | -------------------------------------- |
+| Flat sections with dividers     | Nested cards with heavy shadows        |
+| Navy for the one primary action | Mint as a background/decoration        |
+| Dense tables for lists          | Card grids for long operational lists  |
+| Tokens for color/type/elevation | Hardcoded hex / px / custom CSS        |
+| Tailwind for layout             | Tailwind for colors/typography/shadows |

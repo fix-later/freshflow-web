@@ -20,6 +20,18 @@
                     {{ t('admin.routes.subtitle') }}
                 </div>
             </div>
+            <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                (click)="createRoute()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    svgIcon="heroicons_outline:plus"
+                ></mat-icon>
+                <span class="ml-2">{{ t('admin.routes.create.action') }}</span>
+            </button>
         </div>
 
         <div class="mt-6 flex flex-wrap items-end gap-3">
@@ -50,20 +62,7 @@
                     <mat-option value="">{{
                         t('admin.crud.filterAll')
                     }}</mat-option>
-                    @for (
-                        opt of [
-                            'draft',
-                            'calculated',
-                            'selected',
-                            'optimized',
-                            'reviewed',
-                            'assigned',
-                            'in_progress',
-                            'completed',
-                            'cancelled',
-                        ];
-                        track opt
-                    ) {
+                    @for (opt of statusOptions; track opt) {
                         <mat-option [value]="opt">{{ opt }}</mat-option>
                     }
                 </mat-select>

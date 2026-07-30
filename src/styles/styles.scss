@@ -227,7 +227,8 @@ body {
  * Admin side-nav tree (Kartify-style connectors).
  *
  * Collapsable children: vertical rail + node dots; active leaf uses FreshFlow
- * primary (green) text and a hollow ring on the node — not a filled row chip.
+ * mint (`--fuse-accent`) and a hollow ring on the node — not a filled row chip.
+ * Mint, not primary: the sidebar is near-black, where navy is unreadable.
  * Scoped to the dark admin sidebar so storefront collapsables stay untouched.
  */
 fuse-vertical-navigation.dark {
@@ -237,7 +238,7 @@ fuse-vertical-navigation.dark {
             .fuse-vertical-navigation-item {
             .fuse-vertical-navigation-item-icon,
             .fuse-vertical-navigation-item-arrow {
-                color: var(--fuse-primary);
+                color: var(--fuse-accent);
                 opacity: 1;
             }
 
@@ -322,7 +323,7 @@ fuse-vertical-navigation.dark {
                         }
 
                         .fuse-vertical-navigation-item-title {
-                            color: var(--fuse-primary);
+                            color: var(--fuse-accent);
                             opacity: 1;
                             font-weight: 600;
                         }

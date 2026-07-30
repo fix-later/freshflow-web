@@ -84,59 +84,12 @@
             </div>
 
             <!-- Product grid -->
-            <div class="home-grid home-grid--popular">
-                @for (p of popularProducts; track p.name) {
-                    <article class="home-card">
-                        @if (p.badge) {
-                            <span class="home-badge" [ngClass]="p.badgeClass">{{
-                                p.badge
-                            }}</span>
-                        }
-                        <div class="home-card__thumb" [style.background]="p.bg">
-                            <span class="home-card__emoji">{{ p.emoji }}</span>
-                        </div>
-                        <div class="home-card__body">
-                            <span class="home-card__vendor">{{
-                                p.vendor
-                            }}</span>
-                            <h3 class="home-card__name">{{ p.name }}</h3>
-                            <div class="home-card__rating">
-                                @for (on of stars(p.rating); track $index) {
-                                    <mat-icon
-                                        class="home-card__star"
-                                        [class.home-card__star--on]="on"
-                                        [svgIcon]="'heroicons_solid:star'"
-                                    ></mat-icon>
-                                }
-                            </div>
-                            <div class="home-card__foot">
-                                <div class="home-card__price">
-                                    <span class="home-card__price-now"
-                                        >${{ p.price.toFixed(2) }}</span
-                                    >
-                                    @if (p.oldPrice) {
-                                        <span class="home-card__price-old"
-                                            >${{ p.oldPrice.toFixed(2) }}</span
-                                        >
-                                    }
-                                </div>
-                                <button
-                                    type="button"
-                                    class="home-card__add"
-                                    aria-label="Add to cart"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4"
-                                        [svgIcon]="
-                                            'heroicons_outline:shopping-cart'
-                                        "
-                                    ></mat-icon>
-                                </button>
-                            </div>
-                        </div>
-                    </article>
-                }
-            </div>
+            <fuse-masonry
+                [columns]="productColumns"
+                [items]="popularProductCards"
+                [columnsTemplate]="productColumn"
+                [gap]="'1.25rem'"
+            ></fuse-masonry>
         </div>
     </section>
 
@@ -177,57 +130,12 @@
             </div>
         </div>
 
-        <div class="home-grid home-grid--sales">
-            @for (p of saleProducts; track p.name) {
-                <article class="home-card">
-                    @if (p.badge) {
-                        <span class="home-badge" [ngClass]="p.badgeClass">{{
-                            p.badge
-                        }}</span>
-                    }
-                    <div class="home-card__thumb" [style.background]="p.bg">
-                        <span class="home-card__emoji">{{ p.emoji }}</span>
-                    </div>
-                    <div class="home-card__body">
-                        <span class="home-card__vendor">{{ p.vendor }}</span>
-                        <h3 class="home-card__name">{{ p.name }}</h3>
-                        <div class="home-card__rating">
-                            @for (on of stars(p.rating); track $index) {
-                                <mat-icon
-                                    class="home-card__star"
-                                    [class.home-card__star--on]="on"
-                                    [svgIcon]="'heroicons_solid:star'"
-                                ></mat-icon>
-                            }
-                        </div>
-                        <div class="home-card__foot">
-                            <div class="home-card__price">
-                                <span class="home-card__price-now"
-                                    >${{ p.price.toFixed(2) }}</span
-                                >
-                                @if (p.oldPrice) {
-                                    <span class="home-card__price-old"
-                                        >${{ p.oldPrice.toFixed(2) }}</span
-                                    >
-                                }
-                            </div>
-                            <button
-                                type="button"
-                                class="home-card__add"
-                                aria-label="Add to cart"
-                            >
-                                <mat-icon
-                                    class="icon-size-4"
-                                    [svgIcon]="
-                                        'heroicons_outline:shopping-cart'
-                                    "
-                                ></mat-icon>
-                            </button>
-                        </div>
-                    </div>
-                </article>
-            }
-        </div>
+        <fuse-masonry
+            [columns]="productColumns"
+            [items]="saleProductCards"
+            [columnsTemplate]="productColumn"
+            [gap]="'1.25rem'"
+        ></fuse-masonry>
     </section>
 
     <!-- ───────────────── Delivery banner ───────────────── -->
@@ -346,3 +254,18 @@
         </div>
     </section>
 </div>
+
+<!--
+  Column template shared by every product masonry on the page. `fuse-masonry`
+  hands it the distributed columns; each column stacks tiles (the masonry
+  styles the column element itself).
+-->
+<ng-template #productColumn let-columns>
+    @for (column of columns; track $index) {
+        <div>
+            @for (card of column.items; track card.id) {
+                <ff-product-card [product]="card"></ff-product-card>
+            }
+        </div>
+    }
+</ng-template>

@@ -1,4 +1,8 @@
-<div class="flex">
+<div
+    class="fuse-masonry-columns"
+    [style.grid-template-columns]="'repeat(' + columns + ', minmax(0, 1fr))'"
+    [style.gap]="gap"
+>
     <ng-container
         *ngTemplateOutlet="
             columnsTemplate;

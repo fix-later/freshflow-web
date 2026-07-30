@@ -1,0 +1,141 @@
+<fuse-card
+    class="ff-product-card"
+    [flat]="true"
+    [class.ff-product-card--inactive]="product.inactive"
+    *transloco="let t"
+>
+    <!-- Badge / inactive note, top-left -->
+    @if (product.badge) {
+        <span class="ff-product-card__badge" [ngClass]="product.badgeClass">
+            {{ product.badge }}
+        </span>
+    } @else if (product.inactive) {
+        <span class="ff-product-card__badge ff-product-card__badge--muted">
+            {{ t('catalog.inactive') }}
+        </span>
+    }
+
+    <!-- Favorite, top-right -->
+    @if (showFavorite) {
+        <button
+            type="button"
+            class="ff-product-card__fav"
+            [matTooltip]="
+                product.favorite ? t('favorites.remove') : t('favorites.add')
+            "
+            [attr.aria-label]="
+                product.favorite ? t('favorites.remove') : t('favorites.add')
+            "
+            [attr.aria-pressed]="!!product.favorite"
+            (click)="onFavorite($event)"
+        >
+            <mat-icon
+                class="icon-size-5"
+                [class.text-red-500]="product.favorite"
+                [class.text-hint]="!product.favorite"
+                [svgIcon]="
+                    product.favorite
+                        ? 'heroicons_solid:heart'
+                        : 'heroicons_outline:heart'
+                "
+            ></mat-icon>
+        </button>
+    }
+
+    <!--
+      The whole tile above the action row is one link target. `link` is optional
+      so a tile can render inside a context that handles its own navigation.
+    -->
+    <a
+        class="ff-product-card__link"
+        [routerLink]="product.link"
+        [class.ff-product-card__link--static]="!product.link"
+    >
+        <!-- Thumb: 4:3, image when we have one, tinted emoji otherwise -->
+        <div
+            class="ff-product-card__thumb"
+            [style.background]="product.thumbnail ? null : product.thumbTint"
+        >
+            @if (product.thumbnail) {
+                <img
+                    class="ff-product-card__img"
+                    [src]="product.thumbnail"
+                    [alt]="product.name"
+                    loading="lazy"
+                />
+            } @else {
+                <span class="ff-product-card__emoji" aria-hidden="true">
+                    {{ product.emoji }}
+                </span>
+            }
+        </div>
+
+        <!-- Details -->
+        <h3 class="ff-product-card__name">{{ product.name }}</h3>
+
+        @if (product.description) {
+            <p class="ff-product-card__desc">{{ product.description }}</p>
+        }
+
+        @if (product.rating) {
+            <div
+                class="ff-product-card__rating"
+                [attr.aria-label]="
+                    t('productCard.rating', { rating: product.rating })
+                "
+            >
+                @for (on of stars(); track $index) {
+                    <mat-icon
+                        class="ff-product-card__star"
+                        [class.ff-product-card__star--on]="on"
+                        [svgIcon]="'heroicons_solid:star'"
+                        aria-hidden="true"
+                    ></mat-icon>
+                }
+            </div>
+        }
+
+        <!-- Bottom row: quiet metadata + price -->
+        <div class="ff-product-card__foot">
+            @if (product.meta) {
+                <span class="ff-product-card__meta">{{ product.meta }}</span>
+            }
+            <span class="ff-product-card__price">
+                <span
+                    class="ff-product-card__price-now"
+                    [class.ff-product-card__price-now--sale]="
+                        !!product.oldPrice
+                    "
+                    >{{ product.price }}</span
+                >
+                @if (product.oldPrice) {
+                    <span class="ff-product-card__price-old">{{
+                        product.oldPrice
+                    }}</span>
+                }
+            </span>
+        </div>
+    </a>
+
+    <!--
+      Action row. Always visible on touch-sized viewports; from `md` up it
+      expands on hover OR focus-within, so it stays reachable by keyboard
+      instead of being hover-only (the reference hides it from both).
+    -->
+    @if (showAddToCart && !product.inactive) {
+        <div class="ff-product-card__atc">
+            <button
+                type="button"
+                class="ff-product-card__atc-btn"
+                (click)="onAddToCart($event)"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'heroicons_outline:shopping-cart'"
+                    aria-hidden="true"
+                ></mat-icon>
+                <span>{{ t('productCard.addToCart') }}</span>
+            </button>
+        </div>
+    }
+</fuse-card>

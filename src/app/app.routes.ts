@@ -103,6 +103,7 @@ export const appRoutes: Route[] = [
         data: {
             area: 'storefront',
             layout: 'enterprise',
+            theme: 'theme-default',
         },
         resolve: {
             initialData: initialDataResolver,
@@ -116,10 +117,6 @@ export const appRoutes: Route[] = [
                 path: 'catalog',
                 loadChildren: () =>
                     import('app/modules/catalog/catalog.routes'),
-            },
-            {
-                path: 'shop',
-                loadChildren: () => import('app/modules/shop/shop.routes'),
             },
             {
                 path: 'profile',
@@ -195,9 +192,15 @@ export const appRoutes: Route[] = [
         canActivate: [adminOnly],
         canActivateChild: [adminOnly],
         component: LayoutComponent,
+        // The console shares the storefront palette for now. To give it its own
+        // brand, add a theme to `themes` in tailwind.config.js and point this
+        // `theme` at it — no other change needed (LayoutComponent applies the
+        // class per area). Deliberately NOT a byte-identical second theme:
+        // that would emit ~148 KB of duplicate CSS for zero visual difference.
         data: {
             area: 'admin',
             layout: 'dense',
+            theme: 'theme-default',
         },
         resolve: {
             initialData: initialDataResolver,

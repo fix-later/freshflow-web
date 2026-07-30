@@ -19,40 +19,14 @@ import { DateTime } from 'luxon';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
-
-/** Pill class for a route status — same lifecycle-coloring idiom used elsewhere. */
-function routeStatusPillClass(status: string | null | undefined): string {
-    switch (String(status ?? '').toLowerCase()) {
-        case 'completed':
-        case 'delivered':
-            return 'admin-pill admin-pill-success';
-        case 'cancelled':
-        case 'failed':
-            return 'admin-pill admin-pill-danger';
-        case 'in_progress':
-        case 'active':
-        case 'dispatched':
-            return 'admin-pill admin-pill-warning';
-        case 'reviewed':
-        case 'assigned':
-            return 'admin-pill admin-pill-purple';
-        case 'selected':
-        case 'optimized':
-            return 'admin-pill admin-pill-cyan';
-        case 'draft':
-        case 'calculated':
-            return 'admin-pill admin-pill-info';
-        default:
-            return 'admin-pill admin-pill-neutral';
-    }
-}
+import { ROUTE_STATUSES } from './logistics-admin.types';
+import { routeStatusPillClass } from './route-status';
 
 /**
- * Admin ▸ Logistics ▸ Routes — read-only oversight of delivery routes
- * (M9 Logistics: "Route options / VRP / review" is `R` for Admin per
- * ROLE_MATRIX; VRP calculate/optimize/assign stays Operations Manager's
- * dedicated dispatch workflow). Defaults to today's service date since routes
- * accumulate daily.
+ * Admin ▸ Logistics ▸ Routes — the day's delivery routes (M9 Logistics, admin
+ * = Full). "New route" opens the calculate form; a row opens the dispatch
+ * console where the route is selected / optimized / reviewed / assigned.
+ * Defaults to today's service date since routes accumulate daily.
  */
 @Component({
     selector: 'admin-routes-list',
@@ -88,6 +62,7 @@ export class RoutesListComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     readonly statusPillClass = routeStatusPillClass;
+    readonly statusOptions = ROUTE_STATUSES;
 
     readonly rows = signal<CrudRow[]>([]);
     readonly loading = signal(false);
@@ -104,9 +79,13 @@ export class RoutesListComponent implements OnInit {
     }
 
     openDetail(row: CrudRow): void {
-        this._router.navigate(['/admin/routes', row.id], {
+        void this._router.navigate(['/admin/routes', row.id], {
             state: { route: row },
         });
+    }
+
+    createRoute(): void {
+        void this._router.navigate(['/admin/routes/new']);
     }
 
     loadMore(): void {

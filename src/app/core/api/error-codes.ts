@@ -50,6 +50,18 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     INVALID_PRICE: 'errors.api.invalidPrice',
     INVALID_QUANTITY: 'errors.api.invalidQuantity',
 
+    // Logistics — route planning / dispatch
+    DELIVERY_ROUTE_NOT_FOUND: 'errors.api.routeNotFound',
+    ROUTE_INVALID_TRANSITION: 'errors.api.routeInvalidTransition',
+    STOP_LIMIT_EXCEEDED: 'errors.api.stopLimitExceeded',
+    MISSING_COORDINATES: 'errors.api.missingCoordinates',
+    HUB_RELAY_NOT_SUPPORTED: 'errors.api.hubRelayNotSupported',
+    INVALID_STOP_ORDER: 'errors.api.invalidStopOrder',
+    VEHICLE_NOT_FOUND: 'errors.api.vehicleNotFound',
+    VEHICLE_NOT_AVAILABLE: 'errors.api.vehicleNotAvailable',
+    VEHICLE_NOT_ELIGIBLE: 'errors.api.vehicleNotEligible',
+    PENDING_HUB_DISCREPANCY: 'errors.api.pendingHubDiscrepancy',
+
     // Orders
     RESTAURANT_NOT_APPROVED: 'errors.api.restaurantNotApproved',
     EMPTY_ORDER: 'errors.api.emptyOrder',

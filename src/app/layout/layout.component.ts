@@ -15,16 +15,8 @@ import { FusePlatformService } from '@fuse/services/platform';
 import { FUSE_VERSION } from '@fuse/version';
 import { Subject, combineLatest, filter, map, takeUntil } from 'rxjs';
 import { EmptyLayoutComponent } from './layouts/empty/empty.component';
-import { CenteredLayoutComponent } from './layouts/horizontal/centered/centered.component';
 import { EnterpriseLayoutComponent } from './layouts/horizontal/enterprise/enterprise.component';
-import { MaterialLayoutComponent } from './layouts/horizontal/material/material.component';
-import { ModernLayoutComponent } from './layouts/horizontal/modern/modern.component';
-import { ClassicLayoutComponent } from './layouts/vertical/classic/classic.component';
-import { ClassyLayoutComponent } from './layouts/vertical/classy/classy.component';
-import { CompactLayoutComponent } from './layouts/vertical/compact/compact.component';
 import { DenseLayoutComponent } from './layouts/vertical/dense/dense.component';
-import { FuturisticLayoutComponent } from './layouts/vertical/futuristic/futuristic.component';
-import { ThinLayoutComponent } from './layouts/vertical/thin/thin.component';
 
 @Component({
     selector: 'layout',
@@ -35,16 +27,8 @@ import { ThinLayoutComponent } from './layouts/vertical/thin/thin.component';
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         EmptyLayoutComponent,
-        CenteredLayoutComponent,
         EnterpriseLayoutComponent,
-        MaterialLayoutComponent,
-        ModernLayoutComponent,
-        ClassicLayoutComponent,
-        ClassyLayoutComponent,
-        CompactLayoutComponent,
         DenseLayoutComponent,
-        FuturisticLayoutComponent,
-        ThinLayoutComponent,
     ],
 })
 export class LayoutComponent implements OnInit, OnDestroy {
@@ -176,6 +160,12 @@ export class LayoutComponent implements OnInit, OnDestroy {
         // 1. Set the layout from the config
         this.layout = this.config.layout;
 
+        // The palette follows the same rule as the layout: config default,
+        // overridden by the area's `data.theme` when it declares one. Resolved
+        // after the walk below so leaving that area reverts the palette instead
+        // of leaving the class stuck on <body>.
+        let theme = this.config.theme;
+
         // 2. Get the query parameter from the current route and
         // set the layout and save the layout to the config
         const layoutFromQueryParam = route.snapshot.queryParamMap.get('layout');
@@ -213,7 +203,19 @@ export class LayoutComponent implements OnInit, OnDestroy {
                 // Set the layout
                 this.layout = path.routeConfig.data.layout;
             }
+
+            // Same walk for the palette (see specs/ux/NAVIGATION.md § Layout
+            // per area) — an area may declare `data.theme` to run on its own
+            // brand class.
+            if (path.routeConfig?.data?.theme) {
+                theme = path.routeConfig.data.theme;
+            }
         });
+
+        if (theme !== this.theme) {
+            this.theme = theme;
+            this._updateTheme();
+        }
     }
 
     /**

@@ -13,6 +13,7 @@ import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
 import { DeliveryZonesComponent } from './logistics/delivery-zones.component';
 import { HubsComponent } from './logistics/hubs.component';
+import { RouteCreateComponent } from './logistics/route-create.component';
 import { RouteDetailComponent } from './logistics/route-detail.component';
 import { RoutesListComponent } from './logistics/routes-list.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
@@ -99,6 +100,10 @@ export default [
     {
         path: 'routes',
         component: RoutesListComponent,
+    },
+    {
+        path: 'routes/new',
+        component: RouteCreateComponent,
     },
     {
         path: 'routes/:routeId',

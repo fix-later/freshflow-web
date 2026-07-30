@@ -161,83 +161,15 @@
             @if (visibleProducts().length > 0) {
                 <!-- Product grid -->
                 <div
-                    class="mt-6 grid grid-cols-1 divide-x divide-y overflow-hidden rounded-xl border shadow-none sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5"
+                    class="mt-6 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
                 >
                     @for (product of visibleProducts(); track product.id) {
-                        <a
-                            [routerLink]="product.productId"
-                            class="bg-card relative flex h-full flex-col p-4"
+                        <ff-product-card
                             data-testid="catalog-product-card"
-                        >
-                            @if (product.active === false) {
-                                <span
-                                    class="text-secondary bg-hover absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium"
-                                >
-                                    {{ t('catalog.inactive') }}
-                                </span>
-                            }
-
-                            <button
-                                type="button"
-                                class="bg-card absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center rounded-full shadow"
-                                [matTooltip]="
-                                    isFavorite(product)
-                                        ? t('favorites.remove')
-                                        : t('favorites.add')
-                                "
-                                [attr.aria-label]="
-                                    isFavorite(product)
-                                        ? t('favorites.remove')
-                                        : t('favorites.add')
-                                "
-                                (click)="toggleFavorite(product, $event)"
-                            >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    [class.text-red-500]="isFavorite(product)"
-                                    [class.text-hint]="!isFavorite(product)"
-                                    [svgIcon]="
-                                        isFavorite(product)
-                                            ? 'heroicons_solid:heart'
-                                            : 'heroicons_outline:heart'
-                                    "
-                                ></mat-icon>
-                            </button>
-
-                            <img
-                                [src]="product.thumbnail"
-                                [alt]="productName(product)"
-                                class="mx-auto h-32 object-contain"
-                            />
-
-                            <h3
-                                class="mt-3 line-clamp-2 text-base font-semibold leading-snug"
-                            >
-                                {{ productName(product) }}
-                            </h3>
-                            <p class="text-secondary mt-1 line-clamp-2 text-sm">
-                                {{ productDescription(product) }}
-                            </p>
-                            <p
-                                class="mt-2 font-mono text-lg font-semibold tabular-nums text-primary"
-                            >
-                                {{ formatPrice(product.price) }}
-                            </p>
-
-                            <div
-                                class="mt-auto flex items-center justify-between pt-3"
-                            >
-                                <span class="text-secondary truncate text-sm">
-                                    {{ isVi() ? product.unit : product.unitEn }}
-                                    &middot; {{ product.marketSource }}
-                                </span>
-                                <mat-icon
-                                    class="text-hint shrink-0 icon-size-5"
-                                    aria-hidden="true"
-                                    svgIcon="heroicons_outline:arrow-top-right-on-square"
-                                ></mat-icon>
-                            </div>
-                        </a>
+                            [product]="productVm(product)"
+                            (favoriteToggled)="toggleFavorite(product)"
+                            (addedToCart)="addToDraftOrder(product)"
+                        ></ff-product-card>
                     }
                 </div>
             } @else {

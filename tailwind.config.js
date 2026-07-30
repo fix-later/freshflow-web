@@ -6,31 +6,57 @@ const generatePalette = require(
 );
 
 /**
- * Custom palettes
+ * Brand palettes — the ONLY source of brand color in the app.
  *
- * Uses the generatePalette helper method to generate
- * Tailwind-like color palettes automatically
+ * `generatePalette` expands each anchor into a full Tailwind-style ramp; the
+ * Fuse theming plugin (bottom of this file) then derives BOTH the Tailwind
+ * utilities (`bg-primary`, `text-on-primary`) AND the Material theme + CSS
+ * variables (`--fuse-primary*`) from it, by writing
+ * `src/@fuse/styles/user-themes.scss`. That file is GENERATED — never hand-edit
+ * it, the next build overwrites it. Change color here and nowhere else.
+ *
+ * Palette per `specs/design/TOKENS.md`: primary FreshFlow navy, secondary
+ * (Material calls that slot `accent`) FreshFlow mint, warn red, plus `sale`
+ * for discounted prices.
+ *
+ * Navy does the work — headings, prices, primary actions — and mint is the
+ * sparing highlight, the ratio the storefront reference uses (~8:1). Mint as
+ * primary put #50F0A3 text on white at ~1.5:1 contrast, failing WCAG AA;
+ * navy on white reads ~10:1.
+ *
+ * `sale` is a real palette rather than a one-off hex so the discount color is
+ * a token like every other. The theming plugin derives Tailwind utilities
+ * (`text-sale`) and CSS variables from any key here; Material only consumes
+ * primary/accent/warn, so the extra palette costs it nothing.
  */
 const customPalettes = {
-    brand: generatePalette('#2196F3'),
-    // App brand (was restaurant-role): 500 base, 600 hover.
-    freshflow: generatePalette({ 500: '#50F0A3', 600: '#48D892' }),
-    freshflowAccent: generatePalette({ 500: '#313F90', 600: '#2C3881' }),
+    freshflowNavy: generatePalette({ 500: '#313F90', 600: '#2C3881' }),
+    freshflowMint: generatePalette({ 500: '#50F0A3', 600: '#48D892' }),
+    freshflowSale: generatePalette({ 500: '#F0508A', 600: '#DC3F7B' }),
 };
 
 /**
  * Themes
+ *
+ * Exactly one theme ships. The five Fuse demo themes (brand/teal/rose/purple/
+ * amber) were removed: nothing could reach them once the theme-picker drawer
+ * was deleted, and each one emitted ~148 KB of unreachable CSS.
+ *
+ * Chrome is chosen per area via `data: { theme }` in `app.routes.ts` (see
+ * specs/ux/NAVIGATION.md § Layout per area). To give an area its own palette,
+ * add a theme here — the plugin generates its `.theme-*` class — and point
+ * that route block's `data.theme` at it.
  */
 const themes = {
     // Default theme is required for theming system to work correctly!
     default: {
         primary: {
-            ...customPalettes.freshflow,
-            DEFAULT: customPalettes.freshflow[500],
+            ...customPalettes.freshflowNavy,
+            DEFAULT: customPalettes.freshflowNavy[500],
         },
         accent: {
-            ...customPalettes.freshflowAccent,
-            DEFAULT: customPalettes.freshflowAccent[500],
+            ...customPalettes.freshflowMint,
+            DEFAULT: customPalettes.freshflowMint[500],
         },
         warn: {
             ...colors.red,
@@ -39,29 +65,10 @@ const themes = {
         'on-warn': {
             500: colors.red['50'],
         },
-    },
-    // Rest of the themes will use the 'default' as the base
-    // theme and will extend it with their given configuration.
-    brand: {
-        primary: customPalettes.brand,
-    },
-    teal: {
-        primary: {
-            ...colors.teal,
-            DEFAULT: colors.teal[600],
+        sale: {
+            ...customPalettes.freshflowSale,
+            DEFAULT: customPalettes.freshflowSale[500],
         },
-    },
-    rose: {
-        primary: colors.rose,
-    },
-    purple: {
-        primary: {
-            ...colors.purple,
-            DEFAULT: colors.purple[600],
-        },
-    },
-    amber: {
-        primary: colors.amber,
     },
 };
 

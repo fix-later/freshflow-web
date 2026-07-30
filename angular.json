@@ -23,13 +23,7 @@
                         "polyfills": ["zone.js"],
                         "tsConfig": "tsconfig.app.json",
                         "inlineStyleLanguage": "scss",
-                        "allowedCommonJsDependencies": [
-                            "apexcharts",
-                            "crypto-js/enc-utf8",
-                            "crypto-js/hmac-sha256",
-                            "crypto-js/enc-base64",
-                            "quill-delta"
-                        ],
+                        "allowedCommonJsDependencies": ["apexcharts"],
                         "assets": [
                             {
                                 "glob": "**/*",
@@ -45,7 +39,6 @@
                             "includePaths": ["src/@fuse/styles"]
                         },
                         "styles": [
-                            "public/fonts/inter/inter.css",
                             "public/styles/splash-screen.css",
                             "src/@fuse/styles/tailwind.scss",
                             "src/@fuse/styles/themes.scss",
@@ -140,10 +133,7 @@
                 "lint": {
                     "builder": "@angular-eslint/builder:lint",
                     "options": {
-                        "lintFilePatterns": [
-                            "src/**/*.ts",
-                            "src/**/*.html"
-                        ]
+                        "lintFilePatterns": ["src/**/*.ts", "src/**/*.html"]
                     }
                 }
             }

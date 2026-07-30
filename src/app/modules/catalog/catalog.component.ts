@@ -24,7 +24,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
+import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
+import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
+import { ProductCardVm } from 'app/shared/product-card/product-card.types';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { CatalogService } from './catalog.service';
 import { CatalogProduct } from './catalog.types';
@@ -52,6 +55,7 @@ const DEFAULT_BATCH_SIZE = 12;
         RouterLink,
         TranslocoModule,
         ApprovalBannerComponent,
+        ProductCardComponent,
     ],
 })
 export class CatalogComponent implements OnInit {
@@ -59,6 +63,7 @@ export class CatalogComponent implements OnInit {
     private _translocoService = inject(TranslocoService);
     private _destroyRef = inject(DestroyRef);
     private _favoritesService = inject(FavoritesService);
+    private _draftOrder = inject(DraftOrderService);
 
     readonly resultsSection =
         viewChild<ElementRef<HTMLElement>>('resultsSection');
@@ -256,11 +261,29 @@ export class CatalogComponent implements OnInit {
         return this._favoritesService.isFavorite(product.marketProductId);
     }
 
-    /** `preventDefault`/`stopPropagation` so the heart doesn't trigger the card's own link. */
-    toggleFavorite(product: CatalogProduct, event: Event): void {
-        event.preventDefault();
-        event.stopPropagation();
+    /** The tile stops the click reaching its own link before emitting. */
+    toggleFavorite(product: CatalogProduct): void {
         void this._favoritesService.toggle(product);
+    }
+
+    /** Same draft-order entry point the wishlist uses (`WishlistComponent`). */
+    addToDraftOrder(product: CatalogProduct): void {
+        this._draftOrder.add(product);
+    }
+
+    /** Map a listing onto the shared tile's view model. */
+    productVm(product: CatalogProduct): ProductCardVm {
+        return {
+            id: product.id,
+            name: this.productName(product),
+            description: this.productDescription(product),
+            thumbnail: product.thumbnail,
+            price: this.formatPrice(product.price),
+            meta: `${this.isVi() ? product.unit : product.unitEn} · ${product.marketSource}`,
+            favorite: this.isFavorite(product),
+            inactive: product.active === false,
+            link: product.productId,
+        };
     }
 
     private _resetReveal(): void {

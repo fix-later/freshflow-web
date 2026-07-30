@@ -63,8 +63,10 @@ export class DeliveryZonesComponent {
         list: () => this._logistics.listZones(),
         create: (value) => this._logistics.createZone(value),
         update: (id, value) => this._logistics.updateZone(id, value),
+        // The backend soft-deletes (`DeactivateDeliveryZone`).
         remove: (row) => this._logistics.deleteZone(row.id),
-        removeLabel: 'admin.crud.delete',
+        removeLabel: 'admin.crud.deactivate',
+        removeIsDeactivate: true,
         removeIcon: 'trash',
     };
 }

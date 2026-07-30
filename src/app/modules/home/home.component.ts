@@ -1,8 +1,8 @@
-import { NgClass } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
+    inject,
     OnDestroy,
     OnInit,
     ViewEncapsulation,
@@ -10,6 +10,11 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
+import { FuseMasonryComponent } from '@fuse/components/masonry';
+import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
+import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
+import { ProductCardVm } from 'app/shared/product-card/product-card.types';
+import { Subject, takeUntil } from 'rxjs';
 
 interface Category {
     name: string;
@@ -57,7 +62,13 @@ interface Feature {
     encapsulation: ViewEncapsulation.None,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
-    imports: [MatButtonModule, RouterLink, MatIconModule, NgClass],
+    imports: [
+        MatButtonModule,
+        RouterLink,
+        MatIconModule,
+        FuseMasonryComponent,
+        ProductCardComponent,
+    ],
 })
 export class HomeComponent implements OnInit, OnDestroy {
     readonly categories: Category[] = [
@@ -81,7 +92,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 3.2,
             rating: 4,
             badge: 'Bán chạy',
-            badgeClass: 'home-badge--rose',
+            badgeClass: 'ff-product-card__badge--rose',
         },
         {
             name: 'Bó hành lá',
@@ -92,7 +103,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 1.99,
             rating: 5,
             badge: 'Giảm giá',
-            badgeClass: 'home-badge--primary',
+            badgeClass: '',
         },
         {
             name: 'Ớt đỏ tươi',
@@ -102,7 +113,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             price: 0.99,
             rating: 4,
             badge: 'Mới',
-            badgeClass: 'home-badge--blue',
+            badgeClass: 'ff-product-card__badge--blue',
         },
         {
             name: 'Lá húng quế',
@@ -122,7 +133,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 4.0,
             rating: 5,
             badge: '-14%',
-            badgeClass: 'home-badge--amber',
+            badgeClass: 'ff-product-card__badge--amber',
         },
     ];
 
@@ -136,7 +147,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 1.8,
             rating: 4,
             badge: 'Giảm giá',
-            badgeClass: 'home-badge--primary',
+            badgeClass: '',
         },
         {
             name: 'Thịt bò cao cấp',
@@ -147,7 +158,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 12.0,
             rating: 5,
             badge: 'Bán chạy',
-            badgeClass: 'home-badge--rose',
+            badgeClass: 'ff-product-card__badge--rose',
         },
         {
             name: 'Gà thả vườn',
@@ -167,7 +178,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 14.5,
             rating: 5,
             badge: 'Mới',
-            badgeClass: 'home-badge--blue',
+            badgeClass: 'ff-product-card__badge--blue',
         },
         {
             name: 'Nấm sò',
@@ -186,7 +197,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 2.6,
             rating: 4,
             badge: '-19%',
-            badgeClass: 'home-badge--amber',
+            badgeClass: 'ff-product-card__badge--amber',
         },
         {
             name: 'Táo xanh giòn',
@@ -205,7 +216,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             price: 1.45,
             rating: 4,
             badge: 'Bán chạy',
-            badgeClass: 'home-badge--rose',
+            badgeClass: 'ff-product-card__badge--rose',
         },
         {
             name: 'Chậu húng quế',
@@ -225,7 +236,7 @@ export class HomeComponent implements OnInit, OnDestroy {
             oldPrice: 4.6,
             rating: 5,
             badge: 'Giảm giá',
-            badgeClass: 'home-badge--primary',
+            badgeClass: '',
         },
     ];
 
@@ -310,25 +321,78 @@ export class HomeComponent implements OnInit, OnDestroy {
     mins = '00';
     secs = '00';
 
+    /**
+     * Masonry column count for the product tiles — mirrors the grid the
+     * hand-rolled CSS used before (5 / 4 / 3 / 2 down the breakpoints).
+     */
+    productColumns = 5;
+
+    /**
+     * Tile view models, built once. The page holds a 1s countdown timer, so
+     * mapping inside the template would rebuild every tile's input object on
+     * each tick and defeat the card's OnPush check.
+     */
+    readonly popularProductCards: ProductCardVm[] = this.popularProducts.map(
+        (p) => this.productVm(p)
+    );
+    readonly saleProductCards: ProductCardVm[] = this.saleProducts.map((p) =>
+        this.productVm(p)
+    );
+
     private _timerId: ReturnType<typeof setInterval> | null = null;
     private readonly _saleEnd =
         Date.now() + 4 * 24 * 3600 * 1000 + 15600 * 1000;
+    private readonly _mediaWatcher = inject(FuseMediaWatcherService);
+    private readonly _unsubscribeAll = new Subject<void>();
 
     constructor(private _cdr: ChangeDetectorRef) {}
 
     ngOnInit(): void {
         this._tick();
         this._timerId = setInterval(() => this._tick(), 1000);
+
+        this._mediaWatcher.onMediaChange$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(({ matchingAliases }) => {
+                this.productColumns = matchingAliases.includes('xl')
+                    ? 5
+                    : matchingAliases.includes('lg')
+                      ? 4
+                      : matchingAliases.includes('md')
+                        ? 3
+                        : 2;
+                this._cdr.markForCheck();
+            });
     }
 
     ngOnDestroy(): void {
         if (this._timerId) {
             clearInterval(this._timerId);
         }
+
+        this._unsubscribeAll.next();
+        this._unsubscribeAll.complete();
     }
 
-    stars(rating: number): boolean[] {
-        return [1, 2, 3, 4, 5].map((i) => i <= Math.round(rating));
+    /**
+     * Map the page's product shape onto the shared tile's view model. Prices are
+     * formatted here because the tile takes them pre-formatted (see
+     * `ProductCardVm`).
+     */
+    productVm(p: Product): ProductCardVm {
+        return {
+            id: p.name,
+            name: p.name,
+            emoji: p.emoji,
+            thumbTint: p.bg,
+            price: `$${p.price.toFixed(2)}`,
+            oldPrice: p.oldPrice ? `$${p.oldPrice.toFixed(2)}` : null,
+            meta: p.vendor,
+            badge: p.badge ?? null,
+            badgeClass: p.badgeClass ?? null,
+            rating: p.rating,
+            link: '/catalog',
+        };
     }
 
     trackByIndex(index: number): number {
