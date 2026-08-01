@@ -114,11 +114,6 @@ export const appRoutes: Route[] = [
                 loadChildren: () => import('app/modules/home/home.routes'),
             },
             {
-                path: 'catalog',
-                loadChildren: () =>
-                    import('app/modules/catalog/catalog.routes'),
-            },
-            {
                 path: 'profile',
                 loadChildren: () =>
                     import('app/modules/restaurant/profile.routes'),
@@ -182,6 +177,11 @@ export const appRoutes: Route[] = [
             {
                 path: 'orders',
                 loadChildren: () => import('app/modules/orders/orders.routes'),
+            },
+            {
+                path: 'catalog',
+                loadChildren: () =>
+                    import('app/modules/catalog/catalog.routes'),
             },
         ],
     },

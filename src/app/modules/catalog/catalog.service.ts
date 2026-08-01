@@ -196,10 +196,30 @@ export class CatalogService {
             const res = await categoriesApi.apiV1CategoriesGetRaw({
                 activeOnly: true,
             });
-            return extractList<CatalogCategory>(await parseJson(res.raw));
+            const rows = extractList<RawRow>(await parseJson(res.raw));
+            return rows
+                .map((row) => this._toCategory(row))
+                .filter((category): category is CatalogCategory => !!category);
         } catch {
             return [];
         }
+    }
+
+    private _toCategory(row: RawRow): CatalogCategory | null {
+        const id = str(row, ['id', 'categoryId']);
+        if (!id) {
+            return null;
+        }
+        const name = str(row, ['name', 'categoryName']);
+        const parentRaw = str(row, ['parentId', 'parentCategoryId']);
+        return {
+            id,
+            name,
+            nameEn: str(row, ['nameEn']) || name,
+            slug: str(row, ['slug']),
+            icon: str(row, ['icon']),
+            parentId: parentRaw || null,
+        };
     }
 
     /**

@@ -1,0 +1,217 @@
+<footer class="w-full shrink-0 print:hidden">
+    <!-- Contact strip + newsletter (the shipper spans both rows) -->
+    <div class="relative">
+        <div class="w-full bg-[#083B4B] text-gray-100">
+            <div
+                class="mx-auto flex w-full max-w-[95rem] flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:gap-16 md:px-8 lg:px-14 lg:pr-80"
+            >
+                <div>
+                    <a
+                        class="font-medium underline underline-offset-4"
+                        [href]="hotline.href"
+                        >hỗ trợ khách hàng</a
+                    >
+                    <p class="mt-1 text-2xl font-bold text-primary-400">
+                        {{ hotline.text }}
+                    </p>
+                </div>
+
+                <div>
+                    <span class="font-medium underline underline-offset-4"
+                        >góp ý cho chúng tôi</span
+                    >
+                    <p class="mt-1 text-2xl font-bold text-primary-400">
+                        hotro&#64;freshflow.vn
+                    </p>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    @for (
+                        social of ['facebook', 'instagram', 'youtube'];
+                        track social
+                    ) {
+                        <button
+                            class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+                            type="button"
+                            [attr.aria-label]="social"
+                        >
+                            <mat-icon
+                                class="text-current icon-size-5"
+                                [svgIcon]="'feather:' + social"
+                            ></mat-icon>
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-card w-full border-b">
+            <div
+                class="mx-auto flex w-full max-w-[95rem] flex-col gap-4 px-4 py-6 md:flex-row md:items-center md:gap-10 md:px-8 lg:px-14 lg:pr-80"
+            >
+                <div class="flex shrink-0 items-center gap-4">
+                    <mat-icon
+                        class="text-primary icon-size-10"
+                        [svgIcon]="'heroicons_outline:envelope-open'"
+                    ></mat-icon>
+                    <p
+                        class="max-w-64 text-xl font-bold leading-tight text-primary"
+                    >
+                        Nhận thông tin &amp; ưu đãi mới nhất
+                    </p>
+                </div>
+
+                <!-- Newsletter (UI only until a mailing list exists) -->
+                <form class="relative w-full max-w-xl flex-1">
+                    <input
+                        class="text-default bg-card h-13 w-full rounded-full border px-5 pr-32 text-base outline-none focus:border-primary"
+                        type="email"
+                        name="newsletterEmail"
+                        placeholder="Địa chỉ email của bạn"
+                        aria-label="Địa chỉ email của bạn"
+                    />
+                    <button
+                        class="absolute bottom-1.5 right-1.5 top-1.5 rounded-full bg-primary px-6 text-base font-semibold text-on-primary"
+                        type="button"
+                    >
+                        Đăng ký
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Shipper: pinned inside the same max-w column as header/footer -->
+        <div
+            class="pointer-events-none absolute inset-x-0 bottom-0 hidden lg:block"
+            aria-hidden="true"
+        >
+            <div
+                class="relative mx-auto h-72 w-full max-w-[95rem] px-4 md:px-8 lg:px-14"
+            >
+                <img
+                    class="absolute bottom-0 right-4 h-72 w-auto md:right-8 lg:right-14"
+                    src="shipper.png"
+                    alt=""
+                />
+            </div>
+        </div>
+    </div>
+
+    <!-- Link columns -->
+    <div class="bg-card w-full">
+        <div
+            class="mx-auto grid w-full max-w-[95rem] grid-cols-2 gap-x-6 gap-y-10 px-4 py-12 md:grid-cols-4 md:px-8 lg:px-14"
+        >
+            <div>
+                <h3 class="text-lg font-bold text-primary">Khách hàng</h3>
+                <ul class="mt-4 flex flex-col gap-2.5">
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/sign-in"
+                            >Đăng nhập</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/sign-up"
+                            >Đăng ký tài khoản nhà hàng</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/forgot-password"
+                            >Quên mật khẩu</a
+                        >
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-bold text-primary">Về FreshFlow</h3>
+                <ul class="mt-4 flex flex-col gap-2.5">
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/about"
+                            >Về chúng tôi</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/faq"
+                            >Câu hỏi thường gặp</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/contact"
+                            >Liên hệ</a
+                        >
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 class="text-lg font-bold text-primary">Liên kết nhanh</h3>
+                <ul class="mt-4 flex flex-col gap-2.5">
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/home"
+                            >Trang chủ</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/catalog"
+                            >Mua sắm</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            routerLink="/deals"
+                            >Hot Deals</a
+                        >
+                    </li>
+                </ul>
+            </div>
+
+            <div>
+                <img
+                    class="h-10 w-auto"
+                    src="images/logo/logo-primary.svg"
+                    alt="FreshFlow logo"
+                />
+                <p
+                    class="text-default mt-4 font-medium underline underline-offset-4"
+                >
+                    khu vực phục vụ
+                </p>
+                <p class="text-secondary mt-2 leading-relaxed">
+                    TP. Hồ Chí Minh, chuyên cung ứng thực phẩm tươi cho nhà hàng
+                </p>
+                <p class="text-hint mt-2 text-sm">T2 – T7: 6:00 – 18:00</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom bar -->
+    <div class="bg-card w-full border-t">
+        <div
+            class="text-secondary mx-auto flex w-full max-w-[95rem] flex-col items-center justify-between gap-2 px-4 py-5 md:flex-row md:px-8 lg:px-14"
+        >
+            <span
+                >Bản quyền &copy; {{ currentYear }}
+                <span class="font-semibold text-primary">FreshFlow</span>.
+            </span>
+            <span class="text-hint">where Food meets Fast</span>
+        </div>
+    </div>
+</footer>

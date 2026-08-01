@@ -1245,5 +1245,7 @@
     "market.empty.title": "Could not load the market list",
     "market.empty.description": "Check your connection and try again.",
     "catalog.noMarket.title": "Choose a market first",
-    "catalog.noMarket.description": "Pick one from the market name in the header to see its products."
+    "catalog.noMarket.description": "Pick one from the market name in the header to see its products.",
+    "header.search": "Search products",
+    "header.quickBuy": "Quick buy"
 }

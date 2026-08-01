@@ -14,6 +14,7 @@ import {
     inject,
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
 import { OrderTrackingService } from 'app/layout/common/order-tracking/order-tracking.service';
@@ -27,17 +28,23 @@ import {
 const CLOSE_DELAY_MS = 150;
 
 /**
- * Header "Theo dõi đơn hàng" widget: hovering the trigger previews the
- * restaurant's latest order in a card; clicking it navigates to the order
- * management area.
+ * Header order-tracking control: icon trigger (same footprint as account /
+ * favorites). Hover previews the latest order; click navigates to orders.
  */
 @Component({
     selector: 'order-tracking',
     templateUrl: './order-tracking.component.html',
+    styleUrls: ['../header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [MatIconModule, RouterLink, TranslocoModule, DatePipe],
+    imports: [
+        MatIconModule,
+        MatTooltipModule,
+        RouterLink,
+        TranslocoModule,
+        DatePipe,
+    ],
 })
 export class OrderTrackingComponent implements OnInit, OnDestroy {
     @ViewChild('orderTrackingOrigin', { read: ElementRef })

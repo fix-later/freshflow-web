@@ -33,6 +33,10 @@ const customPalettes = {
     freshflowNavy: generatePalette({ 500: '#313F90', 600: '#2C3881' }),
     freshflowMint: generatePalette({ 500: '#50F0A3', 600: '#48D892' }),
     freshflowSale: generatePalette({ 500: '#F0508A', 600: '#DC3F7B' }),
+    // The dark teal band behind the storefront's utility strips, auth panel and
+    // footer. A palette rather than a literal so its ink is generated with the
+    // same contrast floor as every other colour.
+    freshflowBrandSurface: generatePalette({ 500: '#083B4B' }),
 };
 
 /**
@@ -68,6 +72,10 @@ const themes = {
         sale: {
             ...customPalettes.freshflowSale,
             DEFAULT: customPalettes.freshflowSale[500],
+        },
+        'brand-surface': {
+            ...customPalettes.freshflowBrandSurface,
+            DEFAULT: customPalettes.freshflowBrandSurface[500],
         },
     },
 };

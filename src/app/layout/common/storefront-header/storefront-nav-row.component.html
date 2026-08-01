@@ -1,0 +1,98 @@
+@if (navigation && !isScreenSmall) {
+    @if (embedded()) {
+        <div class="flex h-14 w-full items-center justify-between gap-4">
+            <ng-container *ngTemplateOutlet="navContent"></ng-container>
+        </div>
+    } @else {
+        <div class="bg-card block w-full border-b">
+            <div
+                class="mx-auto flex h-14 w-full max-w-[95rem] items-center justify-between gap-4 px-4 md:px-8 lg:px-14"
+            >
+                <ng-container *ngTemplateOutlet="navContent"></ng-container>
+            </div>
+        </div>
+    }
+}
+
+<ng-template #navContent>
+    <nav mat-tab-nav-bar [tabPanel]="tabPanel" [mat-stretch-tabs]="false">
+        @for (item of navigation.horizontal; track item.id) {
+            @if (item.children?.length) {
+                <a
+                    class="text-base font-medium"
+                    mat-tab-link
+                    [active]="isBranchActive(item)"
+                    [matMenuTriggerFor]="branchMenu"
+                >
+                    @if (item.icon) {
+                        <mat-icon
+                            class="mr-2 icon-size-5"
+                            [class.text-primary]="isBranchActive(item)"
+                            [svgIcon]="item.icon"
+                        ></mat-icon>
+                    }
+                    {{ item.title }}
+                    <mat-icon
+                        class="ml-1.5 icon-size-3"
+                        [svgIcon]="'heroicons_outline:chevron-down'"
+                    ></mat-icon>
+                </a>
+                <mat-menu #branchMenu="matMenu">
+                    @for (child of item.children; track child.id) {
+                        <a mat-menu-item [routerLink]="child.link">{{
+                            child.title
+                        }}</a>
+                    }
+                </mat-menu>
+            } @else {
+                <a
+                    class="text-base font-medium"
+                    mat-tab-link
+                    [routerLink]="item.link"
+                    routerLinkActive
+                    #rla="routerLinkActive"
+                    [active]="rla.isActive"
+                >
+                    @if (item.icon) {
+                        <mat-icon
+                            class="mr-2 icon-size-5"
+                            [class.text-primary]="rla.isActive"
+                            [svgIcon]="item.icon"
+                        ></mat-icon>
+                    }
+                    {{ item.title }}
+                </a>
+            }
+        }
+    </nav>
+    <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
+
+    <div class="flex items-center gap-6 whitespace-nowrap">
+        <a
+            class="flex items-center gap-1.5 text-base font-semibold text-[#F0508A] hover:underline"
+            routerLink="/deals"
+        >
+            <mat-icon
+                class="text-current icon-size-4"
+                [svgIcon]="'heroicons_outline:fire'"
+            ></mat-icon>
+            <span>Hot Deals</span>
+        </a>
+
+        <a
+            class="text-secondary flex items-center gap-1.5 text-base"
+            [href]="hotline.href"
+        >
+            <mat-icon
+                class="text-primary icon-size-4"
+                [svgIcon]="'heroicons_outline:phone'"
+            ></mat-icon>
+            <span
+                >Hỗ trợ:
+                <span class="font-semibold text-primary">{{
+                    hotline.text
+                }}</span></span
+            >
+        </a>
+    </div>
+</ng-template>

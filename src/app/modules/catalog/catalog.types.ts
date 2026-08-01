@@ -4,6 +4,8 @@ export interface CatalogCategory {
     nameEn: string;
     slug: string;
     icon: string;
+    /** Empty / null = root (parent) category. */
+    parentId: string | null;
 }
 
 /** One market's listing of a product — the unit the catalog grid renders. */

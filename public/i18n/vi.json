@@ -1245,5 +1245,7 @@
     "market.empty.title": "Chưa tải được danh sách chợ",
     "market.empty.description": "Kiểm tra kết nối rồi thử lại.",
     "catalog.noMarket.title": "Hãy chọn chợ trước",
-    "catalog.noMarket.description": "Bấm tên chợ trên thanh đầu trang để chọn nơi bạn muốn mua."
+    "catalog.noMarket.description": "Bấm tên chợ trên thanh đầu trang để chọn nơi bạn muốn mua.",
+    "header.search": "Tìm kiếm sản phẩm",
+    "header.quickBuy": "Mua hàng nhanh"
 }

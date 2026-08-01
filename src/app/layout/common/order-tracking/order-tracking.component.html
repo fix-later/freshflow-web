@@ -1,18 +1,18 @@
 <ng-container *transloco="let t">
-    <!-- Trigger: hover previews the latest order, click navigates to it -->
+    <!-- Trigger: icon-only like the account / favorites header controls -->
     <a
-        class="text-default flex items-center gap-1.5 text-base font-semibold hover:text-primary"
+        class="ff-header-icon text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
         routerLink="/orders"
         #orderTrackingOrigin
         (mouseenter)="onTriggerEnter()"
         (mouseleave)="onTriggerLeave()"
         [attr.aria-label]="t('orderTracking.trigger')"
+        [matTooltip]="t('orderTracking.trigger')"
     >
         <mat-icon
-            class="text-primary icon-size-5"
+            class="icon-size-6"
             [svgIcon]="'heroicons_outline:clipboard-document-check'"
         ></mat-icon>
-        <span class="hidden xl:inline">{{ t('orderTracking.trigger') }}</span>
     </a>
 
     <!-- Hover preview card -->

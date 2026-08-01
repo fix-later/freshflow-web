@@ -1,11 +1,11 @@
-import { NgClass } from '@angular/common';
+import { NgClass, NgTemplateOutlet } from '@angular/common';
 import {
-    AfterViewInit,
     ChangeDetectionStrategy,
     Component,
     computed,
     ElementRef,
     inject,
+    NgZone,
     OnDestroy,
     OnInit,
     Signal,
@@ -20,9 +20,9 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
+    NavigationEnd,
     Router,
     RouterLink,
-    RouterLinkActive,
     RouterOutlet,
 } from '@angular/router';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
@@ -41,13 +41,16 @@ import { DraftOrderDrawerComponent } from 'app/layout/common/draft-order/draft-o
 import { DraftOrderComponent } from 'app/layout/common/draft-order/draft-order.component';
 import { FavoritesDrawerComponent } from 'app/layout/common/favorites/favorites-drawer.component';
 import { FavoritesComponent } from 'app/layout/common/favorites/favorites.component';
-import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
 import { MarketPickerComponent } from 'app/layout/common/market-picker/market-picker.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { OrderTrackingComponent } from 'app/layout/common/order-tracking/order-tracking.component';
+import { QuickBuyComponent } from 'app/layout/common/quick-buy/quick-buy.component';
 import { QuickSignInComponent } from 'app/layout/common/quick-sign-in/quick-sign-in.component';
+import { StorefrontFooterComponent } from 'app/layout/common/storefront-footer/storefront-footer.component';
+import { StorefrontNavRowComponent } from 'app/layout/common/storefront-header/storefront-nav-row.component';
+import { StorefrontTopStripComponent } from 'app/layout/common/storefront-header/storefront-top-strip.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
-import { fromEvent, Subject, takeUntil } from 'rxjs';
+import { filter, fromEvent, Subject, takeUntil } from 'rxjs';
 
 interface AiChatMessage {
     role: 'user' | 'assistant';
@@ -72,10 +75,13 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
         DraftOrderDrawerComponent,
         FavoritesComponent,
         FavoritesDrawerComponent,
-        LanguagesComponent,
         NotificationsComponent,
         OrderTrackingComponent,
+        QuickBuyComponent,
         QuickSignInComponent,
+        StorefrontFooterComponent,
+        StorefrontTopStripComponent,
+        StorefrontNavRowComponent,
         UserComponent,
         MatButtonModule,
         MatIconModule,
@@ -84,23 +90,30 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
         MatTooltipModule,
         FormsModule,
         NgClass,
+        NgTemplateOutlet,
         RouterLink,
-        RouterLinkActive,
         RouterOutlet,
         FuseRouteAnimationDirective,
         TranslocoModule,
     ],
 })
-export class EnterpriseLayoutComponent
-    implements OnInit, AfterViewInit, OnDestroy
-{
+export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
     @ViewChild('aiChatInput') aiChatInput: ElementRef<HTMLInputElement>;
+
+    /**
+     * Re-binds whenever the sentinel enters the view (it lives inside
+     * `@if (navigation)`, so a one-shot AfterViewInit often misses it).
+     */
     @ViewChild('stickySentinel')
-    private _stickySentinel: ElementRef<HTMLElement>;
+    set stickySentinel(ref: ElementRef<HTMLElement> | undefined) {
+        this._bindStickyObserver(ref?.nativeElement ?? null);
+    }
 
     private _permissionsService = inject(PermissionsService);
     private _router = inject(Router);
+    private _ngZone = inject(NgZone);
     private _stickyObserver: IntersectionObserver | null = null;
+    private _stickySentinelEl: HTMLElement | null = null;
 
     isScreenSmall: boolean;
     navigation: Navigation;
@@ -118,6 +131,28 @@ export class EnterpriseLayoutComponent
 
     /** Floating control: jump back to the top of the page. */
     readonly showScrollTop = signal(false);
+
+    /** One-shot class pulse so the header logo animates on route change. */
+    readonly logoRouteAnim = signal(false);
+
+    /** Skip the initial NavigationEnd so the logo only animates on real navigations. */
+    private _logoRouteAnimReady = false;
+
+    /** Current URL — drives the catalog logo swap. */
+    private readonly _url = signal(this._router.url);
+
+    /**
+     * Catalog: logo-market while expanded; logo-primary once the main bar
+     * pins. Elsewhere: logo-primary.
+     */
+    readonly headerLogoSrc = computed(() => {
+        if (this._isCatalogRoute(this._url()) && !this.isMainBarStuck()) {
+            return 'images/logo/logo-market.svg';
+        }
+        return 'images/logo/logo-primary.svg';
+    });
+
+    readonly isCatalogRoute = computed(() => this._isCatalogRoute(this._url()));
 
     // Header state
     searchQuery = '';
@@ -272,6 +307,23 @@ export class EnterpriseLayoutComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(() => this._updateScrollTopVisibility());
 
+        this._router.events
+            .pipe(
+                filter(
+                    (event): event is NavigationEnd =>
+                        event instanceof NavigationEnd
+                ),
+                takeUntil(this._unsubscribeAll)
+            )
+            .subscribe((event) => {
+                this._url.set(event.urlAfterRedirects);
+                if (this._logoRouteAnimReady) {
+                    this._pulseLogoRouteAnim();
+                } else {
+                    this._logoRouteAnimReady = true;
+                }
+            });
+
         this._updateScrollTopVisibility();
     }
 
@@ -279,25 +331,6 @@ export class EnterpriseLayoutComponent
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
         this._stickyObserver?.disconnect();
-    }
-
-    ngAfterViewInit(): void {
-        // Pin the main bar once the sentinel (sitting right above it)
-        // scrolls past the viewport top. IntersectionObserver instead of a
-        // scroll listener: no per-frame work, and the spacer keeps the
-        // sentinel's position stable while the bar is pinned.
-        const sentinel = this._stickySentinel?.nativeElement;
-        if (!sentinel) {
-            return;
-        }
-        this._stickyObserver = new IntersectionObserver(
-            ([entry]) =>
-                this.isMainBarStuck.set(
-                    !entry.isIntersecting && entry.boundingClientRect.top < 0
-                ),
-            { threshold: 0 }
-        );
-        this._stickyObserver.observe(sentinel);
     }
 
     /** True when any child link of a dropdown nav item is the active route. */
@@ -336,6 +369,52 @@ export class EnterpriseLayoutComponent
             document.body.scrollTop ||
             0;
         this.showScrollTop.set(y > SCROLL_TOP_THRESHOLD_PX);
+    }
+
+    private _isCatalogRoute(url: string): boolean {
+        const path = url.split('?')[0];
+        return path === '/catalog' || path.startsWith('/catalog/');
+    }
+
+    /** Restart the logo enter animation (CSS needs class removed then re-added). */
+    private _pulseLogoRouteAnim(): void {
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+        this.logoRouteAnim.set(false);
+        requestAnimationFrame(() => {
+            this._ngZone.run(() => this.logoRouteAnim.set(true));
+        });
+    }
+
+    /**
+     * Pin the main bar once the sentinel scrolls past the viewport top.
+     * IntersectionObserver (no per-frame scroll work); the spacer keeps the
+     * sentinel's document position stable while the bar is `position: fixed`.
+     */
+    private _bindStickyObserver(sentinel: HTMLElement | null): void {
+        if (sentinel === this._stickySentinelEl) {
+            return;
+        }
+        this._stickyObserver?.disconnect();
+        this._stickyObserver = null;
+        this._stickySentinelEl = sentinel;
+        if (!sentinel) {
+            this.isMainBarStuck.set(false);
+            return;
+        }
+        this._stickyObserver = new IntersectionObserver(
+            ([entry]) => {
+                const stuck =
+                    !entry.isIntersecting && entry.boundingClientRect.top < 0;
+                if (stuck === this.isMainBarStuck()) {
+                    return;
+                }
+                this._ngZone.run(() => this.isMainBarStuck.set(stuck));
+            },
+            { threshold: 0, rootMargin: '-1px 0px 0px 0px' }
+        );
+        this._stickyObserver.observe(sentinel);
     }
 
     // AI chat

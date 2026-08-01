@@ -1,0 +1,73 @@
+<!-- Trigger -->
+<ng-container *transloco="let t">
+    <button
+        class="ff-header-icon text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        type="button"
+        [attr.aria-label]="t('header.quickBuy')"
+        [matTooltip]="t('header.quickBuy')"
+        (click)="open()"
+    >
+        <mat-icon
+            class="icon-size-6"
+            [svgIcon]="'heroicons_outline:sparkles'"
+        ></mat-icon>
+    </button>
+</ng-container>
+
+@if (opened) {
+    <div
+        class="bg-card fixed inset-0 z-9999 flex flex-col"
+        animate.enter="fuse-animate-slide-in-top"
+        animate.leave="fuse-animate-slide-out-top"
+    >
+        <div class="bg-card flex h-14 shrink-0 items-center border-b pr-2">
+            <mat-icon
+                class="ml-5 mr-3 shrink-0 text-primary icon-size-5"
+                [svgIcon]="'heroicons_outline:sparkles'"
+            ></mat-icon>
+            <input
+                #chatInput
+                class="text-default h-full min-w-0 flex-1 border-none bg-transparent text-[0.9375rem] outline-none"
+                type="text"
+                name="query"
+                [(ngModel)]="query"
+                placeholder="Ask FreshFlow AI..."
+                aria-label="Ask FreshFlow AI"
+                (keydown)="onKeydown($event)"
+            />
+            <button
+                class="text-default shrink-0"
+                mat-icon-button
+                type="button"
+                aria-label="Close AI chat"
+                (click)="close()"
+            >
+                <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
+            </button>
+        </div>
+
+        <div
+            class="bg-default flex flex-auto flex-col gap-3 overflow-y-auto p-4"
+        >
+            @for (message of messages; track $index) {
+                <div
+                    class="flex max-w-[90%] items-start gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed"
+                    [ngClass]="{
+                        'ml-auto self-end bg-gray-900 text-white':
+                            message.role === 'user',
+                        'text-default bg-card self-start border':
+                            message.role === 'assistant',
+                    }"
+                >
+                    @if (message.role === 'assistant') {
+                        <mat-icon
+                            class="mt-0.5 shrink-0 text-primary icon-size-4"
+                            [svgIcon]="'heroicons_outline:sparkles'"
+                        ></mat-icon>
+                    }
+                    <p class="m-0">{{ message.text }}</p>
+                </div>
+            }
+        </div>
+    </div>
+}

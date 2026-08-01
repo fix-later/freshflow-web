@@ -31,417 +31,321 @@
         <!-- Header -->
         <header class="w-full shrink-0 shadow-sm print:hidden">
             <!-- Top strip: value props left · address / language / currency right -->
-            @if (!isScreenSmall) {
-                <div class="w-full bg-[#083B4B] text-base text-gray-100">
-                    <div
-                        class="mx-auto flex h-12 w-full max-w-[95rem] items-center justify-between gap-6 px-4 md:px-8 lg:px-14"
-                    >
-                        <div class="flex items-center gap-8 whitespace-nowrap">
-                            <!-- Service area tagline -->
-                            <span class="flex items-center gap-1.5 font-medium">
-                                <mat-icon
-                                    class="text-primary-400 icon-size-5"
-                                    [svgIcon]="
-                                        'heroicons_outline:building-storefront'
-                                    "
-                                ></mat-icon>
-                                <span>Chuyên phục vụ nhà hàng tại TP.HCM</span>
-                            </span>
+            <storefront-top-strip></storefront-top-strip>
 
+            <!-- Sticky sentinel: 1px tall so IntersectionObserver is reliable -->
+            <div #stickySentinel class="h-px w-full"></div>
+
+            <!--
+              Catalog desktop: persistent max-width grid (logo stays in flow —
+              no remount jitter). border-b only on content cells. When pinned,
+              a logo-primary overlay slides in; in-flow row-2 is visually hidden
+              but keeps layout height. Other pages: standard main + nav row.
+            -->
+            <div class="w-full [overflow-anchor:none]">
+                @if (isCatalogRoute() && !isScreenSmall) {
+                    @if (isMainBarStuck()) {
+                        <div
+                            class="fuse-animate-slide-in-top bg-card fixed inset-x-0 top-0 z-49 border-b shadow-md"
+                        >
                             <div
-                                class="hidden items-center gap-8 whitespace-nowrap lg:flex"
+                                class="mx-auto flex h-18 w-full max-w-[95rem] items-center gap-6 px-4 md:h-22 md:px-8 lg:px-14"
                             >
-                                @for (item of topBenefits; track item.text) {
-                                    <span class="flex items-center gap-1.5">
-                                        <mat-icon
-                                            class="text-primary-400 icon-size-5"
-                                            [svgIcon]="item.icon"
-                                        ></mat-icon>
-                                        <span>{{ item.text }}</span>
-                                    </span>
-                                }
+                                <div class="flex shrink-0 items-center gap-5">
+                                    <a
+                                        class="flex items-center"
+                                        routerLink="/home"
+                                    >
+                                        <img
+                                            class="ff-header-logo ff-header-logo--pin-in h-12 w-auto object-contain"
+                                            [class.ff-header-logo--route-in]="
+                                                logoRouteAnim()
+                                            "
+                                            src="images/logo/logo-primary.svg"
+                                            alt="FreshFlow logo"
+                                        />
+                                    </a>
+                                    <ng-container
+                                        *ngTemplateOutlet="mainBarActions"
+                                    ></ng-container>
+                                </div>
+                                <ng-container
+                                    *ngTemplateOutlet="mainBarSearchAndTools"
+                                ></ng-container>
                             </div>
                         </div>
+                    }
 
-                        <div class="flex items-center gap-4 whitespace-nowrap">
-                            <market-picker></market-picker>
-
-                            <languages></languages>
-
-                            <ng-container *transloco="let t">
-                                <button
-                                    class="flex items-center gap-1.5 border-l border-white/20 pl-4 font-medium"
-                                    type="button"
-                                    [matMenuTriggerFor]="currencyMenu"
-                                    [matTooltip]="t('header.currency')"
-                                >
-                                    <span>
-                                        <span class="text-primary-400">₫</span>
-                                        VND
-                                    </span>
-                                    <mat-icon
-                                        class="text-current icon-size-4"
-                                        [svgIcon]="
-                                            'heroicons_outline:chevron-down'
-                                        "
-                                    ></mat-icon>
-                                </button>
-                            </ng-container>
-                            <mat-menu #currencyMenu="matMenu">
-                                <button mat-menu-item type="button">
-                                    ₫ VND
-                                </button>
-                            </mat-menu>
-                        </div>
-                    </div>
-                </div>
-            }
-
-            <!-- Sticky sentinel: marks the main bar's natural position -->
-            <div #stickySentinel class="h-0 w-full"></div>
-
-            <!-- Spacer keeps the layout while the main bar is pinned -->
-            @if (isMainBarStuck()) {
-                <div class="h-18 w-full md:h-22"></div>
-            }
-
-            <!-- Main bar (pins to the top once the strip scrolls away) -->
-            <div
-                class="bg-card w-full border-b"
-                [ngClass]="
-                    isMainBarStuck()
-                        ? 'fuse-animate-slide-in-top fixed inset-x-0 top-0 z-49 shadow-md'
-                        : ''
-                "
-            >
-                <div
-                    class="mx-auto flex h-18 w-full max-w-[95rem] items-center gap-6 px-4 md:h-22 md:px-8 lg:px-14"
-                >
-                    @if (isScreenSmall) {
-                        <a class="flex items-center" routerLink="/home">
-                            <img
-                                src="images/logo/logo-primary.svg"
-                                alt="FreshFlow logo"
-                                class="h-8 w-auto"
-                            />
-                        </a>
-
-                        <!--
-                          The market picker also lives in the desktop top strip,
-                          which is not rendered here — without this copy there
-                          would be no way to choose a market on a phone, and the
-                          catalog would stay empty for good.
-                        -->
-                        <div class="text-default ml-2 min-w-0 truncate text-sm">
-                            <market-picker></market-picker>
-                        </div>
-
-                        <button
-                            class="ml-auto"
-                            mat-icon-button
-                            type="button"
-                            aria-label="Open menu"
-                            (click)="toggleNavigation('mainNavigation')"
+                    <div class="bg-card w-full">
+                        <div
+                            class="mx-auto grid w-full max-w-[95rem] grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_auto] items-stretch gap-x-6 px-4 md:px-8 lg:px-14"
                         >
-                            <mat-icon
-                                [svgIcon]="'heroicons_outline:bars-3'"
-                            ></mat-icon>
-                        </button>
-                    } @else {
-                        <!-- Logo + Categories -->
-                        <div class="flex shrink-0 items-center gap-5">
-                            <a class="flex items-center" routerLink="/home">
+                            <a
+                                class="ff-header-logo ff-header-logo--market row-span-2 flex items-center self-center py-1"
+                                routerLink="/home"
+                                [class.is-away]="isMainBarStuck()"
+                                [class.ff-header-logo--route-in]="
+                                    logoRouteAnim()
+                                "
+                                [class.pointer-events-none]="isMainBarStuck()"
+                                [attr.tabindex]="isMainBarStuck() ? -1 : null"
+                                [attr.aria-hidden]="isMainBarStuck()"
+                            >
                                 <img
-                                    src="images/logo/logo-primary.svg"
+                                    class="h-28 w-auto object-contain md:h-32"
+                                    src="images/logo/logo-market.svg"
                                     alt="FreshFlow logo"
-                                    class="h-12 w-auto"
                                 />
                             </a>
 
                             <div
-                                class="relative shrink-0"
-                                (mouseenter)="megaMenuOpen = true"
-                                (mouseleave)="megaMenuOpen = false"
+                                class="flex h-18 min-w-0 items-center gap-6 border-b md:h-22"
+                                [class.pointer-events-none]="isMainBarStuck()"
+                                [class.opacity-0]="isMainBarStuck()"
                             >
-                                <button
-                                    class="text-default bg-default flex h-12 w-56 items-center justify-between rounded-full px-5 text-base font-semibold transition-all hover:bg-card hover:shadow-md"
-                                    type="button"
+                                @if (!isMainBarStuck()) {
+                                    <ng-container
+                                        *ngTemplateOutlet="mainBarActions"
+                                    ></ng-container>
+                                    <ng-container
+                                        *ngTemplateOutlet="
+                                            mainBarSearchAndTools
+                                        "
+                                    ></ng-container>
+                                }
+                            </div>
+
+                            <div class="min-w-0 border-b">
+                                <storefront-nav-row
+                                    embedded
+                                ></storefront-nav-row>
+                            </div>
+                        </div>
+                    </div>
+                } @else {
+                    @if (isMainBarStuck()) {
+                        <div class="h-18 w-full md:h-22"></div>
+                    }
+
+                    <div
+                        class="bg-card w-full border-b"
+                        [ngClass]="
+                            isMainBarStuck()
+                                ? 'fuse-animate-slide-in-top fixed inset-x-0 top-0 z-49 shadow-md'
+                                : ''
+                        "
+                    >
+                        <div
+                            class="mx-auto flex h-18 w-full max-w-[95rem] items-center gap-6 px-4 md:h-22 md:px-8 lg:px-14"
+                        >
+                            @if (isScreenSmall) {
+                                <a class="flex items-center" routerLink="/home">
+                                    <img
+                                        [src]="headerLogoSrc()"
+                                        alt="FreshFlow logo"
+                                        class="ff-header-logo w-auto object-contain"
+                                        [class.h-16]="isCatalogRoute()"
+                                        [class.h-8]="!isCatalogRoute()"
+                                        [class.ff-header-logo--route-in]="
+                                            logoRouteAnim()
+                                        "
+                                    />
+                                </a>
+
+                                <div
+                                    class="text-default ml-2 min-w-0 truncate text-sm"
                                 >
-                                    <span>Danh mục</span>
+                                    <market-picker></market-picker>
+                                </div>
+
+                                <button
+                                    class="ml-auto"
+                                    mat-icon-button
+                                    type="button"
+                                    aria-label="Open menu"
+                                    (click)="toggleNavigation('mainNavigation')"
+                                >
                                     <mat-icon
-                                        class="text-current icon-size-4.5"
                                         [svgIcon]="'heroicons_outline:bars-3'"
                                     ></mat-icon>
                                 </button>
-
-                                <!-- Mega-menu panel (pt-2 bridges the hover gap) -->
-                                @if (megaMenuOpen) {
-                                    <div
-                                        class="absolute left-0 top-full z-999 pt-2"
+                            } @else {
+                                <div class="flex shrink-0 items-center gap-5">
+                                    <a
+                                        class="flex items-center"
+                                        routerLink="/home"
                                     >
-                                        <div
-                                            class="bg-card w-[76rem] max-w-[calc(100vw-8rem)] overflow-hidden rounded-2xl border shadow-2xl"
-                                        >
+                                        <img
+                                            [src]="headerLogoSrc()"
+                                            alt="FreshFlow logo"
+                                            class="ff-header-logo h-12 w-auto object-contain"
+                                            [class.ff-header-logo--pin-in]="
+                                                isMainBarStuck()
+                                            "
+                                            [class.ff-header-logo--route-in]="
+                                                logoRouteAnim()
+                                            "
+                                        />
+                                    </a>
+
+                                    <ng-container
+                                        *ngTemplateOutlet="mainBarActions"
+                                    ></ng-container>
+                                </div>
+
+                                <ng-container
+                                    *ngTemplateOutlet="mainBarSearchAndTools"
+                                ></ng-container>
+                            }
+                        </div>
+                    </div>
+
+                    <storefront-nav-row></storefront-nav-row>
+                }
+            </div>
+
+            <!-- Shared main-bar pieces (catalog grid content column uses these) -->
+            <ng-template #mainBarActions>
+                <div
+                    class="relative shrink-0"
+                    (mouseenter)="megaMenuOpen = true"
+                    (mouseleave)="megaMenuOpen = false"
+                >
+                    <button
+                        class="text-default bg-default flex h-12 w-56 items-center justify-between rounded-full px-5 text-base font-semibold transition-all hover:bg-card hover:shadow-md"
+                        type="button"
+                    >
+                        <span>Danh mục</span>
+                        <mat-icon
+                            class="text-current icon-size-4.5"
+                            [svgIcon]="'heroicons_outline:bars-3'"
+                        ></mat-icon>
+                    </button>
+
+                    @if (megaMenuOpen) {
+                        <div class="absolute left-0 top-full z-999 pt-2">
+                            <div
+                                class="bg-card w-[76rem] max-w-[calc(100vw-8rem)] overflow-hidden rounded-2xl border shadow-2xl"
+                            >
+                                <div
+                                    class="grid grid-cols-6 gap-6 px-10 pb-8 pt-8"
+                                >
+                                    @for (
+                                        cat of megaCategories;
+                                        track cat.name
+                                    ) {
+                                        <div class="flex flex-col">
                                             <div
-                                                class="grid grid-cols-6 gap-6 px-10 pb-8 pt-8"
+                                                class="flex h-24 items-center justify-center"
+                                            >
+                                                <span class="text-6xl">{{
+                                                    cat.emoji
+                                                }}</span>
+                                            </div>
+                                            <h3
+                                                class="text-default mt-3 text-lg font-bold"
+                                            >
+                                                {{ cat.name }}
+                                            </h3>
+                                            <ul
+                                                class="mt-3 flex flex-col gap-2.5"
                                             >
                                                 @for (
-                                                    cat of megaCategories;
-                                                    track cat.name
+                                                    sub of cat.sub;
+                                                    track sub
                                                 ) {
-                                                    <div class="flex flex-col">
-                                                        <!-- Category visual (emoji until product photos land) -->
-                                                        <div
-                                                            class="flex h-24 items-center justify-center"
+                                                    <li>
+                                                        <a
+                                                            class="text-secondary block text-base no-underline hover:text-primary"
+                                                            routerLink="/catalog"
+                                                            >{{ sub }}</a
                                                         >
-                                                            <span
-                                                                class="text-6xl"
-                                                                >{{
-                                                                    cat.emoji
-                                                                }}</span
-                                                            >
-                                                        </div>
-                                                        <h3
-                                                            class="text-default mt-3 text-lg font-bold"
-                                                        >
-                                                            {{ cat.name }}
-                                                        </h3>
-                                                        <ul
-                                                            class="mt-3 flex flex-col gap-2.5"
-                                                        >
-                                                            @for (
-                                                                sub of cat.sub;
-                                                                track sub
-                                                            ) {
-                                                                <li>
-                                                                    <a
-                                                                        class="text-secondary block text-base no-underline hover:text-primary"
-                                                                        routerLink="/catalog"
-                                                                        >{{
-                                                                            sub
-                                                                        }}</a
-                                                                    >
-                                                                </li>
-                                                            }
-                                                        </ul>
-                                                    </div>
+                                                    </li>
                                                 }
-                                            </div>
-
-                                            <!-- Flash-sale banner -->
-                                            <a
-                                                class="relative m-10 mt-2 flex min-h-24 items-center gap-8 overflow-hidden rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-8 py-5"
-                                                routerLink="/deals"
-                                            >
-                                                <div
-                                                    class="flex flex-col gap-1 text-white"
-                                                >
-                                                    <span
-                                                        class="self-start rounded-full bg-fuchsia-800/80 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-widest text-white"
-                                                        >Cuối mùa</span
-                                                    >
-                                                    <p
-                                                        class="flex items-center gap-1 text-4xl font-black"
-                                                    >
-                                                        <span>FLASH</span>
-                                                        <mat-icon
-                                                            class="icon-size-9 text-yellow-300"
-                                                            [svgIcon]="
-                                                                'heroicons_solid:bolt'
-                                                            "
-                                                        ></mat-icon>
-                                                        <span>SALE</span>
-                                                    </p>
-                                                </div>
-                                                <p
-                                                    class="border-l-2 border-white/40 pl-8 text-xl font-bold text-white"
-                                                >
-                                                    Giảm đến 50% cho toàn bộ đồ
-                                                    ăn vặt
-                                                </p>
-                                                <span
-                                                    class="absolute right-8 text-7xl opacity-90"
-                                                    >🛍️</span
-                                                >
-                                            </a>
+                                            </ul>
                                         </div>
-                                    </div>
-                                }
-                            </div>
-                        </div>
+                                    }
+                                </div>
 
-                        <!-- Search -->
-                        <form
-                            class="relative flex min-w-0 flex-auto items-center"
-                            (ngSubmit)="megaMenuOpen = false"
-                        >
-                            <input
-                                class="text-default bg-card h-12 w-full rounded-full border px-5 pr-12 text-base outline-none focus:border-primary"
-                                type="search"
-                                name="query"
-                                [(ngModel)]="searchQuery"
-                                placeholder="Bạn đang tìm gì?"
-                                aria-label="Tìm kiếm sản phẩm"
-                            />
-                            <button
-                                class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
-                                type="submit"
-                                aria-label="Search"
-                            >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    [svgIcon]="
-                                        'heroicons_outline:magnifying-glass'
-                                    "
-                                ></mat-icon>
-                            </button>
-                        </form>
-
-                        <!-- Right cluster -->
-                        <div class="flex shrink-0 items-center gap-4">
-                            <order-tracking></order-tracking>
-
-                            <div
-                                class="flex items-center gap-1 border-l pl-3.5"
-                            >
-                                <!-- Account -->
-                                @if (isSignedIn()) {
-                                    <user></user>
-                                } @else {
-                                    <quick-sign-in></quick-sign-in>
-                                }
-
-                                <!-- AI chat -->
-                                <button
-                                    class="ff-header-icon text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
-                                    type="button"
-                                    aria-label="Mua hàng nhanh"
-                                    [matTooltip]="'Mua hàng nhanh'"
-                                    (click)="openAiChat()"
+                                <a
+                                    class="relative m-10 mt-2 flex min-h-24 items-center gap-8 overflow-hidden rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-8 py-5"
+                                    routerLink="/deals"
                                 >
-                                    <mat-icon
-                                        class="icon-size-6"
-                                        [svgIcon]="'heroicons_outline:sparkles'"
-                                    ></mat-icon>
-                                </button>
-
-                                <favorites></favorites>
-
-                                <draft-order></draft-order>
+                                    <div class="flex flex-col gap-1 text-white">
+                                        <span
+                                            class="self-start rounded-full bg-fuchsia-800/80 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-widest text-white"
+                                            >Cuối mùa</span
+                                        >
+                                        <p
+                                            class="flex items-center gap-1 text-4xl font-black"
+                                        >
+                                            <span>FLASH</span>
+                                            <mat-icon
+                                                class="icon-size-9 text-yellow-300"
+                                                [svgIcon]="
+                                                    'heroicons_solid:bolt'
+                                                "
+                                            ></mat-icon>
+                                            <span>SALE</span>
+                                        </p>
+                                    </div>
+                                    <p
+                                        class="border-l-2 border-white/40 pl-8 text-xl font-bold text-white"
+                                    >
+                                        Giảm đến 50% cho toàn bộ đồ ăn vặt
+                                    </p>
+                                    <span
+                                        class="absolute right-8 text-7xl opacity-90"
+                                        >🛍️</span
+                                    >
+                                </a>
                             </div>
                         </div>
                     }
                 </div>
-            </div>
+            </ng-template>
 
-            <!-- Nav row: primary navigation + support hotline -->
-            @if (!isScreenSmall) {
-                <div class="bg-card w-full border-b">
-                    <div
-                        class="mx-auto flex h-14 w-full max-w-[95rem] items-center justify-between gap-4 px-4 md:px-8 lg:px-14"
+            <ng-template #mainBarSearchAndTools>
+                <form
+                    class="relative flex min-w-0 flex-auto items-center"
+                    (ngSubmit)="megaMenuOpen = false"
+                >
+                    <input
+                        class="text-default bg-card h-12 w-full rounded-full border px-5 pr-12 text-base outline-none focus:border-primary"
+                        type="search"
+                        name="query"
+                        [(ngModel)]="searchQuery"
+                        placeholder="Bạn đang tìm gì?"
+                        aria-label="Tìm kiếm sản phẩm"
+                    />
+                    <button
+                        class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
+                        type="submit"
+                        aria-label="Search"
                     >
-                        <nav
-                            mat-tab-nav-bar
-                            [tabPanel]="tabPanel"
-                            [mat-stretch-tabs]="false"
-                        >
-                            @for (
-                                item of navigation.horizontal;
-                                track item.id
-                            ) {
-                                @if (item.children?.length) {
-                                    <a
-                                        class="text-base font-medium"
-                                        mat-tab-link
-                                        [active]="isBranchActive(item)"
-                                        [matMenuTriggerFor]="branchMenu"
-                                    >
-                                        @if (item.icon) {
-                                            <mat-icon
-                                                class="mr-2 icon-size-5"
-                                                [class.text-primary]="
-                                                    isBranchActive(item)
-                                                "
-                                                [svgIcon]="item.icon"
-                                            ></mat-icon>
-                                        }
-                                        {{ item.title }}
-                                        <mat-icon
-                                            class="ml-1.5 icon-size-3"
-                                            [svgIcon]="
-                                                'heroicons_outline:chevron-down'
-                                            "
-                                        ></mat-icon>
-                                    </a>
-                                    <mat-menu #branchMenu="matMenu">
-                                        @for (
-                                            child of item.children;
-                                            track child.id
-                                        ) {
-                                            <a
-                                                mat-menu-item
-                                                [routerLink]="child.link"
-                                                >{{ child.title }}</a
-                                            >
-                                        }
-                                    </mat-menu>
-                                } @else {
-                                    <a
-                                        class="text-base font-medium"
-                                        mat-tab-link
-                                        [routerLink]="item.link"
-                                        routerLinkActive
-                                        #rla="routerLinkActive"
-                                        [active]="rla.isActive"
-                                    >
-                                        @if (item.icon) {
-                                            <mat-icon
-                                                class="mr-2 icon-size-5"
-                                                [class.text-primary]="
-                                                    rla.isActive
-                                                "
-                                                [svgIcon]="item.icon"
-                                            ></mat-icon>
-                                        }
-                                        {{ item.title }}
-                                    </a>
-                                }
-                            }
-                        </nav>
-                        <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:magnifying-glass'"
+                        ></mat-icon>
+                    </button>
+                </form>
 
-                        <div class="flex items-center gap-6 whitespace-nowrap">
-                            <a
-                                class="flex items-center gap-1.5 text-base font-semibold text-[#F0508A] hover:underline"
-                                routerLink="/deals"
-                            >
-                                <mat-icon
-                                    class="text-current icon-size-4"
-                                    [svgIcon]="'heroicons_outline:fire'"
-                                ></mat-icon>
-                                <span>Hot Deals</span>
-                            </a>
+                <div class="flex shrink-0 items-center gap-4">
+                    <order-tracking></order-tracking>
 
-                            <a
-                                class="text-secondary flex items-center gap-1.5 text-base"
-                                [href]="hotline.href"
-                            >
-                                <mat-icon
-                                    class="text-primary icon-size-4"
-                                    [svgIcon]="'heroicons_outline:phone'"
-                                ></mat-icon>
-                                <span
-                                    >Hỗ trợ:
-                                    <span class="font-semibold text-primary">{{
-                                        hotline.text
-                                    }}</span></span
-                                >
-                            </a>
-                        </div>
+                    <div class="flex items-center gap-1 border-l pl-3.5">
+                        @if (isSignedIn()) {
+                            <user></user>
+                        } @else {
+                            <quick-sign-in></quick-sign-in>
+                        }
+
+                        <quick-buy></quick-buy>
+                        <favorites></favorites>
+                        <draft-order></draft-order>
                     </div>
                 </div>
-            }
-
+            </ng-template>
             <!-- Mobile bottom bar -->
             @if (isScreenSmall) {
                 <nav
@@ -457,16 +361,7 @@
                     >
                         <favorites></favorites>
                     </div>
-                    <button
-                        class="ff-header-icon flex h-11 w-11 items-center justify-center text-primary"
-                        type="button"
-                        aria-label="AI Chat"
-                        (click)="openAiChat()"
-                    >
-                        <mat-icon
-                            [svgIcon]="'heroicons_outline:sparkles'"
-                        ></mat-icon>
-                    </button>
+                    <quick-buy></quick-buy>
                     <div
                         class="text-default flex h-11 w-11 items-center justify-center"
                     >
@@ -508,226 +403,7 @@
     </div>
 
     <!-- Footer -->
-    <footer class="w-full shrink-0 print:hidden">
-        <!-- Contact strip + newsletter (the shipper spans both rows) -->
-        <div class="relative">
-            <div class="w-full bg-[#083B4B] text-gray-100">
-                <div
-                    class="mx-auto flex w-full max-w-[95rem] flex-col gap-6 px-4 py-8 md:flex-row md:items-center md:gap-16 md:px-8 lg:px-14 lg:pr-80"
-                >
-                    <div>
-                        <a
-                            class="font-medium underline underline-offset-4"
-                            [href]="hotline.href"
-                            >hỗ trợ khách hàng</a
-                        >
-                        <p class="mt-1 text-2xl font-bold text-primary-400">
-                            {{ hotline.text }}
-                        </p>
-                    </div>
-
-                    <div>
-                        <span class="font-medium underline underline-offset-4"
-                            >góp ý cho chúng tôi</span
-                        >
-                        <p class="mt-1 text-2xl font-bold text-primary-400">
-                            hotro&#64;freshflow.vn
-                        </p>
-                    </div>
-
-                    <div class="flex items-center gap-3">
-                        @for (
-                            social of ['facebook', 'instagram', 'youtube'];
-                            track social
-                        ) {
-                            <button
-                                class="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
-                                type="button"
-                                [attr.aria-label]="social"
-                            >
-                                <mat-icon
-                                    class="text-current icon-size-5"
-                                    [svgIcon]="'feather:' + social"
-                                ></mat-icon>
-                            </button>
-                        }
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-card w-full border-b">
-                <div
-                    class="mx-auto flex w-full max-w-[95rem] flex-col gap-4 px-4 py-6 md:flex-row md:items-center md:gap-10 md:px-8 lg:px-14 lg:pr-80"
-                >
-                    <div class="flex shrink-0 items-center gap-4">
-                        <mat-icon
-                            class="text-primary icon-size-10"
-                            [svgIcon]="'heroicons_outline:envelope-open'"
-                        ></mat-icon>
-                        <p
-                            class="max-w-64 text-xl font-bold leading-tight text-primary"
-                        >
-                            Nhận thông tin &amp; ưu đãi mới nhất
-                        </p>
-                    </div>
-
-                    <!-- Newsletter (UI only until a mailing list exists) -->
-                    <form class="relative w-full max-w-xl flex-1">
-                        <input
-                            class="text-default bg-card h-13 w-full rounded-full border px-5 pr-32 text-base outline-none focus:border-primary"
-                            type="email"
-                            name="newsletterEmail"
-                            placeholder="Địa chỉ email của bạn"
-                            aria-label="Địa chỉ email của bạn"
-                        />
-                        <button
-                            class="absolute bottom-1.5 right-1.5 top-1.5 rounded-full bg-primary px-6 text-base font-semibold text-on-primary"
-                            type="button"
-                        >
-                            Đăng ký
-                        </button>
-                    </form>
-                </div>
-            </div>
-
-            <!-- Shipper: pinned inside the same max-w column as header/footer -->
-            <div
-                class="pointer-events-none absolute inset-x-0 bottom-0 hidden lg:block"
-                aria-hidden="true"
-            >
-                <div
-                    class="relative mx-auto h-72 w-full max-w-[95rem] px-4 md:px-8 lg:px-14"
-                >
-                    <img
-                        class="absolute bottom-0 right-4 h-72 w-auto md:right-8 lg:right-14"
-                        src="shipper.png"
-                        alt=""
-                    />
-                </div>
-            </div>
-        </div>
-
-        <!-- Link columns -->
-        <div class="bg-card w-full">
-            <div
-                class="mx-auto grid w-full max-w-[95rem] grid-cols-2 gap-x-6 gap-y-10 px-4 py-12 md:grid-cols-4 md:px-8 lg:px-14"
-            >
-                <div>
-                    <h3 class="text-lg font-bold text-primary">Khách hàng</h3>
-                    <ul class="mt-4 flex flex-col gap-2.5">
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/sign-in"
-                                >Đăng nhập</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/sign-up"
-                                >Đăng ký tài khoản nhà hàng</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/forgot-password"
-                                >Quên mật khẩu</a
-                            >
-                        </li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-bold text-primary">Về FreshFlow</h3>
-                    <ul class="mt-4 flex flex-col gap-2.5">
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/about"
-                                >Về chúng tôi</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/faq"
-                                >Câu hỏi thường gặp</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/contact"
-                                >Liên hệ</a
-                            >
-                        </li>
-                    </ul>
-                </div>
-
-                <div>
-                    <h3 class="text-lg font-bold text-primary">
-                        Liên kết nhanh
-                    </h3>
-                    <ul class="mt-4 flex flex-col gap-2.5">
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/home"
-                                >Trang chủ</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/catalog"
-                                >Mua sắm</a
-                            >
-                        </li>
-                        <li>
-                            <a
-                                class="text-secondary hover:text-primary"
-                                routerLink="/deals"
-                                >Hot Deals</a
-                            >
-                        </li>
-                    </ul>
-                </div>
-
-                <div>
-                    <img
-                        class="h-10 w-auto"
-                        src="images/logo/logo-primary.svg"
-                        alt="FreshFlow logo"
-                    />
-                    <p
-                        class="text-default mt-4 font-medium underline underline-offset-4"
-                    >
-                        khu vực phục vụ
-                    </p>
-                    <p class="text-secondary mt-2 leading-relaxed">
-                        TP. Hồ Chí Minh, chuyên cung ứng thực phẩm tươi cho nhà
-                        hàng
-                    </p>
-                    <p class="text-hint mt-2 text-sm">T2 – T7: 6:00 – 18:00</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bottom bar -->
-        <div class="bg-card w-full border-t">
-            <div
-                class="text-secondary mx-auto flex w-full max-w-[95rem] flex-col items-center justify-between gap-2 px-4 py-5 md:flex-row md:px-8 lg:px-14"
-            >
-                <span
-                    >Bản quyền &copy; {{ currentYear }}
-                    <span class="font-semibold text-primary">FreshFlow</span>.
-                </span>
-                <span class="text-hint">where Food meets Fast</span>
-            </div>
-        </div>
-    </footer>
+    <storefront-footer></storefront-footer>
 </div>
 
 <!-- Header-triggered side drawers, rendered at the layout root (outside the
@@ -753,63 +429,4 @@
             ></mat-icon>
         </button>
     </ng-container>
-}
-
-<!-- AI chat overlay -->
-@if (aiChatOpened) {
-    <div
-        class="bg-card fixed inset-0 z-9999 flex flex-col"
-        animate.enter="fuse-animate-slide-in-top"
-        animate.leave="fuse-animate-slide-out-top"
-    >
-        <div class="bg-card flex h-14 shrink-0 items-center border-b pr-2">
-            <mat-icon
-                class="ml-5 mr-3 shrink-0 text-primary icon-size-5"
-                [svgIcon]="'heroicons_outline:sparkles'"
-            ></mat-icon>
-            <input
-                #aiChatInput
-                class="text-default h-full min-w-0 flex-1 border-none bg-transparent text-[0.9375rem] outline-none"
-                type="text"
-                name="aiQuery"
-                [(ngModel)]="aiQuery"
-                placeholder="Ask FreshFlow AI..."
-                aria-label="Ask FreshFlow AI"
-                (keydown)="onAiKeydown($event)"
-            />
-            <button
-                class="text-default shrink-0"
-                mat-icon-button
-                type="button"
-                aria-label="Close AI chat"
-                (click)="closeAiChat()"
-            >
-                <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
-            </button>
-        </div>
-
-        <div
-            class="bg-default flex flex-auto flex-col gap-3 overflow-y-auto p-4"
-        >
-            @for (message of aiMessages; track $index) {
-                <div
-                    class="flex max-w-[90%] items-start gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed"
-                    [ngClass]="{
-                        'ml-auto self-end bg-gray-900 text-white':
-                            message.role === 'user',
-                        'text-default bg-card self-start border':
-                            message.role === 'assistant',
-                    }"
-                >
-                    @if (message.role === 'assistant') {
-                        <mat-icon
-                            class="mt-0.5 shrink-0 text-primary icon-size-4"
-                            [svgIcon]="'heroicons_outline:sparkles'"
-                        ></mat-icon>
-                    }
-                    <p class="m-0">{{ message.text }}</p>
-                </div>
-            }
-        </div>
-    </div>
 }
