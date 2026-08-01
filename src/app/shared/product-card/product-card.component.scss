@@ -182,9 +182,14 @@
         @apply font-mono text-primary;
 
         /* Discounted price switches to the `sale` token, struck-through old
-           price stays muted beside it. */
+           price stays muted beside it.
+
+           The 700 step, not 500: this is text on a white card, and `sale-500`
+           (#F0508A) reads at only 3.39:1 there — below AA for 18px bold, which
+           is under the large-text threshold. `sale-700` keeps the pink and
+           measures 5.11:1. */
         &--sale {
-            @apply text-sale;
+            @apply text-sale-700;
         }
     }
 

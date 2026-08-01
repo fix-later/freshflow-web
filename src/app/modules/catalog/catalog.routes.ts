@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { ActivatedRouteSnapshot, Routes } from '@angular/router';
 import { UnauthorizedError } from 'contract';
-import { OperatorFunction, catchError, forkJoin, of, throwError } from 'rxjs';
+import { OperatorFunction, catchError, of, throwError } from 'rxjs';
 import { CatalogComponent } from './catalog.component';
 import { CatalogService } from './catalog.service';
 import { ProductDetailComponent } from './pages/product-detail/product-detail.component';
@@ -22,13 +22,15 @@ export default [
         path: '',
         component: CatalogComponent,
         resolve: {
-            data: () => {
-                const catalogService = inject(CatalogService);
-                return forkJoin([
-                    catalogService.getCategories(),
-                    catalogService.getProducts(),
-                ]).pipe(tolerateUnauthorized());
-            },
+            // Only the filter data is resolved up front. Product listings are
+            // scoped to the market picked in the header and paged as the user
+            // scrolls, so `CatalogComponent` drives them — resolving them here
+            // would block navigation on a fetch that depends on a choice the
+            // route knows nothing about.
+            data: () =>
+                inject(CatalogService)
+                    .getCategories()
+                    .pipe(tolerateUnauthorized()),
         },
     },
     {

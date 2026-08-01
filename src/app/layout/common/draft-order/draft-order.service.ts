@@ -1,25 +1,24 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
-import { DEMO_DRAFT_ORDER_LINES } from './draft-order.demo-data';
 import { DraftOrderLine } from './draft-order.types';
 
 /**
  * The restaurant's in-progress order (PRD M5 · FR-ORD: draft → add/update/
  * remove items → confirm before the 22:00 cutoff → price snapshot). This is
  * *not* a consumer prepaid cart — no price/subtotal is computed here since
- * price is locked only at confirmation (PRD §5, M4). Seeded with demo data
- * until backed by the real order-draft API; shared root singleton so both
- * the catalog and the header panel read/write the same state.
+ * price is locked only at confirmation (PRD §5, M4). Shared root singleton so
+ * both the catalog and the header panel read/write the same state. Client-side
+ * until backed by the real order-draft API.
  */
 @Injectable({ providedIn: 'root' })
 export class DraftOrderService {
-    private readonly _lines = signal<DraftOrderLine[]>(DEMO_DRAFT_ORDER_LINES);
+    private readonly _lines = signal<DraftOrderLine[]>([]);
 
     readonly lines = this._lines.asReadonly();
     readonly totalQuantity = computed(() =>
         this._lines().reduce((sum, line) => sum + line.quantity, 0)
     );
-    /** Demo UI subtotal only — final price locks at confirmation (PRD §5). */
+    /** Display subtotal only — final price locks at confirmation (PRD §5). */
     readonly subtotal = computed(() =>
         this._lines().reduce(
             (sum, line) => sum + line.unitPrice * line.quantity,

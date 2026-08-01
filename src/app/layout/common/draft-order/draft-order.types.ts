@@ -4,6 +4,6 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 export interface DraftOrderLine {
     product: CatalogProduct;
     quantity: number;
-    /** Demo display price (VND / unit). Final price locks at confirmation. */
+    /** Display price (VND / unit). Final price locks at confirmation. */
     unitPrice: number;
 }

@@ -295,9 +295,6 @@
                         <span>{{ t('checkout.summary.payable') }}</span>
                         <div class="checkout-summary__payable">
                             <strong>{{ total() | number: '1.0-0' }}₫</strong>
-                            @if (listTotal(); as list) {
-                                <s>{{ list | number: '1.0-0' }}₫</s>
-                            }
                         </div>
                     </div>
 

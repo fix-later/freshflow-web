@@ -1,4 +1,4 @@
-import { DecimalPipe, NgClass } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -15,7 +15,6 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { DEMO_INTEREST_PRODUCTS } from 'app/layout/common/draft-order/draft-order.demo-data';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
@@ -29,7 +28,6 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
     standalone: true,
     imports: [
         DecimalPipe,
-        NgClass,
         FormsModule,
         MatButtonModule,
         MatFormFieldModule,
@@ -51,9 +49,6 @@ export class CartComponent {
 
     readonly couponCode = signal('');
     readonly appliedCoupon = signal<string | null>(null);
-    readonly interestIndex = signal(0);
-
-    readonly interestProducts = DEMO_INTEREST_PRODUCTS;
 
     readonly discount = computed(() => {
         if (!this.appliedCoupon()) {
@@ -67,14 +62,6 @@ export class CartComponent {
     );
 
     readonly isVi = computed(() => this._transloco.getActiveLang() === 'vi');
-
-    readonly visibleInterests = computed(() => {
-        const start = this.interestIndex();
-        const items = this.interestProducts;
-        return [0, 1, 2].map(
-            (offset) => items[(start + offset) % items.length]
-        );
-    });
 
     productName(product: CatalogProduct): string {
         return this.isVi() ? product.name : product.nameEn;
@@ -105,15 +92,7 @@ export class CartComponent {
         if (!code) {
             return;
         }
-        if (code === 'FRESH10' || code === 'GIAM10') {
-            this.appliedCoupon.set(code);
-            this._snackBar.open(
-                this._transloco.translate('cart.coupon.applied'),
-                undefined,
-                { duration: 2500 }
-            );
-            return;
-        }
+        // No coupon API yet — any code is rejected.
         this.appliedCoupon.set(null);
         this._snackBar.open(
             this._transloco.translate('cart.coupon.invalid'),
@@ -127,37 +106,6 @@ export class CartComponent {
             return;
         }
         void this._router.navigateByUrl('/checkout');
-    }
-
-    addInterest(item: (typeof DEMO_INTEREST_PRODUCTS)[number]): void {
-        this._draftOrder.add(item.product, 1, item.unitPrice);
-        this._snackBar.open(
-            this._transloco.translate('cart.interest.added'),
-            undefined,
-            { duration: 2000 }
-        );
-    }
-
-    nextInterests(): void {
-        this.interestIndex.update(
-            (i) => (i + 1) % this.interestProducts.length
-        );
-    }
-
-    prevInterests(): void {
-        this.interestIndex.update(
-            (i) =>
-                (i - 1 + this.interestProducts.length) %
-                this.interestProducts.length
-        );
-    }
-
-    setInterestPage(index: number): void {
-        this.interestIndex.set(index);
-    }
-
-    stars(rating: number): boolean[] {
-        return [1, 2, 3, 4, 5].map((i) => i <= Math.round(rating));
     }
 
     trackByLine(_: number, line: DraftOrderLine): string {

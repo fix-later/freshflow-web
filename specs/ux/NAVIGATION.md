@@ -57,6 +57,21 @@ After sign-in, the auth flow routes each role to its landing area (admin → `/a
 others → `/home`). The decision is made in the sign-in / unlock-session components once
 the profile — and therefore the role — is loaded.
 
+## Market scope (storefront)
+
+Shopping is **scoped to one wholesale market at a time**. Price and availability are per-market,
+so a basket mixing two markets could not be picked or delivered as one run.
+
+-   The storefront header's first control is the **market picker** (`market-picker`), not a
+    delivery address — the address belongs to checkout, not to browsing. It opens by itself on a
+    first visit and the choice is remembered per browser.
+-   `/catalog` lists **only the selected market's** products
+    (`GET /markets/{marketId}/products`) and shows a "choose a market" empty state until one is
+    picked. There is no market filter inside the catalog: the page is already one market.
+-   The picker must be reachable at **every breakpoint** — the desktop top strip is not rendered
+    on small screens, so the mobile header carries its own copy. Without it a phone user could
+    never choose a market and the catalog would stay empty for good.
+
 ## Role-based menus
 
 Within an area, the navigation set is filtered by role at build-time of the menu (not just

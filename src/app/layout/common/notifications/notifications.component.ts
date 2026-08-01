@@ -4,13 +4,18 @@ import { DatePipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
     OnDestroy,
     OnInit,
     TemplateRef,
     ViewChild,
     ViewContainerRef,
     ViewEncapsulation,
+    booleanAttribute,
+    effect,
     inject,
+    input,
+    signal,
 } from '@angular/core';
 import { MatButton, MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -22,6 +27,7 @@ import { NotificationView } from 'app/layout/common/notifications/notifications.
 @Component({
     selector: 'notifications',
     templateUrl: './notifications.component.html',
+    styleUrls: ['../header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'notifications',
@@ -39,15 +45,58 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     @ViewChild('notificationsPanel')
     private _notificationsPanel: TemplateRef<any>;
 
+    private readonly _destroyRef = inject(DestroyRef);
     private readonly _overlay = inject(Overlay);
     private readonly _viewContainerRef = inject(ViewContainerRef);
     protected readonly notificationsService = inject(NotificationsService);
 
+    /** Storefront-only: hover scale + bell nudge on unread increase. */
+    readonly microMotion = input(false, { transform: booleanAttribute });
+
     readonly items = this.notificationsService.items;
     readonly unreadCount = this.notificationsService.unreadCount;
     readonly hasMore = this.notificationsService.hasMore;
+    readonly nudging = signal(false);
 
     private _overlayRef: OverlayRef;
+    private _baselineReady = false;
+    private _prevUnread = 0;
+    private _nudgeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    constructor() {
+        this._destroyRef.onDestroy(() => {
+            if (this._nudgeTimer) {
+                clearTimeout(this._nudgeTimer);
+            }
+        });
+
+        effect(() => {
+            if (!this.microMotion()) {
+                return;
+            }
+            const loaded = this.notificationsService.loaded();
+            const unread = this.unreadCount();
+            if (!loaded) {
+                return;
+            }
+            if (!this._baselineReady) {
+                this._baselineReady = true;
+                this._prevUnread = unread;
+                return;
+            }
+            if (unread > this._prevUnread) {
+                this.nudging.set(true);
+                if (this._nudgeTimer) {
+                    clearTimeout(this._nudgeTimer);
+                }
+                this._nudgeTimer = setTimeout(
+                    () => this.nudging.set(false),
+                    300
+                );
+            }
+            this._prevUnread = unread;
+        });
+    }
 
     ngOnInit(): void {
         // Eagerly-rendered header trigger — load once so the badge count and

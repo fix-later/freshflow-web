@@ -43,6 +43,7 @@ export class NotificationsService {
     private _loading: Promise<void> | null = null;
 
     readonly items = this._items.asReadonly();
+    readonly loaded = this._loaded.asReadonly();
     readonly hasMore = this._hasMore.asReadonly();
     readonly unreadCount = computed(
         () => this._items().filter((item) => !item.isRead).length

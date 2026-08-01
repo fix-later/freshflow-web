@@ -30,7 +30,7 @@ only three layouts the app ships (see [`NAVIGATION.md`](./NAVIGATION.md) § Layo
 
 # ── Restaurant (layout: 'enterprise') ──────
 /prices                  M4  live market price board (landing for restaurant)
-/catalog                 M3  browse / search products
+/catalog                 M3  browse the selected market (20/page, infinite scroll)
 /catalog/:productId      M3  product detail
 /orders                  M5  order list (own)
 /orders/new              M5  order builder (draft)

@@ -9,7 +9,7 @@
         [opened]="isOpen()"
         (openedChanged)="favoritesService.setDrawerOpen($event)"
     >
-        <div class="bg-card flex h-full w-full flex-col overflow-auto">
+        <div class="bg-card flex h-full w-full flex-col overflow-hidden">
             <!-- Header -->
             <div
                 class="flex h-20 min-h-20 shrink-0 items-center bg-primary px-6 text-on-primary"
@@ -26,7 +26,9 @@
             </div>
 
             <!-- Content -->
-            <div class="flex flex-auto flex-col divide-y overflow-y-auto">
+            <div
+                class="flex min-h-0 flex-auto flex-col divide-y overflow-y-auto"
+            >
                 @for (product of items(); track trackById($index, product)) {
                     <div class="flex items-center gap-4 px-6 py-4">
                         <img
@@ -73,7 +75,7 @@
                 <!-- Empty state -->
                 @if (!items().length) {
                     <div
-                        class="flex flex-auto flex-col items-center justify-center px-8 py-12"
+                        class="flex flex-auto flex-col items-center justify-center gap-4 px-8 py-12"
                     >
                         <div
                             class="flex h-14 w-14 flex-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-600"
@@ -83,33 +85,47 @@
                                 [svgIcon]="'heroicons_outline:heart'"
                             ></mat-icon>
                         </div>
-                        <div class="mt-5 text-2xl font-semibold tracking-tight">
+                        <div class="text-2xl font-semibold tracking-tight">
                             {{ t('favorites.empty.title') }}
                         </div>
                         <div
-                            class="text-secondary mt-1 w-full max-w-60 text-center text-md"
+                            class="text-secondary w-full max-w-60 text-center text-md"
                         >
                             {{ t('favorites.empty.description') }}
                         </div>
+                        <a
+                            class="mt-2 flex w-full max-w-60 items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                            routerLink="/catalog"
+                            (click)="closeDrawer()"
+                            >{{ t('favorites.viewCatalog') }}</a
+                        >
+                        <a
+                            class="flex w-full max-w-60 items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
+                            routerLink="/wishlist"
+                            (click)="closeDrawer()"
+                            >{{ t('favorites.viewWishlist') }}</a
+                        >
                     </div>
                 }
             </div>
 
-            <!-- Footer -->
-            <div class="bg-card flex shrink-0 flex-col gap-3 border-t p-4">
-                <a
-                    class="flex items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
-                    routerLink="/wishlist"
-                    (click)="closeDrawer()"
-                    >{{ t('favorites.viewWishlist') }}</a
-                >
-                <a
-                    class="flex items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
-                    routerLink="/catalog"
-                    (click)="closeDrawer()"
-                    >{{ t('favorites.viewCatalog') }}</a
-                >
-            </div>
+            <!-- Footer (only when there are items) -->
+            @if (items().length) {
+                <div class="bg-card flex shrink-0 flex-col gap-3 border-t p-4">
+                    <a
+                        class="flex items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                        routerLink="/wishlist"
+                        (click)="closeDrawer()"
+                        >{{ t('favorites.viewWishlist') }}</a
+                    >
+                    <a
+                        class="flex items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
+                        routerLink="/catalog"
+                        (click)="closeDrawer()"
+                        >{{ t('favorites.viewCatalog') }}</a
+                    >
+                </div>
+            }
         </div>
     </fuse-drawer>
 </ng-container>

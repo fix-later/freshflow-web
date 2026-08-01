@@ -130,11 +130,6 @@ export class CheckoutComponent implements OnInit {
 
     readonly total = computed(() => this.goodsBeforeTax() + this.vat());
 
-    /** Demo strikethrough: show a slightly higher “list” total when discounted. */
-    readonly listTotal = computed(() =>
-        this.discount() > 0 ? this.total() + this.discount() : null
-    );
-
     readonly isVi = computed(() => this._transloco.getActiveLang() === 'vi');
 
     ngOnInit(): void {
@@ -167,16 +162,7 @@ export class CheckoutComponent implements OnInit {
         if (!code) {
             return;
         }
-        if (code === 'FRESH10' || code === 'GIAM10') {
-            this.appliedCoupon.set(code);
-            this.voucherOpen.set(false);
-            this._snackBar.open(
-                this._transloco.translate('cart.coupon.applied'),
-                undefined,
-                { duration: 2500 }
-            );
-            return;
-        }
+        // No coupon API yet — any code is rejected.
         this.appliedCoupon.set(null);
         this._snackBar.open(
             this._transloco.translate('cart.coupon.invalid'),

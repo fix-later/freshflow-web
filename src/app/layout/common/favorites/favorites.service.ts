@@ -2,7 +2,6 @@ import { Injectable, computed, signal } from '@angular/core';
 import { extractList, parseJson } from 'app/core/api/envelope';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { restaurantFavoritesApi } from 'contract';
-import { DEMO_FAVORITES } from './favorites.demo-data';
 
 interface RawRow {
     [key: string]: unknown;
@@ -41,10 +40,9 @@ function str(row: RawRow, keys: string[]): string {
  * Saved products for fast reordering — the B2B equivalent of a consumer
  * wishlist (PRD RC-1: post-paid credit/debt, not a prepaid storefront).
  * Backed by `GET/POST /restaurants/me/favorites` +
- * `DELETE /restaurants/me/favorites/{marketProductId}`; falls back to the
- * bundled demo dataset if the API is unreachable, mirroring `CatalogService`.
- * Shared root singleton so the catalog card toggle, the header panel, and
- * the wishlist page all read/write the same state.
+ * `DELETE /restaurants/me/favorites/{marketProductId}`. Shared root singleton
+ * so the catalog card toggle, the header panel, and the wishlist page all
+ * read/write the same state.
  *
  * Note: the backend's OpenAPI spec does not declare a response schema for
  * the favorites GET, so rows are parsed defensively — same convention as
@@ -56,9 +54,9 @@ export class FavoritesService {
     private readonly _items = signal<CatalogProduct[]>([]);
     private readonly _loaded = signal(false);
     private _loading: Promise<void> | null = null;
-    private _demoMode = false;
 
     readonly items = this._items.asReadonly();
+    readonly loaded = this._loaded.asReadonly();
     readonly count = computed(() => this._items().length);
 
     /**
@@ -102,11 +100,6 @@ export class FavoritesService {
     }
 
     private async _load(): Promise<void> {
-        if (this._demoMode) {
-            this._items.set(DEMO_FAVORITES);
-            this._loaded.set(true);
-            return;
-        }
         try {
             const res =
                 await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesGetRaw();
@@ -116,8 +109,7 @@ export class FavoritesService {
                 .filter((item): item is CatalogProduct => !!item);
             this._items.set(items);
         } catch {
-            this._demoMode = true;
-            this._items.set(DEMO_FAVORITES);
+            this._items.set([]);
         } finally {
             this._loaded.set(true);
         }
@@ -130,9 +122,6 @@ export class FavoritesService {
             return;
         }
         this._items.update((items) => [...items, product]);
-        if (this._demoMode) {
-            return;
-        }
         try {
             await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesPost({
                 addFavoriteRequest: {
@@ -154,9 +143,6 @@ export class FavoritesService {
         this._items.set(
             previous.filter((item) => item.marketProductId !== marketProductId)
         );
-        if (this._demoMode) {
-            return;
-        }
         try {
             await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesMarketProductIdDelete(
                 { marketProductId }

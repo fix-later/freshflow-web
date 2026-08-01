@@ -4,6 +4,7 @@ import {
     Component,
     computed,
     DestroyRef,
+    effect,
     ElementRef,
     inject,
     OnInit,
@@ -18,12 +19,14 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
+import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
@@ -33,8 +36,6 @@ import { CatalogService } from './catalog.service';
 import { CatalogProduct } from './catalog.types';
 
 type SortOption = '' | 'name-asc' | 'name-desc';
-
-const DEFAULT_BATCH_SIZE = 12;
 
 @Component({
     selector: 'catalog',
@@ -49,6 +50,7 @@ const DEFAULT_BATCH_SIZE = 12;
         MatChipsModule,
         MatButtonModule,
         MatRadioModule,
+        MatProgressSpinnerModule,
         MatSelectModule,
         MatTooltipModule,
         ReactiveFormsModule,
@@ -64,6 +66,7 @@ export class CatalogComponent implements OnInit {
     private _destroyRef = inject(DestroyRef);
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
+    private _marketSelection = inject(MarketSelectionService);
 
     readonly resultsSection =
         viewChild<ElementRef<HTMLElement>>('resultsSection');
@@ -74,45 +77,32 @@ export class CatalogComponent implements OnInit {
     readonly searchControl = new FormControl('', { nonNullable: true });
     readonly selectedCategory = signal<string>('');
     readonly searchTerm = signal<string>('');
-    readonly lastLoadedCount = signal(0);
-
-    /** How many matching products are currently revealed (infinite-scroll cursor). */
-    readonly visibleCount = signal(DEFAULT_BATCH_SIZE);
-    readonly batchSize = signal(DEFAULT_BATCH_SIZE);
-
-    readonly selectedMarket = signal<string>('');
     readonly sortOption = signal<SortOption>('');
 
     readonly categories = this._catalogService.categories;
     readonly products = this._catalogService.products;
 
+    /** The market being shopped — everything on this page is scoped to it. */
+    readonly market = this._marketSelection.selected;
+    readonly hasMarket = this._marketSelection.hasSelection;
+
+    /** Paging state comes from the service: one server page per screenful. */
+    readonly loading = this._catalogService.loading;
+    readonly hasMore = this._catalogService.hasMore;
+
     readonly isVi = computed(
         () => this._translocoService.getActiveLang() === 'vi'
     );
 
-    /** Distinct market sources across the full (already fully-loaded) catalog. */
-    readonly marketSources = computed(() => [
-        ...new Set(
-            this.products()
-                .map((product) => product.marketSource)
-                .filter(Boolean)
-        ),
-    ]);
-
-    /** Full catalog after category/market/search filters + sort — everything is
-     *  already loaded, so this is a pure client-side computation. */
+    /**
+     * Search and sort run over the pages loaded so far, not the whole market.
+     * The listing endpoint offers neither a query nor a sort parameter, so
+     * anything past the last loaded page cannot be matched until it is fetched.
+     */
     readonly filteredProducts = computed(() => {
-        const category = this.selectedCategory();
-        const market = this.selectedMarket();
         const search = this.searchTerm().trim().toLowerCase();
         const sort = this.sortOption();
         let items = this.products();
-        if (category) {
-            items = items.filter((product) => product.categoryId === category);
-        }
-        if (market) {
-            items = items.filter((product) => product.marketSource === market);
-        }
         if (search) {
             items = items.filter(
                 (product) =>
@@ -131,25 +121,28 @@ export class CatalogComponent implements OnInit {
         return items;
     });
 
-    /** The slice of `filteredProducts()` revealed so far. */
-    readonly visibleProducts = computed(() =>
-        this.filteredProducts().slice(0, this.visibleCount())
-    );
+    /** Everything loaded so far, after the client-side filters above. */
+    readonly visibleProducts = this.filteredProducts;
 
     readonly resultCount = computed(() => this.filteredProducts().length);
 
     readonly hasActiveFilters = computed(
-        () =>
-            !!this.selectedCategory() ||
-            !!this.searchTerm() ||
-            !!this.selectedMarket()
-    );
-
-    readonly hasMore = computed(
-        () => this.visibleCount() < this.filteredProducts().length
+        () => !!this.selectedCategory() || !!this.searchTerm()
     );
 
     constructor() {
+        // Market and category are server-side query parameters: changing either
+        // starts a new listing from the first page rather than filtering rows
+        // that are already on screen.
+        effect(() => {
+            const marketId = this._marketSelection.selectedId();
+            const category = this.selectedCategory();
+            void this._catalogService.loadFirstPage(
+                marketId,
+                category || undefined
+            );
+        });
+
         // The sentinel <div> is unconditionally rendered (see template), so
         // it already exists in the DOM by the first post-construction render.
         afterNextRender(() => {
@@ -174,64 +167,40 @@ export class CatalogComponent implements OnInit {
 
     ngOnInit(): void {
         void this._favoritesService.ensureLoaded();
+        void this._marketSelection.ensureLoaded();
         this.searchControl.valueChanges
             .pipe(
                 debounceTime(150),
                 distinctUntilChanged(),
                 takeUntilDestroyed(this._destroyRef)
             )
-            .subscribe((search) => {
-                this.searchTerm.set(search);
-                this._resetReveal();
-            });
+            .subscribe((search) => this.searchTerm.set(search));
     }
 
     filterByCategory(categoryId: string): void {
+        // The effect in the constructor reloads page 1 for the new category.
         this.selectedCategory.set(categoryId);
-        this.selectedMarket.set('');
-        this._resetReveal();
-    }
-
-    filterByMarket(source: string): void {
-        this.selectedMarket.set(source);
-        this._resetReveal();
+        this._scrollToResults();
     }
 
     setSort(option: SortOption): void {
         this.sortOption.set(option);
-        this._resetReveal();
-    }
-
-    setPageSize(size: number): void {
-        this.batchSize.set(size);
-        this.visibleCount.set(size);
     }
 
     clearSearch(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
-        this._resetReveal();
     }
 
     clearFilters(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
         this.selectedCategory.set('');
-        this.selectedMarket.set('');
-        this._resetReveal();
     }
 
-    /** Reveals the next batch of already-loaded products. */
+    /** Fetches the next server page — driven by the scroll sentinel. */
     loadMore(): void {
-        if (!this.hasMore()) {
-            return;
-        }
-        const revealed = Math.min(
-            this.visibleCount() + this.batchSize(),
-            this.filteredProducts().length
-        );
-        this.lastLoadedCount.set(revealed - this.visibleCount());
-        this.visibleCount.set(revealed);
+        void this._catalogService.loadNextPage();
     }
 
     categoryName(categoryId: string): string {
@@ -286,8 +255,7 @@ export class CatalogComponent implements OnInit {
         };
     }
 
-    private _resetReveal(): void {
-        this.visibleCount.set(this.batchSize());
+    private _scrollToResults(): void {
         this.resultsSection()?.nativeElement.scrollIntoView({ block: 'start' });
     }
 }

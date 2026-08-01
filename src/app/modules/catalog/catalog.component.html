@@ -75,27 +75,10 @@
                 }
             </mat-radio-group>
 
-            <!-- Market source (client-side until the API filters by it) -->
-            @if (marketSources().length) {
-                <div class="my-6 border-t"></div>
-                <h3 class="text-xl font-bold text-primary">
-                    {{ t('catalog.filters.market') }}
-                </h3>
-                <mat-radio-group
-                    class="mt-3 flex flex-col gap-1"
-                    [value]="selectedMarket()"
-                    (change)="filterByMarket($event.value)"
-                >
-                    <mat-radio-button [value]="''">
-                        {{ t('catalog.filters.all') }}
-                    </mat-radio-button>
-                    @for (source of marketSources(); track source) {
-                        <mat-radio-button [value]="source">
-                            {{ source }}
-                        </mat-radio-button>
-                    }
-                </mat-radio-group>
-            }
+            <!--
+              No market filter here any more: the whole page is scoped to the
+              market picked in the header, so there is nothing to filter across.
+            -->
         </aside>
 
         <!-- Results -->
@@ -137,28 +120,28 @@
                         </mat-select>
                     </mat-form-field>
 
-                    <mat-form-field
-                        class="w-28"
-                        appearance="outline"
-                        subscriptSizing="dynamic"
-                    >
-                        <mat-select
-                            [value]="batchSize()"
-                            [aria-label]="t('catalog.show')"
-                            (selectionChange)="setPageSize($event.value)"
-                        >
-                            @for (size of [12, 24, 48]; track size) {
-                                <mat-option [value]="size"
-                                    >{{ t('catalog.show') }}
-                                    {{ size }}</mat-option
-                                >
-                            }
-                        </mat-select>
-                    </mat-form-field>
+                    <!--
+                      Page size is fixed by the API's cursor paging (20 rows a
+                      request), so there is no "show N" control to offer.
+                    -->
                 </div>
             </div>
 
-            @if (visibleProducts().length > 0) {
+            @if (!hasMarket()) {
+                <!-- Nothing can be listed until a market is chosen -->
+                <div class="flex flex-col items-center justify-center py-16">
+                    <mat-icon
+                        class="text-hint icon-size-16"
+                        svgIcon="heroicons_outline:building-storefront"
+                    ></mat-icon>
+                    <p class="text-secondary mt-4 text-lg font-medium">
+                        {{ t('catalog.noMarket.title') }}
+                    </p>
+                    <p class="text-hint mt-1 text-sm">
+                        {{ t('catalog.noMarket.description') }}
+                    </p>
+                </div>
+            } @else if (visibleProducts().length > 0) {
                 <!-- Product grid -->
                 <div
                     class="mt-6 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
@@ -171,6 +154,14 @@
                             (addedToCart)="addToDraftOrder(product)"
                         ></ff-product-card>
                     }
+                </div>
+            } @else if (loading()) {
+                <!-- First page in flight -->
+                <div class="flex items-center justify-center py-16">
+                    <mat-progress-spinner
+                        [diameter]="40"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
                 </div>
             } @else {
                 <!-- Empty state -->
@@ -193,7 +184,14 @@
             ></div>
 
             <div class="flex flex-col items-center gap-3 py-6">
-                @if (hasMore()) {
+                @if (loading() && resultCount() > 0) {
+                    <!-- Next page in flight (the sentinel already fired) -->
+                    <mat-progress-spinner
+                        [diameter]="28"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
+                } @else if (hasMore()) {
+                    <!-- Keyboard/no-JS path to the same fetch the sentinel does -->
                     <button
                         mat-stroked-button
                         data-testid="catalog-load-more"
@@ -208,12 +206,8 @@
                 }
 
                 <div class="sr-only" aria-live="polite">
-                    @if (lastLoadedCount() > 0) {
-                        {{
-                            t('catalog.loadedMore', {
-                                count: lastLoadedCount(),
-                            })
-                        }}
+                    @if (resultCount() > 0) {
+                        {{ t('catalog.resultCount', { count: resultCount() }) }}
                     }
                 </div>
             </div>

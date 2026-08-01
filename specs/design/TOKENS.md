@@ -49,6 +49,27 @@ Status (semantic, pair with icon/label): success → mint (`accent`); warning �
 warn red; info → blue; **discounted price → `sale` pink** (the struck-through original stays
 `text-hint`). Use these tokens; do not introduce new hex.
 
+### On-colors and the contrast floor
+
+Every `on-*` value is generated, never hand-picked:
+`src/@fuse/tailwind/utils/generate-contrasts.js` derives the ink for each hue and **guarantees
+≥ 4.5:1** (WCAG AA for normal text). It prefers a brand-tinted ink — the palette's own darkest
+hue, darkened until it clears the floor — and falls back to black or white only when the tint
+cannot get there.
+
+This matters beyond our own components: the same values become Angular Material's
+`*-contrast` palette entries, i.e. the text and icons on `mat-flat-button`, chips, checkboxes,
+badges and sliders. The generator previously had **no floor** and picked whichever of
+{darkest hue, white} merely scored higher, which shipped pairs as poor as **2.34:1** on the mint
+ramp.
+
+`npm run check:contrast` (part of `precheck`) fails the build if any palette pair drops below the
+floor, so a new brand color cannot regress this silently.
+
+> A palette color is only guaranteed readable **as a background**, paired with its own `on-`
+> value. Using a mid-ramp color as _text on a light surface_ is a separate check — that is why
+> the discounted price binds `text-sale-700` (5.11:1 on white) and not `text-sale` (3.39:1).
+
 > Light & dark themes are provided by Fuse (`.light` / `.dark`). All tokens resolve per theme —
 > never assume a fixed background or text color.
 

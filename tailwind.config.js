@@ -62,9 +62,9 @@ const themes = {
             ...colors.red,
             DEFAULT: colors.red[600],
         },
-        'on-warn': {
-            500: colors.red['50'],
-        },
+        // No `on-warn` override: it used to pin red-50 as the ink on red, which
+        // measured 4.41:1 — below AA. `generateContrasts` now enforces the floor
+        // for every palette, so the generated value (4.83:1) is the better one.
         sale: {
             ...customPalettes.freshflowSale,
             DEFAULT: customPalettes.freshflowSale[500],
@@ -309,3 +309,10 @@ const config = {
 };
 
 module.exports = config;
+
+/**
+ * The palettes, exposed for `scripts/check-contrast.mjs` (run by `precheck`) so
+ * the contrast guard reads the same source Tailwind does instead of a copy that
+ * could drift. Tailwind ignores unknown top-level keys.
+ */
+module.exports.__themes = themes;

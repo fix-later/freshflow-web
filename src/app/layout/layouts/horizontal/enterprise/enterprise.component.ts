@@ -37,12 +37,12 @@ import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
-import { BranchPickerComponent } from 'app/layout/common/branch-picker/branch-picker.component';
 import { DraftOrderDrawerComponent } from 'app/layout/common/draft-order/draft-order-drawer.component';
 import { DraftOrderComponent } from 'app/layout/common/draft-order/draft-order.component';
 import { FavoritesDrawerComponent } from 'app/layout/common/favorites/favorites-drawer.component';
 import { FavoritesComponent } from 'app/layout/common/favorites/favorites.component';
 import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
+import { MarketPickerComponent } from 'app/layout/common/market-picker/market-picker.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { OrderTrackingComponent } from 'app/layout/common/order-tracking/order-tracking.component';
 import { QuickSignInComponent } from 'app/layout/common/quick-sign-in/quick-sign-in.component';
@@ -60,13 +60,14 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
 @Component({
     selector: 'enterprise-layout',
     templateUrl: './enterprise.component.html',
+    styleUrls: ['../../../common/header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FuseLoadingBarComponent,
         FuseVerticalNavigationComponent,
-        BranchPickerComponent,
+        MarketPickerComponent,
         DraftOrderComponent,
         DraftOrderDrawerComponent,
         FavoritesComponent,
@@ -386,13 +387,9 @@ export class EnterpriseLayoutComponent
                 ...this.aiMessages,
                 {
                     role: 'assistant',
-                    text: this._buildMockReply(text),
+                    text: 'FreshFlow AI is not connected yet. Please browse the catalog or contact support.',
                 },
             ];
         }, 500);
-    }
-
-    private _buildMockReply(prompt: string): string {
-        return `Thanks for your question about "${prompt}". FreshFlow AI will connect to the backend soon — for now this is a preview of the chat overlay.`;
     }
 }

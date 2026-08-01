@@ -1,25 +1,33 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import {
     extractList,
-    fetchAllCursor,
+    extractNextCursor,
     fetchAllOffset,
     parseJson,
 } from 'app/core/api/envelope';
+import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { categoriesApi, marketsApi, productsApi } from 'contract';
 import { from, Observable, tap } from 'rxjs';
-import { DEMO_CATEGORIES, DEMO_PRODUCTS } from './catalog.demo-data';
 import { CatalogCategory, CatalogProduct } from './catalog.types';
+
+/** Listings fetched per request — one screenful, then infinite scroll. */
+export const CATALOG_PAGE_SIZE = 20;
 
 /**
  * Catalog data access — backed by the generated, typed OpenAPI client
  * (`typescript-fetch`) instead of a handwritten `HttpClient` call.
  *
- * The base `/products` endpoint has no price. Price is per-market — the same
- * product can be listed (and priced) by more than one market — so the
- * catalog is built by crawling every market's `/markets/{marketId}/products`
- * listing and joining each row back to its base product for
- * name/description/category/unit. One row per (product, market) pair: a
- * product sold by two markets renders as two cards, each with its own price.
+ * **Scoped to the selected market.** Price and availability are per-market, so
+ * the catalog lists `GET /markets/{marketId}/products` for the market chosen in
+ * the header (`MarketSelectionService`) — not an aggregate across every market.
+ * That endpoint is cursor-paginated, and the catalog walks it
+ * {@link CATALOG_PAGE_SIZE} rows at a time as the user scrolls, rather than
+ * crawling every page up front.
+ *
+ * Each listing row is joined back to its base product for the fields the market
+ * row does not carry (description, unit, images, i18n names). The base product
+ * list is fetched once per session and cached, so paging costs one request per
+ * screenful.
  *
  * Note: the backend's OpenAPI spec does not yet declare response schemas for
  * its GET endpoints (they are documented only as "200 OK"), so bodies are
@@ -61,20 +69,27 @@ function str(row: RawRow, keys: string[]): string {
 
 @Injectable({ providedIn: 'root' })
 export class CatalogService {
+    private _marketSelection = inject(MarketSelectionService);
+
     private _categories = signal<CatalogCategory[]>([]);
     private _products = signal<CatalogProduct[]>([]);
     private _product = signal<CatalogProduct | null>(null);
+    private _loading = signal(false);
+    private _hasMore = signal(false);
 
-    /**
-     * Once the API proves unreachable or empty, all catalog reads are served
-     * from the bundled demo dataset (catalog.demo-data.ts), so the catalog
-     * stays browsable in dev and demos.
-     */
-    private _demoMode = false;
+    /** Cursor for the next page; `undefined` before the first page is read. */
+    private _cursor: string | undefined;
+    /** Identifies the active query so a stale response cannot overwrite it. */
+    private _requestKey = '';
+    private _baseProducts: Promise<Map<string, RawRow>> | null = null;
 
     readonly categories = this._categories.asReadonly();
     readonly products = this._products.asReadonly();
     readonly product = this._product.asReadonly();
+    /** True while a page is in flight — drives the scroll spinner. */
+    readonly loading = this._loading.asReadonly();
+    /** True when the server reported another page after the last one. */
+    readonly hasMore = this._hasMore.asReadonly();
 
     getCategories(): Observable<CatalogCategory[]> {
         return from(this._loadCategories()).pipe(
@@ -82,11 +97,35 @@ export class CatalogService {
         );
     }
 
-    /** Loads every product listing across every market, once, with price. */
-    getProducts(): Observable<CatalogProduct[]> {
-        return from(this._loadAllProducts()).pipe(
-            tap((products) => this._products.set(products))
-        );
+    /**
+     * Starts a fresh listing for `marketId`, replacing whatever was loaded.
+     * Call on entry and whenever the market or category filter changes.
+     */
+    async loadFirstPage(
+        marketId: string | null,
+        categoryId?: string
+    ): Promise<void> {
+        this._cursor = undefined;
+        this._requestKey = `${marketId ?? ''}|${categoryId ?? ''}`;
+        this._products.set([]);
+        this._hasMore.set(false);
+
+        if (!marketId) {
+            // No market chosen yet — the catalog shows its "pick a market"
+            // state rather than an arbitrary market's products.
+            return;
+        }
+        await this._loadPage(marketId, categoryId);
+    }
+
+    /** Appends the next page. No-op while loading or at the end of the list. */
+    async loadNextPage(): Promise<void> {
+        const marketId = this._marketSelection.selectedId();
+        if (!marketId || this._loading() || !this._hasMore()) {
+            return;
+        }
+        const [, categoryId] = this._requestKey.split('|');
+        await this._loadPage(marketId, categoryId || undefined);
     }
 
     getProductById(productId: string): Observable<CatalogProduct> {
@@ -95,89 +134,97 @@ export class CatalogService {
         );
     }
 
-    private async _loadCategories(): Promise<CatalogCategory[]> {
-        if (!this._demoMode) {
-            try {
-                const res = await categoriesApi.apiV1CategoriesGetRaw({
-                    activeOnly: true,
-                });
-                const categories = extractList<CatalogCategory>(
-                    await parseJson(res.raw)
-                );
-                if (categories.length) {
-                    return categories;
-                }
-            } catch {
-                // Fall through to the demo dataset.
-            }
-        }
-        return DEMO_CATEGORIES;
-    }
-
-    private async _loadAllProducts(): Promise<CatalogProduct[]> {
-        if (this._demoMode) {
-            return DEMO_PRODUCTS;
-        }
+    /**
+     * Reads one page and appends it. Guards against out-of-order responses:
+     * switching market mid-flight changes `_requestKey`, and the late response
+     * for the previous market is then dropped instead of mixing in.
+     */
+    private async _loadPage(
+        marketId: string,
+        categoryId?: string
+    ): Promise<void> {
+        const key = this._requestKey;
+        const cursor = this._cursor;
+        this._loading.set(true);
         try {
-            const [baseProducts, markets] = await Promise.all([
-                this._loadAllBaseProducts(),
-                this._loadAllMarkets(),
-            ]);
-            const baseById = new Map(
-                baseProducts.map((row) => [str(row, ['id', 'productId']), row])
-            );
-            const perMarket = await Promise.all(
-                markets.map((market) =>
-                    this._loadMarketProducts(market, baseById)
-                )
-            );
-            const products = perMarket.flat();
-            if (!products.length) {
-                throw new Error('Catalog is empty');
+            const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
+                marketId,
+                category: categoryId || undefined,
+                cursor,
+                pageSize: CATALOG_PAGE_SIZE,
+            });
+            const body = await parseJson(res.raw);
+            if (key !== this._requestKey) {
+                return;
             }
-            return products;
+
+            const rows = extractList<RawRow>(body);
+            const market = this._marketSelection.selected() ?? {
+                id: marketId,
+                name: '',
+            };
+            const baseById = await this._loadBaseProducts();
+            if (key !== this._requestKey) {
+                return;
+            }
+
+            const page = rows
+                .map((row) => this._toCatalogProduct(row, market, baseById))
+                .filter((product): product is CatalogProduct => !!product);
+            this._products.update((current) => [...current, ...page]);
+
+            const next = extractNextCursor(body);
+            // A short page means the end even when the backend still hands back
+            // a cursor, and a repeated cursor would loop forever.
+            this._hasMore.set(
+                !!next && next !== cursor && rows.length >= CATALOG_PAGE_SIZE
+            );
+            this._cursor = next;
         } catch {
-            this._demoMode = true;
-            return DEMO_PRODUCTS;
+            if (key === this._requestKey) {
+                this._hasMore.set(false);
+            }
+        } finally {
+            if (key === this._requestKey) {
+                this._loading.set(false);
+            }
         }
     }
 
-    private async _loadAllBaseProducts(): Promise<RawRow[]> {
-        return fetchAllOffset<RawRow>((page, pageSize) =>
+    private async _loadCategories(): Promise<CatalogCategory[]> {
+        try {
+            const res = await categoriesApi.apiV1CategoriesGetRaw({
+                activeOnly: true,
+            });
+            return extractList<CatalogCategory>(await parseJson(res.raw));
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * The base product catalogue, indexed by id and fetched at most once per
+     * session. Market listings carry price and quantity but not the product's
+     * description, unit, images or English names — those live here.
+     */
+    private _loadBaseProducts(): Promise<Map<string, RawRow>> {
+        this._baseProducts ??= fetchAllOffset<RawRow>((page, pageSize) =>
             productsApi
                 .apiV1ProductsGetRaw({ includeInactive: false, page, pageSize })
                 .then((res) => res.raw)
-        );
-    }
-
-    /** The backend has no offset pagination for markets — one request returns all. */
-    private async _loadAllMarkets(): Promise<{ id: string; name: string }[]> {
-        const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly: true });
-        const rows = extractList<RawRow>(await parseJson(res.raw));
-        return rows
-            .map((row) => ({
-                id: str(row, ['id', 'marketId']),
-                name: str(row, ['name', 'marketName']),
-            }))
-            .filter((market) => !!market.id);
-    }
-
-    private async _loadMarketProducts(
-        market: { id: string; name: string },
-        baseById: Map<string, RawRow>
-    ): Promise<CatalogProduct[]> {
-        const rows = await fetchAllCursor<RawRow>((cursor, pageSize) =>
-            marketsApi
-                .apiV1MarketsMarketIdProductsGetRaw({
-                    marketId: market.id,
-                    cursor,
-                    pageSize,
-                })
-                .then((res) => res.raw)
-        );
-        return rows
-            .map((row) => this._toCatalogProduct(row, market, baseById))
-            .filter((product): product is CatalogProduct => !!product);
+        )
+            .then(
+                (rows) =>
+                    new Map(
+                        rows.map((row) => [str(row, ['id', 'productId']), row])
+                    )
+            )
+            .catch(() => {
+                // Let the next page retry instead of caching the failure.
+                this._baseProducts = null;
+                return new Map<string, RawRow>();
+            });
+        return this._baseProducts;
     }
 
     private _toCatalogProduct(
@@ -229,17 +276,37 @@ export class CatalogService {
         };
     }
 
-    /** Prefers the already-loaded aggregate cache; crawls once if empty (deep link). */
+    /**
+     * Resolves a product for the detail route. Prefers what the grid already
+     * loaded; on a deep link (nothing loaded yet) it walks the selected market's
+     * listing until the product turns up, which costs one page for anything the
+     * user could plausibly have linked from.
+     */
     private async _resolveProduct(productId: string): Promise<CatalogProduct> {
-        let all = this._products();
-        if (!all.length) {
-            all = await this._loadAllProducts();
-            this._products.set(all);
+        const inGrid = this._products().find(
+            (product) => product.productId === productId
+        );
+        if (inGrid) {
+            return inGrid;
         }
-        const found = all.find((product) => product.productId === productId);
-        if (!found) {
-            throw new Error(`Product ${productId} not found`);
+
+        const marketId = this._marketSelection.selectedId();
+        if (!marketId) {
+            throw new Error('No market selected');
         }
-        return found;
+
+        await this.loadFirstPage(marketId);
+        for (;;) {
+            const found = this._products().find(
+                (product) => product.productId === productId
+            );
+            if (found) {
+                return found;
+            }
+            if (!this._hasMore()) {
+                throw new Error(`Product ${productId} not found`);
+            }
+            await this.loadNextPage();
+        }
     }
 }

@@ -64,7 +64,7 @@
                         </div>
 
                         <div class="flex items-center gap-4 whitespace-nowrap">
-                            <branch-picker></branch-picker>
+                            <market-picker></market-picker>
 
                             <languages></languages>
 
@@ -125,6 +125,16 @@
                                 class="h-8 w-auto"
                             />
                         </a>
+
+                        <!--
+                          The market picker also lives in the desktop top strip,
+                          which is not rendered here — without this copy there
+                          would be no way to choose a market on a phone, and the
+                          catalog would stay empty for good.
+                        -->
+                        <div class="text-default ml-2 min-w-0 truncate text-sm">
+                            <market-picker></market-picker>
+                        </div>
 
                         <button
                             class="ml-auto"
@@ -274,7 +284,7 @@
                                 aria-label="Tìm kiếm sản phẩm"
                             />
                             <button
-                                class="text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
+                                class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
                                 type="submit"
                                 aria-label="Search"
                             >
@@ -303,7 +313,7 @@
 
                                 <!-- AI chat -->
                                 <button
-                                    class="text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+                                    class="ff-header-icon text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
                                     type="button"
                                     aria-label="Mua hàng nhanh"
                                     [matTooltip]="'Mua hàng nhanh'"
@@ -349,6 +359,9 @@
                                         @if (item.icon) {
                                             <mat-icon
                                                 class="mr-2 icon-size-5"
+                                                [class.text-primary]="
+                                                    isBranchActive(item)
+                                                "
                                                 [svgIcon]="item.icon"
                                             ></mat-icon>
                                         }
@@ -384,6 +397,9 @@
                                         @if (item.icon) {
                                             <mat-icon
                                                 class="mr-2 icon-size-5"
+                                                [class.text-primary]="
+                                                    rla.isActive
+                                                "
                                                 [svgIcon]="item.icon"
                                             ></mat-icon>
                                         }
@@ -434,7 +450,7 @@
                     <div
                         class="text-default flex h-11 w-11 items-center justify-center"
                     >
-                        <notifications></notifications>
+                        <notifications [microMotion]="true"></notifications>
                     </div>
                     <div
                         class="text-default flex h-11 w-11 items-center justify-center"
@@ -442,7 +458,7 @@
                         <favorites></favorites>
                     </div>
                     <button
-                        class="flex h-11 w-11 items-center justify-center text-primary"
+                        class="ff-header-icon flex h-11 w-11 items-center justify-center text-primary"
                         type="button"
                         aria-label="AI Chat"
                         (click)="openAiChat()"
@@ -555,7 +571,7 @@
                         </p>
                     </div>
 
-                    <!-- Newsletter (demo until a mailing list exists) -->
+                    <!-- Newsletter (UI only until a mailing list exists) -->
                     <form class="relative w-full max-w-xl flex-1">
                         <input
                             class="text-default bg-card h-13 w-full rounded-full border px-5 pr-32 text-base outline-none focus:border-primary"
