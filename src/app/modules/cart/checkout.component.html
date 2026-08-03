@@ -97,7 +97,7 @@
                             <input
                                 matInput
                                 [matDatepicker]="deliveryPicker"
-                                [min]="minDeliveryDate"
+                                [min]="minDeliveryDate()"
                                 [ngModel]="deliveryDate()"
                                 (ngModelChange)="onDeliveryDateChange($event)"
                                 [placeholder]="t('checkout.shipping.date')"
@@ -114,7 +114,7 @@
                             ></mat-datepicker>
                         </mat-form-field>
                         <p class="checkout-shipping__hint">
-                            @if (afterCutoff) {
+                            @if (afterCutoff()) {
                                 {{ t('checkout.shipping.cutoffHint') }}
                             } @else {
                                 {{ t('checkout.shipping.minDateHint') }}
@@ -297,6 +297,28 @@
                             <strong>{{ total() | number: '1.0-0' }}₫</strong>
                         </div>
                     </div>
+
+                    @if (blockers().length) {
+                        <div
+                            class="mb-3 flex flex-col gap-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                            role="alert"
+                        >
+                            <div class="flex items-center gap-2 font-medium">
+                                <mat-icon
+                                    class="text-red-500 icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:exclamation-triangle'
+                                    "
+                                ></mat-icon>
+                                <span>{{ t('checkout.blockedTitle') }}</span>
+                            </div>
+                            <ul class="ml-7 list-disc">
+                                @for (reason of blockers(); track reason) {
+                                    <li>{{ reason }}</li>
+                                }
+                            </ul>
+                        </div>
+                    }
 
                     <button
                         class="cart-totals__btn"

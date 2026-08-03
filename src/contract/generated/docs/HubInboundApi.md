@@ -11,9 +11,13 @@ All URIs are relative to *http://localhost*
 | [**apiV1HubsHubIdInboundGet**](HubInboundApi.md#apiv1hubshubidinboundget) | **GET** /api/v1/hubs/{hubId}/inbound |  |
 | [**apiV1HubsHubIdInboundInboundIdDiscrepancyPost**](HubInboundApi.md#apiv1hubshubidinboundinboundiddiscrepancypost) | **POST** /api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy |  |
 | [**apiV1HubsHubIdInboundPost**](HubInboundApi.md#apiv1hubshubidinboundpost) | **POST** /api/v1/hubs/{hubId}/inbound |  |
+| [**apiV1HubsHubIdOrdersByRestaurantGet**](HubInboundApi.md#apiv1hubshubidordersbyrestaurantget) | **GET** /api/v1/hubs/{hubId}/orders-by-restaurant |  |
 | [**apiV1HubsHubIdOutboundGet**](HubInboundApi.md#apiv1hubshubidoutboundget) | **GET** /api/v1/hubs/{hubId}/outbound |  |
 | [**apiV1HubsHubIdOutboundPost**](HubInboundApi.md#apiv1hubshubidoutboundpost) | **POST** /api/v1/hubs/{hubId}/outbound |  |
 | [**apiV1HubsHubIdPendingInboundGet**](HubInboundApi.md#apiv1hubshubidpendinginboundget) | **GET** /api/v1/hubs/{hubId}/pending-inbound |  |
+| [**apiV1HubsHubIdProcurementPlanGet**](HubInboundApi.md#apiv1hubshubidprocurementplanget) | **GET** /api/v1/hubs/{hubId}/procurement-plan |  |
+| [**apiV1HubsHubIdSortingPost**](HubInboundApi.md#apiv1hubshubidsortingpost) | **POST** /api/v1/hubs/{hubId}/sorting |  |
+| [**apiV1HubsHubIdSortingProgressGet**](HubInboundApi.md#apiv1hubshubidsortingprogressget) | **GET** /api/v1/hubs/{hubId}/sorting-progress |  |
 | [**apiV1HubsScanPost**](HubInboundApi.md#apiv1hubsscanpost) | **POST** /api/v1/hubs/scan |  |
 
 
@@ -543,6 +547,81 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## apiV1HubsHubIdOrdersByRestaurantGet
+
+> apiV1HubsHubIdOrdersByRestaurantGet(hubId, serviceDate, includeBatched)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  HubInboundApi,
+} from '';
+import type { ApiV1HubsHubIdOrdersByRestaurantGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new HubInboundApi(config);
+
+  const body = {
+    // string
+    hubId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // Date (optional)
+    serviceDate: 2013-10-20,
+    // boolean (optional)
+    includeBatched: true,
+  } satisfies ApiV1HubsHubIdOrdersByRestaurantGetRequest;
+
+  try {
+    const data = await api.apiV1HubsHubIdOrdersByRestaurantGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **hubId** | `string` |  | [Defaults to `undefined`] |
+| **serviceDate** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **includeBatched** | `boolean` |  | [Optional] [Defaults to `false`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## apiV1HubsHubIdOutboundGet
 
 > apiV1HubsHubIdOutboundGet(hubId, date, cursor, pageSize)
@@ -745,6 +824,222 @@ example().catch(console.error);
 | **hubId** | `string` |  | [Defaults to `undefined`] |
 | **cursor** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **pageSize** | `number` |  | [Optional] [Defaults to `50`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1HubsHubIdProcurementPlanGet
+
+> apiV1HubsHubIdProcurementPlanGet(hubId, date)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  HubInboundApi,
+} from '';
+import type { ApiV1HubsHubIdProcurementPlanGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new HubInboundApi(config);
+
+  const body = {
+    // string
+    hubId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // Date (optional)
+    date: 2013-10-20,
+  } satisfies ApiV1HubsHubIdProcurementPlanGetRequest;
+
+  try {
+    const data = await api.apiV1HubsHubIdProcurementPlanGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **hubId** | `string` |  | [Defaults to `undefined`] |
+| **date** | `Date` |  | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1HubsHubIdSortingPost
+
+> apiV1HubsHubIdSortingPost(hubId, markLineSortedRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  HubInboundApi,
+} from '';
+import type { ApiV1HubsHubIdSortingPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new HubInboundApi(config);
+
+  const body = {
+    // string
+    hubId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // MarkLineSortedRequest (optional)
+    markLineSortedRequest: ...,
+  } satisfies ApiV1HubsHubIdSortingPostRequest;
+
+  try {
+    const data = await api.apiV1HubsHubIdSortingPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **hubId** | `string` |  | [Defaults to `undefined`] |
+| **markLineSortedRequest** | [MarkLineSortedRequest](MarkLineSortedRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1HubsHubIdSortingProgressGet
+
+> apiV1HubsHubIdSortingProgressGet(hubId, serviceDate)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  HubInboundApi,
+} from '';
+import type { ApiV1HubsHubIdSortingProgressGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new HubInboundApi(config);
+
+  const body = {
+    // string
+    hubId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // Date (optional)
+    serviceDate: 2013-10-20,
+  } satisfies ApiV1HubsHubIdSortingProgressGetRequest;
+
+  try {
+    const data = await api.apiV1HubsHubIdSortingProgressGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **hubId** | `string` |  | [Defaults to `undefined`] |
+| **serviceDate** | `Date` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 

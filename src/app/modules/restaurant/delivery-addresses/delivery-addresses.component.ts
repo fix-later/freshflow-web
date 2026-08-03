@@ -111,10 +111,11 @@ export class DeliveryAddressesComponent implements OnInit {
         this.formOpen.set(false);
     }
 
-    async save(): Promise<void> {
+    /** Persist the open address form. Resolves `true` when the write succeeded. */
+    async save(): Promise<boolean> {
         if (this.form.invalid) {
             this.form.markAllAsTouched();
-            return;
+            return false;
         }
         const v = this.form.getRawValue();
         const payload: DeliveryAddressRequest = {
@@ -136,6 +137,7 @@ export class DeliveryAddressesComponent implements OnInit {
             }
             this._toast('restaurantProfile.deliveryAddresses.saved');
             this.formOpen.set(false);
+            return true;
         } catch (err) {
             const message =
                 (await apiErrorMessage(err)) ??
@@ -143,6 +145,7 @@ export class DeliveryAddressesComponent implements OnInit {
                     'restaurantProfile.deliveryAddresses.saveError'
                 );
             this._snackBar.open(message, undefined, { duration: 6000 });
+            return false;
         } finally {
             this.saving.set(false);
         }

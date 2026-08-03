@@ -1,22 +1,26 @@
 
-# HandoverRequest
+# MarkLineSortedRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`hubId` | string
+`serviceDate` | Date
+`orderItemId` | string
+`sortedQuantityKg` | number
 
 ## Example
 
 ```typescript
-import type { HandoverRequest } from ''
+import type { MarkLineSortedRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "hubId": null,
-} satisfies HandoverRequest
+  "serviceDate": null,
+  "orderItemId": null,
+  "sortedQuantityKg": null,
+} satisfies MarkLineSortedRequest
 
 console.log(example)
 
@@ -25,7 +29,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as HandoverRequest
+const exampleParsed = JSON.parse(exampleJSON) as MarkLineSortedRequest
 console.log(exampleParsed)
 ```
 

@@ -51,6 +51,11 @@ export class CreditComponent implements OnInit {
     readonly hasMoreTransactions = signal(false);
     readonly hasMoreStatements = signal(false);
 
+    /** Statement whose breakdown is expanded, and its fetched detail. */
+    readonly expandedStatementId = signal<string | null>(null);
+    readonly statementDetail = signal<CreditStatement | null>(null);
+    readonly loadingStatement = signal(false);
+
     ngOnInit(): void {
         this.loading.set(true);
         this.loadError.set(false);
@@ -70,6 +75,76 @@ export class CreditComponent implements OnInit {
             })
             .catch(() => this.loadError.set(true))
             .finally(() => this.loading.set(false));
+    }
+
+    /**
+     * Expands (or collapses) a statement's breakdown. The list rows carry only
+     * summary figures, so the detail is fetched on first open and replaced on
+     * each switch — one statement is expanded at a time.
+     */
+    toggleStatement(statement: CreditStatement): void {
+        if (this.expandedStatementId() === statement.id) {
+            this.expandedStatementId.set(null);
+            this.statementDetail.set(null);
+            return;
+        }
+        this.expandedStatementId.set(statement.id);
+        this.statementDetail.set(null);
+        this.loadingStatement.set(true);
+        this._service
+            .getStatement(statement.id)
+            .then((detail) => {
+                // Ignore a response for a statement the user already left.
+                if (this.expandedStatementId() === statement.id) {
+                    this.statementDetail.set(detail);
+                }
+            })
+            .catch(() => this.statementDetail.set(null))
+            .finally(() => this.loadingStatement.set(false));
+    }
+
+    /**
+     * Printable rows of the expanded statement: every scalar field except the
+     * identifiers and the summary figures already shown on the row itself.
+     */
+    statementEntries(): { label: string; value: string }[] {
+        const detail = this.statementDetail();
+        if (!detail) {
+            return [];
+        }
+        const skip = new Set([
+            'id',
+            'statementId',
+            'restaurantId',
+            'month',
+            'year',
+        ]);
+        return Object.entries(detail)
+            .filter(
+                ([key, value]) =>
+                    !skip.has(key) &&
+                    (typeof value === 'string' ||
+                        typeof value === 'number' ||
+                        typeof value === 'boolean')
+            )
+            .map(([key, value]) => ({
+                label: this._humanize(key),
+                value:
+                    typeof value === 'number' &&
+                    /balance|total|amount/i.test(key)
+                        ? this.formatAmount(value)
+                        : String(value),
+            }));
+    }
+
+    /** `totalCharges` → `Total charges`; the API names these fields, not us. */
+    private _humanize(key: string): string {
+        const spaced = key
+            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+            .replace(/[_-]+/g, ' ')
+            .toLowerCase()
+            .trim();
+        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
     }
 
     loadMoreTransactions(): void {

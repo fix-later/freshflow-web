@@ -11,6 +11,8 @@ Name | Type
 `address` | string
 `latitude` | number
 `longitude` | number
+`imageUrl` | string
+`description` | string
 
 ## Example
 
@@ -24,6 +26,8 @@ const example = {
   "address": null,
   "latitude": null,
   "longitude": null,
+  "imageUrl": null,
+  "description": null,
 } satisfies UpdateMarketRequest
 
 console.log(example)

@@ -15,25 +15,30 @@
 }
 
 <ng-template #navContent>
-    <nav mat-tab-nav-bar [tabPanel]="tabPanel" [mat-stretch-tabs]="false">
-        @for (item of navigation.horizontal; track item.id) {
+    <nav class="flex min-w-0 flex-auto items-center gap-1">
+        @for (
+            item of navigation.horizontal;
+            track item.id;
+            let first = $first
+        ) {
             @if (item.children?.length) {
                 <a
-                    class="text-base font-medium"
-                    mat-tab-link
-                    [active]="isBranchActive(item)"
+                    class="text-default inline-flex h-14 items-center gap-1 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
+                    [class.pl-0]="first"
+                    [class.pl-3]="!first"
+                    [class.border-primary]="isBranchActive(item)"
+                    [class.text-primary]="isBranchActive(item)"
                     [matMenuTriggerFor]="branchMenu"
                 >
                     @if (item.icon) {
                         <mat-icon
-                            class="mr-2 icon-size-5"
-                            [class.text-primary]="isBranchActive(item)"
+                            class="text-current icon-size-5"
                             [svgIcon]="item.icon"
                         ></mat-icon>
                     }
                     {{ item.title }}
                     <mat-icon
-                        class="ml-1.5 icon-size-3"
+                        class="text-current icon-size-3"
                         [svgIcon]="'heroicons_outline:chevron-down'"
                     ></mat-icon>
                 </a>
@@ -46,17 +51,19 @@
                 </mat-menu>
             } @else {
                 <a
-                    class="text-base font-medium"
-                    mat-tab-link
+                    class="text-default inline-flex h-14 items-center gap-2 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
+                    [class.pl-0]="first"
+                    [class.pl-3]="!first"
                     [routerLink]="item.link"
                     routerLinkActive
                     #rla="routerLinkActive"
-                    [active]="rla.isActive"
+                    [routerLinkActiveOptions]="{ exact: item.link === '/home' }"
+                    [class.border-primary]="rla.isActive"
+                    [class.text-primary]="rla.isActive"
                 >
                     @if (item.icon) {
                         <mat-icon
-                            class="mr-2 icon-size-5"
-                            [class.text-primary]="rla.isActive"
+                            class="text-current icon-size-5"
                             [svgIcon]="item.icon"
                         ></mat-icon>
                     }
@@ -65,26 +72,25 @@
             }
         }
     </nav>
-    <mat-tab-nav-panel #tabPanel></mat-tab-nav-panel>
 
-    <div class="flex items-center gap-6 whitespace-nowrap">
+    <div class="flex shrink-0 items-center gap-6 whitespace-nowrap">
         <a
-            class="flex items-center gap-1.5 text-base font-semibold text-[#F0508A] hover:underline"
+            class="inline-flex items-center gap-1.5 text-base font-semibold text-[#F0508A] hover:underline"
             routerLink="/deals"
         >
             <mat-icon
-                class="text-current icon-size-4"
+                class="text-current icon-size-5"
                 [svgIcon]="'heroicons_outline:fire'"
             ></mat-icon>
             <span>Hot Deals</span>
         </a>
 
         <a
-            class="text-secondary flex items-center gap-1.5 text-base"
+            class="text-secondary inline-flex items-center gap-1.5 text-base"
             [href]="hotline.href"
         >
             <mat-icon
-                class="text-primary icon-size-4"
+                class="text-primary icon-size-5"
                 [svgIcon]="'heroicons_outline:phone'"
             ></mat-icon>
             <span

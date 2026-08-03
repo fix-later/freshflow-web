@@ -1,0 +1,150 @@
+<ng-container *transloco="let t">
+    @if (loading()) {
+        <div class="flex items-center justify-center py-16">
+            <mat-progress-spinner
+                [diameter]="36"
+                [mode]="'indeterminate'"
+            ></mat-progress-spinner>
+        </div>
+    } @else {
+        <!--
+          Headline figures first, ledger beneath — the shape the reference
+          wallets use, so the number a buyer opens this page for is the first
+          thing on screen.
+        -->
+        @if (isPendingApproval()) {
+            <div
+                class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:bg-amber-900/20"
+            >
+                <mat-icon
+                    class="mt-0.5 shrink-0 text-amber-600 icon-size-5"
+                    [svgIcon]="'heroicons_outline:clock'"
+                ></mat-icon>
+                <p class="text-sm font-medium">
+                    {{ t('restaurantDashboard.approvalPending') }}
+                </p>
+            </div>
+        }
+
+        <!--
+          What is still missing before the account can be reviewed. Sits above
+          the credit figures because an unapproved restaurant cannot spend
+          credit yet — finishing setup is the more useful next action. The card
+          hides itself once nothing verifiable is outstanding.
+        -->
+        <setup-checklist></setup-checklist>
+
+        <div class="grid gap-4 sm:grid-cols-3">
+            <div class="rounded-2xl border p-5">
+                <p class="text-secondary text-sm font-medium uppercase">
+                    {{ t('restaurantDashboard.available') }}
+                </p>
+                <p
+                    class="mt-2 font-mono text-3xl font-bold tabular-nums text-primary"
+                >
+                    {{ balance()?.availableCredit ?? 0 | number: '1.0-0' }}
+                    <span class="text-lg">₫</span>
+                </p>
+            </div>
+
+            <div class="rounded-2xl border p-5">
+                <p class="text-secondary text-sm font-medium uppercase">
+                    {{ t('restaurantDashboard.used') }}
+                </p>
+                <p class="mt-2 font-mono text-3xl font-bold tabular-nums">
+                    {{ balance()?.currentBalance ?? 0 | number: '1.0-0' }}
+                    <span class="text-lg">₫</span>
+                </p>
+            </div>
+
+            <div class="rounded-2xl border p-5">
+                <p class="text-secondary text-sm font-medium uppercase">
+                    {{ t('restaurantDashboard.limit') }}
+                </p>
+                <p class="mt-2 font-mono text-3xl font-bold tabular-nums">
+                    {{ balance()?.creditLimit ?? 0 | number: '1.0-0' }}
+                    <span class="text-lg">₫</span>
+                </p>
+            </div>
+        </div>
+
+        <!-- Usage bar: how much of the limit is committed -->
+        <div class="mt-6">
+            <div class="text-secondary flex justify-between text-sm">
+                <span>{{ t('restaurantDashboard.usage') }}</span>
+                <span class="font-mono tabular-nums">{{ usedRatio() }}%</span>
+            </div>
+            <div class="bg-hover mt-2 h-2 overflow-hidden rounded-full">
+                <div
+                    class="h-full rounded-full bg-primary transition-all"
+                    [style.width.%]="usedRatio()"
+                ></div>
+            </div>
+        </div>
+
+        <!-- Recent ledger movements -->
+        <div class="mt-10">
+            <div class="mb-3 flex items-center justify-between">
+                <h3 class="text-lg font-bold">
+                    {{ t('restaurantDashboard.recentActivity') }}
+                </h3>
+                <a
+                    class="text-sm font-semibold text-primary hover:underline"
+                    [routerLink]="[]"
+                    [queryParams]="{ section: 'credit' }"
+                >
+                    {{ t('restaurantDashboard.viewAll') }}
+                </a>
+            </div>
+
+            @if (recentTransactions().length > 0) {
+                <div class="divide-y rounded-2xl border">
+                    @for (item of recentTransactions(); track item.id) {
+                        <div class="flex items-center gap-4 px-5 py-4">
+                            <span
+                                class="bg-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [class.text-primary]="isPayment(item)"
+                                    [svgIcon]="
+                                        isPayment(item)
+                                            ? 'heroicons_outline:arrow-down-left'
+                                            : 'heroicons_outline:arrow-up-right'
+                                    "
+                                ></mat-icon>
+                            </span>
+
+                            <div class="min-w-0 flex-1">
+                                <p class="truncate font-medium">
+                                    {{
+                                        item.description ||
+                                            t('restaurantDashboard.movement')
+                                    }}
+                                </p>
+                                @if (item.reference) {
+                                    <p class="text-secondary truncate text-sm">
+                                        {{ item.reference }}
+                                    </p>
+                                }
+                            </div>
+
+                            <p
+                                class="shrink-0 font-mono font-semibold tabular-nums"
+                                [class.text-primary]="isPayment(item)"
+                            >
+                                {{ item.amount ?? 0 | number: '1.0-0' }} ₫
+                            </p>
+                        </div>
+                    }
+                </div>
+            } @else {
+                <div
+                    class="text-secondary rounded-2xl border px-5 py-10 text-center"
+                >
+                    {{ t('restaurantDashboard.noActivity') }}
+                </div>
+            }
+        </div>
+    }
+</ng-container>

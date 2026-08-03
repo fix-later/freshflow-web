@@ -12,6 +12,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1RestaurantsMeDeliveryAddressesPost**](RestaurantProfileApi.md#apiv1restaurantsmedeliveryaddressespost) | **POST** /api/v1/restaurants/me/delivery-addresses |  |
 | [**apiV1RestaurantsMeProfileGet**](RestaurantProfileApi.md#apiv1restaurantsmeprofileget) | **GET** /api/v1/restaurants/me/profile |  |
 | [**apiV1RestaurantsMeProfilePut**](RestaurantProfileApi.md#apiv1restaurantsmeprofileput) | **PUT** /api/v1/restaurants/me/profile |  |
+| [**apiV1RestaurantsMeTaxProfilePut**](RestaurantProfileApi.md#apiv1restaurantsmetaxprofileput) | **PUT** /api/v1/restaurants/me/tax-profile |  |
 
 
 
@@ -515,6 +516,75 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **updateRestaurantProfileRequest** | [UpdateRestaurantProfileRequest](UpdateRestaurantProfileRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1RestaurantsMeTaxProfilePut
+
+> apiV1RestaurantsMeTaxProfilePut(updateTaxProfileRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  RestaurantProfileApi,
+} from '';
+import type { ApiV1RestaurantsMeTaxProfilePutRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new RestaurantProfileApi(config);
+
+  const body = {
+    // UpdateTaxProfileRequest (optional)
+    updateTaxProfileRequest: ...,
+  } satisfies ApiV1RestaurantsMeTaxProfilePutRequest;
+
+  try {
+    const data = await api.apiV1RestaurantsMeTaxProfilePut(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **updateTaxProfileRequest** | [UpdateTaxProfileRequest](UpdateTaxProfileRequest.md) |  | [Optional] |
 
 ### Return type
 

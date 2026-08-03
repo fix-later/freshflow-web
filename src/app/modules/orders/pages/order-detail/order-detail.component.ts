@@ -6,8 +6,12 @@ import {
     signal,
     ViewEncapsulation,
 } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -16,6 +20,7 @@ import { OrdersService } from '../../orders.service';
 import {
     canCancelOrder,
     normalizeOrderStatus,
+    ORDER_ISSUE_TYPES,
     OrderRow,
     orderStatusPillClass,
 } from '../../orders.types';
@@ -28,8 +33,12 @@ import {
     standalone: true,
     imports: [
         MatButtonModule,
+        MatFormFieldModule,
         MatIconModule,
+        MatInputModule,
+        MatSelectModule,
         MatSnackBarModule,
+        ReactiveFormsModule,
         RouterLink,
         TranslocoModule,
     ],
@@ -41,10 +50,26 @@ export class OrderDetailComponent implements OnInit {
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
 
+    private readonly _fb = inject(FormBuilder);
+
     readonly order = signal<OrderRow | null>(null);
     readonly loading = signal(false);
     readonly notFound = signal(false);
     readonly acting = signal(false);
+
+    readonly issueTypes = ORDER_ISSUE_TYPES;
+    readonly issueOpen = signal(false);
+    readonly issueError = signal<string | null>(null);
+    readonly issueForm = this._fb.group({
+        issueType: this._fb.nonNullable.control<string>(ORDER_ISSUE_TYPES[0], {
+            validators: [Validators.required],
+        }),
+        orderItemId: this._fb.nonNullable.control(''),
+        affectedQuantity: this._fb.control<number | null>(null),
+        description: this._fb.nonNullable.control('', {
+            validators: [Validators.required, Validators.maxLength(1000)],
+        }),
+    });
 
     readonly statusPillClass = orderStatusPillClass;
     readonly statusKey = (status: string | null | undefined): string =>
@@ -62,6 +87,112 @@ export class OrderDetailComponent implements OnInit {
     canCancel(): boolean {
         const order = this.order();
         return !!order && canCancelOrder(order.status);
+    }
+
+    /**
+     * Receipt confirmation and issue reporting both open once the goods have
+     * arrived. A delivery that failed leaves the order in `delivering`
+     * (role-flows §7.4), so `delivered` is the only state that qualifies.
+     */
+    private _isDelivered(): boolean {
+        return normalizeOrderStatus(this.order()?.status) === 'delivered';
+    }
+
+    canConfirmReceipt(): boolean {
+        return this._isDelivered() && !this.receiptConfirmed();
+    }
+
+    canReportIssue(): boolean {
+        return this._isDelivered();
+    }
+
+    /** True once the restaurant has acknowledged receipt of this order. */
+    receiptConfirmed(): boolean {
+        const order = this.order();
+        return (
+            !!order?.['receiptConfirmedAt'] ||
+            order?.['receiptConfirmed'] === true
+        );
+    }
+
+    confirmReceipt(): void {
+        const order = this.order();
+        if (!order?.id || this.acting() || !this.canConfirmReceipt()) {
+            return;
+        }
+        this.acting.set(true);
+        this._ordersService
+            .confirmReceipt(order.id)
+            .then(() => {
+                this._notify('orders.detail.receiptSuccess');
+                this._fetch(order.id!, true);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.acting.set(false));
+    }
+
+    openIssue(): void {
+        this.issueOpen.set(true);
+        this.issueError.set(null);
+    }
+
+    closeIssue(): void {
+        this.issueOpen.set(false);
+        this.issueForm.reset({
+            issueType: ORDER_ISSUE_TYPES[0],
+            orderItemId: '',
+            affectedQuantity: null,
+            description: '',
+        });
+    }
+
+    submitIssue(): void {
+        const order = this.order();
+        if (!order?.id || this.acting()) {
+            return;
+        }
+        if (this.issueForm.invalid) {
+            this.issueForm.markAllAsTouched();
+            return;
+        }
+        const value = this.issueForm.getRawValue();
+        this.acting.set(true);
+        this.issueError.set(null);
+        this._ordersService
+            .reportIssue(order.id, {
+                issueType: value.issueType,
+                description: value.description.trim(),
+                orderItemId: value.orderItemId || null,
+                affectedQuantity: value.affectedQuantity,
+            })
+            .then(() => {
+                this._notify('orders.detail.issueSuccess');
+                this.closeIssue();
+                this._fetch(order.id!, true);
+            })
+            .catch(async (err) => {
+                this.issueError.set(
+                    (await apiErrorMessage(err)) ??
+                        this._transloco.translate('orders.detail.actionError')
+                );
+            })
+            .finally(() => this.acting.set(false));
+    }
+
+    /** Line options for the issue form — an issue may name one order line. */
+    issueLines(): { id: string; label: string }[] {
+        const items = this.order()?.items;
+        if (!Array.isArray(items)) {
+            return [];
+        }
+        return items
+            .map((item) => ({
+                id: String(item.orderItemId ?? ''),
+                label: String(
+                    item.productNameSnapshot ?? item.orderItemId ?? ''
+                ),
+            }))
+            .filter((line) => !!line.id);
     }
 
     cancel(): void {

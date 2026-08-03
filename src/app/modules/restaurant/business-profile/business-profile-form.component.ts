@@ -1,8 +1,8 @@
 import {
     ChangeDetectionStrategy,
     Component,
-    OnInit,
     inject,
+    OnInit,
     signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -13,9 +13,10 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { uploadSignedImage } from 'app/core/api/cloudinary-upload';
 import { apiErrorMessage } from 'app/core/api/envelope';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
-import { UpdateRestaurantProfileRequest } from 'contract';
+import { restaurantProfileApi, UpdateRestaurantProfileRequest } from 'contract';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 import { pickupWindowValidator } from './pickup-window.validator';
 
@@ -49,6 +50,7 @@ export class BusinessProfileFormComponent implements OnInit {
 
     readonly loading = signal(false);
     readonly saving = signal(false);
+    readonly uploading = signal(false);
     readonly loadError = signal(false);
 
     readonly form = this._fb.group(
@@ -88,10 +90,51 @@ export class BusinessProfileFormComponent implements OnInit {
         }
     }
 
-    async save(): Promise<void> {
-        if (this.form.invalid) {
-            this.form.markAllAsTouched();
+    /**
+     * Uploads the licence scan to Cloudinary and drops the hosted URL into the
+     * form. Unlike the avatar this is *not* persisted immediately — it is one
+     * field of a form the user is still editing, so it saves with the rest.
+     */
+    async onLicensePicked(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file || this.uploading()) {
             return;
+        }
+        this.uploading.set(true);
+        try {
+            const url = await uploadSignedImage(file, () =>
+                restaurantProfileApi.apiV1RestaurantsMeBusinessLicenseUploadSignaturePostRaw()
+            );
+            this.form.controls.businessLicenseUrl.setValue(url);
+            this.form.controls.businessLicenseUrl.markAsDirty();
+        } catch (err) {
+            const message =
+                (await apiErrorMessage(err)) ??
+                this._transloco.translate('admin.crud.image.uploadError');
+            this._snackBar.open(message, undefined, { duration: 6000 });
+        } finally {
+            this.uploading.set(false);
+        }
+    }
+
+    clearLicense(): void {
+        this.form.controls.businessLicenseUrl.setValue(null);
+        this.form.controls.businessLicenseUrl.markAsDirty();
+    }
+
+    /**
+     * Persist the profile. Resolves `true` when the write succeeded.
+     *
+     * The boolean exists for the onboarding wizard, which may only advance a
+     * step whose save actually landed (FR-024). Callers that just want the form
+     * saved — the profile area's own button — can keep ignoring it.
+     */
+    async save(): Promise<boolean> {
+        if (this.form.invalid || this.uploading()) {
+            this.form.markAllAsTouched();
+            return false;
         }
         const v = this.form.getRawValue();
         const payload: UpdateRestaurantProfileRequest = {
@@ -107,6 +150,7 @@ export class BusinessProfileFormComponent implements OnInit {
         try {
             await this._service.saveProfile(payload);
             this._toast('restaurantProfile.profile.saved');
+            return true;
         } catch (err) {
             // Show the backend's rejection reason (permission, validation…) when
             // it sent one, else a translated generic message.
@@ -116,6 +160,7 @@ export class BusinessProfileFormComponent implements OnInit {
                     'restaurantProfile.profile.saveError'
                 );
             this._snackBar.open(message, undefined, { duration: 6000 });
+            return false;
         } finally {
             this.saving.set(false);
         }

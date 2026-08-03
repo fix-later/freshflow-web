@@ -3,35 +3,98 @@
  * references in `specs/references`; every color comes from theme tokens
  * (`specs/design/TOKENS.md`), never from the reference.
  *
- * Anatomy: badge + favorite overlay · 4:3 thumb · name · description ·
- * rating · foot (meta + price) · action row.
+ * Standalone shell (no `fuse-card`): media block bleeding to the card edge ·
+ * badge + favorite overlay · body with name, description, meta, stock ·
+ * foot pairing price with a round cart button.
  *
- * Root selector is the bare class, not `fuse-card.ff-product-card`: with the
- * element in the selector, every `&__element` would compile to
- * `fuse-card.ff-product-card__element` and match nothing. The class sits on the
- * `fuse-card` host, so `.ff-product-card` still targets it.
+ * Styles are global (`ViewEncapsulation.None`), so the host element is styled
+ * by its tag and the tile itself by `.ff-product-card`.
  */
+ff-product-card {
+    display: flex;
+    min-width: 0;
+}
+
 .ff-product-card {
-    flex-direction: column;
+    position: relative;
+    display: flex;
     width: 100%;
     min-width: 0;
-    padding: 0;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    transition:
+        border-color 150ms ease,
+        box-shadow 200ms ease,
+        transform 200ms ease;
+    @apply bg-card;
 
-    /* Overlay controls sit against the thumb, not the text block. */
-    &__badge {
+    &:hover,
+    &:focus-within {
+        transform: translateY(-2px);
+        @apply border-primary shadow-lg;
+    }
+
+    /* ---- Media ------------------------------------------------------ */
+
+    &__media {
+        position: relative;
+        @apply bg-default;
+    }
+
+    &__media-link {
+        display: block;
+
+        &--static {
+            pointer-events: none;
+        }
+    }
+
+    &__thumb {
+        position: relative;
+        display: flex;
+        aspect-ratio: 1 / 1;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+    }
+
+    &__img {
+        height: 100%;
+        width: 100%;
+        object-fit: contain;
+        padding: 1rem;
+        transition: transform 300ms ease;
+    }
+
+    &__emoji {
+        font-size: 2.75rem;
+        line-height: 1;
+    }
+
+    &__badges {
         position: absolute;
-        left: 0.75rem;
-        top: 0.75rem;
+        left: 0.625rem;
+        top: 0.625rem;
         z-index: 2;
+        display: flex;
+        max-width: calc(100% - 3.75rem);
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    &__badge {
         border-radius: 9999px;
-        padding: 0.125rem 0.625rem;
+        padding: 0.1875rem 0.625rem;
         font-size: theme('fontSize.xs');
         font-weight: 600;
-        line-height: 1.5;
+        line-height: 1.25;
+        letter-spacing: 0.02em;
         @apply bg-primary text-on-primary;
 
         &--muted {
-            @apply text-secondary bg-hover;
+            @apply bg-gray-800 text-white;
         }
 
         /*
@@ -53,72 +116,77 @@
 
     &__fav {
         position: absolute;
-        right: 0.75rem;
-        top: 0.75rem;
+        right: 0.625rem;
+        top: 0.625rem;
         z-index: 2;
         display: flex;
-        height: 2rem;
-        width: 2rem;
+        height: 2.125rem;
+        width: 2.125rem;
         align-items: center;
         justify-content: center;
         border-radius: 9999px;
-        transition: background-color 150ms ease;
-        @apply bg-card shadow;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+        /* `text-secondary` keeps the idle heart above the 3:1 floor for
+           non-text contrast; `text-hint` measures 2.56:1 on the card. */
+        @apply text-secondary bg-card shadow;
 
         &:hover {
-            @apply bg-hover;
+            @apply text-default bg-hover;
+        }
+
+        &--on {
+            @apply text-red-500;
         }
     }
 
-    &__link {
+    /* ---- Body ------------------------------------------------------- */
+
+    &__body {
         display: flex;
         min-width: 0;
         flex: 1 1 auto;
         flex-direction: column;
-        color: inherit;
-        text-decoration: none;
-
-        /* Tiles that do not navigate must not look clickable. */
-        &--static {
-            cursor: default;
-            pointer-events: none;
-        }
-    }
-
-    &__thumb {
-        position: relative;
-        display: flex;
-        aspect-ratio: 4 / 3;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-        border-radius: 0.75rem;
-        @apply bg-hover;
-    }
-
-    &__img {
-        height: 100%;
-        width: 100%;
-        object-fit: contain;
-        padding: 0.75rem;
-        transition: transform 300ms ease;
-    }
-
-    &__emoji {
-        font-size: 2.75rem;
-        line-height: 1;
+        padding: 0.875rem 1rem 1rem;
     }
 
     &__name {
-        margin: 0.875rem 0 0;
+        margin: 0;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         overflow: hidden;
-        font-size: theme('fontSize.xl');
+        font-size: theme('fontSize.lg');
         font-weight: 700;
         line-height: 1.35;
         @apply text-default;
+    }
+
+    &__name-link {
+        color: inherit;
+        text-decoration: none;
+
+        /* Widen the hit target to the whole tile without nesting links. */
+        &::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+        }
+
+        &:hover {
+            @apply text-primary;
+        }
+
+        &--static {
+            cursor: default;
+            pointer-events: none;
+
+            &::after {
+                display: none;
+            }
+        }
     }
 
     &__desc {
@@ -127,7 +195,7 @@
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         overflow: hidden;
-        font-size: theme('fontSize.md');
+        font-size: theme('fontSize.sm');
         line-height: 1.5;
         @apply text-secondary;
     }
@@ -149,18 +217,14 @@
         }
     }
 
-    /* Metadata and price share the last line; price is the loud element. */
-    &__foot {
-        margin-top: 0.75rem;
-        display: flex;
-        min-width: 0;
-        align-items: baseline;
-        justify-content: space-between;
-        gap: 0.5rem;
+    /* Pushes meta + foot to the bottom so rows of tiles line up. */
+    &__spacer {
+        flex: 1 1 auto;
+        min-height: 0.75rem;
     }
 
     &__meta {
-        min-width: 0;
+        margin: 0;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
@@ -168,21 +232,41 @@
         @apply text-secondary;
     }
 
+    /* `text-secondary`, not `text-hint`: the hint token measures 2.56:1 on the
+       card surface, below the AA floor for text this size (TOKENS.md). */
+    &__stock {
+        margin: 0.25rem 0 0;
+        display: flex;
+        gap: 0.25rem;
+        font-size: theme('fontSize.sm');
+        font-variant-numeric: tabular-nums;
+        @apply text-secondary;
+    }
+
+    &__foot {
+        margin-top: 0.625rem;
+        display: flex;
+        min-width: 0;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+
     &__price {
         display: flex;
-        flex-shrink: 0;
-        align-items: baseline;
-        gap: 0.375rem;
+        min-width: 0;
+        flex-direction: column;
     }
 
     &__price-now {
         font-size: theme('fontSize.xl');
         font-weight: 700;
+        line-height: 1.2;
         font-variant-numeric: tabular-nums;
         @apply font-mono text-primary;
 
         /* Discounted price switches to the `sale` token, struck-through old
-           price stays muted beside it.
+           price stays muted above it.
 
            The 700 step, not 500: this is text on a white card, and `sale-500`
            (#F0508A) reads at only 3.39:1 there — below AA for 18px bold, which
@@ -195,89 +279,79 @@
 
     &__price-old {
         font-size: theme('fontSize.sm');
+        line-height: 1.2;
         text-decoration: line-through;
         font-variant-numeric: tabular-nums;
         @apply text-hint font-mono;
     }
 
+    /*
+     * Round cart button, always in the flow — the reference reveals it on
+     * hover, which leaves it unreachable by touch and by keyboard. `z-index`
+     * lifts it above the name link's full-tile overlay.
+     */
     &__atc {
+        position: relative;
+        z-index: 2;
         display: flex;
-        padding-top: 0.75rem;
-    }
-
-    &__atc-btn {
-        display: flex;
-        width: 100%;
+        height: 2.5rem;
+        width: 2.5rem;
+        flex: none;
         align-items: center;
         justify-content: center;
-        gap: 0.375rem;
         border-radius: 9999px;
-        padding: 0.5rem 0.875rem;
-        font-size: theme('fontSize.base');
-        font-weight: 600;
         transition:
             background-color 150ms ease,
-            color 150ms ease;
-        @apply bg-primary text-on-primary;
+            color 150ms ease,
+            transform 150ms ease;
+        @apply text-secondary bg-hover;
 
-        &:hover {
-            @apply bg-primary-600;
+        &:hover:not(:disabled) {
+            transform: scale(1.06);
+            @apply bg-primary text-on-primary;
+        }
+
+        &:disabled {
+            cursor: not-allowed;
+            opacity: 0.45;
         }
     }
 
-    /* Inactive listings stay readable but clearly not orderable. */
-    &.ff-product-card--inactive {
+    /* Listings that cannot be ordered stay readable but visibly dimmed. */
+    &--inactive,
+    &--out {
         .ff-product-card__thumb,
         .ff-product-card__name,
-        .ff-product-card__desc,
-        .ff-product-card__foot {
+        .ff-product-card__desc {
             opacity: 0.55;
         }
     }
 
     &:hover .ff-product-card__img {
-        transform: scale(1.04);
+        transform: scale(1.05);
     }
 }
 
-/*
- * From `md` up the action row is revealed by hover or keyboard focus. Below
- * that it stays in the flow — a touch device never produces hover, and the
- * primary action must not be unreachable there.
- */
-@media (min-width: theme('screens.md')) {
+/* Respect reduced-motion: no lift, no zoom. */
+@media (prefers-reduced-motion: reduce) {
     .ff-product-card {
-        .ff-product-card__atc {
-            max-height: 0;
-            overflow: hidden;
-            opacity: 0;
-            padding-top: 0;
-            transition:
-                max-height 250ms ease,
-                opacity 200ms ease,
-                padding-top 250ms ease;
-        }
+        transition: none;
 
         &:hover,
         &:focus-within {
-            .ff-product-card__atc {
-                max-height: 3.5rem;
-                opacity: 1;
-                padding-top: 0.75rem;
-            }
+            transform: none;
         }
-    }
-}
 
-/* Respect reduced-motion: reveal instantly, never animate the height. */
-@media (prefers-reduced-motion: reduce) {
-    .ff-product-card {
-        .ff-product-card__atc,
-        .ff-product-card__img {
+        .ff-product-card__img,
+        .ff-product-card__atc {
             transition: none;
         }
 
         &:hover .ff-product-card__img {
+            transform: none;
+        }
+
+        .ff-product-card__atc:hover:not(:disabled) {
             transform: none;
         }
     }

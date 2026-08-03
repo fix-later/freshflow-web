@@ -75,12 +75,78 @@
             }
         </div>
 
+        <div class="flex flex-col gap-2">
+            <div class="text-secondary text-sm font-medium">
+                {{ t('restaurantProfile.profile.businessLicense') }}
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                @if (form.controls.businessLicenseUrl.value; as licenseUrl) {
+                    <a
+                        [href]="licenseUrl"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        <img
+                            class="h-24 w-24 rounded-lg border object-cover"
+                            [src]="licenseUrl"
+                            [alt]="
+                                t('restaurantProfile.profile.businessLicense')
+                            "
+                        />
+                    </a>
+                }
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="uploading() || loading()"
+                    (click)="licenseInput.click()"
+                >
+                    @if (uploading()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-path'"
+                        ></mat-icon>
+                    } @else {
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:cloud-arrow-up'"
+                        ></mat-icon>
+                    }
+                    <span class="ml-2">{{
+                        form.controls.businessLicenseUrl.value
+                            ? t('restaurantProfile.profile.licenseChange')
+                            : t('restaurantProfile.profile.licenseUpload')
+                    }}</span>
+                </button>
+                @if (form.controls.businessLicenseUrl.value) {
+                    <button
+                        mat-button
+                        type="button"
+                        [disabled]="uploading()"
+                        (click)="clearLicense()"
+                    >
+                        {{ t('restaurantProfile.profile.licenseRemove') }}
+                    </button>
+                }
+            </div>
+            <div class="text-secondary text-xs">
+                {{ t('restaurantProfile.profile.licenseHint') }}
+            </div>
+            <input
+                #licenseInput
+                class="hidden"
+                type="file"
+                accept="image/*"
+                (change)="onLicensePicked($event)"
+            />
+        </div>
+
         <div class="flex justify-end">
             <button
                 mat-flat-button
                 color="primary"
                 type="submit"
-                [disabled]="saving() || loading()"
+                [disabled]="saving() || loading() || uploading()"
             >
                 @if (saving()) {
                     <mat-icon

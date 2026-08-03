@@ -1,11 +1,11 @@
-<div class="flex w-full flex-col" *transloco="let t">
+<div class="ff-catalog flex w-full flex-col" *transloco="let t">
     <!-- Approval gate notice for PENDING_APPROVAL restaurants (BR-AUTH-1) -->
     <approval-banner class="block pt-2"></approval-banner>
 
-    <!-- Breadcrumb + title -->
-    <div>
+    <!-- Page head: breadcrumb, title, market the listing is scoped to -->
+    <header class="pt-2">
         <nav
-            class="text-hint flex items-center gap-1 text-base"
+            class="text-secondary flex flex-wrap items-center gap-1 text-sm"
             aria-label="Breadcrumb"
         >
             <a
@@ -18,118 +18,256 @@
                 class="text-hint icon-size-4"
                 svgIcon="heroicons_mini:chevron-right"
             ></mat-icon>
-            <span>{{ t('catalog.breadcrumb.catalog') }}</span>
-            @if (selectedCategory()) {
-                <mat-icon
-                    class="text-hint icon-size-4"
-                    svgIcon="heroicons_mini:chevron-right"
-                ></mat-icon>
-                <span>{{ categoryName(selectedCategory()) }}</span>
+            @if (selectedTrail().length) {
+                <button
+                    type="button"
+                    class="font-medium text-primary hover:underline"
+                    (click)="filterByCategory('')"
+                >
+                    {{ t('catalog.breadcrumb.catalog') }}
+                </button>
+                @for (crumb of selectedTrail(); track crumb.id) {
+                    <mat-icon
+                        class="text-hint icon-size-4"
+                        svgIcon="heroicons_mini:chevron-right"
+                    ></mat-icon>
+                    <span>{{ categoryLabel(crumb) }}</span>
+                }
+            } @else {
+                <span>{{ t('catalog.breadcrumb.catalog') }}</span>
             }
         </nav>
-        <h1 class="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
-            {{
-                selectedCategory()
-                    ? categoryName(selectedCategory())
-                    : t('catalog.allProducts')
-            }}
-        </h1>
-    </div>
 
-    <div class="flex flex-col gap-8 pb-8 pt-6 lg:flex-row">
-        <!-- Filter sidebar -->
+        <div
+            class="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-2"
+        >
+            <h1 class="text-3xl font-bold tracking-tight md:text-4xl">
+                {{
+                    selectedCategory()
+                        ? categoryName(selectedCategory())
+                        : t('catalog.allProducts')
+                }}
+            </h1>
+            @if (market(); as m) {
+                <p class="text-secondary flex items-center gap-1.5 text-sm">
+                    <mat-icon
+                        class="text-hint icon-size-4"
+                        svgIcon="heroicons_outline:building-storefront"
+                    ></mat-icon>
+                    {{ t('catalog.scopedToMarket', { market: m.name }) }}
+                </p>
+            }
+        </div>
+    </header>
+
+    <div class="flex flex-col gap-8 pb-10 pt-6 lg:flex-row">
+        <!--
+          Filter rail. Below `lg` it collapses behind a toggle so the grid keeps
+          the fold; from `lg` up it is always open and sticks while the grid
+          scrolls past it.
+        -->
         <aside class="w-full shrink-0 lg:w-64">
-            <!-- Search -->
-            <mat-form-field
-                class="w-full"
-                appearance="outline"
-                subscriptSizing="dynamic"
+            <button
+                type="button"
+                class="ff-catalog__filters-toggle lg:hidden"
+                [attr.aria-expanded]="filtersOpen()"
+                (click)="toggleFilters()"
             >
                 <mat-icon
-                    matPrefix
-                    svgIcon="heroicons_outline:magnifying-glass"
+                    class="icon-size-5"
+                    svgIcon="heroicons_outline:adjustments-horizontal"
                 ></mat-icon>
-                <input
-                    matInput
-                    [formControl]="searchControl"
-                    [placeholder]="t('catalog.searchPlaceholder')"
-                />
-            </mat-form-field>
+                <span class="font-semibold">{{
+                    t('catalog.filters.title')
+                }}</span>
+                <mat-icon
+                    class="ml-auto transition-transform icon-size-5"
+                    [class.rotate-180]="filtersOpen()"
+                    svgIcon="heroicons_mini:chevron-down"
+                ></mat-icon>
+            </button>
 
-            <!-- Categories -->
-            <h3 class="mt-8 text-xl font-bold text-primary">
-                {{ t('catalog.filters.categories') }}
-            </h3>
-            <mat-radio-group
-                class="mt-3 flex flex-col gap-1"
-                [value]="selectedCategory()"
-                (change)="filterByCategory($event.value)"
+            <div
+                class="ff-catalog__filters mt-4 lg:sticky lg:top-6 lg:mt-0 lg:block"
+                [class.hidden]="!filtersOpen()"
             >
-                <mat-radio-button [value]="''">
-                    {{ t('catalog.filters.all') }}
-                </mat-radio-button>
-                @for (cat of categories(); track cat.id) {
-                    <mat-radio-button [value]="cat.id">
-                        {{ isVi() ? cat.name : cat.nameEn }}
-                    </mat-radio-button>
-                }
-            </mat-radio-group>
+                <!-- Search runs over the pages already loaded (see component) -->
+                <div class="ff-catalog__search">
+                    <mat-icon
+                        class="text-hint icon-size-5"
+                        svgIcon="heroicons_outline:magnifying-glass"
+                    ></mat-icon>
+                    <input
+                        type="search"
+                        [formControl]="searchControl"
+                        [placeholder]="t('catalog.searchPlaceholder')"
+                        [attr.aria-label]="t('catalog.searchPlaceholder')"
+                    />
+                    @if (searchTerm()) {
+                        <button
+                            type="button"
+                            class="text-hint hover:text-default"
+                            [attr.aria-label]="t('catalog.clearSearch')"
+                            (click)="clearSearch()"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                svgIcon="heroicons_mini:x-mark"
+                            ></mat-icon>
+                        </button>
+                    }
+                </div>
 
-            <!--
-              No market filter here any more: the whole page is scoped to the
-              market picked in the header, so there is nothing to filter across.
-            -->
+                <!-- Category tree: roots expand to reveal their children -->
+                <h2 class="mt-7 text-xl font-bold text-primary">
+                    {{ t('catalog.filters.categories') }}
+                </h2>
+                <ul class="ff-catalog__tree mt-3">
+                    <li>
+                        <button
+                            type="button"
+                            class="ff-catalog__cat"
+                            [class.ff-catalog__cat--active]="
+                                !selectedCategory()
+                            "
+                            (click)="filterByCategory('')"
+                        >
+                            {{ t('catalog.filters.all') }}
+                        </button>
+                    </li>
+
+                    @for (node of categoryTree(); track node.id) {
+                        <li>
+                            <div class="flex items-center">
+                                <button
+                                    type="button"
+                                    class="ff-catalog__cat flex-1"
+                                    [class.ff-catalog__cat--active]="
+                                        selectedCategory() === node.id
+                                    "
+                                    [class.ff-catalog__cat--branch]="
+                                        isBranchSelected(node)
+                                    "
+                                    (click)="filterByCategory(node.id)"
+                                >
+                                    {{ categoryLabel(node) }}
+                                </button>
+
+                                @if (node.children.length) {
+                                    <button
+                                        type="button"
+                                        class="ff-catalog__cat-toggle"
+                                        [attr.aria-expanded]="
+                                            isExpanded(node.id)
+                                        "
+                                        [attr.aria-label]="
+                                            t(
+                                                'catalog.filters.toggleCategory',
+                                                {
+                                                    category:
+                                                        categoryLabel(node),
+                                                }
+                                            )
+                                        "
+                                        (click)="toggleCategory(node.id)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="
+                                                isExpanded(node.id)
+                                                    ? 'heroicons_mini:minus'
+                                                    : 'heroicons_mini:plus'
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                }
+                            </div>
+
+                            @if (node.children.length && isExpanded(node.id)) {
+                                <ul class="ff-catalog__subtree">
+                                    @for (
+                                        child of node.children;
+                                        track child.id
+                                    ) {
+                                        <li>
+                                            <button
+                                                type="button"
+                                                class="ff-catalog__cat ff-catalog__cat--child"
+                                                [class.ff-catalog__cat--active]="
+                                                    selectedCategory() ===
+                                                    child.id
+                                                "
+                                                (click)="
+                                                    filterByCategory(child.id)
+                                                "
+                                            >
+                                                {{ categoryLabel(child) }}
+                                            </button>
+                                        </li>
+                                    }
+                                </ul>
+                            }
+                        </li>
+                    }
+                </ul>
+
+                <!--
+                  No market filter here any more: the whole page is scoped to the
+                  market picked in the header, so there is nothing to filter across.
+                  No price or attribute filters either — the listing endpoint
+                  exposes neither, and filtering only the loaded pages would read
+                  as filtering the whole market.
+                -->
+            </div>
         </aside>
 
         <!-- Results -->
         <section class="min-w-0 flex-1" #resultsSection>
             <!-- Toolbar -->
-            <div
-                class="bg-card flex flex-wrap items-center gap-4 rounded-xl border px-4 py-2"
-            >
-                <p class="text-secondary text-base">
+            <div class="ff-catalog__toolbar">
+                <p class="text-secondary text-sm">
                     {{ t('catalog.resultCount', { count: resultCount() }) }}
                 </p>
 
                 @if (hasActiveFilters()) {
-                    <button mat-button (click)="clearFilters()">
+                    <button
+                        type="button"
+                        class="ff-catalog__chip-clear"
+                        (click)="clearFilters()"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            svgIcon="heroicons_mini:x-mark"
+                        ></mat-icon>
                         {{ t('catalog.clearAll') }}
                     </button>
                 }
 
-                <div class="ml-auto flex items-center gap-3">
-                    <mat-form-field
-                        class="w-44"
-                        appearance="outline"
-                        subscriptSizing="dynamic"
+                <div class="ff-catalog__sort ml-auto">
+                    <label class="text-secondary text-sm" for="catalog-sort">
+                        {{ t('catalog.sort.label') }}
+                    </label>
+                    <select
+                        id="catalog-sort"
+                        [value]="sortOption()"
+                        (change)="setSort($any($event.target).value)"
                     >
-                        <mat-select
-                            [value]="sortOption()"
-                            [aria-label]="t('catalog.sort.label')"
-                            (selectionChange)="setSort($event.value)"
-                        >
-                            <mat-option [value]="''">{{
-                                t('catalog.sort.default')
-                            }}</mat-option>
-                            <mat-option [value]="'name-asc'">{{
-                                t('catalog.sort.nameAsc')
-                            }}</mat-option>
-                            <mat-option [value]="'name-desc'">{{
-                                t('catalog.sort.nameDesc')
-                            }}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-
-                    <!--
-                      Page size is fixed by the API's cursor paging (20 rows a
-                      request), so there is no "show N" control to offer.
-                    -->
+                        @for (option of sortOptions; track option.value) {
+                            <option [value]="option.value">
+                                {{ t(option.label) }}
+                            </option>
+                        }
+                    </select>
+                    <mat-icon
+                        class="text-hint icon-size-4"
+                        svgIcon="heroicons_mini:chevron-down"
+                    ></mat-icon>
                 </div>
             </div>
 
             @if (!hasMarket()) {
                 <!-- Nothing can be listed until a market is chosen -->
-                <div class="flex flex-col items-center justify-center py-16">
+                <div class="ff-catalog__empty">
                     <mat-icon
                         class="text-hint icon-size-16"
                         svgIcon="heroicons_outline:building-storefront"
@@ -137,15 +275,25 @@
                     <p class="text-secondary mt-4 text-lg font-medium">
                         {{ t('catalog.noMarket.title') }}
                     </p>
-                    <p class="text-hint mt-1 text-sm">
+                    <p class="text-secondary mt-1 text-sm">
                         {{ t('catalog.noMarket.description') }}
                     </p>
                 </div>
+            } @else if (showSkeletons()) {
+                <!-- First page in flight: hold the grid's shape, don't jump -->
+                <div class="ff-catalog__grid" aria-hidden="true">
+                    @for (skeleton of skeletons; track skeleton) {
+                        <div class="ff-catalog__skeleton">
+                            <div class="ff-catalog__skeleton-thumb"></div>
+                            <div class="ff-catalog__skeleton-line"></div>
+                            <div
+                                class="ff-catalog__skeleton-line ff-catalog__skeleton-line--short"
+                            ></div>
+                        </div>
+                    }
+                </div>
             } @else if (visibleProducts().length > 0) {
-                <!-- Product grid -->
-                <div
-                    class="mt-6 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-                >
+                <div class="ff-catalog__grid">
                     @for (product of visibleProducts(); track product.id) {
                         <ff-product-card
                             data-testid="catalog-product-card"
@@ -155,17 +303,9 @@
                         ></ff-product-card>
                     }
                 </div>
-            } @else if (loading()) {
-                <!-- First page in flight -->
-                <div class="flex items-center justify-center py-16">
-                    <mat-progress-spinner
-                        [diameter]="40"
-                        [mode]="'indeterminate'"
-                    ></mat-progress-spinner>
-                </div>
             } @else {
                 <!-- Empty state -->
-                <div class="flex flex-col items-center justify-center py-16">
+                <div class="ff-catalog__empty">
                     <mat-icon
                         class="text-hint icon-size-16"
                         svgIcon="heroicons_outline:magnifying-glass"
@@ -173,6 +313,15 @@
                     <p class="text-secondary mt-4 text-lg font-medium">
                         {{ t('catalog.noResults') }}
                     </p>
+                    @if (hasActiveFilters()) {
+                        <button
+                            mat-stroked-button
+                            class="mt-4"
+                            (click)="clearFilters()"
+                        >
+                            {{ t('catalog.clearAll') }}
+                        </button>
+                    }
                 </div>
             }
 
@@ -183,7 +332,7 @@
                 data-testid="catalog-grid-sentinel"
             ></div>
 
-            <div class="flex flex-col items-center gap-3 py-6">
+            <div class="flex flex-col items-center gap-3 py-8">
                 @if (loading() && resultCount() > 0) {
                     <!-- Next page in flight (the sentinel already fired) -->
                     <mat-progress-spinner

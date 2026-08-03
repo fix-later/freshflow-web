@@ -141,6 +141,64 @@
                     </div>
                 </div>
 
+                <!-- Price trend over the last 30 days -->
+                @if (priceStats(); as stats) {
+                    <div class="mt-2 rounded-xl border p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex flex-col">
+                                <span class="text-hint text-sm">{{
+                                    t('catalog.priceHistory.title')
+                                }}</span>
+                                <span class="mt-1 text-sm">
+                                    {{ t('catalog.priceHistory.range') }}:
+                                    <strong class="tabular-nums"
+                                        >{{ stats.low | number: '1.0-0' }}₫ –
+                                        {{
+                                            stats.high | number: '1.0-0'
+                                        }}₫</strong
+                                    >
+                                </span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <svg
+                                    class="h-8 w-28 overflow-visible"
+                                    viewBox="0 0 100 32"
+                                    preserveAspectRatio="none"
+                                    aria-hidden="true"
+                                >
+                                    <polyline
+                                        [attr.points]="sparkline()"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        [class.text-red-500]="
+                                            stats.changePct > 0
+                                        "
+                                        [class.text-green-600]="
+                                            stats.changePct <= 0
+                                        "
+                                    />
+                                </svg>
+                                <span
+                                    class="mt-1 text-sm font-medium tabular-nums"
+                                    [class.text-red-600]="stats.changePct > 0"
+                                    [class.text-green-700]="
+                                        stats.changePct <= 0
+                                    "
+                                >
+                                    {{ stats.changePct > 0 ? '+' : ''
+                                    }}{{ stats.changePct | number: '1.0-1' }}%
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-hint mt-2 text-xs">
+                            {{ t('catalog.priceHistory.hint') }}
+                        </p>
+                    </div>
+                }
+
                 <!-- Description (collapsible) -->
                 <div class="mt-2 border-t border-gray-200 pt-4">
                     <button

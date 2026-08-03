@@ -77,6 +77,8 @@ example().catch(console.error);
 | **401** | Unauthorized |  -  |
 | **404** | Not Found |  -  |
 | **429** | Too Many Requests |  -  |
+| **502** | Bad Gateway |  -  |
+| **504** | Gateway Timeout |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

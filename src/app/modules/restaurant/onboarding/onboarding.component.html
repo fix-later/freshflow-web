@@ -1,0 +1,170 @@
+<div
+    class="flex min-w-0 flex-auto justify-center p-4 sm:p-8"
+    *transloco="let t"
+>
+    <div class="flex w-full max-w-4xl flex-col">
+        <!-- Header: what this is for, and the way out (FR-003) -->
+        <div class="mb-6 flex items-start justify-between gap-4">
+            <div class="min-w-0">
+                <h1 class="truncate text-3xl font-extrabold tracking-tight">
+                    {{ t('restaurantOnboarding.title') }}
+                </h1>
+                <p class="text-secondary mt-1">
+                    {{ t('restaurantOnboarding.subtitle') }}
+                </p>
+            </div>
+            <button mat-stroked-button type="button" (click)="exit()">
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:x-mark'"
+                ></mat-icon>
+                <span class="ml-1 hidden sm:inline">{{
+                    t('restaurantOnboarding.actions.exit')
+                }}</span>
+            </button>
+        </div>
+
+        @if (loading()) {
+            <div class="flex items-center justify-center py-16">
+                <mat-progress-bar
+                    class="max-w-xs"
+                    [mode]="'indeterminate'"
+                ></mat-progress-bar>
+            </div>
+        } @else {
+            <!-- Position and required-item progress (FR-007) -->
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <span class="text-secondary text-sm font-medium">
+                    {{
+                        t('restaurantOnboarding.progress.step', {
+                            current: stepNumber(),
+                            total: stepCount,
+                        })
+                    }}
+                </span>
+                <span class="text-secondary text-sm">
+                    {{
+                        t('restaurantOnboarding.progress.required', {
+                            completed: progress().completed,
+                            total: progress().total,
+                        })
+                    }}
+                </span>
+            </div>
+
+            <div class="bg-card rounded-2xl shadow">
+                <mat-stepper
+                    [selectedIndex]="stepIndex()"
+                    (selectionChange)="onSelectionChange($event.selectedIndex)"
+                >
+                    <!--
+                      Step 1 — business profile INCLUDING the licence upload.
+                      These stay in one step on purpose: `businessLicenseUrl` is
+                      a field of this same form, so splitting them would issue a
+                      second PUT that overwrites this one (research R2).
+                    -->
+                    <mat-step
+                        [label]="t('restaurantOnboarding.steps.business')"
+                    >
+                        <ng-template matStepContent>
+                            <div class="p-4 sm:p-6">
+                                <business-profile-form></business-profile-form>
+                            </div>
+                        </ng-template>
+                    </mat-step>
+
+                    <!-- Step 2 — tax/billing, optional and unverifiable -->
+                    <mat-step
+                        [label]="t('restaurantOnboarding.steps.tax')"
+                        [optional]="true"
+                    >
+                        <ng-template matStepContent>
+                            <div class="p-4 sm:p-6">
+                                <p class="text-secondary mb-4 text-sm">
+                                    {{
+                                        t('restaurantOnboarding.steps.taxHint')
+                                    }}
+                                </p>
+                                <tax-profile-form></tax-profile-form>
+                            </div>
+                        </ng-template>
+                    </mat-step>
+
+                    <!-- Step 3 — at least one delivery address -->
+                    <mat-step [label]="t('restaurantOnboarding.steps.address')">
+                        <ng-template matStepContent>
+                            <div class="p-4 sm:p-6">
+                                <delivery-addresses></delivery-addresses>
+                            </div>
+                        </ng-template>
+                    </mat-step>
+
+                    <!-- Step 4 — review; saves nothing, submits nothing -->
+                    <mat-step [label]="t('restaurantOnboarding.steps.review')">
+                        <ng-template matStepContent>
+                            <div class="p-4 sm:p-6">
+                                <onboarding-review-step
+                                    (openItem)="openItem($event)"
+                                ></onboarding-review-step>
+                            </div>
+                        </ng-template>
+                    </mat-step>
+                </mat-stepper>
+
+                <!-- Navigation lives outside the stepper so it reads the same on every step -->
+                <div
+                    class="flex flex-wrap items-center justify-between gap-3 border-t p-4 sm:p-6"
+                >
+                    <button
+                        mat-button
+                        type="button"
+                        [disabled]="stepNumber() === 1 || advancing()"
+                        (click)="back()"
+                    >
+                        {{ t('restaurantOnboarding.actions.back') }}
+                    </button>
+
+                    <div class="flex items-center gap-2">
+                        @if (!isReviewStep()) {
+                            <button
+                                mat-button
+                                type="button"
+                                [disabled]="advancing()"
+                                (click)="skip()"
+                            >
+                                {{ t('restaurantOnboarding.actions.skip') }}
+                            </button>
+                        }
+
+                        <button
+                            mat-flat-button
+                            type="button"
+                            [color]="'primary'"
+                            [disabled]="advancing() || !canContinue()"
+                            (click)="continue()"
+                        >
+                            @if (advancing()) {
+                                <mat-icon
+                                    class="animate-spin icon-size-5"
+                                    [svgIcon]="'heroicons_outline:arrow-path'"
+                                ></mat-icon>
+                            } @else {
+                                <span>
+                                    {{
+                                        isReviewStep()
+                                            ? t(
+                                                  'restaurantOnboarding.actions.finish'
+                                              )
+                                            : t(
+                                                  'restaurantOnboarding.actions.continue'
+                                              )
+                                    }}
+                                </span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+</div>

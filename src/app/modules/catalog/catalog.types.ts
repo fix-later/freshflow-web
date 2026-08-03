@@ -8,6 +8,15 @@ export interface CatalogCategory {
     parentId: string | null;
 }
 
+/**
+ * One recorded price for a market listing
+ * (`GET /markets/{marketId}/products/{productId}/price-history`).
+ */
+export interface PricePoint {
+    recordedAt: string;
+    price: number;
+}
+
 /** One market's listing of a product — the unit the catalog grid renders. */
 export interface CatalogProduct {
     /** Unique per listing (`productId:marketId`) — a product sold by two markets is two rows. */

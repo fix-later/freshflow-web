@@ -40,6 +40,17 @@
                     />
                 </mat-form-field>
                 <button
+                    mat-stroked-button
+                    class="shrink-0"
+                    type="button"
+                    (click)="openReset(resetDialog)"
+                >
+                    <mat-icon svgIcon="heroicons_outline:arrow-path"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.orderGroups.reset.title')
+                    }}</span>
+                </button>
+                <button
                     mat-flat-button
                     color="primary"
                     class="shrink-0"
@@ -626,6 +637,104 @@
                             ? t('admin.orderGroups.autoBatch.submitDryRun')
                             : t('admin.orderGroups.autoBatch.submit')
                     }}
+                </button>
+            </div>
+        </form>
+    </div>
+</ng-template>
+
+<!-- Reset the day's batches -->
+<ng-template #resetDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.orderGroups.reset.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeReset()"
+            >
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        <form
+            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
+            [formGroup]="resetForm"
+            (ngSubmit)="runReset()"
+        >
+            <p class="mb-4 flex items-start gap-1 text-xs text-amber-600">
+                <mat-icon
+                    class="icon-size-4"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                {{ t('admin.orderGroups.reset.warning') }}
+            </p>
+
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.orderGroups.autoBatch.targetDate')
+                }}</mat-label>
+                <input
+                    matInput
+                    [matDatepicker]="resetDatePicker"
+                    formControlName="targetDate"
+                    [placeholder]="
+                        t('admin.orderGroups.autoBatch.datePlaceholder')
+                    "
+                />
+                <mat-datepicker-toggle
+                    matIconSuffix
+                    [for]="resetDatePicker"
+                ></mat-datepicker-toggle>
+                <mat-datepicker #resetDatePicker></mat-datepicker>
+                <mat-hint>{{
+                    t('admin.orderGroups.autoBatch.targetDateHint')
+                }}</mat-hint>
+                @if (resetForm.controls.targetDate.hasError('invalidDate')) {
+                    <mat-error>{{
+                        t('admin.orderGroups.autoBatch.invalidDate')
+                    }}</mat-error>
+                }
+                @if (resetForm.controls.targetDate.hasError('server')) {
+                    <mat-error>{{
+                        t('admin.orderGroups.autoBatch.invalidDate')
+                    }}</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
+                <mat-label>{{
+                    t('admin.orderGroups.reset.confirmation')
+                }}</mat-label>
+                <input
+                    matInput
+                    autocomplete="off"
+                    formControlName="confirmation"
+                />
+                <mat-hint>{{
+                    t('admin.orderGroups.reset.confirmationHint')
+                }}</mat-hint>
+            </mat-form-field>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button mat-stroked-button type="button" (click)="closeReset()">
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="warn"
+                    type="submit"
+                    [disabled]="resetting() || resetForm.invalid"
+                >
+                    {{ t('admin.orderGroups.reset.submit') }}
                 </button>
             </div>
         </form>

@@ -9,6 +9,7 @@ Name | Type
 `marketProductId` | string
 `productId` | string
 `quantityKg` | number
+`productName` | string
 
 ## Example
 
@@ -20,6 +21,7 @@ const example = {
   "marketProductId": null,
   "productId": null,
   "quantityKg": null,
+  "productName": null,
 } satisfies HubInboundItemCommand
 
 console.log(example)

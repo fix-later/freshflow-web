@@ -51,10 +51,11 @@ export class TaxProfileFormComponent {
         email: this._fb.control<string | null>(null, [Validators.email]),
     });
 
-    async save(): Promise<void> {
+    /** Persist the tax profile. Resolves `true` when the write succeeded. */
+    async save(): Promise<boolean> {
         if (this.form.invalid) {
             this.form.markAllAsTouched();
-            return;
+            return false;
         }
         const v = this.form.getRawValue();
         const payload: UpdateTaxProfileRequest = {
@@ -68,6 +69,7 @@ export class TaxProfileFormComponent {
         try {
             await this._service.saveTaxProfile(payload);
             this._toast('restaurantProfile.taxProfile.saved');
+            return true;
         } catch (err) {
             const message =
                 (await apiErrorMessage(err)) ??
@@ -75,6 +77,7 @@ export class TaxProfileFormComponent {
                     'restaurantProfile.taxProfile.saveError'
                 );
             this._snackBar.open(message, undefined, { duration: 6000 });
+            return false;
         } finally {
             this.saving.set(false);
         }

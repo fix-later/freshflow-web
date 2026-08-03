@@ -536,6 +536,37 @@
         }
       }
     },
+    "/api/v1/admin/order-groups/reset": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/order-groups/{batchId}/manifest": {
       "post": {
         "tags": [
@@ -1323,6 +1354,12 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "504": {
+            "description": "Gateway Timeout"
           }
         }
       }
@@ -1720,6 +1757,18 @@
         }
       }
     },
+    "/api/v1/categories/image/upload-signature": {
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/categories/{id}/deactivate": {
       "patch": {
         "tags": [
@@ -1747,141 +1796,6 @@
       "patch": {
         "tags": [
           "Categories"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/logistics/delivery-zones": {
-      "post": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "active_only",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/logistics/delivery-zones/{id}": {
-      "get": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "DeliveryZones"
         ],
         "parameters": [
           {
@@ -2834,7 +2748,7 @@
         }
       }
     },
-    "/api/v1/hubs/{hubId}/routes/{routeId}/sorting": {
+    "/api/v1/hubs/{hubId}/sorting": {
       "post": {
         "tags": [
           "HubInbound"
@@ -2842,15 +2756,6 @@
         "parameters": [
           {
             "name": "hubId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "routeId",
             "in": "path",
             "required": true,
             "schema": {
@@ -2885,7 +2790,7 @@
         }
       }
     },
-    "/api/v1/hubs/{hubId}/routes/{routeId}/sorting-progress": {
+    "/api/v1/hubs/{hubId}/sorting-progress": {
       "get": {
         "tags": [
           "HubInbound"
@@ -2901,12 +2806,11 @@
             }
           },
           {
-            "name": "routeId",
-            "in": "path",
-            "required": true,
+            "name": "serviceDate",
+            "in": "query",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "format": "date"
             }
           }
         ],
@@ -3339,6 +3243,18 @@
               "format": "uuid"
             }
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/markets/image/upload-signature": {
+      "post": {
+        "tags": [
+          "Markets"
         ],
         "responses": {
           "200": {
@@ -4759,6 +4675,18 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/ordering-window": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -7924,6 +7852,37 @@
         }
       }
     },
+    "/api/v1/logistics/routes/plan": {
+      "post": {
+        "tags": [
+          "Routes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/logistics/routes/{id}/select": {
       "post": {
         "tags": [
@@ -8108,6 +8067,14 @@
             "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "hub_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             }
           }
         ],
@@ -8636,6 +8603,7 @@
       },
       "AssignVehicleRequest": {
         "required": [
+          "driverUserId",
           "vehicleId"
         ],
         "type": "object",
@@ -8646,9 +8614,9 @@
             "format": "uuid"
           },
           "driverUserId": {
+            "minLength": 1,
             "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -8700,25 +8668,14 @@
       "CalculateRouteRequest": {
         "required": [
           "destinationRestaurantIds",
-          "sourceMarketIds"
+          "hubId"
         ],
         "type": "object",
         "properties": {
-          "sourceMarketIds": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "hubIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "nullable": true
+          "hubId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
           },
           "destinationRestaurantIds": {
             "minItems": 1,
@@ -8735,10 +8692,6 @@
           "serviceDate": {
             "type": "string",
             "format": "date"
-          },
-          "compareWithHub": {
-            "type": "boolean",
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8831,6 +8784,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8854,32 +8811,6 @@
           },
           "notes": {
             "maxLength": 1000,
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateDeliveryZoneRequest": {
-        "required": [
-          "code",
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "code": {
-            "maxLength": 50,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9_]+$",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "maxLength": 500,
             "type": "string",
             "nullable": true
           }
@@ -9037,6 +8968,14 @@
           "longitude": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -9353,10 +9292,16 @@
       },
       "MarkLineSortedRequest": {
         "required": [
-          "orderItemId"
+          "orderItemId",
+          "serviceDate"
         ],
         "type": "object",
         "properties": {
+          "serviceDate": {
+            "minLength": 1,
+            "type": "string",
+            "format": "date"
+          },
           "orderItemId": {
             "minLength": 1,
             "type": "string",
@@ -9380,6 +9325,30 @@
           "optimizationCriteria": {
             "minLength": 1,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanRoutesRequest": {
+        "required": [
+          "hubId",
+          "serviceDate"
+        ],
+        "type": "object",
+        "properties": {
+          "hubId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceDate": {
+            "minLength": 1,
+            "type": "string",
+            "format": "date"
+          },
+          "optimizationCriteria": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9805,6 +9774,20 @@
         },
         "additionalProperties": false
       },
+      "ResetOrderGroupsRequest": {
+        "type": "object",
+        "properties": {
+          "targetDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "confirmation": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ResetPasswordRequest": {
         "required": [
           "newPassword",
@@ -9952,6 +9935,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9967,25 +9954,6 @@
             "type": "string"
           },
           "failureReason": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "UpdateDeliveryZoneRequest": {
-        "required": [
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "maxLength": 500,
             "type": "string",
             "nullable": true
           }
@@ -10064,6 +10032,14 @@
           "longitude": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -10392,9 +10368,6 @@
     },
     {
       "name": "Categories"
-    },
-    {
-      "name": "DeliveryZones"
     },
     {
       "name": "Driver"

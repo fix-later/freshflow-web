@@ -13,11 +13,11 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DateTime } from 'luxon';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import { CrudRow } from '../shared/resource-crud.types';
+import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 import { ROUTE_STATUSES } from './logistics-admin.types';
 import { routeStatusPillClass } from './route-status';
@@ -58,6 +58,7 @@ import { routeStatusPillClass } from './route-status';
 })
 export class RoutesListComponent implements OnInit {
     private readonly _logistics = inject(LogisticsAdminService);
+    private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
 
@@ -65,17 +66,30 @@ export class RoutesListComponent implements OnInit {
     readonly statusOptions = ROUTE_STATUSES;
 
     readonly rows = signal<CrudRow[]>([]);
+    readonly hubs = signal<CrudOption[]>([]);
     readonly loading = signal(false);
     readonly loadingMore = signal(false);
     readonly nextCursor = signal<string | undefined>(undefined);
 
     readonly serviceDate = new FormControl<DateTime | null>(DateTime.now());
     readonly status = new FormControl('', { nonNullable: true });
+    readonly hubId = new FormControl('', { nonNullable: true });
 
     ngOnInit(): void {
+        // "Plan the day" lands here for the date it planned, not today.
+        const planned = this._route.snapshot.queryParamMap.get('serviceDate');
+        const parsed = planned ? DateTime.fromISO(planned) : null;
+        if (parsed?.isValid) {
+            this.serviceDate.setValue(parsed, { emitEvent: false });
+        }
+
+        void this._logistics
+            .hubOptions()
+            .then((options) => this.hubs.set(options));
         this._load();
         this.serviceDate.valueChanges.subscribe(() => this._load());
         this.status.valueChanges.subscribe(() => this._load());
+        this.hubId.valueChanges.subscribe(() => this._load());
     }
 
     openDetail(row: CrudRow): void {
@@ -98,6 +112,7 @@ export class RoutesListComponent implements OnInit {
             .listRoutes({
                 serviceDate: this._isoDate(),
                 status: this.status.value,
+                hubId: this.hubId.value,
                 cursor,
             })
             .then((res) => {
@@ -134,6 +149,7 @@ export class RoutesListComponent implements OnInit {
             .listRoutes({
                 serviceDate: this._isoDate(),
                 status: this.status.value,
+                hubId: this.hubId.value,
             })
             .then((res) => {
                 this.rows.set(res.rows);

@@ -132,10 +132,37 @@ export class MarketEditComponent implements OnInit {
         }),
         location: new FormControl('', { nonNullable: true }),
         agentUserId: new FormControl('', { nonNullable: true }),
+        description: new FormControl('', { nonNullable: true }),
+        imageUrl: new FormControl('', { nonNullable: true }),
         address: new FormControl('', { nonNullable: true }),
         latitude: new FormControl<number | null>(null),
         longitude: new FormControl<number | null>(null),
     });
+
+    readonly uploading = signal(false);
+
+    /** Uploads the picked file and stores the hosted URL in `imageUrl`. */
+    onImagePicked(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file || this.uploading()) {
+            return;
+        }
+        this.uploading.set(true);
+        void this._catalog
+            .uploadMarketImage(file)
+            .then((url) => this.form.controls.imageUrl.setValue(url))
+            .catch(
+                (err) =>
+                    void this._notifyError(err, 'admin.crud.image.uploadError')
+            )
+            .finally(() => this.uploading.set(false));
+    }
+
+    clearImage(): void {
+        this.form.controls.imageUrl.setValue('');
+    }
 
     ngOnInit(): void {
         this._applyInitialTab();
@@ -169,7 +196,7 @@ export class MarketEditComponent implements OnInit {
 
     save(): void {
         const row = this.market();
-        if (!row || this.form.invalid || this.saving()) {
+        if (!row || this.form.invalid || this.saving() || this.uploading()) {
             this.form.markAllAsTouched();
             return;
         }
@@ -180,6 +207,8 @@ export class MarketEditComponent implements OnInit {
             .updateMarket(row.id, {
                 name: value.name,
                 location: value.location || null,
+                description: value.description || null,
+                imageUrl: value.imageUrl || null,
                 address: value.address || null,
                 latitude: value.latitude,
                 longitude: value.longitude,
@@ -288,6 +317,8 @@ export class MarketEditComponent implements OnInit {
         this.form.patchValue({
             name: String(row['name'] ?? ''),
             location: String(row['location'] ?? ''),
+            description: String(row['description'] ?? ''),
+            imageUrl: String(row['imageUrl'] ?? ''),
             address: String(row['address'] ?? ''),
             latitude:
                 row['latitude'] == null || row['latitude'] === ''

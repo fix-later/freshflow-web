@@ -11,7 +11,6 @@ import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
 import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
-import { DeliveryZonesComponent } from './logistics/delivery-zones.component';
 import { HubsComponent } from './logistics/hubs.component';
 import { RouteCreateComponent } from './logistics/route-create.component';
 import { RouteDetailComponent } from './logistics/route-detail.component';
@@ -112,10 +111,6 @@ export default [
     {
         path: 'vehicles',
         component: VehiclesComponent,
-    },
-    {
-        path: 'delivery-zones',
-        component: DeliveryZonesComponent,
     },
     // Orders (M5)
     {

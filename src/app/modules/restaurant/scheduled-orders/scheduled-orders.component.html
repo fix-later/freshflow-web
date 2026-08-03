@@ -1,0 +1,190 @@
+<ng-container *transloco="let t">
+    <!-- Show/hide ended schedules -->
+    <div class="mb-5 flex items-center justify-between gap-4">
+        <p class="text-secondary text-sm">
+            {{ t('scheduledOrders.hint') }}
+        </p>
+        <mat-slide-toggle
+            [checked]="includeCancelled()"
+            (change)="toggleCancelled($event.checked)"
+        >
+            {{ t('scheduledOrders.showCancelled') }}
+        </mat-slide-toggle>
+    </div>
+
+    @if (loading()) {
+        <div class="flex items-center justify-center py-16">
+            <mat-progress-spinner
+                [diameter]="36"
+                [mode]="'indeterminate'"
+            ></mat-progress-spinner>
+        </div>
+    } @else if (schedules().length === 0) {
+        <div
+            class="flex flex-col items-center justify-center py-16 text-center"
+        >
+            <mat-icon
+                class="text-hint icon-size-16"
+                [svgIcon]="'heroicons_outline:arrow-path'"
+            ></mat-icon>
+            <p class="text-secondary mt-4 text-lg font-medium">
+                {{ t('scheduledOrders.empty.title') }}
+            </p>
+            <p class="text-hint mt-1 text-sm">
+                {{ t('scheduledOrders.empty.description') }}
+            </p>
+        </div>
+    } @else {
+        <div class="flex flex-col gap-4">
+            @for (schedule of schedules(); track schedule.id) {
+                <div class="rounded-2xl border">
+                    <div class="flex flex-wrap items-center gap-4 px-5 py-4">
+                        <span
+                            class="bg-hover flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                [class.text-primary]="!isCancelled(schedule)"
+                                [svgIcon]="'heroicons_outline:arrow-path'"
+                            ></mat-icon>
+                        </span>
+
+                        <div class="min-w-0 flex-1">
+                            <p class="font-semibold">
+                                {{
+                                    schedule.recurrenceType ||
+                                        t('scheduledOrders.schedule')
+                                }}
+                            </p>
+                            <p class="text-secondary text-sm">
+                                @if (schedule.nextRunAt) {
+                                    {{ t('scheduledOrders.nextRun') }}:
+                                    {{
+                                        schedule.nextRunAt
+                                            | date: 'dd/MM/yyyy HH:mm'
+                                    }}
+                                } @else if (schedule.firstRunAt) {
+                                    {{ t('scheduledOrders.firstRun') }}:
+                                    {{
+                                        schedule.firstRunAt
+                                            | date: 'dd/MM/yyyy HH:mm'
+                                    }}
+                                }
+                            </p>
+                        </div>
+
+                        @if (
+                            schedule.totalAmount !== null &&
+                            schedule.totalAmount !== undefined
+                        ) {
+                            <p
+                                class="shrink-0 font-mono font-semibold tabular-nums"
+                            >
+                                {{ schedule.totalAmount | number: '1.0-0' }} ₫
+                            </p>
+                        }
+
+                        @if (isCancelled(schedule)) {
+                            <span class="admin-pill admin-pill-neutral">
+                                {{ t('scheduledOrders.statusCancelled') }}
+                            </span>
+                        } @else {
+                            <span class="admin-pill admin-pill-success">
+                                {{ t('scheduledOrders.statusActive') }}
+                            </span>
+                        }
+
+                        <div class="flex shrink-0 items-center gap-1">
+                            <button
+                                mat-icon-button
+                                type="button"
+                                [matTooltip]="t('scheduledOrders.viewRuns')"
+                                (click)="toggleInstances(schedule)"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="
+                                        expandedId() === schedule.id
+                                            ? 'heroicons_outline:chevron-up'
+                                            : 'heroicons_outline:chevron-down'
+                                    "
+                                ></mat-icon>
+                            </button>
+
+                            @if (!isCancelled(schedule)) {
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="t('scheduledOrders.cancel')"
+                                    (click)="cancel(schedule)"
+                                >
+                                    <mat-icon
+                                        class="text-warn icon-size-5"
+                                        [svgIcon]="'heroicons_outline:x-circle'"
+                                    ></mat-icon>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Runs this schedule has produced -->
+                    @if (expandedId() === schedule.id) {
+                        <div class="border-t px-5 py-4">
+                            @if (instancesLoading()) {
+                                <div class="flex justify-center py-6">
+                                    <mat-progress-spinner
+                                        [diameter]="24"
+                                        [mode]="'indeterminate'"
+                                    ></mat-progress-spinner>
+                                </div>
+                            } @else if (instances().length === 0) {
+                                <p
+                                    class="text-secondary py-4 text-center text-sm"
+                                >
+                                    {{ t('scheduledOrders.noRuns') }}
+                                </p>
+                            } @else {
+                                <div class="divide-y">
+                                    @for (run of instances(); track run.id) {
+                                        <div
+                                            class="flex items-center gap-4 py-3"
+                                        >
+                                            <span
+                                                class="text-secondary w-40 shrink-0 text-sm"
+                                            >
+                                                {{
+                                                    run.runAt
+                                                        | date
+                                                            : 'dd/MM/yyyy HH:mm'
+                                                }}
+                                            </span>
+                                            <span
+                                                class="min-w-0 flex-1 text-sm"
+                                            >
+                                                {{ run.status }}
+                                            </span>
+                                            @if (
+                                                run.totalAmount !== null &&
+                                                run.totalAmount !== undefined
+                                            ) {
+                                                <span
+                                                    class="shrink-0 font-mono text-sm tabular-nums"
+                                                >
+                                                    {{
+                                                        run.totalAmount
+                                                            | number: '1.0-0'
+                                                    }}
+                                                    ₫
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</ng-container>

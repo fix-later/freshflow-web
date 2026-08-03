@@ -42,6 +42,9 @@ import { whenSplashHidden } from 'app/core/splash/wait-for-splash';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    host: {
+        class: 'inline-flex items-center',
+    },
     imports: [
         MatButtonModule,
         MatFormFieldModule,

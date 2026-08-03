@@ -234,6 +234,18 @@ export interface AdminAutoBatchPayload {
     force?: boolean | null;
 }
 
+/**
+ * `POST /admin/order-groups/reset` — undoes a day's batching so auto-batch can
+ * be re-run. `confirmation` is the backend's guard against an accidental
+ * reset; whatever the admin types is forwarded verbatim and the server decides
+ * whether it matches.
+ */
+export interface AdminResetOrderGroupsPayload {
+    /** ISO date (`yyyy-MM-dd`); omit to let the backend use its own default. */
+    targetDate?: string | null;
+    confirmation?: string | null;
+}
+
 /** One batch created (or, on a dry run, that would be created) by auto-batch. */
 export interface AdminAutoBatchBatch {
     orderGroupId?: string | null;

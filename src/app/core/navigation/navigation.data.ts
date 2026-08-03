@@ -207,12 +207,6 @@ const NAVIGATION: AreaNavItem[] = [
                 type: 'basic',
                 link: '/admin/vehicles',
             },
-            {
-                id: 'admin-zones',
-                title: 'Vùng giao hàng',
-                type: 'basic',
-                link: '/admin/delivery-zones',
-            },
         ],
     },
     {

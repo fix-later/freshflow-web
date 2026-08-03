@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { uploadSignedImage } from 'app/core/api/cloudinary-upload';
 import {
     extractList,
     extractPagination,
@@ -49,20 +50,6 @@ function optStr(value: unknown): string | null {
     return trimmed === '' ? null : trimmed;
 }
 
-/**
- * Signed Cloudinary upload params returned by the backend
- * `POST /api/v1/products/image/upload-signature` (admin only). The signature is
- * computed over `folder` + `timestamp`, so those exact params must be forwarded
- * to Cloudinary alongside the file.
- */
-interface ProductImageSignature {
-    signature: string;
-    timestamp: number;
-    apiKey: string;
-    cloudName: string;
-    folder: string;
-}
-
 /** Coerce a form value to an optional number (empty/NaN → null). */
 function optNum(value: unknown): number | null {
     if (value == null || value === '') {
@@ -111,6 +98,7 @@ export class CatalogAdminService {
             createCategoryRequest: {
                 name: str(value['name']),
                 parentId: optStr(value['parentId']),
+                imageUrl: optStr(value['imageUrl']),
             },
         });
     }
@@ -121,6 +109,7 @@ export class CatalogAdminService {
             updateCategoryRequest: {
                 name: str(value['name']),
                 parentId: optStr(value['parentId']),
+                imageUrl: optStr(value['imageUrl']),
             },
         });
     }
@@ -339,29 +328,23 @@ export class CatalogAdminService {
      * store in the product's `imageUrl`.
      */
     async uploadProductImage(file: File): Promise<string> {
-        const res =
-            await productsApi.apiV1ProductsImageUploadSignaturePostRaw();
-        const sig = unwrapData<ProductImageSignature>(await parseJson(res.raw));
-        if (!sig?.signature) {
-            throw new Error('Could not obtain an upload signature.');
-        }
-
-        const form = new FormData();
-        form.append('file', file);
-        form.append('api_key', sig.apiKey);
-        form.append('timestamp', String(sig.timestamp));
-        form.append('signature', sig.signature);
-        form.append('folder', sig.folder);
-
-        const upload = await fetch(
-            `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`,
-            { method: 'POST', body: form }
+        return uploadSignedImage(file, () =>
+            productsApi.apiV1ProductsImageUploadSignaturePostRaw()
         );
-        const body = (await upload.json()) as { secure_url?: string };
-        if (!upload.ok || !body.secure_url) {
-            throw new Error('Image upload failed.');
-        }
-        return body.secure_url;
+    }
+
+    /** Same flow as {@link uploadProductImage}, for a category's `imageUrl`. */
+    async uploadCategoryImage(file: File): Promise<string> {
+        return uploadSignedImage(file, () =>
+            categoriesApi.apiV1CategoriesImageUploadSignaturePostRaw()
+        );
+    }
+
+    /** Same flow as {@link uploadProductImage}, for a market's `imageUrl`. */
+    async uploadMarketImage(file: File): Promise<string> {
+        return uploadSignedImage(file, () =>
+            marketsApi.apiV1MarketsImageUploadSignaturePostRaw()
+        );
     }
 
     /**
@@ -410,6 +393,8 @@ export class CatalogAdminService {
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']),
                 longitude: optNum(value['longitude']),
+                imageUrl: optStr(value['imageUrl']),
+                description: optStr(value['description']),
             },
         });
         const data = unwrapData<Record<string, unknown>>(
@@ -431,6 +416,8 @@ export class CatalogAdminService {
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']),
                 longitude: optNum(value['longitude']),
+                imageUrl: optStr(value['imageUrl']),
+                description: optStr(value['description']),
             },
         });
     }

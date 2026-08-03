@@ -12,6 +12,7 @@ Name | Type
 `longitude` | number
 `capacityKg` | number
 `managedBy` | string
+`marketId` | string
 
 ## Example
 
@@ -26,6 +27,7 @@ const example = {
   "longitude": null,
   "capacityKg": null,
   "managedBy": null,
+  "marketId": null,
 } satisfies UpdateHubRequest
 
 console.log(example)

@@ -13,12 +13,49 @@
                     svgIcon="heroicons_outline:user-circle"
                 ></mat-icon>
             }
-            <div class="flex flex-col">
+            <div class="flex min-w-0 flex-col">
                 <span class="text-secondary text-sm">{{
                     t('accountInfo.email')
                 }}</span>
-                <span class="font-medium">{{ email() }}</span>
+                <span class="truncate font-medium">{{ email() }}</span>
+                <div class="mt-1 flex items-center gap-1">
+                    <button
+                        mat-button
+                        type="button"
+                        [disabled]="uploading()"
+                        (click)="avatarInput.click()"
+                    >
+                        @if (uploading()) {
+                            <mat-icon
+                                class="animate-spin icon-size-5"
+                                svgIcon="heroicons_outline:arrow-path"
+                            ></mat-icon>
+                        }
+                        <span>{{
+                            avatarUrl()
+                                ? t('accountInfo.avatarChange')
+                                : t('accountInfo.avatarUpload')
+                        }}</span>
+                    </button>
+                    @if (avatarUrl()) {
+                        <button
+                            mat-button
+                            type="button"
+                            [disabled]="uploading()"
+                            (click)="removeAvatar()"
+                        >
+                            {{ t('accountInfo.avatarRemove') }}
+                        </button>
+                    }
+                </div>
             </div>
+            <input
+                #avatarInput
+                class="hidden"
+                type="file"
+                accept="image/*"
+                (change)="onAvatarPicked($event)"
+            />
         </div>
 
         <mat-form-field subscriptSizing="dynamic">

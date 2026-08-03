@@ -1,20 +1,20 @@
-# DeliveryZonesApi
+# PackingCodesApi
 
 All URIs are relative to *http://localhost*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
-| [**apiV1LogisticsDeliveryZonesGet**](DeliveryZonesApi.md#apiv1logisticsdeliveryzonesget) | **GET** /api/v1/logistics/delivery-zones |  |
-| [**apiV1LogisticsDeliveryZonesIdDelete**](DeliveryZonesApi.md#apiv1logisticsdeliveryzonesiddelete) | **DELETE** /api/v1/logistics/delivery-zones/{id} |  |
-| [**apiV1LogisticsDeliveryZonesIdGet**](DeliveryZonesApi.md#apiv1logisticsdeliveryzonesidget) | **GET** /api/v1/logistics/delivery-zones/{id} |  |
-| [**apiV1LogisticsDeliveryZonesIdPut**](DeliveryZonesApi.md#apiv1logisticsdeliveryzonesidput) | **PUT** /api/v1/logistics/delivery-zones/{id} |  |
-| [**apiV1LogisticsDeliveryZonesPost**](DeliveryZonesApi.md#apiv1logisticsdeliveryzonespost) | **POST** /api/v1/logistics/delivery-zones |  |
+| [**apiV1CatalogPackingCodesGet**](PackingCodesApi.md#apiv1catalogpackingcodesget) | **GET** /api/v1/catalog/packing-codes |  |
+| [**apiV1CatalogPackingCodesIdDeactivatePatch**](PackingCodesApi.md#apiv1catalogpackingcodesiddeactivatepatch) | **PATCH** /api/v1/catalog/packing-codes/{id}/deactivate |  |
+| [**apiV1CatalogPackingCodesIdGet**](PackingCodesApi.md#apiv1catalogpackingcodesidget) | **GET** /api/v1/catalog/packing-codes/{id} |  |
+| [**apiV1CatalogPackingCodesIdPut**](PackingCodesApi.md#apiv1catalogpackingcodesidput) | **PUT** /api/v1/catalog/packing-codes/{id} |  |
+| [**apiV1CatalogPackingCodesPost**](PackingCodesApi.md#apiv1catalogpackingcodespost) | **POST** /api/v1/catalog/packing-codes |  |
 
 
 
-## apiV1LogisticsDeliveryZonesGet
+## apiV1CatalogPackingCodesGet
 
-> apiV1LogisticsDeliveryZonesGet(activeOnly)
+> apiV1CatalogPackingCodesGet(activeOnly, page, pageSize)
 
 
 
@@ -23,9 +23,9 @@ All URIs are relative to *http://localhost*
 ```ts
 import {
   Configuration,
-  DeliveryZonesApi,
+  PackingCodesApi,
 } from '';
-import type { ApiV1LogisticsDeliveryZonesGetRequest } from '';
+import type { ApiV1CatalogPackingCodesGetRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -33,15 +33,19 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new DeliveryZonesApi(config);
+  const api = new PackingCodesApi(config);
 
   const body = {
     // boolean (optional)
     activeOnly: true,
-  } satisfies ApiV1LogisticsDeliveryZonesGetRequest;
+    // number (optional)
+    page: 56,
+    // number (optional)
+    pageSize: 56,
+  } satisfies ApiV1CatalogPackingCodesGetRequest;
 
   try {
-    const data = await api.apiV1LogisticsDeliveryZonesGet(body);
+    const data = await api.apiV1CatalogPackingCodesGet(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -57,7 +61,9 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **activeOnly** | `boolean` |  | [Optional] [Defaults to `true`] |
+| **activeOnly** | `boolean` |  | [Optional] [Defaults to `false`] |
+| **page** | `number` |  | [Optional] [Defaults to `1`] |
+| **pageSize** | `number` |  | [Optional] [Defaults to `20`] |
 
 ### Return type
 
@@ -81,9 +87,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1LogisticsDeliveryZonesIdDelete
+## apiV1CatalogPackingCodesIdDeactivatePatch
 
-> apiV1LogisticsDeliveryZonesIdDelete(id)
+> apiV1CatalogPackingCodesIdDeactivatePatch(id)
 
 
 
@@ -92,9 +98,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  DeliveryZonesApi,
+  PackingCodesApi,
 } from '';
-import type { ApiV1LogisticsDeliveryZonesIdDeleteRequest } from '';
+import type { ApiV1CatalogPackingCodesIdDeactivatePatchRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -102,15 +108,15 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new DeliveryZonesApi(config);
+  const api = new PackingCodesApi(config);
 
   const body = {
     // string
     id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-  } satisfies ApiV1LogisticsDeliveryZonesIdDeleteRequest;
+  } satisfies ApiV1CatalogPackingCodesIdDeactivatePatchRequest;
 
   try {
-    const data = await api.apiV1LogisticsDeliveryZonesIdDelete(body);
+    const data = await api.apiV1CatalogPackingCodesIdDeactivatePatch(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -150,9 +156,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1LogisticsDeliveryZonesIdGet
+## apiV1CatalogPackingCodesIdGet
 
-> apiV1LogisticsDeliveryZonesIdGet(id)
+> apiV1CatalogPackingCodesIdGet(id)
 
 
 
@@ -161,9 +167,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  DeliveryZonesApi,
+  PackingCodesApi,
 } from '';
-import type { ApiV1LogisticsDeliveryZonesIdGetRequest } from '';
+import type { ApiV1CatalogPackingCodesIdGetRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -171,15 +177,15 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new DeliveryZonesApi(config);
+  const api = new PackingCodesApi(config);
 
   const body = {
     // string
     id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-  } satisfies ApiV1LogisticsDeliveryZonesIdGetRequest;
+  } satisfies ApiV1CatalogPackingCodesIdGetRequest;
 
   try {
-    const data = await api.apiV1LogisticsDeliveryZonesIdGet(body);
+    const data = await api.apiV1CatalogPackingCodesIdGet(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -219,9 +225,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1LogisticsDeliveryZonesIdPut
+## apiV1CatalogPackingCodesIdPut
 
-> apiV1LogisticsDeliveryZonesIdPut(id, updateDeliveryZoneRequest)
+> apiV1CatalogPackingCodesIdPut(id, updatePackingCodeRequest)
 
 
 
@@ -230,9 +236,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  DeliveryZonesApi,
+  PackingCodesApi,
 } from '';
-import type { ApiV1LogisticsDeliveryZonesIdPutRequest } from '';
+import type { ApiV1CatalogPackingCodesIdPutRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -240,17 +246,17 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new DeliveryZonesApi(config);
+  const api = new PackingCodesApi(config);
 
   const body = {
     // string
     id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-    // UpdateDeliveryZoneRequest (optional)
-    updateDeliveryZoneRequest: ...,
-  } satisfies ApiV1LogisticsDeliveryZonesIdPutRequest;
+    // UpdatePackingCodeRequest (optional)
+    updatePackingCodeRequest: ...,
+  } satisfies ApiV1CatalogPackingCodesIdPutRequest;
 
   try {
-    const data = await api.apiV1LogisticsDeliveryZonesIdPut(body);
+    const data = await api.apiV1CatalogPackingCodesIdPut(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -267,7 +273,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **id** | `string` |  | [Defaults to `undefined`] |
-| **updateDeliveryZoneRequest** | [UpdateDeliveryZoneRequest](UpdateDeliveryZoneRequest.md) |  | [Optional] |
+| **updatePackingCodeRequest** | [UpdatePackingCodeRequest](UpdatePackingCodeRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -291,9 +297,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1LogisticsDeliveryZonesPost
+## apiV1CatalogPackingCodesPost
 
-> apiV1LogisticsDeliveryZonesPost(createDeliveryZoneRequest)
+> apiV1CatalogPackingCodesPost(createPackingCodeRequest)
 
 
 
@@ -302,9 +308,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  DeliveryZonesApi,
+  PackingCodesApi,
 } from '';
-import type { ApiV1LogisticsDeliveryZonesPostRequest } from '';
+import type { ApiV1CatalogPackingCodesPostRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -312,15 +318,15 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new DeliveryZonesApi(config);
+  const api = new PackingCodesApi(config);
 
   const body = {
-    // CreateDeliveryZoneRequest (optional)
-    createDeliveryZoneRequest: ...,
-  } satisfies ApiV1LogisticsDeliveryZonesPostRequest;
+    // CreatePackingCodeRequest (optional)
+    createPackingCodeRequest: ...,
+  } satisfies ApiV1CatalogPackingCodesPostRequest;
 
   try {
-    const data = await api.apiV1LogisticsDeliveryZonesPost(body);
+    const data = await api.apiV1CatalogPackingCodesPost(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -336,7 +342,7 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **createDeliveryZoneRequest** | [CreateDeliveryZoneRequest](CreateDeliveryZoneRequest.md) |  | [Optional] |
+| **createPackingCodeRequest** | [CreatePackingCodeRequest](CreatePackingCodeRequest.md) |  | [Optional] |
 
 ### Return type
 

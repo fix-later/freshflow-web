@@ -28,8 +28,11 @@ import { Subject, takeUntil } from 'rxjs';
     selector: 'storefront-top-strip',
     templateUrl: './storefront-top-strip.component.html',
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.Eager,
+    changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    host: {
+        class: 'block w-full',
+    },
     imports: [
         MatButtonModule,
         MatIconModule,

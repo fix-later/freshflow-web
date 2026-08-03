@@ -15,6 +15,7 @@ import {
     FormGroup,
     ReactiveFormsModule,
     ValidationErrors,
+    Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -134,6 +135,7 @@ export class OrderGroupsComponent implements OnInit {
     readonly statusPillClass = statusPillClass;
 
     private _batchDialogRef: MatDialogRef<unknown> | null = null;
+    private _resetDialogRef: MatDialogRef<unknown> | null = null;
     private _agentDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
@@ -144,6 +146,7 @@ export class OrderGroupsComponent implements OnInit {
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
     readonly batching = signal(false);
+    readonly resetting = signal(false);
     readonly search = signal('');
     /** Inclusive client-side date range on `createdAt` / batch date. */
     readonly dateFrom = signal<DateTime | null>(null);
@@ -275,6 +278,20 @@ export class OrderGroupsComponent implements OnInit {
         }),
         dryRun: this._formBuilder.nonNullable.control(true),
         force: this._formBuilder.nonNullable.control(false),
+    });
+
+    /**
+     * Reset form. `confirmation` is whatever phrase the backend demands —
+     * it's forwarded verbatim, so a wrong one fails server-side rather than
+     * being second-guessed here.
+     */
+    readonly resetForm = this._formBuilder.group({
+        targetDate: this._formBuilder.control<DateTime | null>(null, {
+            validators: [validTargetDate],
+        }),
+        confirmation: this._formBuilder.nonNullable.control('', {
+            validators: [Validators.required],
+        }),
     });
 
     ngOnInit(): void {
@@ -419,6 +436,52 @@ export class OrderGroupsComponent implements OnInit {
         this.autoBatchResult.set(null);
     }
 
+    // ---- Reset the day's batches -----------------------------------------
+
+    openReset(template: TemplateRef<unknown>): void {
+        if (this._resetDialogRef) {
+            return;
+        }
+        this.resetForm.reset({ targetDate: null, confirmation: '' });
+        this.autoBatchError.set(null);
+        this._resetDialogRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._resetDialogRef.afterClosed().subscribe(() => {
+            this._resetDialogRef = null;
+        });
+    }
+
+    closeReset(): void {
+        this._resetDialogRef?.close();
+    }
+
+    runReset(): void {
+        if (this.resetForm.invalid || this.resetting()) {
+            this.resetForm.markAllAsTouched();
+            return;
+        }
+        const { targetDate, confirmation } = this.resetForm.getRawValue();
+        const dateIso =
+            targetDate && DateTime.isDateTime(targetDate) && targetDate.isValid
+                ? targetDate.toISODate()
+                : null;
+        this.resetting.set(true);
+        this._admin
+            .resetOrderGroups({ targetDate: dateIso, confirmation })
+            .then(() => {
+                this.closeReset();
+                this.autoBatchResult.set(null);
+                this._notifyKey('admin.orderGroups.reset.success');
+                this._load();
+            })
+            .catch(
+                (err) => void this._handleAutoBatchError(err, this.resetForm)
+            )
+            .finally(() => this.resetting.set(false));
+    }
+
     /** Localized label for a skipped-order reason code (raw code as fallback). */
     skippedReasonLabel(reason: string | null | undefined): string {
         if (!reason) {
@@ -431,8 +494,16 @@ export class OrderGroupsComponent implements OnInit {
             : reason;
     }
 
-    /** Turns an auto-batch failure into an explained, localized banner. */
-    private async _handleAutoBatchError(err: unknown): Promise<void> {
+    /**
+     * Turns an auto-batch / reset failure into an explained, localized banner,
+     * flagging the offending date field on `form` when the server rejects it.
+     */
+    private async _handleAutoBatchError(
+        err: unknown,
+        form: {
+            controls: { targetDate: AbstractControl };
+        } = this.batchForm
+    ): Promise<void> {
         const info = await readApiError(err);
         const message = await describeApiError(
             err,
@@ -444,7 +515,7 @@ export class OrderGroupsComponent implements OnInit {
             info?.code === 'BUSINESS_RULE_ERROR' ||
             info?.status === 409;
         if (info?.code === 'VALIDATION_ERROR' || info?.status === 400) {
-            this.batchForm.controls.targetDate.setErrors({ server: true });
+            form.controls.targetDate.setErrors({ server: true });
         }
         this.autoBatchError.set({
             message,

@@ -28,13 +28,24 @@ export const EMAIL_MAX_LENGTH = 255;
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
 
 /**
+ * Required and non-whitespace — FluentValidation `NotEmpty` rejects blank
+ * strings, while Angular's `Validators.required` still accepts `"   "`.
+ */
+export function nonBlankValidator(
+    control: AbstractControl
+): ValidationErrors | null {
+    const value = typeof control.value === 'string' ? control.value : '';
+    return value.trim().length === 0 ? { required: true } : null;
+}
+
+/**
  * Password strength — min 8 chars, ≥1 uppercase, ≥1 digit, ≥1 special char
  * (anything that is not a letter or digit). Mirrors the API regex
  * `^(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$`.
  *
  * Returns a granular `{ passwordStrength: { … } }` map rather than a bare flag
  * so the field can show which requirements are not yet met. Empty values are
- * left to a separate `Validators.required`.
+ * left to a separate `Validators.required` / {@link nonBlankValidator}.
  */
 export function passwordStrengthValidator(
     control: AbstractControl

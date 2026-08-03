@@ -8,7 +8,7 @@ import {
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { categoriesApi, marketsApi, productsApi } from 'contract';
 import { from, Observable, tap } from 'rxjs';
-import { CatalogCategory, CatalogProduct } from './catalog.types';
+import { CatalogCategory, CatalogProduct, PricePoint } from './catalog.types';
 
 /** Listings fetched per request — one screenful, then infinite scroll. */
 export const CATALOG_PAGE_SIZE = 20;
@@ -132,6 +132,45 @@ export class CatalogService {
         return from(this._resolveProduct(productId)).pipe(
             tap((product) => this._product.set(product))
         );
+    }
+
+    /**
+     * Recorded price points for one market's listing, oldest first, so the
+     * product page can show whether today's price is unusual. Reads tolerantly
+     * (the endpoint is untyped) and returns an empty series rather than
+     * throwing — a missing chart must never break the product page.
+     */
+    async getPriceHistory(
+        marketId: string,
+        productId: string,
+        days = 30
+    ): Promise<PricePoint[]> {
+        const from = new Date();
+        from.setDate(from.getDate() - days);
+        try {
+            const res =
+                await marketsApi.apiV1MarketsMarketIdProductsProductIdPriceHistoryGetRaw(
+                    {
+                        marketId,
+                        productId,
+                        from: from.toISOString(),
+                        pageSize: 100,
+                    }
+                );
+            const rows = extractList<RawRow>(await parseJson(res.raw));
+            return rows
+                .map((row) => ({
+                    recordedAt: str(row, ['recordedAt', 'date', 'createdAt']),
+                    price: num(row, ['price', 'unitPrice', 'value']),
+                }))
+                .filter(
+                    (point): point is PricePoint =>
+                        !!point.recordedAt && point.price !== null
+                )
+                .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+        } catch {
+            return [];
+        }
     }
 
     /**

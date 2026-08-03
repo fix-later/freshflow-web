@@ -57,23 +57,25 @@ export class AuthService {
         );
     }
 
-    /** Self-register a restaurant; the account starts PENDING_APPROVAL (BR-AUTH-1). */
+    /**
+     * Self-register a restaurant (`POST /api/v1/auth/register`, UC-AUTH-11).
+     * Account is usable immediately but `isApproved: false` until Admin approves
+     * (BR-AUTH-1). `phone` is optional per the contract.
+     */
     signUp(user: {
         email: string;
         password: string;
         restaurantName: string;
-        phone: string;
-    }): Observable<void> {
-        return from(
-            authApi.apiV1AuthRegisterPost({
-                registerRestaurantRequest: {
-                    email: user.email,
-                    password: user.password,
-                    restaurantName: user.restaurantName,
-                    phone: user.phone,
-                },
-            })
-        );
+        phone?: string;
+    }): Promise<void> {
+        return authApi.apiV1AuthRegisterPost({
+            registerRestaurantRequest: {
+                email: user.email,
+                password: user.password,
+                restaurantName: user.restaurantName,
+                phone: user.phone,
+            },
+        });
     }
 
     /** Request a password-reset link/code for an email or phone. */

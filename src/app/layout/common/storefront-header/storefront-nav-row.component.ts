@@ -11,7 +11,6 @@ import {
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatTabsModule } from '@angular/material/tabs';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FuseNavigationItem } from '@fuse/components/navigation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
@@ -48,7 +47,6 @@ import { Subject, takeUntil } from 'rxjs';
         NgTemplateOutlet,
         MatIconModule,
         MatMenuModule,
-        MatTabsModule,
         RouterLink,
         RouterLinkActive,
         TranslocoModule,

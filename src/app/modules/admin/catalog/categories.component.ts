@@ -135,6 +135,12 @@ export class CategoriesComponent {
                 searchable: true,
                 options: () => this._catalog.categoryOptions(true),
             },
+            {
+                name: 'imageUrl',
+                label: 'admin.categories.image',
+                type: 'image',
+                upload: (file) => this._catalog.uploadCategoryImage(file),
+            },
         ],
         headerActions: [
             {

@@ -38,11 +38,25 @@ export interface RouteSuggestions {
     restaurants: RouteSuggestionItem[];
 }
 
-/** Payload for `POST /logistics/routes/calculate`. */
+/**
+ * Payload for `POST /logistics/routes/calculate`. A route now always starts at
+ * one hub — the backend dropped market-origin (and multi-hub relay) routing.
+ */
 export interface CalculateRouteInput {
     serviceDate: string;
-    sourceMarketIds: string[];
+    hubId: string;
     destinationRestaurantIds: string[];
+    optimizationCriteria: OptimizationCriterion;
+}
+
+/**
+ * Payload for `POST /logistics/routes/plan` — asks the backend to build the
+ * day's routes for a hub itself (splitting stops across vehicles as needed),
+ * instead of Admin hand-picking restaurants per route.
+ */
+export interface PlanRoutesInput {
+    hubId: string;
+    serviceDate: string;
     optimizationCriteria: OptimizationCriterion;
 }
 

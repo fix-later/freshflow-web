@@ -1,26 +1,24 @@
 
-# CreateDeliveryZoneRequest
+# ResetOrderGroupsRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`code` | string
-`name` | string
-`description` | string
+`targetDate` | Date
+`confirmation` | string
 
 ## Example
 
 ```typescript
-import type { CreateDeliveryZoneRequest } from ''
+import type { ResetOrderGroupsRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "code": null,
-  "name": null,
-  "description": null,
-} satisfies CreateDeliveryZoneRequest
+  "targetDate": null,
+  "confirmation": null,
+} satisfies ResetOrderGroupsRequest
 
 console.log(example)
 
@@ -29,7 +27,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as CreateDeliveryZoneRequest
+const exampleParsed = JSON.parse(exampleJSON) as ResetOrderGroupsRequest
 console.log(exampleParsed)
 ```
 

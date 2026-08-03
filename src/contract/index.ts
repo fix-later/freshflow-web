@@ -16,7 +16,6 @@ import {
     AssistantApi,
     AuthApi,
     CategoriesApi,
-    DeliveryZonesApi,
     DriverApi,
     HubHandoverApi,
     HubInboundApi,
@@ -36,6 +35,7 @@ import {
     RestaurantFavoritesApi,
     RestaurantProfileApi,
     RoutesApi,
+    ShippingApi,
     UnitsApi,
     VehiclesApi,
 } from './generated';
@@ -52,7 +52,6 @@ export const analyticsApi = new AnalyticsApi(apiConfiguration);
 export const assistantApi = new AssistantApi(apiConfiguration);
 export const authApi = new AuthApi(apiConfiguration);
 export const categoriesApi = new CategoriesApi(apiConfiguration);
-export const deliveryZonesApi = new DeliveryZonesApi(apiConfiguration);
 export const driverApi = new DriverApi(apiConfiguration);
 export const hubHandoverApi = new HubHandoverApi(apiConfiguration);
 export const hubInboundApi = new HubInboundApi(apiConfiguration);
@@ -78,5 +77,6 @@ export const restaurantFavoritesApi = new RestaurantFavoritesApi(
 );
 export const restaurantProfileApi = new RestaurantProfileApi(apiConfiguration);
 export const routesApi = new RoutesApi(apiConfiguration);
+export const shippingApi = new ShippingApi(apiConfiguration);
 export const unitsApi = new UnitsApi(apiConfiguration);
 export const vehiclesApi = new VehiclesApi(apiConfiguration);

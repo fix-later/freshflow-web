@@ -39,16 +39,16 @@ describe('ShortcutsService', () => {
         service
             .create({
                 id: null as unknown as string,
-                label: 'Vùng giao hàng',
+                label: 'Phương tiện',
                 icon: 'heroicons_outline:map',
-                link: '/admin/delivery-zones',
+                link: '/admin/vehicles',
                 useRouter: true,
             })
             .subscribe();
 
         // A fresh instance reads storage the way a page reload would.
         const reloaded = current(make());
-        expect(reloaded.map((s) => s.label)).toContain('Vùng giao hàng');
+        expect(reloaded.map((s) => s.label)).toContain('Phương tiện');
     });
 
     it('assigns an id on create so later edits can target it', () => {

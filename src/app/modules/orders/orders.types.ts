@@ -41,6 +41,53 @@ export interface OrdersFilters {
     pageSize?: number;
 }
 
+/**
+ * `GET /orders/ordering-window` — the server's own answer to "can I still
+ * order for the next service day, and when is the earliest delivery?". The
+ * response is untyped in the spec, so the fields are all optional and the
+ * caller falls back to the local cutoff rule (BR-ORD-2) for anything missing.
+ */
+export interface OrderingWindow {
+    /** False once today's cutoff has passed. */
+    isOpen: boolean;
+    /** Daily cutoff as `HH:mm`, when the server reports one. */
+    cutoffTime: string | null;
+    /** Earliest deliverable service date as `yyyy-MM-dd`, when reported. */
+    earliestServiceDate: string | null;
+}
+
+/**
+ * `GET /orders/{orderId}/confirm-preview` — the server's verdict on the
+ * confirm gates (approval · cutoff · credit · order state, see role-flows
+ * §4.3) *before* the restaurant commits. Untyped in the spec, so every field
+ * is optional and read tolerantly; an unreadable body is treated as "no
+ * objection" and the confirm proceeds, letting the server reject it.
+ */
+export interface OrderConfirmPreview {
+    /** False only when the server explicitly says the order cannot confirm. */
+    canConfirm: boolean;
+    /** Machine codes or human reasons explaining a refusal. */
+    blockers: string[];
+    /** Priced total the restaurant is about to commit to. */
+    totalAmount: number | null;
+    /** Credit still available after this order, when reported. */
+    availableCredit: number | null;
+}
+
+/**
+ * Issue kinds accepted by `POST /orders/{orderId}/issues`. Sent as-is; the
+ * matching labels live under `orders.detail.issueType.*` in the i18n files.
+ */
+export const ORDER_ISSUE_TYPES = [
+    'missing',
+    'damaged',
+    'wrong_item',
+    'quality',
+    'other',
+] as const;
+
+export type OrderIssueType = (typeof ORDER_ISSUE_TYPES)[number];
+
 /** Order lifecycle statuses (mirrors the admin orders list's vocabulary). */
 export const ORDER_STATUSES = [
     'draft',

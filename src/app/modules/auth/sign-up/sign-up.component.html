@@ -37,34 +37,64 @@
                 </a>
             </div>
 
-            @if (showAlert) {
+            @if (alert(); as currentAlert) {
                 <fuse-alert
                     class="mt-6"
                     [appearance]="'outline'"
                     [showIcon]="false"
-                    [type]="alert.type"
+                    [type]="currentAlert.type"
                     [animate.enter]="
-                        alert.type === 'error' ? 'fuse-animate-shake' : ''
+                        currentAlert.type === 'error'
+                            ? 'fuse-animate-shake'
+                            : ''
                     "
                 >
-                    {{ alert.message }}
+                    {{ currentAlert.message }}
+                    @if (emailTaken()) {
+                        <a
+                            class="ml-1 font-semibold underline"
+                            [routerLink]="['/sign-in']"
+                            >{{ t('auth.signUp.emailTakenSignIn') }}</a
+                        >
+                    }
                 </fuse-alert>
             }
 
-            <form class="mt-6" [formGroup]="signUpForm" #signUpNgForm="ngForm">
+            <form
+                class="mt-6"
+                [formGroup]="signUpForm"
+                (ngSubmit)="signUp()"
+            >
                 <mat-form-field class="w-full" appearance="outline">
                     <mat-label>{{ t('auth.signUp.restaurantName') }}</mat-label>
                     <input
                         id="restaurantName"
                         matInput
-                        [formControlName]="'restaurantName'"
+                        formControlName="restaurantName"
                         autocomplete="organization"
+                        [attr.maxlength]="restaurantNameMaxLength"
                     />
                     @if (
-                        signUpForm.get('restaurantName').hasError('required')
+                        signUpForm.controls.restaurantName.hasError('required')
                     ) {
                         <mat-error>
                             {{ t('auth.signUp.restaurantNameRequired') }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.restaurantName.hasError('maxlength')
+                    ) {
+                        <mat-error>
+                            {{ t('auth.signUp.restaurantNameMax') }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.restaurantName.hasError('server')
+                    ) {
+                        <mat-error>
+                            {{
+                                signUpForm.controls.restaurantName.getError(
+                                    'server'
+                                )
+                            }}
                         </mat-error>
                     }
                 </mat-form-field>
@@ -74,17 +104,30 @@
                     <input
                         id="email"
                         matInput
-                        [formControlName]="'email'"
+                        type="email"
+                        formControlName="email"
                         autocomplete="email"
+                        [attr.maxlength]="emailMaxLength"
                     />
-                    @if (signUpForm.get('email').hasError('required')) {
+                    @if (signUpForm.controls.email.hasError('required')) {
                         <mat-error>
                             {{ t('auth.signUp.emailRequired') }}
                         </mat-error>
-                    }
-                    @if (signUpForm.get('email').hasError('email')) {
+                    } @else if (signUpForm.controls.email.hasError('email')) {
                         <mat-error>
                             {{ t('auth.signUp.emailInvalid') }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.email.hasError('maxlength')
+                    ) {
+                        <mat-error>
+                            {{ t('auth.signUp.emailMax') }}
+                        </mat-error>
+                    } @else if (signUpForm.controls.email.hasError('server')) {
+                        <mat-error>
+                            {{
+                                signUpForm.controls.email.getError('server')
+                            }}
                         </mat-error>
                     }
                 </mat-form-field>
@@ -94,14 +137,30 @@
                     <input
                         id="phone"
                         matInput
-                        [formControlName]="'phone'"
+                        type="tel"
+                        formControlName="phone"
                         autocomplete="tel"
+                        [attr.maxlength]="phoneMaxLength"
+                        [placeholder]="t('auth.signUp.phoneHint')"
                     />
-                    @if (signUpForm.get('phone').hasError('required')) {
+                    @if (signUpForm.controls.phone.hasError('phoneNumber')) {
                         <mat-error>
-                            {{ t('auth.signUp.phoneRequired') }}
+                            {{ t('auth.signUp.phoneInvalid') }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.phone.hasError('maxlength')
+                    ) {
+                        <mat-error>
+                            {{ t('auth.signUp.phoneMax') }}
+                        </mat-error>
+                    } @else if (signUpForm.controls.phone.hasError('server')) {
+                        <mat-error>
+                            {{
+                                signUpForm.controls.phone.getError('server')
+                            }}
                         </mat-error>
                     }
+                    <mat-hint>{{ t('auth.signUp.phoneOptional') }}</mat-hint>
                 </mat-form-field>
 
                 <mat-form-field class="w-full" appearance="outline">
@@ -110,7 +169,7 @@
                         id="password"
                         matInput
                         type="password"
-                        [formControlName]="'password'"
+                        formControlName="password"
                         #passwordField
                         autocomplete="new-password"
                     />
@@ -137,16 +196,63 @@
                             ></mat-icon>
                         }
                     </button>
-                    <mat-error>
-                        {{ t('auth.signUp.passwordRequired') }}
-                    </mat-error>
+                    @if (signUpForm.controls.password.hasError('required')) {
+                        <mat-error>
+                            {{ t('auth.signUp.passwordRequired') }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.password.hasError('server')
+                    ) {
+                        <mat-error>
+                            {{
+                                signUpForm.controls.password.getError('server')
+                            }}
+                        </mat-error>
+                    } @else if (
+                        signUpForm.controls.password.hasError(
+                            'passwordStrength'
+                        )
+                    ) {
+                        <mat-error>
+                            {{ t('auth.signUp.passwordWeak') }}
+                        </mat-error>
+                    }
                 </mat-form-field>
 
-                <div class="mt-1 inline-flex w-full items-start">
+                @if (
+                    signUpForm.controls.password.value ||
+                    signUpForm.controls.password.touched
+                ) {
+                    <ul
+                        class="text-secondary -mt-2 mb-3 flex flex-col gap-1 text-xs"
+                    >
+                        @for (rule of passwordRules; track rule) {
+                            <li class="flex items-center gap-1.5">
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-green-600]="
+                                        !passwordRuleFailing(rule)
+                                    "
+                                    [class.text-secondary]="
+                                        passwordRuleFailing(rule)
+                                    "
+                                    [svgIcon]="
+                                        passwordRuleFailing(rule)
+                                            ? 'heroicons_outline:minus-circle'
+                                            : 'heroicons_outline:check-circle'
+                                    "
+                                ></mat-icon>
+                                {{ t('auth.signUp.password.' + rule) }}
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <div class="mt-1 inline-flex w-full flex-col items-start">
                     <mat-checkbox
                         class="-ml-2"
                         [color]="'primary'"
-                        [formControlName]="'agreements'"
+                        formControlName="agreements"
                     >
                         <span>{{ t('auth.signUp.agreeWith') }}</span>
                         <a
@@ -161,22 +267,29 @@
                             >{{ t('auth.signUp.privacyPolicy') }}
                         </a>
                     </mat-checkbox>
+                    @if (
+                        signUpForm.controls.agreements.touched &&
+                        signUpForm.controls.agreements.invalid
+                    ) {
+                        <p class="text-warn mt-1 text-xs">
+                            {{ t('auth.signUp.agreementsRequired') }}
+                        </p>
+                    }
                 </div>
 
                 <button
                     class="mt-6 h-12 w-full rounded-full text-base font-semibold"
                     mat-flat-button
-                    [color]="'primary'"
-                    [disabled]="signUpForm.disabled"
-                    (click)="signUp()"
+                    color="primary"
+                    type="submit"
+                    [disabled]="submitting()"
                 >
-                    @if (!signUpForm.disabled) {
+                    @if (!submitting()) {
                         <span>{{ t('auth.signUp.submit') }}</span>
-                    }
-                    @if (signUpForm.disabled) {
+                    } @else {
                         <mat-progress-spinner
                             [diameter]="24"
-                            [mode]="'indeterminate'"
+                            mode="indeterminate"
                         ></mat-progress-spinner>
                     }
                 </button>

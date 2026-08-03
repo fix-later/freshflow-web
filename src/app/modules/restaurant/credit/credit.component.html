@@ -52,36 +52,106 @@
                     class="flex flex-col divide-y overflow-hidden rounded-xl border"
                 >
                     @for (statement of statements(); track statement.id) {
-                        <div
-                            class="flex items-center justify-between gap-4 p-4"
-                        >
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-medium">
-                                    {{ statement.month }}/{{ statement.year }}
-                                </span>
-                                <span class="text-secondary text-sm">
-                                    {{
-                                        t(
-                                            'restaurantCredit.statements.closingBalance'
-                                        )
-                                    }}:
-                                    {{ formatAmount(statement.closingBalance) }}
-                                </span>
-                            </div>
-                            <button
-                                mat-stroked-button
-                                type="button"
-                                [disabled]="downloadingId() === statement.id"
-                                (click)="downloadStatement(statement)"
+                        <div class="flex flex-col">
+                            <div
+                                class="flex items-center justify-between gap-4 p-4"
                             >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    svgIcon="heroicons_outline:arrow-down-tray"
-                                ></mat-icon>
-                                <span>{{
-                                    t('restaurantCredit.statements.download')
-                                }}</span>
-                            </button>
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="font-medium">
+                                        {{ statement.month }}/{{
+                                            statement.year
+                                        }}
+                                    </span>
+                                    <span class="text-secondary text-sm">
+                                        {{
+                                            t(
+                                                'restaurantCredit.statements.closingBalance'
+                                            )
+                                        }}:
+                                        {{
+                                            formatAmount(
+                                                statement.closingBalance
+                                            )
+                                        }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        mat-button
+                                        type="button"
+                                        (click)="toggleStatement(statement)"
+                                    >
+                                        {{
+                                            expandedStatementId() ===
+                                            statement.id
+                                                ? t(
+                                                      'restaurantCredit.statements.hideDetail'
+                                                  )
+                                                : t(
+                                                      'restaurantCredit.statements.viewDetail'
+                                                  )
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="
+                                            downloadingId() === statement.id
+                                        "
+                                        (click)="downloadStatement(statement)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:arrow-down-tray"
+                                        ></mat-icon>
+                                        <span>{{
+                                            t(
+                                                'restaurantCredit.statements.download'
+                                            )
+                                        }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (expandedStatementId() === statement.id) {
+                                <div class="bg-hover px-4 pb-4">
+                                    @if (loadingStatement()) {
+                                        <p class="text-secondary text-sm">
+                                            {{ t('restaurantCredit.loading') }}
+                                        </p>
+                                    } @else if (statementEntries().length) {
+                                        <div
+                                            class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
+                                        >
+                                            @for (
+                                                entry of statementEntries();
+                                                track entry.label
+                                            ) {
+                                                <div
+                                                    class="flex justify-between gap-4 border-b py-1.5 text-sm"
+                                                >
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{ entry.label }}</span
+                                                    >
+                                                    <span
+                                                        class="text-right font-medium"
+                                                        >{{ entry.value }}</span
+                                                    >
+                                                </div>
+                                            }
+                                        </div>
+                                    } @else {
+                                        <p class="text-secondary text-sm">
+                                            {{
+                                                t(
+                                                    'restaurantCredit.statements.detailUnavailable'
+                                                )
+                                            }}
+                                        </p>
+                                    }
+                                </div>
+                            }
                         </div>
                     }
                 </div>

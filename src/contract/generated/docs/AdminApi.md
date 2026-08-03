@@ -13,6 +13,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1AdminOrderGroupsBatchIdManifestPost**](AdminApi.md#apiv1adminordergroupsbatchidmanifestpost) | **POST** /api/v1/admin/order-groups/{batchId}/manifest |  |
 | [**apiV1AdminOrderGroupsGet**](AdminApi.md#apiv1adminordergroupsget) | **GET** /api/v1/admin/order-groups |  |
 | [**apiV1AdminOrderGroupsProgressGet**](AdminApi.md#apiv1adminordergroupsprogressget) | **GET** /api/v1/admin/order-groups/progress |  |
+| [**apiV1AdminOrderGroupsResetPost**](AdminApi.md#apiv1adminordergroupsresetpost) | **POST** /api/v1/admin/order-groups/reset |  |
 | [**apiV1AdminPricingSettingsGet**](AdminApi.md#apiv1adminpricingsettingsget) | **GET** /api/v1/admin/pricing-settings |  |
 | [**apiV1AdminPricingSettingsPut**](AdminApi.md#apiv1adminpricingsettingsput) | **PUT** /api/v1/admin/pricing-settings |  |
 | [**apiV1AdminRestaurantsRestaurantIdApprovePatch**](AdminApi.md#apiv1adminrestaurantsrestaurantidapprovepatch) | **PATCH** /api/v1/admin/restaurants/{restaurantId}/approve |  |
@@ -532,7 +533,7 @@ example().catch(console.error);
 
 ## apiV1AdminOrderGroupsGet
 
-> apiV1AdminOrderGroupsGet(page, pageSize)
+> apiV1AdminOrderGroupsGet(page, pageSize, date, marketId)
 
 
 
@@ -558,6 +559,10 @@ async function example() {
     page: 56,
     // number (optional)
     pageSize: 56,
+    // Date (optional)
+    date: 2013-10-20,
+    // string (optional)
+    marketId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
   } satisfies ApiV1AdminOrderGroupsGetRequest;
 
   try {
@@ -579,6 +584,8 @@ example().catch(console.error);
 |------------- | ------------- | ------------- | -------------|
 | **page** | `number` |  | [Optional] [Defaults to `1`] |
 | **pageSize** | `number` |  | [Optional] [Defaults to `20`] |
+| **date** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **marketId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -663,6 +670,75 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminOrderGroupsResetPost
+
+> apiV1AdminOrderGroupsResetPost(resetOrderGroupsRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminOrderGroupsResetPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // ResetOrderGroupsRequest (optional)
+    resetOrderGroupsRequest: ...,
+  } satisfies ApiV1AdminOrderGroupsResetPostRequest;
+
+  try {
+    const data = await api.apiV1AdminOrderGroupsResetPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **resetOrderGroupsRequest** | [ResetOrderGroupsRequest](ResetOrderGroupsRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
 - **Accept**: Not defined
 
 

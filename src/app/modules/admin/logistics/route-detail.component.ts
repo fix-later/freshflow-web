@@ -18,6 +18,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { DateTime } from 'luxon';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
@@ -212,7 +213,7 @@ export class RouteDetailComponent implements OnInit {
         const passed = (history.state?.route ?? null) as CrudRow | null;
         if (passed && passed.id === id) {
             this._apply(passed);
-            this._loadSortingProgress(passed, id);
+            this._loadSortingProgress(passed);
             this._loadManifest(passed);
         } else if (id) {
             this._fetch(id);
@@ -251,18 +252,15 @@ export class RouteDetailComponent implements OnInit {
         );
     }
 
+    /** The backend requires both a vehicle and a driver to assign a route. */
     assign(): void {
         const vehicleId = this.vehicleId.value;
-        if (!vehicleId) {
+        const driverUserId = this.driverUserId.value;
+        if (!vehicleId || !driverUserId) {
             return;
         }
         this._run(
-            (id) =>
-                this._logistics.assignVehicle(
-                    id,
-                    vehicleId,
-                    this.driverUserId.value || undefined
-                ),
+            (id) => this._logistics.assignVehicle(id, vehicleId, driverUserId),
             'admin.routes.actions.assignSuccess'
         );
     }
@@ -392,7 +390,7 @@ export class RouteDetailComponent implements OnInit {
             .then((row) => {
                 if (row) {
                     this._apply(row);
-                    this._loadSortingProgress(row, id);
+                    this._loadSortingProgress(row);
                     this._loadManifest(row);
                 } else {
                     this.notFound.set(true);
@@ -458,18 +456,32 @@ export class RouteDetailComponent implements OnInit {
             .finally(() => this.loadingManifest.set(false));
     }
 
-    /** Only fetched when the route's own record names its hub (`hubId`). */
-    private _loadSortingProgress(row: CrudRow | null, routeId: string): void {
+    /**
+     * Only fetched when the route's own record names its hub (`hubId`).
+     * Sorting is tracked per hub-day, so this is the whole hub's progress for
+     * the route's service date, not just this route's share of it.
+     */
+    private _loadSortingProgress(row: CrudRow | null): void {
         const hubId = row?.['hubId'];
         if (typeof hubId !== 'string' || !hubId) {
             return;
         }
+        const serviceDate = this._isoDateOf(row?.['serviceDate']);
         this.loadingSortingProgress.set(true);
         void this._logistics
-            .getSortingProgress(hubId, routeId)
+            .getSortingProgress(hubId, serviceDate)
             .then((progress) => this.sortingProgress.set(progress))
             .catch(() => this.sortingProgress.set(null))
             .finally(() => this.loadingSortingProgress.set(false));
+    }
+
+    /** `serviceDate` as `yyyy-MM-dd`, however the backend spelled it. */
+    private _isoDateOf(value: unknown): string | undefined {
+        if (typeof value !== 'string' || !value) {
+            return undefined;
+        }
+        const parsed = DateTime.fromISO(value);
+        return parsed.isValid ? parsed.toISODate() ?? undefined : undefined;
     }
 
     private _labelOf(options: CrudOption[], id: unknown): string {

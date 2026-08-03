@@ -73,6 +73,29 @@ export class RestaurantCreditService {
         return { statements, nextCursor: extractNextCursor(body) };
     }
 
+    /**
+     * One statement in full. The list response carries only the summary
+     * figures, so this is what backs the breakdown a restaurant expands to see
+     * how a closing balance was reached — without downloading the PDF.
+     */
+    async getStatement(statementId: string): Promise<CreditStatement | null> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRaw(
+                { restaurantId, statementId }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        return withId<CreditStatement>(
+            [data as CreditStatement],
+            'statementId'
+        )[0];
+    }
+
     /** Fetches a statement PDF as a Blob for download. */
     async downloadStatementPdf(statementId: string): Promise<Blob> {
         const restaurantId = await this._restaurantId();

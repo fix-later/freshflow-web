@@ -37,6 +37,7 @@ import {
     AdminOrderListFilters,
     AdminOrdersResult,
     AdminPricingSettings,
+    AdminResetOrderGroupsPayload,
     AdminRestaurantCredit,
     AdminRoleEntry,
     AdminSetCreditLimitPayload,
@@ -545,6 +546,24 @@ export class AdminService {
             isActive: true,
         });
         return users.filter((user) => !!user.id);
+    }
+
+    /**
+     * Clears the batches for a day so auto-batch can be run again. Destructive
+     * — the backend gates it behind `confirmation`, so a wrong (or missing)
+     * phrase comes back as a validation error the caller surfaces.
+     */
+    async resetOrderGroups(
+        payload: AdminResetOrderGroupsPayload = {}
+    ): Promise<void> {
+        await adminApi.apiV1AdminOrderGroupsResetPostRaw({
+            resetOrderGroupsRequest: {
+                targetDate: payload.targetDate
+                    ? new Date(payload.targetDate)
+                    : undefined,
+                confirmation: payload.confirmation || null,
+            },
+        });
     }
 
     async generateManifest(batchId: string): Promise<void> {

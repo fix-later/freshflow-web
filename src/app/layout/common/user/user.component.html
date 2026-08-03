@@ -1,31 +1,21 @@
 <!-- Button -->
 <ng-container *transloco="let t">
     <button
-        mat-icon-button
+        class="ff-header-icon text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        type="button"
         [matMenuTriggerFor]="userActions"
         [matTooltip]="t('header.account')"
         [attr.aria-label]="t('header.account')"
     >
-        <span class="relative">
-            @if (showAvatar && user.avatar) {
-                <img class="h-7 w-7 rounded-full" [src]="user.avatar" />
-            }
-            @if (!showAvatar || !user.avatar) {
-                <mat-icon
-                    [svgIcon]="'heroicons_outline:user-circle'"
-                ></mat-icon>
-            }
-            <span
-                class="absolute bottom-0 right-0 h-2 w-2 rounded-full"
-                [ngClass]="{
-                    'mb-px mr-px': !showAvatar || !user.avatar,
-                    'bg-green-500': user.status === 'online',
-                    'bg-amber-500': user.status === 'away',
-                    'bg-red-500': user.status === 'busy',
-                    'bg-gray-400': user.status === 'not-visible',
-                }"
-            ></span>
-        </span>
+        @if (showAvatar && user.avatar) {
+            <img class="h-7 w-7 rounded-full" [src]="user.avatar" />
+        }
+        @if (!showAvatar || !user.avatar) {
+            <mat-icon
+                class="icon-size-6"
+                [svgIcon]="'heroicons_outline:user-circle'"
+            ></mat-icon>
+        }
     </button>
 </ng-container>
 
@@ -46,47 +36,12 @@
             <mat-icon [svgIcon]="'heroicons_outline:cog-8-tooth'"></mat-icon>
             <span>{{ t('user.settings') }}</span>
         </button>
-        <button mat-menu-item [matMenuTriggerFor]="userStatus">
-            <mat-icon
-                [svgIcon]="'heroicons_outline:ellipsis-horizontal-circle'"
-            ></mat-icon>
-            <span>{{ t('user.status') }}</span>
-        </button>
         <mat-divider class="my-2"></mat-divider>
         <button mat-menu-item (click)="signOut()">
             <mat-icon
                 [svgIcon]="'heroicons_outline:arrow-right-on-rectangle'"
             ></mat-icon>
             <span>{{ t('user.signOut') }}</span>
-        </button>
-    </ng-container>
-</mat-menu>
-
-<mat-menu class="user-status-menu" #userStatus="matMenu">
-    <ng-container *transloco="let t">
-        <button mat-menu-item (click)="updateUserStatus('online')">
-            <span
-                class="mr-3 inline-flex h-4 w-4 rounded-full bg-green-500"
-            ></span>
-            <span>{{ t('user.online') }}</span>
-        </button>
-        <button mat-menu-item (click)="updateUserStatus('away')">
-            <span
-                class="mr-3 inline-flex h-4 w-4 rounded-full bg-amber-500"
-            ></span>
-            <span>{{ t('user.away') }}</span>
-        </button>
-        <button mat-menu-item (click)="updateUserStatus('busy')">
-            <span
-                class="mr-3 inline-flex h-4 w-4 rounded-full bg-red-500"
-            ></span>
-            <span>{{ t('user.busy') }}</span>
-        </button>
-        <button mat-menu-item (click)="updateUserStatus('not-visible')">
-            <span
-                class="mr-3 inline-flex h-4 w-4 rounded-full bg-gray-400"
-            ></span>
-            <span>{{ t('user.invisible') }}</span>
         </button>
     </ng-container>
 </mat-menu>

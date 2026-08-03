@@ -10,12 +10,10 @@ import {
 } from 'app/core/api/envelope';
 import {
     adminApi,
-    deliveryZonesApi,
     hubInboundApi,
     hubStaffAssignmentsApi,
     hubsApi,
     marketsApi,
-    rawApi,
     routesApi,
     vehiclesApi,
 } from 'contract';
@@ -29,6 +27,7 @@ import {
     LoadingManifest,
     LoadingManifestStop,
     OptimizationCriterion,
+    PlanRoutesInput,
     RouteEligibility,
     RouteSuggestionItem,
     RouteSuggestions,
@@ -61,7 +60,7 @@ function optNum(value: unknown): number | undefined {
 }
 
 /**
- * Admin logistics data access (hubs, vehicles, delivery zones), backed by the
+ * Admin logistics data access (hubs, vehicles, routes), backed by the
  * generated OpenAPI client. List bodies are parsed via the shared envelope
  * helpers since the spec declares no response schemas.
  */
@@ -110,6 +109,28 @@ export class LogisticsAdminService {
             return rows
                 .filter((m): m is { id: string; name?: string } => !!m.id)
                 .map((m) => ({ value: m.id, label: m.name || m.id }));
+        } catch {
+            return [];
+        }
+    }
+
+    /**
+     * Active hubs as `{ value: hubId, label: name }` — a route starts at
+     * exactly one hub, so the route form picks from these.
+     */
+    async hubOptions(): Promise<CrudOption[]> {
+        try {
+            const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+                hubsApi
+                    .apiV1HubsGetRaw({ cursor, pageSize, isActive: true })
+                    .then((res) => res.raw)
+            );
+            return withId<CrudRow>(rows, 'hubId')
+                .filter((row) => !!row.id)
+                .map((row) => ({
+                    value: row.id,
+                    label: str(row['name']) || row.id,
+                }));
         } catch {
             return [];
         }
@@ -338,15 +359,19 @@ export class LogisticsAdminService {
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
     }
 
-    /** Sorting progress for `routeId`'s shipments at `hubId` (hub-staff's mobile sort task). */
+    /**
+     * Sorting progress at `hubId` for a service date (hub-staff's mobile sort
+     * task). Sorting is tracked per hub-day now, not per route — the backend
+     * moved it off `/hubs/{hubId}/routes/{routeId}/sorting-progress`.
+     */
     async getSortingProgress(
         hubId: string,
-        routeId: string
+        serviceDate?: string
     ): Promise<CrudRow | null> {
-        const res =
-            await hubInboundApi.apiV1HubsHubIdRoutesRouteIdSortingProgressGetRaw(
-                { hubId, routeId }
-            );
+        const res = await hubInboundApi.apiV1HubsHubIdSortingProgressGetRaw({
+            hubId,
+            serviceDate: serviceDate ? new Date(serviceDate) : undefined,
+        });
         const data = unwrapData<Record<string, unknown>>(
             await parseJson(res.raw)
         );
@@ -367,6 +392,7 @@ export class LogisticsAdminService {
     async listRoutes(query: {
         serviceDate?: string;
         status?: string;
+        hubId?: string;
         cursor?: string;
     }): Promise<{ rows: CrudRow[]; nextCursor?: string }> {
         const res = await routesApi.apiV1LogisticsRoutesGetRaw({
@@ -374,6 +400,7 @@ export class LogisticsAdminService {
                 ? new Date(query.serviceDate)
                 : undefined,
             status: query.status || undefined,
+            hubId: query.hubId || undefined,
             cursor: query.cursor,
             pageSize: 50,
         });
@@ -400,15 +427,12 @@ export class LogisticsAdminService {
         serviceDate: string,
         includeBatched = false
     ): Promise<RouteSuggestions> {
-        // Not in the checked-in generated client yet (see `rawApi`).
-        const res = await rawApi.send(
-            '/api/v1/logistics/routes/suggestions',
-            'GET',
-            undefined,
-            { service_date: serviceDate, include_batched: includeBatched }
-        );
+        const res = await routesApi.apiV1LogisticsRoutesSuggestionsGetRaw({
+            serviceDate: new Date(serviceDate),
+            includeBatched,
+        });
         const data =
-            unwrapData<Record<string, unknown>>(await parseJson(res)) ?? {};
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
         return {
             serviceDate: str(data['serviceDate']) || serviceDate,
             markets: this._suggestionItems(data['markets']),
@@ -417,19 +441,36 @@ export class LogisticsAdminService {
     }
 
     /**
-     * Builds a route from the chosen markets + restaurants (status `planned`).
-     * Hub-relay routing is rejected by the backend, so no hub is sent.
+     * Builds one route from a hub to the chosen restaurants (status `planned`).
+     * Routes start at a hub — the backend no longer accepts market origins.
      */
     async calculateRoute(input: CalculateRouteInput): Promise<CrudRow | null> {
         const res = await routesApi.apiV1LogisticsRoutesCalculatePostRaw({
             calculateRouteRequest: {
-                sourceMarketIds: input.sourceMarketIds,
+                hubId: input.hubId,
                 destinationRestaurantIds: input.destinationRestaurantIds,
                 optimizationCriteria: input.optimizationCriteria.toUpperCase(),
                 serviceDate: new Date(input.serviceDate),
             },
         });
         return this._routeOf(await parseJson(res.raw));
+    }
+
+    /**
+     * Plans the whole day for a hub in one call — the backend groups that
+     * day's restaurants into as many routes as it needs. Returns the created
+     * routes so the list can refresh without a second round-trip.
+     */
+    async planRoutes(input: PlanRoutesInput): Promise<CrudRow[]> {
+        const res = await routesApi.apiV1LogisticsRoutesPlanPostRaw({
+            planRoutesRequest: {
+                hubId: input.hubId,
+                serviceDate: new Date(input.serviceDate),
+                optimizationCriteria: input.optimizationCriteria.toUpperCase(),
+            },
+        });
+        const body = await parseJson(res.raw);
+        return withId<CrudRow>(extractList(body), 'routeId');
     }
 
     /** `planned` → `selected`: adopts the calculated model for optimization. */
@@ -498,18 +539,18 @@ export class LogisticsAdminService {
         };
     }
 
-    /** `reviewed` → `assigned`. The backend re-runs the eligibility check. */
+    /**
+     * `reviewed` → `assigned`. The backend re-runs the eligibility check, and
+     * now requires a driver alongside the vehicle.
+     */
     async assignVehicle(
         id: string,
         vehicleId: string,
-        driverUserId?: string
+        driverUserId: string
     ): Promise<CrudRow | null> {
         const res = await routesApi.apiV1LogisticsRoutesIdAssignVehiclePostRaw({
             id,
-            assignVehicleRequest: {
-                vehicleId,
-                driverUserId: driverUserId || null,
-            },
+            assignVehicleRequest: { vehicleId, driverUserId },
         });
         return this._routeOf(await parseJson(res.raw));
     }
@@ -519,12 +560,12 @@ export class LogisticsAdminService {
      * loading order (furthest first). Goods only — no prices.
      */
     async getLoadingManifest(id: string): Promise<LoadingManifest | null> {
-        // Not in the checked-in generated client yet (see `rawApi`).
-        const res = await rawApi.send(
-            `/api/v1/logistics/routes/${encodeURIComponent(id)}/loading-manifest`,
-            'GET'
+        const res = await routesApi.apiV1LogisticsRoutesIdLoadingManifestGetRaw(
+            { id }
         );
-        const data = unwrapData<Record<string, unknown>>(await parseJson(res));
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
         if (!data) {
             return null;
         }
@@ -685,43 +726,5 @@ export class LogisticsAdminService {
 
     async deleteVehicle(id: string): Promise<void> {
         await vehiclesApi.apiV1LogisticsVehiclesIdDelete({ id });
-    }
-
-    // ---- Delivery zones ---------------------------------------------------
-
-    /**
-     * All zones in one request (BE has no offset pagination). The admin
-     * table paginates client-side from this list.
-     */
-    async listZones(): Promise<CrudRow[]> {
-        const res = await deliveryZonesApi.apiV1LogisticsDeliveryZonesGetRaw({
-            activeOnly: false,
-        });
-        const body = await parseJson(res.raw);
-        return withId<CrudRow>(extractList(body), 'zoneId', 'deliveryZoneId');
-    }
-
-    async createZone(value: CrudFormValue): Promise<void> {
-        await deliveryZonesApi.apiV1LogisticsDeliveryZonesPost({
-            createDeliveryZoneRequest: {
-                code: str(value['code']),
-                name: str(value['name']),
-                description: optStr(value['description']),
-            },
-        });
-    }
-
-    async updateZone(id: string, value: CrudFormValue): Promise<void> {
-        await deliveryZonesApi.apiV1LogisticsDeliveryZonesIdPut({
-            id,
-            updateDeliveryZoneRequest: {
-                name: str(value['name']),
-                description: optStr(value['description']),
-            },
-        });
-    }
-
-    async deleteZone(id: string): Promise<void> {
-        await deliveryZonesApi.apiV1LogisticsDeliveryZonesIdDelete({ id });
     }
 }

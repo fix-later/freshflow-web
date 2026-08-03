@@ -17,7 +17,6 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
     NavigationEnd,
@@ -86,7 +85,6 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
         MatButtonModule,
         MatIconModule,
         MatMenuModule,
-        MatTabsModule,
         MatTooltipModule,
         FormsModule,
         NgClass,

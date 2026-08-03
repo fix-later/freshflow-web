@@ -25,12 +25,24 @@ export interface ProductCardVm {
     /** One quiet line under the name — market, vendor or unit. */
     meta?: string | null;
 
+    /** Small label above the price — typically the product's category. */
+    eyebrow?: string | null;
+
     /** Corner ribbon text (e.g. "Bán chạy"); `badgeClass` tints it. */
     badge?: string | null;
     badgeClass?: string | null;
 
     /** 0–5; omit to hide the star row. */
     rating?: number | null;
+
+    /**
+     * Units the market still lists. `0` renders as out of stock and disables
+     * the cart action; `null`/omitted hides the stock line entirely (the
+     * listing endpoint does not always report a quantity).
+     */
+    stock?: number | null;
+    /** Unit the `stock` count is expressed in, e.g. "kg". */
+    stockUnit?: string | null;
 
     favorite?: boolean;
     /** Renders the tile muted with an "inactive" note. */

@@ -10,17 +10,17 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
-import { FuseCardComponent } from '@fuse/components/card';
 import { TranslocoModule } from '@jsverse/transloco';
 import { ProductCardVm } from './product-card.types';
 
 /**
  * The single product tile for the storefront (home price board, catalog grid).
  *
- * Wraps `fuse-card` in flat mode: Fuse owns the shell, this component owns the
- * anatomy, so the tile is defined once instead of once per screen. Money and
- * metadata arrive pre-formatted on `ProductCardVm` — the tile holds no pricing
- * or ownership logic.
+ * Owns its whole shell — deliberately **not** built on `fuse-card`: the tile
+ * needs a media block that bleeds to the card edge, an always-visible cart
+ * action and stock state, none of which the generic Fuse card affords without
+ * fighting its padding. Money and metadata arrive pre-formatted on
+ * {@link ProductCardVm}; the tile holds no pricing or ownership logic.
  */
 @Component({
     selector: 'ff-product-card',
@@ -30,7 +30,6 @@ import { ProductCardVm } from './product-card.types';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
-        FuseCardComponent,
         MatIconModule,
         MatTooltipModule,
         NgClass,
@@ -54,7 +53,23 @@ export class ProductCardComponent {
         return Array.from({ length: 5 }, (_, i) => i < rating);
     }
 
-    /** Both controls sit inside the tile's link — never navigate on click. */
+    /**
+     * Only an explicit zero is "out of stock". A missing quantity means the
+     * listing did not report one, which is not the same as none left.
+     */
+    isOutOfStock(): boolean {
+        return this.product.stock === 0;
+    }
+
+    hasStock(): boolean {
+        return (this.product.stock ?? 0) > 0;
+    }
+
+    canAddToCart(): boolean {
+        return !this.product.inactive && !this.isOutOfStock();
+    }
+
+    /** The favorite button sits over the thumb's link — never navigate. */
     onFavorite(event: Event): void {
         event.preventDefault();
         event.stopPropagation();
@@ -64,6 +79,9 @@ export class ProductCardComponent {
     onAddToCart(event: Event): void {
         event.preventDefault();
         event.stopPropagation();
+        if (!this.canAddToCart()) {
+            return;
+        }
         this.addedToCart.emit(this.product);
     }
 }

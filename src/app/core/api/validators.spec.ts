@@ -1,5 +1,24 @@
 import { FormControl } from '@angular/forms';
-import { passwordStrengthValidator, phoneNumberValidator } from './validators';
+import {
+    nonBlankValidator,
+    passwordStrengthValidator,
+    phoneNumberValidator,
+} from './validators';
+
+describe('nonBlankValidator', () => {
+    it('rejects empty and whitespace-only values', () => {
+        expect(nonBlankValidator(new FormControl(''))).toEqual({
+            required: true,
+        });
+        expect(nonBlankValidator(new FormControl('   '))).toEqual({
+            required: true,
+        });
+    });
+
+    it('accepts a non-blank value', () => {
+        expect(nonBlankValidator(new FormControl('Phở'))).toBeNull();
+    });
+});
 
 describe('passwordStrengthValidator', () => {
     it('passes a compliant password', () => {

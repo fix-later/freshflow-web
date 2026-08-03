@@ -24,6 +24,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { DateTime } from 'luxon';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import { CrudOption } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 import {
     OPTIMIZATION_CRITERIA,
@@ -38,11 +39,16 @@ const MAX_STOPS = 20;
  * Admin ▸ Logistics ▸ Routes ▸ New — builds a delivery route for a service
  * date (`POST /logistics/routes/calculate`, status `planned`).
  *
- * The pickers are seeded from `/routes/suggestions`, which lists the markets
- * and restaurants that actually have goods waiting that day, with their order
- * counts — so a restaurant with stock at the hub can't be silently left off
- * the truck. "Show all" falls back to the full master lists for a day the
- * suggestions come back empty.
+ * A route leaves from one hub and stops at the restaurants waiting on that
+ * hub's goods, so the form picks a hub plus its delivery stops. The restaurant
+ * list is seeded from `/routes/suggestions`, which lists who actually has
+ * goods waiting that day with their order counts — so a restaurant with stock
+ * at the hub can't be silently left off the truck. "Show all" falls back to
+ * the full restaurant list for a day the suggestions come back empty.
+ *
+ * "Plan the day" hands the same hub + date to `POST /logistics/routes/plan`
+ * and lets the backend split the stops across as many routes as it needs,
+ * instead of Admin building each one by hand.
  */
 @Component({
     selector: 'admin-route-create',
@@ -82,29 +88,38 @@ export class RouteCreateComponent implements OnInit {
         nonNullable: true,
     });
     readonly includeBatched = new FormControl(false, { nonNullable: true });
+    readonly hubId = new FormControl('', { nonNullable: true });
 
-    readonly markets = signal<RouteSuggestionItem[]>([]);
+    readonly hubs = signal<CrudOption[]>([]);
     readonly restaurants = signal<RouteSuggestionItem[]>([]);
-    readonly selectedMarkets = signal<Set<string>>(new Set());
     readonly selectedRestaurants = signal<Set<string>>(new Set());
 
     readonly loading = signal(false);
     readonly calculating = signal(false);
+    readonly planning = signal(false);
     readonly showingAll = signal(false);
 
-    readonly stopCount = computed(
-        () => this.selectedMarkets().size + this.selectedRestaurants().size
-    );
+    /** The hub is the origin, so the stops are the delivery destinations. */
+    readonly stopCount = computed(() => this.selectedRestaurants().size);
     readonly tooManyStops = computed(() => this.stopCount() > MAX_STOPS);
+    readonly busy = computed(() => this.calculating() || this.planning());
+
     readonly canCalculate = computed(
         () =>
-            this.selectedMarkets().size > 0 &&
+            !!this.hubId.value &&
             this.selectedRestaurants().size > 0 &&
             !this.tooManyStops() &&
-            !this.calculating()
+            !this.busy()
     );
+    readonly canPlan = computed(() => !!this.hubId.value && !this.busy());
 
     ngOnInit(): void {
+        void this._logistics.hubOptions().then((options) => {
+            this.hubs.set(options);
+            if (!this.hubId.value && options.length) {
+                this.hubId.setValue(options[0].value);
+            }
+        });
         this._loadSuggestions();
         this.serviceDate.valueChanges.subscribe(() => this._loadSuggestions());
         this.includeBatched.valueChanges.subscribe(() =>
@@ -116,18 +131,8 @@ export class RouteCreateComponent implements OnInit {
         void this._router.navigate(['/admin/routes']);
     }
 
-    isMarketSelected(id: string): boolean {
-        return this.selectedMarkets().has(id);
-    }
-
     isRestaurantSelected(id: string): boolean {
         return this.selectedRestaurants().has(id);
-    }
-
-    toggleMarket(id: string, checked: boolean): void {
-        this.selectedMarkets.set(
-            this._toggled(this.selectedMarkets(), id, checked)
-        );
     }
 
     toggleRestaurant(id: string, checked: boolean): void {
@@ -146,28 +151,16 @@ export class RouteCreateComponent implements OnInit {
         this.selectedRestaurants.set(new Set());
     }
 
-    /** Falls back to every market / restaurant, not just the day's suggestions. */
+    /** Falls back to every restaurant, not just the day's suggestions. */
     showAll(): void {
         if (this.showingAll() || this.loading()) {
             return;
         }
         this.loading.set(true);
-        void Promise.all([
-            this._logistics.marketOptions(),
-            this._logistics.restaurantOptions(),
-        ])
-            .then(([marketOpts, restaurantOpts]) => {
+        void this._logistics
+            .restaurantOptions()
+            .then((restaurantOpts) => {
                 this.showingAll.set(true);
-                this.markets.set(
-                    this._merge(
-                        this.markets(),
-                        marketOpts.map((o) => ({
-                            id: o.value,
-                            name: o.label,
-                            orderCount: 0,
-                        }))
-                    )
-                );
                 this.restaurants.set(
                     this._merge(
                         this.restaurants(),
@@ -191,7 +184,7 @@ export class RouteCreateComponent implements OnInit {
         void this._logistics
             .calculateRoute({
                 serviceDate: isoDate,
-                sourceMarketIds: [...this.selectedMarkets()],
+                hubId: this.hubId.value,
                 destinationRestaurantIds: [...this.selectedRestaurants()],
                 optimizationCriteria: this.criteria.value,
             })
@@ -209,6 +202,34 @@ export class RouteCreateComponent implements OnInit {
             .finally(() => this.calculating.set(false));
     }
 
+    /** Lets the backend build every route the hub needs for the day. */
+    plan(): void {
+        const isoDate = this._isoDate();
+        if (!isoDate || !this.canPlan()) {
+            return;
+        }
+        this.planning.set(true);
+        void this._logistics
+            .planRoutes({
+                hubId: this.hubId.value,
+                serviceDate: isoDate,
+                optimizationCriteria: this.criteria.value,
+            })
+            .then((routes) => {
+                this._notify('admin.routes.create.planSuccess', {
+                    count: routes.length,
+                });
+                void this._router.navigate(['/admin/routes'], {
+                    queryParams: { serviceDate: isoDate },
+                });
+            })
+            .catch(
+                (err) =>
+                    void this._notifyError(err, 'admin.routes.create.error')
+            )
+            .finally(() => this.planning.set(false));
+    }
+
     private _loadSuggestions(): void {
         const isoDate = this._isoDate();
         if (!isoDate) {
@@ -219,14 +240,11 @@ export class RouteCreateComponent implements OnInit {
         void this._logistics
             .getRouteSuggestions(isoDate, this.includeBatched.value)
             .then((suggestions) => {
-                this.markets.set(suggestions.markets);
                 this.restaurants.set(suggestions.restaurants);
-                this._preselect(suggestions.markets, suggestions.restaurants);
+                this._preselect(suggestions.restaurants);
             })
             .catch(() => {
-                this.markets.set([]);
                 this.restaurants.set([]);
-                this.selectedMarkets.set(new Set());
                 this.selectedRestaurants.set(new Set());
             })
             .finally(() => this.loading.set(false));
@@ -235,16 +253,10 @@ export class RouteCreateComponent implements OnInit {
     /**
      * Everything the day suggests is preselected when it fits in one route —
      * the common case is "send today's goods out". Above the stop limit the
-     * split is Admin's call, so nothing is preselected.
+     * split is Admin's call (or "Plan the day"'s), so nothing is preselected.
      */
-    private _preselect(
-        markets: RouteSuggestionItem[],
-        restaurants: RouteSuggestionItem[]
-    ): void {
-        const fits = markets.length + restaurants.length <= MAX_STOPS;
-        this.selectedMarkets.set(
-            fits ? new Set(markets.map((m) => m.id)) : new Set()
-        );
+    private _preselect(restaurants: RouteSuggestionItem[]): void {
+        const fits = restaurants.length <= MAX_STOPS;
         this.selectedRestaurants.set(
             fits ? new Set(restaurants.map((r) => r.id)) : new Set()
         );
@@ -280,8 +292,8 @@ export class RouteCreateComponent implements OnInit {
             : undefined;
     }
 
-    private _notify(key: string): void {
-        this._snackBar.open(this._transloco.translate(key), undefined, {
+    private _notify(key: string, params?: Record<string, unknown>): void {
+        this._snackBar.open(this._transloco.translate(key, params), undefined, {
             duration: 3000,
         });
     }

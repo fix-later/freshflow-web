@@ -118,6 +118,17 @@ export const appRoutes: Route[] = [
                 loadChildren: () =>
                     import('app/modules/restaurant/profile.routes'),
             },
+            // Guided setup for a restaurant whose profile is not yet reviewable.
+            // Restaurant-only (FR-005); sign-in routes an incomplete account
+            // here, and the wizard always offers a way back to the storefront.
+            {
+                path: 'onboarding',
+                canActivate: [roleGuard(['restaurant'])],
+                loadChildren: () =>
+                    import(
+                        'app/modules/restaurant/onboarding/onboarding.routes'
+                    ),
+            },
             {
                 path: 'invoices',
                 loadChildren: () =>

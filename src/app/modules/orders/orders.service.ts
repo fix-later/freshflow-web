@@ -8,7 +8,13 @@ import {
     withId,
 } from 'app/core/api/envelope';
 import { DraftOrderItemRequest, ordersApi } from 'contract';
-import { OrderRow, OrdersFilters, OrdersResult } from './orders.types';
+import {
+    OrderConfirmPreview,
+    OrderingWindow,
+    OrderRow,
+    OrdersFilters,
+    OrdersResult,
+} from './orders.types';
 
 /**
  * The signed-in restaurant's own orders (`GET/POST /orders`, item CRUD,
@@ -81,8 +87,113 @@ export class OrdersService {
         return row.id;
     }
 
+    /**
+     * The server's verdict on the confirm gates before committing. Read
+     * tolerantly: a body we can't interpret yields `canConfirm: true` so the
+     * confirm still runs and the server stays the authority — the preview is
+     * there to explain a refusal early, never to invent one.
+     */
+    async getConfirmPreview(orderId: string): Promise<OrderConfirmPreview> {
+        const res = await ordersApi.apiV1OrdersOrderIdConfirmPreviewGetRaw({
+            orderId,
+        });
+        const data =
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
+        const verdict = this._firstOf(data, [
+            'canConfirm',
+            'isValid',
+            'canPlace',
+            'isConfirmable',
+        ]);
+        return {
+            canConfirm: verdict === false ? false : true,
+            blockers: this._stringList(data, [
+                'blockers',
+                'errors',
+                'reasons',
+                'violations',
+                'warnings',
+            ]),
+            totalAmount: this._firstNumber(data, [
+                'totalAmount',
+                'total',
+                'grandTotal',
+            ]),
+            availableCredit: this._firstNumber(data, [
+                'availableCredit',
+                'remainingCredit',
+                'creditAvailable',
+            ]),
+        };
+    }
+
     async confirmOrder(orderId: string): Promise<void> {
         await ordersApi.apiV1OrdersOrderIdConfirmPostRaw({ orderId });
+    }
+
+    /** Marks a delivered order as received by the restaurant. Takes no body. */
+    async confirmReceipt(orderId: string): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdReceiptPatchRaw({ orderId });
+    }
+
+    /**
+     * Reports a post-delivery problem. `orderItemId` scopes the report to one
+     * line (omit for a whole-order issue); `affectedQuantity` is how much of
+     * that line was wrong.
+     */
+    async reportIssue(
+        orderId: string,
+        issue: {
+            issueType: string;
+            description: string;
+            orderItemId?: string | null;
+            affectedQuantity?: number | null;
+        }
+    ): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdIssuesPostRaw({
+            orderId,
+            reportOrderIssueRequest: {
+                issueType: issue.issueType,
+                description: issue.description,
+                orderItemId: issue.orderItemId || null,
+                affectedQuantity: issue.affectedQuantity ?? undefined,
+            },
+        });
+    }
+
+    private _stringList(
+        data: Record<string, unknown>,
+        keys: string[]
+    ): string[] {
+        for (const key of keys) {
+            const value = data[key];
+            if (Array.isArray(value) && value.length) {
+                return value
+                    .map((entry) =>
+                        typeof entry === 'string'
+                            ? entry
+                            : String(
+                                  (entry as Record<string, unknown>)?.[
+                                      'message'
+                                  ] ??
+                                      (entry as Record<string, unknown>)?.[
+                                          'code'
+                                      ] ??
+                                      ''
+                              )
+                    )
+                    .filter(Boolean);
+            }
+        }
+        return [];
+    }
+
+    private _firstNumber(
+        data: Record<string, unknown>,
+        keys: string[]
+    ): number | null {
+        const value = this._firstOf(data, keys);
+        return typeof value === 'number' && !Number.isNaN(value) ? value : null;
     }
 
     async cancelOrder(orderId: string, reason?: string): Promise<void> {
@@ -90,6 +201,58 @@ export class OrdersService {
             orderId,
             cancelOrderRequest: { reason: reason || undefined },
         });
+    }
+
+    /**
+     * The server's view of today's ordering window (BR-ORD-2). The response is
+     * untyped in the spec and the backend has spelled these fields more than
+     * one way, so each is read tolerantly and left `null` when absent — the
+     * caller keeps its local cutoff rule as the fallback.
+     */
+    async getOrderingWindow(): Promise<OrderingWindow> {
+        const res = await ordersApi.apiV1OrdersOrderingWindowGetRaw();
+        const data =
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
+        const open = this._firstOf(data, [
+            'isOpen',
+            'isOrderingOpen',
+            'isBeforeCutoff',
+            'canOrder',
+        ]);
+        return {
+            isOpen: open == null ? true : open === true,
+            cutoffTime: this._firstString(data, [
+                'cutoffTime',
+                'dailyCutoffTime',
+                'cutoff',
+            ]),
+            earliestServiceDate: this._firstString(data, [
+                'earliestServiceDate',
+                'nextServiceDate',
+                'earliestDeliveryDate',
+                'serviceDate',
+            ]),
+        };
+    }
+
+    private _firstOf(
+        data: Record<string, unknown>,
+        keys: string[]
+    ): unknown | null {
+        for (const key of keys) {
+            if (data[key] != null) {
+                return data[key];
+            }
+        }
+        return null;
+    }
+
+    private _firstString(
+        data: Record<string, unknown>,
+        keys: string[]
+    ): string | null {
+        const value = this._firstOf(data, keys);
+        return typeof value === 'string' && value.trim() ? value.trim() : null;
     }
 
     async reorder(

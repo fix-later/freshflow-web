@@ -1,6 +1,6 @@
 /**
  * Resolves once the FreshFlow splash screen is fully gone — the app is ready
- * (Fuse adds `.fuse-splash-screen-hidden` to `<body>`) AND the animated splash
+ * (Fuse adds `.fuse-splash-screen-hidden` to `<body>`) AND the splash
  * has finished its exit (its `.ff-splash-active` flag on `<fuse-splash-screen>`
  * has been cleared in the splash lifecycle's `destroy()`).
  *

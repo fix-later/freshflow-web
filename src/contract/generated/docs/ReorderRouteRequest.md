@@ -1,24 +1,22 @@
 
-# UpdateDeliveryZoneRequest
+# ReorderRouteRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`description` | string
+`stopOrder` | Array&lt;string&gt;
 
 ## Example
 
 ```typescript
-import type { UpdateDeliveryZoneRequest } from ''
+import type { ReorderRouteRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "description": null,
-} satisfies UpdateDeliveryZoneRequest
+  "stopOrder": null,
+} satisfies ReorderRouteRequest
 
 console.log(example)
 
@@ -27,7 +25,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdateDeliveryZoneRequest
+const exampleParsed = JSON.parse(exampleJSON) as ReorderRouteRequest
 console.log(exampleParsed)
 ```
 

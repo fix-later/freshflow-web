@@ -86,19 +86,25 @@ export class CheckoutComponent implements OnInit {
 
     readonly placed = signal(false);
     readonly submitting = signal(false);
+    /** Reasons the server refused to confirm, from `confirm-preview`. */
+    readonly blockers = signal<string[]>([]);
     readonly voucherOpen = signal(false);
     readonly couponCode = signal('');
     readonly appliedCoupon = signal<string | null>(null);
     readonly freshQualityNote = signal(true);
     readonly extraNote = signal('');
 
-    /** Earliest day the restaurant may pick (respects 22:00 cutoff). */
-    readonly minDeliveryDate = toLuxonDay(earliestDeliveryDate());
+    /**
+     * Earliest day the restaurant may pick. Seeded from the local 22:00 rule
+     * so the picker works offline, then corrected by
+     * `GET /orders/ordering-window` — the server owns the real cutoff.
+     */
+    readonly minDeliveryDate = signal(toLuxonDay(earliestDeliveryDate()));
 
-    readonly deliveryDate = signal<DateTime>(this.minDeliveryDate);
+    readonly deliveryDate = signal<DateTime>(this.minDeliveryDate());
     readonly deliverySlot = signal('09:00-11:00');
 
-    readonly afterCutoff = new Date().getHours() >= CUTOFF_HOUR;
+    readonly afterCutoff = signal(new Date().getHours() >= CUTOFF_HOUR);
 
     readonly deliverySlots = [
         '06:00-08:00',
@@ -139,6 +145,35 @@ export class CheckoutComponent implements OnInit {
         this._restaurantProfile.loadDeliveryAddresses().catch(() => {
             // The summary just shows no address; not fatal to checkout.
         });
+        this._applyOrderingWindow();
+    }
+
+    /**
+     * Replaces the locally derived cutoff with the server's, so a backend that
+     * moves the cutoff (or blocks ordering entirely) is reflected here. A
+     * failed call leaves the local BR-ORD-2 fallback in place.
+     */
+    private _applyOrderingWindow(): void {
+        void this._orders
+            .getOrderingWindow()
+            .then((window) => {
+                this.afterCutoff.set(!window.isOpen);
+                const earliest = window.earliestServiceDate
+                    ? DateTime.fromISO(window.earliestServiceDate).startOf(
+                          'day'
+                      )
+                    : null;
+                if (!earliest?.isValid) {
+                    return;
+                }
+                this.minDeliveryDate.set(earliest);
+                if (this.deliveryDate() < earliest) {
+                    this.deliveryDate.set(earliest);
+                }
+            })
+            .catch(() => {
+                // Keep the local cutoff rule; the server still enforces its own.
+            });
     }
 
     productName(product: CatalogProduct): string {
@@ -150,8 +185,8 @@ export class CheckoutComponent implements OnInit {
     }
 
     onDeliveryDateChange(value: DateTime | null): void {
-        if (!value || !value.isValid || value < this.minDeliveryDate) {
-            this.deliveryDate.set(this.minDeliveryDate);
+        if (!value || !value.isValid || value < this.minDeliveryDate()) {
+            this.deliveryDate.set(this.minDeliveryDate());
             return;
         }
         this.deliveryDate.set(value.startOf('day'));
@@ -175,8 +210,8 @@ export class CheckoutComponent implements OnInit {
         if (!this.lines().length || this.submitting()) {
             return;
         }
-        if (this.deliveryDate() < this.minDeliveryDate) {
-            this.deliveryDate.set(this.minDeliveryDate);
+        if (this.deliveryDate() < this.minDeliveryDate()) {
+            this.deliveryDate.set(this.minDeliveryDate());
             this._snackBar.open(
                 this._transloco.translate('checkout.shipping.dateInvalid'),
                 undefined,
@@ -193,26 +228,60 @@ export class CheckoutComponent implements OnInit {
         const notes = this.extraNote().trim() || undefined;
 
         this.submitting.set(true);
-        this._orders
-            .createOrder(items, scheduledFor, notes)
-            .then((orderId) => this._orders.confirmOrder(orderId))
-            .then(() => {
-                this.placed.set(true);
-                this._draftOrder.clear();
-                this._snackBar.open(
-                    this._transloco.translate('cart.orderPlaced'),
-                    undefined,
-                    { duration: 3000 }
+        this.blockers.set([]);
+        void this._placeOrder(items, scheduledFor, notes).finally(() =>
+            this.submitting.set(false)
+        );
+    }
+
+    /**
+     * Draft → preview → confirm. The preview asks the server whether the
+     * approval / cutoff / credit gates pass *before* committing, so a refusal
+     * arrives as a specific reason instead of a generic failure on confirm.
+     * A blocked preview leaves the draft in place — the restaurant can fix the
+     * cause and retry without rebuilding the cart.
+     */
+    private async _placeOrder(
+        items: { marketProductId: string; quantity: number }[],
+        scheduledFor: Date,
+        notes: string | undefined
+    ): Promise<void> {
+        try {
+            const orderId = await this._orders.createOrder(
+                items,
+                scheduledFor,
+                notes
+            );
+
+            const preview = await this._orders
+                .getConfirmPreview(orderId)
+                // A preview that fails to load must not block a legal order —
+                // the server still gates the confirm itself.
+                .catch(() => null);
+            if (preview && !preview.canConfirm) {
+                this.blockers.set(
+                    preview.blockers.length
+                        ? preview.blockers
+                        : [this._transloco.translate('checkout.blockedGeneric')]
                 );
-            })
-            .catch(async (err) => {
-                // Keep the cart intact so the restaurant can retry.
-                const message =
-                    (await apiErrorMessage(err)) ??
-                    this._transloco.translate('checkout.placeOrderError');
-                this._snackBar.open(message, undefined, { duration: 6000 });
-            })
-            .finally(() => this.submitting.set(false));
+                return;
+            }
+
+            await this._orders.confirmOrder(orderId);
+            this.placed.set(true);
+            this._draftOrder.clear();
+            this._snackBar.open(
+                this._transloco.translate('cart.orderPlaced'),
+                undefined,
+                { duration: 3000 }
+            );
+        } catch (err) {
+            // Keep the cart intact so the restaurant can retry.
+            const message =
+                (await apiErrorMessage(err)) ??
+                this._transloco.translate('checkout.placeOrderError');
+            this._snackBar.open(message, undefined, { duration: 6000 });
+        }
     }
 
     /** Combines the selected delivery day with the chosen slot's start time. */

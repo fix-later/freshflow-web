@@ -179,9 +179,6 @@
                                     t('admin.routes.detailPage.driver')
                                 }}</mat-label>
                                 <mat-select [formControl]="driverUserId">
-                                    <mat-option value="">{{
-                                        t('admin.routes.actions.noDriver')
-                                    }}</mat-option>
                                     @for (
                                         option of driverOptions();
                                         track option.value
@@ -212,7 +209,11 @@
                                 mat-flat-button
                                 color="primary"
                                 type="button"
-                                [disabled]="!vehicleId.value || acting()"
+                                [disabled]="
+                                    !vehicleId.value ||
+                                    !driverUserId.value ||
+                                    acting()
+                                "
                                 (click)="assign()"
                             >
                                 <mat-icon
