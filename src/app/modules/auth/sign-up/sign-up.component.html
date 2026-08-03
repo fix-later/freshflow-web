@@ -60,11 +60,7 @@
                 </fuse-alert>
             }
 
-            <form
-                class="mt-6"
-                [formGroup]="signUpForm"
-                (ngSubmit)="signUp()"
-            >
+            <form class="mt-6" [formGroup]="signUpForm" (ngSubmit)="signUp()">
                 <mat-form-field class="w-full" appearance="outline">
                     <mat-label>{{ t('auth.signUp.restaurantName') }}</mat-label>
                     <input
@@ -125,9 +121,7 @@
                         </mat-error>
                     } @else if (signUpForm.controls.email.hasError('server')) {
                         <mat-error>
-                            {{
-                                signUpForm.controls.email.getError('server')
-                            }}
+                            {{ signUpForm.controls.email.getError('server') }}
                         </mat-error>
                     }
                 </mat-form-field>
@@ -155,9 +149,7 @@
                         </mat-error>
                     } @else if (signUpForm.controls.phone.hasError('server')) {
                         <mat-error>
-                            {{
-                                signUpForm.controls.phone.getError('server')
-                            }}
+                            {{ signUpForm.controls.phone.getError('server') }}
                         </mat-error>
                     }
                     <mat-hint>{{ t('auth.signUp.phoneOptional') }}</mat-hint>
@@ -271,7 +263,7 @@
                         signUpForm.controls.agreements.touched &&
                         signUpForm.controls.agreements.invalid
                     ) {
-                        <p class="text-warn mt-1 text-xs">
+                        <p class="mt-1 text-xs text-warn">
                             {{ t('auth.signUp.agreementsRequired') }}
                         </p>
                     }
