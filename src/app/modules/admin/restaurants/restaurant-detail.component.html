@@ -186,6 +186,120 @@
                 </div>
             </section>
 
+            <!-- Legal / e-invoice identity — what an approval is a judgement
+                 on. Only `GET /admin/restaurants/{id}/profile` carries these. -->
+            <section
+                class="ff-rd__card"
+                data-testid="restaurant-detail-legal"
+                aria-labelledby="ff-rd-legal-title"
+            >
+                <header class="ff-rd__card-head">
+                    <div class="ff-rd__icon" aria-hidden="true">
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:document-check'"
+                        ></mat-icon>
+                    </div>
+                    <h2
+                        id="ff-rd-legal-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('admin.restaurants.legal.title') }}
+                    </h2>
+                </header>
+                <div class="ff-rd__card-body">
+                    @if (loadingProfile()) {
+                        <admin-loading-state />
+                    } @else if (profileError(); as message) {
+                        <!-- Distinguished from "filed nothing": an empty panel
+                             would be read as the restaurant's own fault. -->
+                        <div
+                            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                            role="alert"
+                        >
+                            <mat-icon
+                                class="shrink-0 text-red-500 icon-size-5"
+                                [svgIcon]="
+                                    'heroicons_outline:exclamation-triangle'
+                                "
+                            ></mat-icon>
+                            <span class="min-w-0 flex-auto">{{ message }}</span>
+                            <button
+                                mat-button
+                                type="button"
+                                (click)="reloadProfile()"
+                            >
+                                {{ t('common.retry') }}
+                            </button>
+                        </div>
+                    } @else if (profile()) {
+                        @if (hasIncompleteLegalProfile()) {
+                            <div
+                                class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                                role="status"
+                            >
+                                <mat-icon
+                                    class="shrink-0 icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:exclamation-triangle'
+                                    "
+                                ></mat-icon>
+                                <span class="min-w-0">{{
+                                    t('admin.restaurants.legal.incomplete')
+                                }}</span>
+                            </div>
+                        }
+                        <div
+                            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                        >
+                            @for (field of legalFields(); track field.label) {
+                                <div class="ff-rd__field min-w-0">
+                                    <span class="ff-rd__field-label">{{
+                                        t(field.label)
+                                    }}</span>
+                                    <span
+                                        class="ff-rd__field-value break-words"
+                                        [class.text-secondary]="field.missing"
+                                        >{{ field.value }}</span
+                                    >
+                                </div>
+                            }
+                            <div class="ff-rd__field min-w-0">
+                                <span class="ff-rd__field-label">{{
+                                    t('admin.restaurants.legal.businessLicense')
+                                }}</span>
+                                @if (businessLicenseUrl(); as url) {
+                                    <a
+                                        class="ff-rd__field-value break-words text-primary underline"
+                                        [href]="url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        >{{
+                                            t(
+                                                'admin.restaurants.legal.viewDocument'
+                                            )
+                                        }}</a
+                                    >
+                                } @else {
+                                    <span
+                                        class="ff-rd__field-value text-secondary"
+                                        >{{
+                                            t(
+                                                'admin.restaurants.legal.noDocument'
+                                            )
+                                        }}</span
+                                    >
+                                }
+                            </div>
+                        </div>
+                    } @else {
+                        <p class="text-secondary text-sm">
+                            {{ t('admin.restaurants.legal.unavailable') }}
+                        </p>
+                    }
+                </div>
+            </section>
+
             <!-- Credit -->
             <section
                 class="ff-rd__card"
@@ -424,11 +538,13 @@
                                 <mat-label>{{
                                     t('admin.restaurants.statements.year')
                                 }}</mat-label>
-                                <input
-                                    matInput
-                                    type="number"
-                                    formControlName="year"
-                                />
+                                <mat-select formControlName="year">
+                                    @for (y of statementYears; track y) {
+                                        <mat-option [value]="y">{{
+                                            y
+                                        }}</mat-option>
+                                    }
+                                </mat-select>
                             </mat-form-field>
                             <mat-form-field
                                 class="fuse-mat-dense w-28"
@@ -437,8 +553,10 @@
                                 <mat-label>{{
                                     t('admin.restaurants.statements.month')
                                 }}</mat-label>
+                                <!-- Only closed periods: the server rejects an
+                                     open one with a 500, not a readable 4xx. -->
                                 <mat-select formControlName="month">
-                                    @for (m of months; track m) {
+                                    @for (m of availableMonths(); track m) {
                                         <mat-option [value]="m">{{
                                             m
                                         }}</mat-option>
@@ -448,8 +566,15 @@
                             <button
                                 mat-stroked-button
                                 type="button"
+                                [matTooltip]="
+                                    t(
+                                        'admin.restaurants.statements.latestClosed',
+                                        { period: latestClosedPeriodLabel() }
+                                    )
+                                "
                                 [disabled]="
                                     statementForm.invalid ||
+                                    !isStatementPeriodClosed() ||
                                     generatingStatement()
                                 "
                                 (click)="generateStatement()"

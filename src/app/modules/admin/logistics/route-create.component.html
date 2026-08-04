@@ -102,6 +102,30 @@
     <!-- Body -->
     <div class="flex flex-auto overflow-hidden">
         <div class="flex flex-auto flex-col gap-6 overflow-y-auto p-6 md:p-8">
+            <!-- A route starts at a hub, so with no active hub nothing on this
+                 screen can work. Say so, and offer the way out. -->
+            @if (hubsLoaded() && !hubs().length) {
+                <div
+                    class="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                    role="alert"
+                >
+                    <mat-icon
+                        class="shrink-0 icon-size-5"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    <span class="min-w-0 flex-auto">{{
+                        t('admin.routes.create.blocked.noHubsHint')
+                    }}</span>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="goToHubs()"
+                    >
+                        {{ t('admin.routes.create.blocked.manageHubs') }}
+                    </button>
+                </div>
+            }
+
             @if (loading() && !restaurants().length) {
                 <admin-loading-state />
             } @else {
@@ -205,13 +229,24 @@
                     {{ t('admin.routes.create.stopLimit', { max: maxStops }) }}
                 </div>
             }
+            <!-- A disabled pair of buttons with no reason reads as a broken
+                 screen. Say what is missing. -->
+            @if (calculateBlockedReason(); as reason) {
+                <div class="text-secondary text-sm">
+                    {{ t(reason) }}
+                </div>
+            }
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <button
                 mat-stroked-button
                 type="button"
                 [disabled]="!canPlan()"
-                [matTooltip]="t('admin.routes.create.planHint')"
+                [matTooltip]="
+                    blockedReason()
+                        ? t(blockedReason()!)
+                        : t('admin.routes.create.planHint')
+                "
                 (click)="plan()"
             >
                 <mat-icon
@@ -225,6 +260,11 @@
                 color="primary"
                 type="button"
                 [disabled]="!canCalculate()"
+                [matTooltip]="
+                    calculateBlockedReason()
+                        ? t(calculateBlockedReason()!)
+                        : t('admin.routes.create.calculateHint')
+                "
                 (click)="calculate()"
             >
                 <mat-icon

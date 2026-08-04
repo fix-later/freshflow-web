@@ -108,7 +108,10 @@ export class HubEditComponent implements OnInit {
     readonly loadingStaff = signal(false);
     readonly savingStaff = signal(false);
 
-    /** M8 Hub inbound/discrepancy oversight (admin = read-only, ROLE_MATRIX). */
+    /**
+     * M8 Hub inbound oversight. Read-only except for discrepancies: signing one
+     * off is `admin,operations_manager` and explicitly not `hub_staff`.
+     */
     readonly pendingInbound = signal<CrudRow[]>([]);
     /** Goods actually received today — the counterpart to `pendingInbound`. */
     readonly inboundHistory = signal<CrudRow[]>([]);
@@ -117,7 +120,22 @@ export class HubEditComponent implements OnInit {
     readonly outbound = signal<CrudRow[]>([]);
     readonly procurementPlan = signal<CrudRow[]>([]);
     readonly ordersByRestaurant = signal<CrudRow[]>([]);
+    /** Who took which route out of this hub, and whether they left yet. */
+    readonly handovers = signal<CrudRow[]>([]);
+    /** Drivers available to take a load out (fleet-wide, not hub-filtered). */
+    readonly eligibleDrivers = signal<CrudRow[]>([]);
     readonly loadingOversight = signal(false);
+
+    /** Discrepancy id currently being signed off, so only its button spins. */
+    readonly acknowledgingId = signal<string | null>(null);
+
+    /**
+     * Localized reason the last acknowledge was refused, kept next to the list
+     * rather than only in a toast — `DISCREPANCY_ALREADY_ACKNOWLEDGED` and a
+     * concurrency conflict both mean "reload", which the user must be able to
+     * read before acting.
+     */
+    readonly acknowledgeError = signal<string | null>(null);
     /**
      * Localized reason the oversight read failed. Every tile showing 0 after a
      * failed call reads as "nothing is happening at this hub", which is the
@@ -297,14 +315,19 @@ export class HubEditComponent implements OnInit {
     private _loadOversight(hubId: string): void {
         this.loadingOversight.set(true);
         this.oversightError.set(null);
+        this.acknowledgeError.set(null);
         Promise.all([
             this._logistics.getPendingInbound(hubId),
             this._logistics.getInboundHistory(hubId),
-            this._logistics.getDiscrepancies(hubId),
+            // Only the OPEN ones: an acknowledged discrepancy no longer blocks
+            // dispatch (BR-HUB-2), so counting it would overstate what is stuck.
+            this._logistics.getDiscrepancies(hubId, 'OPEN'),
             this._logistics.getCrossDock(hubId),
             this._logistics.getOutbound(hubId),
             this._logistics.getProcurementPlan(hubId),
             this._logistics.getOrdersByRestaurant(hubId),
+            this._logistics.getHandovers(hubId),
+            this._logistics.getEligibleDrivers(hubId),
         ])
             .then(
                 ([
@@ -315,6 +338,8 @@ export class HubEditComponent implements OnInit {
                     outbound,
                     procurementPlan,
                     ordersByRestaurant,
+                    handovers,
+                    eligibleDrivers,
                 ]) => {
                     this.pendingInbound.set(pending);
                     this.inboundHistory.set(inbound);
@@ -323,6 +348,8 @@ export class HubEditComponent implements OnInit {
                     this.outbound.set(outbound);
                     this.procurementPlan.set(procurementPlan);
                     this.ordersByRestaurant.set(ordersByRestaurant);
+                    this.handovers.set(handovers);
+                    this.eligibleDrivers.set(eligibleDrivers);
                 }
             )
             .catch(async (err) => {
@@ -333,6 +360,8 @@ export class HubEditComponent implements OnInit {
                 this.outbound.set([]);
                 this.procurementPlan.set([]);
                 this.ordersByRestaurant.set([]);
+                this.handovers.set([]);
+                this.eligibleDrivers.set([]);
                 this.oversightError.set(
                     await describeApiError(
                         err,
@@ -342,6 +371,45 @@ export class HubEditComponent implements OnInit {
                 );
             })
             .finally(() => this.loadingOversight.set(false));
+    }
+
+    // ---- Discrepancy sign-off (admin,operations_manager) ------------------
+
+    /**
+     * Whether `row` may still be signed off. The backend only accepts a
+     * discrepancy in `OPEN` (`HubDiscrepancy.Acknowledge` throws otherwise →
+     * 409), so an already-acknowledged row shows its state instead of a button
+     * that is guaranteed to fail.
+     */
+    canAcknowledge(row: CrudRow): boolean {
+        return String(row['status'] ?? '').toUpperCase() === 'OPEN' && !!row.id;
+    }
+
+    acknowledgeDiscrepancy(row: CrudRow): void {
+        const hubId = this.hub()?.id;
+        if (!hubId || !this.canAcknowledge(row) || this.acknowledgingId()) {
+            return;
+        }
+        this.acknowledgeError.set(null);
+        this.acknowledgingId.set(row.id);
+        void this._logistics
+            .acknowledgeDiscrepancy(hubId, row.id)
+            .then(() => {
+                this._notify('admin.hubs.discrepancies.acknowledgeSuccess');
+                // Re-read rather than dropping the row locally: the count tile,
+                // and whether the hub can dispatch at all, both depend on it.
+                this._loadOversight(hubId);
+            })
+            .catch(async (err) => {
+                this.acknowledgeError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.hubs.discrepancies.acknowledgeError'
+                    )
+                );
+            })
+            .finally(() => this.acknowledgingId.set(null));
     }
 
     private _fetch(id: string, keepVisible = false): void {

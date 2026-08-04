@@ -40,11 +40,13 @@ import {
     serverError,
 } from 'app/core/api/form-errors';
 import { trimmedMaxLengthValidator } from 'app/core/api/validators';
+import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
     AdminCreditStatement,
     AdminCreditTransaction,
     AdminRestaurantCredit,
+    AdminRestaurantProfile,
     AdminUserRow,
 } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
@@ -74,6 +76,13 @@ const LIFECYCLE_PATCH: Partial<
     suspend: { isApproved: false, restaurantStatus: 'suspended' },
     reactivate: { isApproved: true, restaurantStatus: 'active' },
 };
+
+/**
+ * Billing periods are bounded in Vietnam local time server-side
+ * (`CreditStatementPeriodCalculator.VietnamTimeZone`), so "has this month
+ * closed?" must be asked in the same zone — not the browser's.
+ */
+const STATEMENT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 const RESTAURANT_ROLE = 'restaurant';
 const USER_LOOKUP_PAGE_SIZE = 100;
@@ -129,6 +138,77 @@ export class RestaurantDetailComponent implements OnInit {
     readonly editingCreditLimit = signal(false);
 
     /**
+     * The legal / e-invoice profile behind this account. Approving is a
+     * judgement on these fields (business licence, tax code, invoice identity),
+     * and `GET /admin/users` does not carry any of them — so the page fetches
+     * the full profile rather than approving blind.
+     */
+    readonly profile = signal<AdminRestaurantProfile | null>(null);
+    readonly loadingProfile = signal(false);
+    readonly profileError = signal<string | null>(null);
+
+    /**
+     * The licence document, when one was uploaded. Rendered as a link, never as
+     * text: a signed Cloudinary URL is unreadable and unusable inline.
+     */
+    readonly businessLicenseUrl = computed(() => {
+        const url = this.profile()?.businessLicenseUrl;
+        return typeof url === 'string' && url.trim() ? url.trim() : null;
+    });
+
+    /**
+     * The e-invoice identity fields, in issuing order. Each renders even when
+     * empty — a missing tax code is exactly what an approver needs to see, so a
+     * blank row is information, not noise.
+     */
+    readonly legalFields = computed(() => {
+        const p = this.profile();
+        if (!p) {
+            return [];
+        }
+        return [
+            { label: 'admin.restaurants.legal.taxCode', value: p.taxCode },
+            {
+                label: 'admin.restaurants.legal.invoiceLegalName',
+                value: p.invoiceLegalName,
+            },
+            {
+                label: 'admin.restaurants.legal.invoiceAddress',
+                value: p.invoiceAddress,
+            },
+            {
+                label: 'admin.restaurants.legal.invoiceEmail',
+                value: p.invoiceEmail,
+            },
+            {
+                label: 'admin.restaurants.legal.contactPerson',
+                value: p.contactPerson,
+            },
+            { label: 'admin.restaurants.legal.address', value: p.address },
+            {
+                label: 'admin.restaurants.legal.pickupWindow',
+                value: this._pickupWindow(p),
+            },
+        ].map((row) => ({
+            label: row.label,
+            value: this._textOrDash(row.value),
+            missing: !this._hasText(row.value),
+        }));
+    });
+
+    /**
+     * Whether anything an approver needs is still blank. Surfaced as a warning
+     * above the approve action so an incomplete account is not waved through —
+     * the backend does not block it, this is a judgement aid.
+     */
+    readonly hasIncompleteLegalProfile = computed(
+        () =>
+            !!this.profile() &&
+            (this.legalFields().some((f) => f.missing) ||
+                !this.businessLicenseUrl())
+    );
+
+    /**
      * The limit currently in force. `GET /restaurants/{id}/credit` always
      * answers with a record — a restaurant that has never been given a limit
      * reads back `creditLimit: 0`, never `null` — so this is never blank.
@@ -170,18 +250,84 @@ export class RestaurantDetailComponent implements OnInit {
         note: [''],
     });
 
+    /**
+     * The most recent billing period that has actually closed, in
+     * `Asia/Ho_Chi_Minh` — the timezone the server computes period boundaries
+     * in (`CreditStatementPeriodCalculator`). Always the previous calendar
+     * month: a period ends at the first instant of the following month, so the
+     * current month is never generatable.
+     */
+    private readonly _latestClosedPeriod = DateTime.now()
+        .setZone(STATEMENT_TIME_ZONE)
+        .minus({ months: 1 });
+
+    /**
+     * Defaults to the latest **closed** month, not today's.
+     *
+     * The form used to default to the current month, which meant the very
+     * first click always failed — and failed badly: `STATEMENT_PERIOD_NOT_CLOSED`
+     * is not registered in the backend's `ErrorExtensions`, so it comes back as
+     * an HTTP **500**, not a readable 4xx. The picker below only offers closed
+     * periods, so that response is unreachable from here.
+     */
     readonly statementForm = this._formBuilder.nonNullable.group({
         year: [
-            new Date().getFullYear(),
-            [Validators.required, Validators.min(2000), Validators.max(2100)],
+            this._latestClosedPeriod.year,
+            [
+                Validators.required,
+                Validators.min(2000),
+                Validators.max(this._latestClosedPeriod.year),
+            ],
         ],
         month: [
-            new Date().getMonth() + 1,
+            this._latestClosedPeriod.month,
             [Validators.required, Validators.min(1), Validators.max(12)],
         ],
     });
 
-    readonly months = Array.from({ length: 12 }, (_, i) => i + 1);
+    /** Years that contain at least one closed period. */
+    readonly statementYears = Array.from(
+        { length: 6 },
+        (_, i) => this._latestClosedPeriod.year - i
+    );
+
+    /**
+     * Months selectable for the chosen year — every month up to and including
+     * the latest closed one. A month is a signal-free getter because it reads
+     * the form control, which is not a signal.
+     */
+    availableMonths(): number[] {
+        const year = Number(this.statementForm.controls.year.value);
+        if (!Number.isFinite(year) || year > this._latestClosedPeriod.year) {
+            return [];
+        }
+        const last =
+            year === this._latestClosedPeriod.year
+                ? this._latestClosedPeriod.month
+                : 12;
+        return Array.from({ length: last }, (_, i) => i + 1);
+    }
+
+    /** Human-readable label of the newest period that can still be generated. */
+    latestClosedPeriodLabel(): string {
+        return this._latestClosedPeriod.toFormat('MM/yyyy');
+    }
+
+    /**
+     * True when the chosen year+month is a period that has fully elapsed. The
+     * generate button is disabled otherwise.
+     */
+    isStatementPeriodClosed(): boolean {
+        const { year, month } = this.statementForm.getRawValue();
+        if (!Number.isFinite(year) || !Number.isFinite(month)) {
+            return false;
+        }
+        return (
+            year < this._latestClosedPeriod.year ||
+            (year === this._latestClosedPeriod.year &&
+                month <= this._latestClosedPeriod.month)
+        );
+    }
 
     /** Template helpers for per-field messages. */
     readonly errorKey = fieldErrorKey;
@@ -207,6 +353,7 @@ export class RestaurantDetailComponent implements OnInit {
             this.user.set(passed);
             if (passed.restaurantId) {
                 this._loadCreditSnapshot(passed.restaurantId);
+                this._loadProfile(passed.restaurantId);
             }
             void this._refreshUser(userId);
             return;
@@ -471,7 +618,11 @@ export class RestaurantDetailComponent implements OnInit {
     generateStatement(): void {
         const current = this.user();
         const restaurantId = current?.restaurantId;
-        if (!restaurantId || this.statementForm.invalid) {
+        if (
+            !restaurantId ||
+            this.statementForm.invalid ||
+            !this.isStatementPeriodClosed()
+        ) {
             this.statementForm.markAllAsTouched();
             return;
         }
@@ -530,6 +681,7 @@ export class RestaurantDetailComponent implements OnInit {
             this.notFound.set(!matched);
             if (matched?.restaurantId) {
                 this._loadCreditSnapshot(matched.restaurantId);
+                this._loadProfile(matched.restaurantId);
             }
         } catch {
             this.user.set(null);
@@ -611,9 +763,66 @@ export class RestaurantDetailComponent implements OnInit {
                 // authority, in case the backend decided something else.
                 void this._refreshUser(current.id);
                 this._loadCreditSnapshot(restaurantId);
+                // approve/suspend/reactivate move `status` on the profile too.
+                this._loadProfile(restaurantId);
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.busyAction.set(null));
+    }
+
+    /** Re-reads the legal profile; also the retry action when it failed. */
+    reloadProfile(): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (restaurantId) {
+            this._loadProfile(restaurantId);
+        }
+    }
+
+    private _hasText(value: unknown): boolean {
+        return typeof value === 'string' && value.trim().length > 0;
+    }
+
+    private _textOrDash(value: unknown): string {
+        return this._hasText(value) ? (value as string).trim() : '—';
+    }
+
+    /** `HH:mm–HH:mm`, or `undefined` when either end is unset. */
+    private _pickupWindow(profile: AdminRestaurantProfile): string | undefined {
+        const start = this._trimSeconds(profile.pickupStart);
+        const end = this._trimSeconds(profile.pickupEnd);
+        return start && end ? `${start} – ${end}` : undefined;
+    }
+
+    /** `HH:mm:ss` → `HH:mm`; the seconds are always `00` and only add noise. */
+    private _trimSeconds(value: unknown): string | undefined {
+        if (!this._hasText(value)) {
+            return undefined;
+        }
+        const text = (value as string).trim();
+        const match = /^(\d{2}:\d{2})(:\d{2})?$/.exec(text);
+        return match ? match[1] : text;
+    }
+
+    private _loadProfile(restaurantId: string): void {
+        this.profile.set(null);
+        this.profileError.set(null);
+        this.loadingProfile.set(true);
+        this._admin
+            .getRestaurantProfile(restaurantId)
+            .then((profile) => this.profile.set(profile))
+            .catch(async (err) => {
+                this.profile.set(null);
+                // An empty legal panel would read as "this restaurant filed
+                // nothing", which is the opposite of "we could not load it".
+                this.profileError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.legal.loadError'
+                    )
+                );
+            })
+            .finally(() => this.loadingProfile.set(false));
     }
 
     private _loadCreditSnapshot(restaurantId: string): void {

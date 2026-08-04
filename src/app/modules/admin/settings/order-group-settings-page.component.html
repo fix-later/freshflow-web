@@ -90,6 +90,66 @@
                                 }}</mat-option>
                             }
                         </mat-select>
+                        <mat-hint>{{
+                            t(
+                                'admin.settings.operational.defaultRouteTypeUnused'
+                            )
+                        }}</mat-hint>
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.settings.operational.deliveryWindowDays')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            min="1"
+                            max="30"
+                            step="1"
+                            formControlName="deliveryWindowDays"
+                        />
+                        @if (
+                            form.controls.deliveryWindowDays.hasError(
+                                'required'
+                            ) ||
+                            form.controls.deliveryWindowDays.hasError('min') ||
+                            form.controls.deliveryWindowDays.hasError('max')
+                        ) {
+                            <mat-error>{{
+                                t(
+                                    'admin.settings.operational.deliveryWindowDaysError'
+                                )
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.settings.operational.deliveryFeePerKm')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            min="0"
+                            max="1000000"
+                            step="100"
+                            formControlName="deliveryFeePerKm"
+                        />
+                        <span matTextSuffix>₫/km</span>
+                        @if (
+                            form.controls.deliveryFeePerKm.hasError(
+                                'required'
+                            ) ||
+                            form.controls.deliveryFeePerKm.hasError('min') ||
+                            form.controls.deliveryFeePerKm.hasError('max')
+                        ) {
+                            <mat-error>{{
+                                t(
+                                    'admin.settings.operational.deliveryFeePerKmError'
+                                )
+                            }}</mat-error>
+                        }
                     </mat-form-field>
 
                     <mat-checkbox
@@ -120,6 +180,9 @@
                             formControlName="priceAlertThresholdPercent"
                         />
                         <span matTextSuffix>%</span>
+                        <mat-hint>{{
+                            t('admin.settings.pricing.thresholdPercentUnused')
+                        }}</mat-hint>
                     </mat-form-field>
                 </div>
 
