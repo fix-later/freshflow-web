@@ -10,6 +10,7 @@ import {
 } from 'app/core/api/envelope';
 import {
     adminApi,
+    hubHandoverApi,
     hubInboundApi,
     hubStaffAssignmentsApi,
     hubsApi,
@@ -25,6 +26,7 @@ import {
 } from '../shared/resource-crud.types';
 import {
     CalculateRouteInput,
+    DiscrepancyStatus,
     LoadingManifest,
     LoadingManifestStop,
     OptimizationCriterion,
@@ -308,18 +310,56 @@ export class LogisticsAdminService {
      * discrepancy blocks dispatch (BR-HUB-2) — surfaced so Admin can see what's
      * currently stuck without needing hub-staff mobile access.
      *
-     * `status` is left unset by the oversight panel: the live API rejects
-     * every value probed (`open`, `Open`, `Pending`, `Acknowledged` all
-     * answer 400 on `Status`) and the spec does not publish the vocabulary,
-     * so the panel counts every logged discrepancy rather than guessing.
+     * `status` must be one of {@link DISCREPANCY_STATUSES} — the backend
+     * compares it against `HubDiscrepancy.StatusOpen`/`StatusAcknowledged`
+     * verbatim, so it is SCREAMING_CASE and case-sensitive. (Earlier probes
+     * used `open` / `Open` / `Acknowledged`, which is why every one of them
+     * answered 400 and the panel used to count acknowledged rows too.)
+     *
+     * Rows carry `discrepancyId`, not `id`.
      */
-    async getDiscrepancies(hubId: string, status?: string): Promise<CrudRow[]> {
+    async getDiscrepancies(
+        hubId: string,
+        status?: DiscrepancyStatus
+    ): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdDiscrepanciesGetRaw({
             hubId,
             status,
             pageSize: 50,
         });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'discrepancyId'
+        );
+    }
+
+    /**
+     * Closes out a discrepancy (`POST /hubs/{hubId}/discrepancies/{id}/acknowledge`).
+     *
+     * RBAC is `admin,operations_manager` — deliberately **not** `hub_staff`:
+     * the staff who logged the shortage are not the ones who sign it off. Until
+     * every discrepancy is acknowledged the hub cannot dispatch (BR-HUB-2), so
+     * this is the console's unblock action, not a read-only view.
+     *
+     * Answers 409 `DISCREPANCY_ALREADY_ACKNOWLEDGED` if it was already signed
+     * off, and 409 `OPTIMISTIC_CONCURRENCY_CONFLICT` if someone else got there
+     * first; both are surfaced by the caller.
+     */
+    async acknowledgeDiscrepancy(
+        hubId: string,
+        discrepancyId: string
+    ): Promise<CrudRow | null> {
+        const res =
+            await hubInboundApi.apiV1HubsHubIdDiscrepanciesDiscrepancyIdAcknowledgePostRaw(
+                { hubId, discrepancyId }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        return withId([data as CrudRow], 'discrepancyId')[0] ?? null;
     }
 
     /**
@@ -371,6 +411,40 @@ export class LogisticsAdminService {
             pageSize: 50,
         });
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /**
+     * Driver handovers recorded at `hubId` — who took which route out, and
+     * whether they have checked out yet (`CHECKED_OUT` vs `ARRIVED_AT_HUB`).
+     *
+     * Admin/ops get the full list regardless of hub-staff assignment (the
+     * controller passes `BypassHubAssignment()` for both roles), so this is the
+     * oversight view of the gate between the hub and the road.
+     */
+    async getHandovers(hubId: string): Promise<CrudRow[]> {
+        const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            hubHandoverApi
+                .apiV1HubsHubIdHandoversGetRaw({ hubId, cursor, pageSize })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rows, 'handoverId');
+    }
+
+    /**
+     * Drivers currently eligible to take a load out of `hubId`.
+     *
+     * `hubId` is RBAC scoping only — the fleet is shared across hubs (no
+     * `Vehicle.HubId`), so the backend does **not** filter the result by hub.
+     */
+    async getEligibleDrivers(hubId: string): Promise<CrudRow[]> {
+        const res = await hubHandoverApi.apiV1HubsHubIdDriversEligibleGetRaw({
+            hubId,
+        });
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'driverUserId',
+            'userId'
+        );
     }
 
     /** Outbound shipments dispatched from `hubId` on `date` (defaults to today). */

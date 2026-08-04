@@ -110,12 +110,23 @@ export interface AdminSettleCreditPayload {
  * Mirrors `UpdateOperationalSettingsRequest`; `dailyCutoffTime` is an
  * `HH:mm[:ss]` time-of-day string, not a full timestamp.
  */
+/**
+ * `GET/PUT /admin/operational-settings`.
+ *
+ * The PUT body is a **positional record** on the server
+ * (`UpdateOperationalSettingsRequest`), so every field must be sent on every
+ * save: an omitted `deliveryWindowDays` binds to `0` and fails its `1..30`
+ * validator (400), and an omitted `deliveryFeePerKm` falls back to the
+ * constructor default of `5000`, silently overwriting whatever was configured.
+ */
 export interface AdminOperationalSettings {
     dailyCutoffTime?: string;
     batchingEnabled?: boolean;
     defaultRouteType?: string | null;
     /** Days ahead a delivery route may be scheduled (1–30). */
     deliveryWindowDays?: number;
+    /** VND per km used to price delivery on order confirmation (0–1,000,000). */
+    deliveryFeePerKm?: number;
 }
 
 /** Pricing settings (`GET/PUT /admin/pricing-settings`). */
@@ -273,6 +284,30 @@ export const ORDER_NOT_CANCELLABLE_STATUSES = new Set([
     'delivered',
 ]);
 
+/**
+ * The pre-hub stage an ops user may advance each status to, mirroring
+ * `Order.AllowedTransitions` ∩ `AdvanceOrderStatusCommandHandler.AllowedTargets`
+ * (batched / picked_up / at_hub only — Delivering and Delivered stay owned by
+ * Logistics delivery events, and Cancelled must go through `Cancel`).
+ *
+ * The map is the whole client-side gate: `ORDER_STATUS_NOT_ADVANCEABLE` is not
+ * listed in the backend's `ErrorExtensions`, so an out-of-range target falls
+ * through to a **500** rather than a readable 4xx. Offering only the one legal
+ * next stage means that response is unreachable from this console.
+ */
+export const ORDER_ADVANCE_NEXT_STATUS: Record<string, string> = {
+    confirmed: 'batched',
+    batched: 'picked_up',
+    picked_up: 'at_hub',
+};
+
+/**
+ * Statuses whose order the backend refuses to adjust quantities on
+ * (`Order.RecordActualQuantity` → `ORDER_CANNOT_ADJUST`, 409). A draft has no
+ * fulfilled reality yet and a cancelled order will never have one.
+ */
+export const ORDER_NOT_ADJUSTABLE_STATUSES = new Set(['draft', 'cancelled']);
+
 export interface AdminOrderGroupsResult {
     groups: AdminOrderGroupRow[];
     totalCount: number;
@@ -347,6 +382,36 @@ export interface AdminAutoBatchResult {
     /** Echoed back by the caller — the request's own arguments. */
     targetDate?: string | null;
     dryRun?: boolean | null;
+    [key: string]: unknown;
+}
+
+/**
+ * A restaurant's full profile as Admin sees it
+ * (`GET /admin/restaurants/{restaurantId}/profile` →
+ * `GetRestaurantProfileResponse`).
+ *
+ * This is the only place the legal/e-invoice fields are exposed to the console
+ * — `GET /admin/users` carries just name/email/phone/status. Admin approves an
+ * account against these (business licence, tax code, invoice identity), so they
+ * have to be on screen before the approve button is pressed.
+ */
+export interface AdminRestaurantProfile {
+    restaurantId?: string | null;
+    name?: string | null;
+    /** `pending` | `active` | `suspended` (lowercased server-side). */
+    status?: string | null;
+    address?: string | null;
+    contactPerson?: string | null;
+    /** Daily pickup window, `HH:mm:ss`. */
+    pickupStart?: string | null;
+    pickupEnd?: string | null;
+    updatedAt?: string | null;
+    /** Scanned business licence — a URL to open, not a value to print. */
+    businessLicenseUrl?: string | null;
+    taxCode?: string | null;
+    invoiceLegalName?: string | null;
+    invoiceAddress?: string | null;
+    invoiceEmail?: string | null;
     [key: string]: unknown;
 }
 

@@ -9,6 +9,7 @@ import { PackingCodesComponent } from './catalog/packing-codes.component';
 import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
+import { ClaimsListComponent } from './claims/claims-list.component';
 import { FinanceComponent } from './finance/finance.component';
 import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
@@ -152,6 +153,12 @@ export default [
     {
         path: 'invoices/:invoiceId',
         component: InvoiceDetailComponent,
+    },
+    // Shortage/damage claims — approving refunds against the restaurant's
+    // credit, so this sits with the financial oversight screens (M6 Credit).
+    {
+        path: 'claims',
+        component: ClaimsListComponent,
     },
     // Audit trail (M13)
     {

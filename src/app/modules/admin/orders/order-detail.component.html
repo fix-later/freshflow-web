@@ -32,10 +32,35 @@
             </div>
         </div>
         @if (order(); as o) {
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <span [class]="statusPillClass(o.status)">{{
                     statusLabel(o.status)
                 }}</span>
+                <!-- Ops bridge: only ever offers the single stage the backend
+                     state machine accepts next, so the request cannot be
+                     refused for being out of range. -->
+                @if (nextStatus(); as next) {
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="advancing()"
+                        [matTooltip]="
+                            t('admin.orders.advance.tooltip', {
+                                status: nextStatusLabel(),
+                            })
+                        "
+                        (click)="advance()"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:arrow-right-circle"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            t('admin.orders.advance.action', {
+                                status: nextStatusLabel(),
+                            })
+                        }}</span>
+                    </button>
+                }
                 <span
                     class="inline-flex"
                     [matTooltip]="
@@ -125,30 +150,175 @@
                     <p class="text-secondary text-sm">{{ message }}</p>
                 }
 
+                <!-- Why the last ops action was refused. Pinned, not just
+                     toasted: an operator recording a shortage needs it to
+                     survive long enough to act on. -->
+                @if (actionError(); as message) {
+                    <div
+                        class="flex items-start gap-3 rounded-xl border border-warn-200 bg-warn-50 p-4 text-sm dark:border-warn-800 dark:bg-warn-900/20"
+                        role="alert"
+                    >
+                        <mat-icon
+                            class="text-warn icon-size-5"
+                            svgIcon="heroicons_outline:exclamation-triangle"
+                        ></mat-icon>
+                        <span class="min-w-0 break-words">{{ message }}</span>
+                    </div>
+                }
+
                 @if (itemsOf(o).length) {
                     <section>
-                        <div class="mb-3 text-lg font-semibold">
-                            {{ t('admin.orders.detailPage.items') }}
+                        <div
+                            class="mb-3 flex flex-wrap items-baseline justify-between gap-2"
+                        >
+                            <div class="text-lg font-semibold">
+                                {{ t('admin.orders.detailPage.items') }}
+                            </div>
+                            <!-- A disabled section explains itself rather than
+                                 just being inert. -->
+                            @if (adjustBlockedReason(); as reason) {
+                                <span class="text-secondary text-xs">{{
+                                    t(reason)
+                                }}</span>
+                            }
                         </div>
                         <div class="flex flex-col gap-2">
                             @for (item of itemsOf(o); track $index) {
-                                <div
-                                    class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-xl border p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
-                                >
-                                    @for (
-                                        f of itemEntries(item);
-                                        track f.label
-                                    ) {
-                                        <div
-                                            class="flex min-w-0 flex-col border-b py-1"
-                                        >
-                                            <span
-                                                class="text-secondary text-xs uppercase tracking-wider"
-                                                >{{ f.label }}</span
+                                <div class="rounded-xl border p-4 text-sm">
+                                    <div
+                                        class="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-3"
+                                    >
+                                        @for (
+                                            f of itemEntries(item);
+                                            track f.label
+                                        ) {
+                                            <div
+                                                class="flex min-w-0 flex-col border-b py-1"
                                             >
-                                            <span class="min-w-0 break-words">{{
-                                                f.value
-                                            }}</span>
+                                                <span
+                                                    class="text-secondary text-xs uppercase tracking-wider"
+                                                    >{{ f.label }}</span
+                                                >
+                                                <span
+                                                    class="min-w-0 break-words"
+                                                    >{{ f.value }}</span
+                                                >
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <!-- UC-ORD-16/17: record what was actually
+                                         fulfilled after a shortage or damage. -->
+                                    @if (isAdjusting(item)) {
+                                        <div
+                                            class="mt-4 flex flex-wrap items-start gap-3 border-t pt-4"
+                                        >
+                                            <mat-form-field
+                                                class="w-48"
+                                                subscriptSizing="dynamic"
+                                            >
+                                                <mat-label>{{
+                                                    t(
+                                                        'admin.orders.adjust.label'
+                                                    )
+                                                }}</mat-label>
+                                                <input
+                                                    matInput
+                                                    type="number"
+                                                    min="0"
+                                                    [max]="
+                                                        orderedQuantity(item)
+                                                    "
+                                                    [formControl]="
+                                                        adjustQuantity
+                                                    "
+                                                />
+                                                <mat-hint>{{
+                                                    t(
+                                                        'admin.orders.adjust.hint',
+                                                        {
+                                                            ordered:
+                                                                orderedQuantity(
+                                                                    item
+                                                                ),
+                                                        }
+                                                    )
+                                                }}</mat-hint>
+                                            </mat-form-field>
+                                            <div
+                                                class="flex flex-auto flex-col gap-2"
+                                            >
+                                                <!-- The same three rules the
+                                                     server enforces, shown
+                                                     before the request is sent. -->
+                                                @if (
+                                                    adjustErrorKey(item);
+                                                    as errorKey
+                                                ) {
+                                                    <span
+                                                        class="text-xs text-warn"
+                                                        >{{
+                                                            t(errorKey, {
+                                                                ordered:
+                                                                    orderedQuantity(
+                                                                        item
+                                                                    ),
+                                                            })
+                                                        }}</span
+                                                    >
+                                                }
+                                                <div class="flex gap-2">
+                                                    <button
+                                                        mat-flat-button
+                                                        color="primary"
+                                                        type="button"
+                                                        [disabled]="
+                                                            !canSubmitAdjust(
+                                                                item
+                                                            )
+                                                        "
+                                                        (click)="
+                                                            submitAdjust(item)
+                                                        "
+                                                    >
+                                                        {{
+                                                            t('admin.crud.save')
+                                                        }}
+                                                    </button>
+                                                    <button
+                                                        mat-stroked-button
+                                                        type="button"
+                                                        [disabled]="
+                                                            adjustSaving()
+                                                        "
+                                                        (click)="cancelAdjust()"
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.crud.cancel'
+                                                            )
+                                                        }}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    } @else if (canAdjust()) {
+                                        <div class="mt-3 border-t pt-3">
+                                            <button
+                                                mat-stroked-button
+                                                type="button"
+                                                [disabled]="!itemIdOf(item)"
+                                                (click)="startAdjust(item)"
+                                            >
+                                                <mat-icon
+                                                    svgIcon="heroicons_outline:pencil-square"
+                                                ></mat-icon>
+                                                <span class="ml-2">{{
+                                                    t(
+                                                        'admin.orders.adjust.action'
+                                                    )
+                                                }}</span>
+                                            </button>
                                         </div>
                                     }
                                 </div>

@@ -153,6 +153,12 @@ const NAVIGATION: AreaNavItem[] = [
                 type: 'basic',
                 link: '/admin/invoices',
             },
+            {
+                id: 'admin-finance-claims',
+                title: 'nav.admin.claims',
+                type: 'basic',
+                link: '/admin/claims',
+            },
         ],
     },
     {

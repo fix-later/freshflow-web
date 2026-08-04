@@ -4,7 +4,6 @@ import {
     OnInit,
     TemplateRef,
     ViewEncapsulation,
-    computed,
     inject,
     signal,
 } from '@angular/core';
@@ -181,13 +180,22 @@ export class OrdersListComponent implements OnInit {
 
     readonly cancelTarget = signal<AdminOrderDetail | null>(null);
     readonly cancelReason = new FormControl('', { nonNullable: true });
-    readonly hasActiveFilters = computed(
-        () =>
+    /**
+     * Whether any filter is set — drives the "clear filters" button.
+     *
+     * A method, not a `computed()`: it reads form controls, which are not
+     * signals, so a computed took no dependency on them. It evaluated once
+     * with every filter empty, cached `false`, and the button could never
+     * appear no matter what the user typed.
+     */
+    hasActiveFilters(): boolean {
+        return (
             !!this.restaurantId.value.trim() ||
             !!this.status.value ||
             !!this.from.value ||
             !!this.to.value
-    );
+        );
+    }
 
     ngOnInit(): void {
         this._load();

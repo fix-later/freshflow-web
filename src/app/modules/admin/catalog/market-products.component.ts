@@ -20,6 +20,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudRow } from '../shared/resource-crud.types';
@@ -47,6 +48,19 @@ function num(value: unknown): number | null {
     }
     const parsed = Number(value);
     return Number.isNaN(parsed) ? null : parsed;
+}
+
+/**
+ * `PricingOptions.MaxPriceVnd` — the ceiling
+ * `CreateMarketProductCommandValidator` enforces (400 above it).
+ */
+const MAX_PRICE_VND = 50_000_000;
+
+/** Decimal places in `value`, for the "at most 2" price rule. */
+function decimalPlaces(value: number): number {
+    const text = String(value);
+    const dot = text.indexOf('.');
+    return dot === -1 ? 0 : text.length - dot - 1;
 }
 
 /**
@@ -81,8 +95,8 @@ function num(value: unknown): number | null {
 
             .product-picker-grid {
                 grid-template-columns:
-                    2.5rem minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 0.8fr)
-                    minmax(0, 1.6fr);
+                    2.5rem minmax(0, 1.8fr) minmax(0, 1fr) minmax(0, 0.7fr)
+                    9rem 9rem;
             }
         `,
     ],
@@ -169,6 +183,23 @@ export class MarketProductsComponent implements OnInit {
     priceDraft: Record<string, number | null> = {};
     quantityDraft: Record<string, number | null> = {};
 
+    /**
+     * Initial price / quantity typed in the quick-add picker, keyed by product id.
+     *
+     * Listing a product **requires** a price: `CreateMarketProductRequest` is a
+     * positional record with a non-nullable `decimal InitialPrice`, so omitting
+     * it binds to `0` and the handler answers 422 `INVALID_PRICE`. The picker
+     * used to send nothing at all, which is why every quick-add failed with a
+     * bare "could not save".
+     */
+    pickerPrice: Record<string, number | null> = {};
+    pickerQuantity: Record<string, number | null> = {};
+
+    readonly maxPrice = MAX_PRICE_VND;
+
+    /** Localized reason the last quick-add was rejected, kept next to the form. */
+    readonly quickAddError = signal<string | null>(null);
+
     ngOnInit(): void {
         const id = this.effectiveMarketId();
         if (!this.embedded()) {
@@ -203,6 +234,9 @@ export class MarketProductsComponent implements OnInit {
     openQuickAdd(): void {
         this.pickerSearch.set('');
         this.pickerSelectedIds.set(new Set());
+        this.pickerPrice = {};
+        this.pickerQuantity = {};
+        this.quickAddError.set(null);
         this.pickerOpen.set(true);
     }
 
@@ -210,6 +244,67 @@ export class MarketProductsComponent implements OnInit {
         this.pickerOpen.set(false);
         this.pickerSearch.set('');
         this.pickerSelectedIds.set(new Set());
+        this.pickerPrice = {};
+        this.pickerQuantity = {};
+        this.quickAddError.set(null);
+    }
+
+    /**
+     * The client-side verdict on one picker row's price, as an i18n key.
+     * Mirrors the handler (`> 0`) and the validator (`<= MaxPriceVnd`, at most
+     * two decimals), so a rejected listing never reaches the server.
+     *
+     * A method rather than a `computed()`: it reads a plain object bound with
+     * `ngModel`, which is not a signal.
+     */
+    priceErrorKey(productId: string): string | null {
+        if (!this.isPickerSelected(productId)) {
+            return null;
+        }
+        const price = num(this.pickerPrice[productId]);
+        if (price === null) {
+            return 'admin.markets.pricing.priceRequired';
+        }
+        if (price <= 0) {
+            return 'admin.markets.pricing.pricePositive';
+        }
+        if (price > MAX_PRICE_VND) {
+            return 'admin.markets.pricing.priceTooHigh';
+        }
+        if (decimalPlaces(price) > 2) {
+            return 'admin.markets.pricing.priceDecimals';
+        }
+        return null;
+    }
+
+    /** `InitialQuantity` must be a non-negative integer (422 INVALID_QUANTITY). */
+    quantityErrorKey(productId: string): string | null {
+        if (!this.isPickerSelected(productId)) {
+            return null;
+        }
+        const quantity = num(this.pickerQuantity[productId]);
+        if (quantity === null) {
+            return null; // optional — omitted means 0
+        }
+        if (quantity < 0) {
+            return 'admin.markets.pricing.quantityNonNegative';
+        }
+        return Number.isInteger(quantity)
+            ? null
+            : 'admin.markets.pricing.quantityInteger';
+    }
+
+    /** Every selected row must carry a valid price before the batch is sent. */
+    canSaveQuickAdd(): boolean {
+        const ids = [...this.pickerSelectedIds()];
+        if (!ids.length || this.saving()) {
+            return false;
+        }
+        return ids.every(
+            (id) =>
+                this.priceErrorKey(id) === null &&
+                this.quantityErrorKey(id) === null
+        );
     }
 
     onPickerSearch(value: string): void {
@@ -248,26 +343,51 @@ export class MarketProductsComponent implements OnInit {
 
     saveQuickAdd(): void {
         const ids = [...this.pickerSelectedIds()];
-        if (!ids.length || this.saving()) {
+        if (!this.canSaveQuickAdd()) {
             return;
         }
+        this.quickAddError.set(null);
         this.saving.set(true);
-        Promise.all(
+        // `allSettled`, not `all`: listing several products is N independent
+        // calls, and a fail-fast reject would leave the user with a generic
+        // error and no idea which ones actually landed.
+        void Promise.allSettled(
             ids.map((productId) =>
                 this._catalog.addMarketProduct(
                     this.effectiveMarketId(),
                     productId,
-                    null,
-                    null
+                    num(this.pickerPrice[productId]),
+                    num(this.pickerQuantity[productId]) ?? 0
                 )
             )
         )
-            .then(() => {
-                this._notify('admin.crud.createSuccess');
-                this.closeQuickAdd();
+            .then(async (results) => {
+                const failures = results.filter(
+                    (r): r is PromiseRejectedResult => r.status === 'rejected'
+                );
+                if (!failures.length) {
+                    this._notify('admin.crud.createSuccess');
+                    this.closeQuickAdd();
+                    this.load();
+                    return;
+                }
+                // Report the server's own reason for the first failure, and say
+                // how many of the batch it applies to.
+                const reason = await describeApiError(
+                    failures[0].reason,
+                    (key) => this._transloco.translate(key),
+                    'admin.crud.saveError'
+                );
+                this.quickAddError.set(
+                    this._transloco.translate(
+                        'admin.markets.pricing.quickAddPartial',
+                        { failed: failures.length, total: results.length }
+                    ) + ` ${reason}`
+                );
+                // Keep the picker open so the rows that failed can be retried,
+                // but refresh so the ones that succeeded drop out of the list.
                 this.load();
             })
-            .catch(() => this._notify('admin.crud.saveError'))
             .finally(() => this.saving.set(false));
     }
 

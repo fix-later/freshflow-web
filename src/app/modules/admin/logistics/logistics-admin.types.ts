@@ -100,6 +100,16 @@ export interface LoadingManifest {
     stops: LoadingManifestStop[];
 }
 
+/**
+ * Hub discrepancy lifecycle, exactly as the backend spells it
+ * (`HubDiscrepancy.StatusOpen` / `StatusAcknowledged`). The list endpoint
+ * compares the `status` query verbatim, so these are SCREAMING_CASE and
+ * case-sensitive — anything else answers 400.
+ */
+export const DISCREPANCY_STATUSES = ['OPEN', 'ACKNOWLEDGED'] as const;
+
+export type DiscrepancyStatus = (typeof DISCREPANCY_STATUSES)[number];
+
 /** A stop on a route (`RouteStopDto`). */
 export interface RouteStop {
     stopOrder: number;

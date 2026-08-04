@@ -91,8 +91,22 @@ export class RouteCreateComponent implements OnInit {
     readonly hubId = new FormControl('', { nonNullable: true });
 
     readonly hubs = signal<CrudOption[]>([]);
+    /** False until `hubOptions()` has answered, so "no hubs" ≠ "still loading". */
+    readonly hubsLoaded = signal(false);
     readonly restaurants = signal<RouteSuggestionItem[]>([]);
     readonly selectedRestaurants = signal<Set<string>>(new Set());
+
+    /**
+     * Signal mirror of the `hubId` control.
+     *
+     * The gates below are `computed()`, and a `FormControl`'s `.value` is not a
+     * signal — reading it inside a computed creates no dependency, so the
+     * computed never recomputes when the hub changes. `canPlan` depended on
+     * nothing else, so it evaluated once at first render (hub still empty),
+     * cached `false`, and the "Plan the day" button stayed disabled forever
+     * even after `hubOptions()` resolved and selected a hub.
+     */
+    readonly selectedHubId = signal('');
 
     readonly loading = signal(false);
     readonly calculating = signal(false);
@@ -106,20 +120,58 @@ export class RouteCreateComponent implements OnInit {
 
     readonly canCalculate = computed(
         () =>
-            !!this.hubId.value &&
+            !!this.selectedHubId() &&
             this.selectedRestaurants().size > 0 &&
             !this.tooManyStops() &&
             !this.busy()
     );
-    readonly canPlan = computed(() => !!this.hubId.value && !this.busy());
+    readonly canPlan = computed(() => !!this.selectedHubId() && !this.busy());
+
+    /**
+     * Why the actions are unavailable, as an i18n key — a disabled pair of
+     * buttons with no explanation is indistinguishable from a broken screen,
+     * which is exactly how this looked when no hub was configured.
+     */
+    readonly blockedReason = computed(() => {
+        if (this.hubsLoaded() && !this.hubs().length) {
+            return 'admin.routes.create.blocked.noHubs';
+        }
+        if (!this.selectedHubId()) {
+            return 'admin.routes.create.blocked.noHubSelected';
+        }
+        return null;
+    });
+
+    /** Same, for the calculate button only — planning needs no stops picked. */
+    readonly calculateBlockedReason = computed(() => {
+        const shared = this.blockedReason();
+        if (shared) {
+            return shared;
+        }
+        if (this.tooManyStops()) {
+            return null; // already shown by the stop-limit warning
+        }
+        return this.selectedRestaurants().size === 0
+            ? 'admin.routes.create.blocked.noRestaurantsSelected'
+            : null;
+    });
 
     ngOnInit(): void {
-        void this._logistics.hubOptions().then((options) => {
-            this.hubs.set(options);
-            if (!this.hubId.value && options.length) {
-                this.hubId.setValue(options[0].value);
-            }
-        });
+        // Subscribed before the async `setValue` below so the very first hub
+        // selection is captured too.
+        this.hubId.valueChanges.subscribe((value) =>
+            this.selectedHubId.set(value ?? '')
+        );
+
+        void this._logistics
+            .hubOptions()
+            .then((options) => {
+                this.hubs.set(options);
+                if (!this.hubId.value && options.length) {
+                    this.hubId.setValue(options[0].value);
+                }
+            })
+            .finally(() => this.hubsLoaded.set(true));
         this._loadSuggestions();
         this.serviceDate.valueChanges.subscribe(() => this._loadSuggestions());
         this.includeBatched.valueChanges.subscribe(() =>
@@ -129,6 +181,11 @@ export class RouteCreateComponent implements OnInit {
 
     goBack(): void {
         void this._router.navigate(['/admin/routes']);
+    }
+
+    /** No hub configured is the one blocker fixed on another screen. */
+    goToHubs(): void {
+        void this._router.navigate(['/admin/hubs']);
     }
 
     isRestaurantSelected(id: string): boolean {

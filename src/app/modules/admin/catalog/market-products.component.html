@@ -139,13 +139,30 @@
                                 mat-flat-button
                                 color="primary"
                                 type="button"
-                                [disabled]="!pickerSelectedCount() || saving()"
+                                [disabled]="!canSaveQuickAdd()"
                                 (click)="saveQuickAdd()"
                             >
                                 {{ t('admin.crud.save') }}
                             </button>
                         </div>
                     </div>
+
+                    <p class="text-secondary -mt-2 mb-4 text-sm">
+                        {{ t('admin.markets.pricing.quickAddHint') }}
+                    </p>
+
+                    @if (quickAddError(); as message) {
+                        <div
+                            class="mb-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                            role="alert"
+                        >
+                            <mat-icon
+                                class="shrink-0 text-red-500 icon-size-5"
+                                svgIcon="heroicons_outline:exclamation-triangle"
+                            ></mat-icon>
+                            <span class="min-w-0">{{ message }}</span>
+                        </div>
+                    }
 
                     <mat-form-field
                         class="admin-header-search fuse-mat-dense fuse-mat-rounded mb-4 w-full max-w-md"
@@ -185,29 +202,84 @@
                             <div>{{ t('admin.products.name') }}</div>
                             <div>{{ t('admin.products.category') }}</div>
                             <div>{{ t('admin.products.unit') }}</div>
-                            <div>{{ t('admin.products.description') }}</div>
+                            <div>{{ t('admin.markets.pricing.price') }}</div>
+                            <div>{{ t('admin.markets.pricing.quantity') }}</div>
                         </div>
                         @for (row of filteredPickerProducts(); track row.id) {
                             <div
-                                class="product-picker-grid grid items-center gap-4 border-b px-4 py-3 last:border-b-0"
+                                class="product-picker-grid grid items-start gap-4 border-b px-4 py-3 last:border-b-0"
                             >
                                 <mat-checkbox
+                                    class="mt-2"
                                     [checked]="isPickerSelected(row.id)"
                                     (change)="togglePickerSelect(row.id)"
                                 >
                                 </mat-checkbox>
-                                <div class="truncate font-medium">
-                                    {{ row.name || '—' }}
+                                <div class="mt-2 min-w-0">
+                                    <div class="truncate font-medium">
+                                        {{ row.name || '—' }}
+                                    </div>
+                                    @if (row.description) {
+                                        <div
+                                            class="text-secondary truncate text-xs"
+                                        >
+                                            {{ row.description }}
+                                        </div>
+                                    }
                                 </div>
-                                <div class="truncate">
+                                <div class="mt-2 truncate">
                                     {{ row.category || '—' }}
                                 </div>
-                                <div class="truncate">
+                                <div class="mt-2 truncate">
                                     {{ row.unit || '—' }}
                                 </div>
-                                <div class="truncate">
-                                    {{ row.description || '—' }}
-                                </div>
+                                <!-- A listing cannot exist without a price:
+                                     the server rejects 0 with INVALID_PRICE. -->
+                                <mat-form-field
+                                    class="fuse-mat-dense w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <input
+                                        matInput
+                                        type="number"
+                                        min="0"
+                                        [max]="maxPrice"
+                                        step="100"
+                                        [disabled]="!isPickerSelected(row.id)"
+                                        [(ngModel)]="pickerPrice[row.id]"
+                                        [name]="'price-' + row.id"
+                                    />
+                                </mat-form-field>
+                                <mat-form-field
+                                    class="fuse-mat-dense w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <input
+                                        matInput
+                                        type="number"
+                                        min="0"
+                                        step="1"
+                                        [disabled]="!isPickerSelected(row.id)"
+                                        [(ngModel)]="pickerQuantity[row.id]"
+                                        [name]="'qty-' + row.id"
+                                    />
+                                </mat-form-field>
+                                @if (
+                                    priceErrorKey(row.id) ||
+                                    quantityErrorKey(row.id)
+                                ) {
+                                    <div
+                                        class="col-span-full -mt-1 text-xs text-warn"
+                                    >
+                                        {{
+                                            t(
+                                                priceErrorKey(row.id) ||
+                                                    quantityErrorKey(row.id)!,
+                                                { max: maxPrice }
+                                            )
+                                        }}
+                                    </div>
+                                }
                             </div>
                         } @empty {
                             <div class="text-secondary px-4 py-8 text-center">

@@ -24,17 +24,19 @@ import { AdminService } from '../admin.service';
 import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
 
 /**
- * Route types the backend accepts for `defaultRouteType`. The spec types the
- * field as a free-form nullable string with no enum, so this list mirrors the
- * route strategies in `specs/product/BUSINESS_RULES.md` rather than inventing
- * values — an unknown value loaded from the server is kept and shown as-is.
+ * The only values `UpdateOperationalSettingsCommandValidator` accepts:
+ * "DefaultRouteType must be one of: hub_relay, direct."
+ *
+ * The list previously also offered `hub_and_spoke` and `milk_run` — taken from
+ * `specs/product/BUSINESS_RULES.md` — but the backend has never accepted
+ * either, so choosing one produced a guaranteed 400 on save. An unlisted value
+ * already stored on the server is still shown (see `_load`) rather than being
+ * silently rewritten.
  */
-const ROUTE_TYPES = [
-    'direct',
-    'hub_and_spoke',
-    'milk_run',
-    'hub_relay',
-] as const;
+const ROUTE_TYPES = ['hub_relay', 'direct'] as const;
+
+/** `DeliveryFeePerKm` — `InclusiveBetween(0, 1_000_000)`. */
+const DELIVERY_FEE_PER_KM_MAX = 1_000_000;
 
 /** Parse API `HH:mm` / `HH:mm:ss` into a Luxon DateTime for the timepicker. */
 function parseCutoffTime(raw: string | null | undefined): DateTime | null {
@@ -96,6 +98,11 @@ export class AdminSettingsDialogComponent implements OnInit {
             Validators.min(1),
             Validators.max(30),
         ]),
+        deliveryFeePerKm: this._formBuilder.nonNullable.control(5000, [
+            Validators.required,
+            Validators.min(0),
+            Validators.max(DELIVERY_FEE_PER_KM_MAX),
+        ]),
         priceAlertThresholdPercent: this._formBuilder.nonNullable.control(10, [
             Validators.required,
             Validators.min(0.01),
@@ -133,6 +140,7 @@ export class AdminSettingsDialogComponent implements OnInit {
                     batchingEnabled: operational.batchingEnabled ?? false,
                     defaultRouteType: routeType,
                     deliveryWindowDays: operational.deliveryWindowDays ?? 7,
+                    deliveryFeePerKm: operational.deliveryFeePerKm ?? 5000,
                     priceAlertThresholdPercent:
                         pricing.priceAlertThresholdPercent ?? 10,
                 });
@@ -150,6 +158,7 @@ export class AdminSettingsDialogComponent implements OnInit {
             batchingEnabled,
             defaultRouteType,
             deliveryWindowDays,
+            deliveryFeePerKm,
             priceAlertThresholdPercent,
         } = this.form.getRawValue();
         if (!dailyCutoffTime?.isValid) {
@@ -164,6 +173,9 @@ export class AdminSettingsDialogComponent implements OnInit {
                 batchingEnabled: batchingEnabled ?? false,
                 defaultRouteType: defaultRouteType || null,
                 deliveryWindowDays: deliveryWindowDays ?? 7,
+                // Must be sent: omitting it lets the server's constructor
+                // default (5000) overwrite whatever fee was configured.
+                deliveryFeePerKm: deliveryFeePerKm ?? 5000,
             }),
             this._admin.updatePricingSettings({
                 priceAlertThresholdPercent: priceAlertThresholdPercent ?? 10,

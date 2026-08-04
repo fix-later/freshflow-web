@@ -24,12 +24,16 @@ import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
 
-const ROUTE_TYPES = [
-    'direct',
-    'hub_and_spoke',
-    'milk_run',
-    'hub_relay',
-] as const;
+/**
+ * The only two values `UpdateOperationalSettingsCommandValidator` accepts
+ * ("DefaultRouteType must be one of: hub_relay, direct."). This list used to
+ * also offer `hub_and_spoke` and `milk_run`, which the backend has never
+ * accepted — picking either produced a guaranteed 400 on save.
+ */
+const ROUTE_TYPES = ['hub_relay', 'direct'] as const;
+
+/** `DeliveryFeePerKm` — `InclusiveBetween(0, 1_000_000)` on the same validator. */
+const DELIVERY_FEE_PER_KM_MAX = 1_000_000;
 
 function parseCutoffTime(raw: string | null | undefined): DateTime | null {
     const hhmm = (raw ?? '').trim().slice(0, 5);
@@ -80,6 +84,19 @@ export class OrderGroupSettingsPageComponent implements OnInit {
         }),
         batchingEnabled: this._formBuilder.nonNullable.control(false),
         defaultRouteType: this._formBuilder.nonNullable.control(''),
+        // Both of these are mandatory on the wire — see AdminOperationalSettings.
+        // This page used to omit them, so every save answered 400
+        // ("DeliveryWindowDays must be between 1 and 30", bound to 0).
+        deliveryWindowDays: this._formBuilder.nonNullable.control(7, [
+            Validators.required,
+            Validators.min(1),
+            Validators.max(30),
+        ]),
+        deliveryFeePerKm: this._formBuilder.nonNullable.control(5000, [
+            Validators.required,
+            Validators.min(0),
+            Validators.max(DELIVERY_FEE_PER_KM_MAX),
+        ]),
         priceAlertThresholdPercent: this._formBuilder.nonNullable.control(10, [
             Validators.required,
             Validators.min(0.01),
@@ -110,6 +127,8 @@ export class OrderGroupSettingsPageComponent implements OnInit {
             dailyCutoffTime,
             batchingEnabled,
             defaultRouteType,
+            deliveryWindowDays,
+            deliveryFeePerKm,
             priceAlertThresholdPercent,
         } = this.form.getRawValue();
         if (!dailyCutoffTime?.isValid) {
@@ -123,6 +142,8 @@ export class OrderGroupSettingsPageComponent implements OnInit {
                 dailyCutoffTime: time,
                 batchingEnabled: batchingEnabled ?? false,
                 defaultRouteType: defaultRouteType || null,
+                deliveryWindowDays: deliveryWindowDays ?? 7,
+                deliveryFeePerKm: deliveryFeePerKm ?? 5000,
             }),
             this._admin.updatePricingSettings({
                 priceAlertThresholdPercent: priceAlertThresholdPercent ?? 10,
@@ -157,6 +178,8 @@ export class OrderGroupSettingsPageComponent implements OnInit {
                     ),
                     batchingEnabled: operational.batchingEnabled ?? false,
                     defaultRouteType: routeType,
+                    deliveryWindowDays: operational.deliveryWindowDays ?? 7,
+                    deliveryFeePerKm: operational.deliveryFeePerKm ?? 5000,
                     priceAlertThresholdPercent:
                         pricing.priceAlertThresholdPercent ?? 10,
                 });

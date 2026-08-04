@@ -14,6 +14,7 @@ import {
     invoicesApi,
     marketsApi,
     ordersApi,
+    rawApi,
     restaurantCreditApi,
 } from 'contract';
 import {
@@ -40,6 +41,7 @@ import {
     AdminPricingSettings,
     AdminResetOrderGroupsPayload,
     AdminRestaurantCredit,
+    AdminRestaurantProfile,
     AdminRoleEntry,
     AdminSetCreditLimitPayload,
     AdminSettleCreditPayload,
@@ -271,6 +273,30 @@ export class AdminService {
     // -------------------------------------------------------------------
     // Restaurants
     // -------------------------------------------------------------------
+
+    /**
+     * The restaurant's full profile, including the legal/e-invoice fields the
+     * user list does not carry (`GET /admin/restaurants/{id}/profile`).
+     *
+     * Sent through `rawApi`: the route exists on the backend but is absent from
+     * the `openapi.json` snapshot, so there is no generated method for it yet.
+     * Everything else (bearer auth, 401 refresh-and-retry, typed errors) is
+     * identical to a generated call. Drop this once `npm run generate:api`
+     * catches up.
+     *
+     * Answers 404 `RESTAURANT_NOT_FOUND` for an id that no longer exists.
+     */
+    async getRestaurantProfile(
+        restaurantId: string
+    ): Promise<AdminRestaurantProfile | null> {
+        const res = await rawApi.send(
+            `/api/v1/admin/restaurants/${encodeURIComponent(
+                restaurantId
+            )}/profile`,
+            'GET'
+        );
+        return unwrapData<AdminRestaurantProfile>(await parseJson(res)) ?? null;
+    }
 
     async approveRestaurant(restaurantId: string): Promise<void> {
         await adminApi.apiV1AdminRestaurantsRestaurantIdApprovePatchRaw({
@@ -641,6 +667,50 @@ export class AdminService {
             orderId,
             cancelOrderRequest: { reason: reason || undefined },
         });
+    }
+
+    /**
+     * Records what was actually fulfilled for one order item (UC-ORD-16/17,
+     * `PATCH /orders/{orderId}/items/{itemId}/actual-quantity`, RBAC
+     * `admin,operations_manager`). Returns the re-read order so the caller can
+     * render the recalculated totals instead of guessing them.
+     *
+     * The backend rejects `actualQuantity` outside `[0, item.quantity]` with
+     * `INVALID_ACTUAL_QUANTITY` (422) and any draft/cancelled order with
+     * `ORDER_CANNOT_ADJUST` (409) — both are mirrored client-side so the call
+     * is only made when it can succeed.
+     */
+    async recordActualQuantity(
+        orderId: string,
+        orderItemId: string,
+        actualQuantity: number
+    ): Promise<AdminOrderDetail | null> {
+        const res =
+            await ordersApi.apiV1OrdersOrderIdItemsItemIdActualQuantityPatchRaw(
+                {
+                    orderId,
+                    itemId: orderItemId,
+                    recordActualQuantityRequest: { actualQuantity },
+                }
+            );
+        return unwrapData<AdminOrderDetail>(await parseJson(res.raw)) ?? null;
+    }
+
+    /**
+     * Advances a confirmed order one stage through the pre-hub pipeline
+     * (`POST /orders/{orderId}/advance-status`, RBAC `admin,operations_manager`)
+     * — the ops bridge for when the automatic flow stalls. `status` must be one
+     * of `batched` / `picked_up` / `at_hub`; see `ORDER_ADVANCE_NEXT_STATUS`.
+     */
+    async advanceOrderStatus(
+        orderId: string,
+        status: string
+    ): Promise<AdminOrderDetail | null> {
+        const res = await ordersApi.apiV1OrdersOrderIdAdvanceStatusPostRaw({
+            orderId,
+            advanceOrderStatusRequest: { status },
+        });
+        return unwrapData<AdminOrderDetail>(await parseJson(res.raw)) ?? null;
     }
 
     async cancelOrderGroup(batchId: string, reason?: string): Promise<void> {

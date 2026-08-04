@@ -36,12 +36,24 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     USER_NOT_FOUND: 'errors.api.userNotFound',
     INVALID_ROLE: 'errors.api.invalidRole',
     INVALID_MARKET: 'errors.api.invalidMarket',
-    CANNOT_DISABLE_SELF: 'errors.api.cannotDisableSelf',
-    CANNOT_CHANGE_OWN_ROLE: 'errors.api.cannotChangeOwnRole',
+    // The backend spells this `CANNOT_DEACTIVATE_SELF` (ActivateUserCommandHandler).
+    // It was mapped as `CANNOT_DISABLE_SELF` here, so the message never resolved and
+    // the user fell through to the generic status text.
+    CANNOT_DEACTIVATE_SELF: 'errors.api.cannotDisableSelf',
 
     // Admin — restaurants
     RESTAURANT_NOT_FOUND: 'errors.api.restaurantNotFound',
     ALREADY_APPROVED: 'errors.api.alreadyApproved',
+
+    // Restaurant lifecycle rejections. These are **not** registered in the
+    // backend's `ErrorExtensions`, so they arrive as HTTP 500 rather than 4xx.
+    // `describeApiError` prefers the code over the status, so mapping them here
+    // is what turns "server error" back into the actual business reason —
+    // the UI still gates on `restaurantStatus` so they should never be hit.
+    ALREADY_SUSPENDED: 'errors.api.alreadySuspended',
+    NOT_ACTIVE: 'errors.api.restaurantNotActive',
+    NOT_SUSPENDED: 'errors.api.restaurantNotSuspended',
+    STATEMENT_PERIOD_NOT_CLOSED: 'errors.api.statementPeriodNotClosed',
 
     // Catalog / pricing
     MARKET_NOT_FOUND: 'errors.api.marketNotFound',
@@ -50,6 +62,9 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     OPTIMISTIC_CONCURRENCY_CONFLICT: 'errors.api.concurrencyConflict',
     INVALID_PRICE: 'errors.api.invalidPrice',
     INVALID_QUANTITY: 'errors.api.invalidQuantity',
+    MARKET_PRODUCT_ALREADY_EXISTS: 'errors.api.marketProductAlreadyExists',
+    MARKET_PRODUCT_NOT_FOUND: 'errors.api.marketProductNotFound',
+    MARKET_INACTIVE: 'errors.api.marketInactive',
 
     // Logistics — route planning / dispatch
     DELIVERY_ROUTE_NOT_FOUND: 'errors.api.routeNotFound',
@@ -65,10 +80,35 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
 
     // Orders
     RESTAURANT_NOT_APPROVED: 'errors.api.restaurantNotApproved',
-    EMPTY_ORDER: 'errors.api.emptyOrder',
+    // Backend emits `ORDER_EMPTY` (Order.CanConfirm), not `EMPTY_ORDER`.
+    ORDER_EMPTY: 'errors.api.emptyOrder',
     INVALID_PRODUCT: 'errors.api.invalidProduct',
     INSUFFICIENT_STOCK: 'errors.api.insufficientStock',
     SCHEDULED_FOR_TOO_SOON: 'errors.api.scheduledTooSoon',
+    ORDER_NOT_FOUND: 'errors.api.orderNotFound',
+    ORDER_ITEM_NOT_FOUND: 'errors.api.orderItemNotFound',
+    ORDER_NOT_CANCELLABLE: 'errors.field.orderNotCancellable',
+    // Ops adjustments / status bridge (admin,operations_manager)
+    ORDER_CANNOT_ADJUST: 'errors.api.orderCannotAdjust',
+    INVALID_ACTUAL_QUANTITY: 'errors.api.invalidActualQuantity',
+    ORDER_INVALID_TRANSITION: 'errors.api.orderInvalidTransition',
+    ORDER_STATUS_NOT_ADVANCEABLE: 'errors.api.orderStatusNotAdvanceable',
+
+    // Order claims (restaurant files, admin/ops reviews)
+    CLAIM_NOT_FOUND: 'errors.api.claimNotFound',
+    CLAIM_INVALID_TRANSITION: 'errors.api.claimInvalidTransition',
+    INVALID_CLAIM_DECISION_NOTE: 'errors.api.claimDecisionNoteRequired',
+    INVALID_CLAIM_AMOUNT: 'errors.api.claimAmountInvalid',
+    CLAIM_ORDER_NOT_CLAIMABLE: 'errors.api.claimOrderNotClaimable',
+    CREDIT_REFUND_EXCEEDS_ORDER_CHARGE: 'errors.api.refundExceedsOrderCharge',
+    CREDIT_REFUND_EXCEEDS_BALANCE: 'errors.api.refundExceedsBalance',
+
+    // Hub oversight
+    HUB_DISCREPANCY_NOT_FOUND: 'errors.api.discrepancyNotFound',
+    DISCREPANCY_ALREADY_ACKNOWLEDGED:
+        'errors.api.discrepancyAlreadyAcknowledged',
+    HUB_ACCESS_DENIED: 'errors.api.hubAccessDenied',
+    HUB_NOT_FOUND: 'errors.api.hubNotFound',
 
     // Generic buckets — only reached when there is no specific message/detail
     VALIDATION_ERROR: 'errors.api.validation',

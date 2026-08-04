@@ -4,10 +4,11 @@ import {
     OnInit,
     TemplateRef,
     ViewEncapsulation,
+    computed,
     inject,
     signal,
 } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import {
     MatDialog,
@@ -24,7 +25,12 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { AdminService } from '../admin.service';
-import { AdminOrderDetail } from '../admin.types';
+import {
+    AdminOrderDetail,
+    AdminOrderItem,
+    ORDER_ADVANCE_NEXT_STATUS,
+    ORDER_NOT_ADJUSTABLE_STATUSES,
+} from '../admin.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
@@ -89,6 +95,56 @@ export class OrderDetailComponent implements OnInit {
     readonly estimateError = signal<string | null>(null);
     readonly cancelReason = new FormControl('', { nonNullable: true });
 
+    // ---- Ops actions (admin,operations_manager) ---------------------------
+
+    /** Item currently being adjusted, and the value typed for it. */
+    readonly adjustingItemId = signal<string | null>(null);
+    readonly adjustQuantity = new FormControl<number | null>(null);
+    readonly adjustSaving = signal(false);
+    readonly advancing = signal(false);
+
+    /**
+     * Localized reason the last ops action was refused. A snackbar alone
+     * disappears before an operator recording a shortage has finished reading
+     * it, so the reason also stays pinned next to the control that caused it.
+     */
+    readonly actionError = signal<string | null>(null);
+
+    /** Normalized current status — every gate below keys off this. */
+    readonly status = computed(() =>
+        normalizeOrderStatus(this.order()?.status)
+    );
+
+    /**
+     * The one stage this order may be advanced to, or `null` when none is
+     * legal. Mirrors the backend state machine exactly (see
+     * {@link ORDER_ADVANCE_NEXT_STATUS}) so the button is absent rather than
+     * offering a transition the server would reject.
+     */
+    readonly nextStatus = computed(
+        () => ORDER_ADVANCE_NEXT_STATUS[this.status()] ?? null
+    );
+
+    /** `Order.RecordActualQuantity` refuses draft/cancelled orders (409). */
+    readonly canAdjust = computed(
+        () =>
+            !!this.order() && !ORDER_NOT_ADJUSTABLE_STATUSES.has(this.status())
+    );
+
+    /**
+     * Why adjusting is unavailable, so a disabled section explains itself
+     * instead of just being inert.
+     */
+    readonly adjustBlockedReason = computed(() => {
+        const status = this.status();
+        if (!status || this.canAdjust()) {
+            return null;
+        }
+        return status === 'draft'
+            ? 'admin.orders.adjust.blockedDraft'
+            : 'admin.orders.adjust.blockedCancelled';
+    });
+
     ngOnInit(): void {
         const id = this._route.snapshot.paramMap.get('orderId') ?? '';
         const passed = (history.state?.order ??
@@ -142,6 +198,155 @@ export class OrderDetailComponent implements OnInit {
             .finally(() => this.cancelSaving.set(false));
     }
 
+    // ---- Record actual quantity (UC-ORD-16/17) ----------------------------
+
+    /** The ordered quantity an adjustment may not exceed (BE: `> item.Quantity` → 422). */
+    orderedQuantity(item: AdminOrderItem): number {
+        const raw = Number(item['quantity']);
+        return Number.isFinite(raw) && raw > 0 ? raw : 0;
+    }
+
+    itemIdOf(item: AdminOrderItem): string {
+        const raw = item['orderItemId'] ?? item['id'];
+        return raw == null ? '' : String(raw);
+    }
+
+    isAdjusting(item: AdminOrderItem): boolean {
+        return this.adjustingItemId() === this.itemIdOf(item);
+    }
+
+    startAdjust(item: AdminOrderItem): void {
+        const id = this.itemIdOf(item);
+        if (!id || !this.canAdjust()) {
+            return;
+        }
+        this.actionError.set(null);
+        const current = item['actualQuantity'];
+        this.adjustQuantity.setValue(
+            current == null ? this.orderedQuantity(item) : Number(current)
+        );
+        // Bounds are per-item, so they are applied when the row opens rather
+        // than once at construction.
+        this.adjustQuantity.setValidators([
+            Validators.required,
+            Validators.min(0),
+            Validators.max(this.orderedQuantity(item)),
+        ]);
+        this.adjustQuantity.updateValueAndValidity();
+        this.adjustingItemId.set(id);
+    }
+
+    cancelAdjust(): void {
+        this.adjustingItemId.set(null);
+        this.adjustQuantity.reset(null);
+        this.adjustQuantity.clearValidators();
+        this.adjustQuantity.updateValueAndValidity();
+        this.actionError.set(null);
+    }
+
+    /**
+     * The client-side verdict on the typed quantity, as an i18n key — the same
+     * three rules the backend enforces (`NotEmpty`, `>= 0`,
+     * `<= item.Quantity`), so the request is only sent when it can succeed.
+     */
+    adjustErrorKey(item: AdminOrderItem): string | null {
+        const value = this.adjustQuantity.value;
+        if (value === null || (value as unknown) === '') {
+            return 'admin.orders.adjust.required';
+        }
+        const amount = Number(value);
+        if (!Number.isFinite(amount)) {
+            return 'admin.orders.adjust.required';
+        }
+        if (amount < 0) {
+            return 'admin.orders.adjust.negative';
+        }
+        if (amount > this.orderedQuantity(item)) {
+            return 'admin.orders.adjust.exceedsOrdered';
+        }
+        return null;
+    }
+
+    canSubmitAdjust(item: AdminOrderItem): boolean {
+        return (
+            this.canAdjust() &&
+            !this.adjustSaving() &&
+            this.adjustErrorKey(item) === null
+        );
+    }
+
+    submitAdjust(item: AdminOrderItem): void {
+        const orderId = this.order()?.orderId;
+        const itemId = this.itemIdOf(item);
+        if (!orderId || !itemId || !this.canSubmitAdjust(item)) {
+            this.adjustQuantity.markAsTouched();
+            return;
+        }
+        this.actionError.set(null);
+        this.adjustSaving.set(true);
+        this._admin
+            .recordActualQuantity(
+                orderId,
+                itemId,
+                Number(this.adjustQuantity.value)
+            )
+            .then((updated) => {
+                this._notify('admin.orders.adjust.success');
+                this.cancelAdjust();
+                // The response carries the recalculated order; fall back to a
+                // re-read if the endpoint answered without a body.
+                if (updated) {
+                    this.order.set(updated);
+                } else {
+                    this._fetch(orderId);
+                }
+            })
+            .catch(
+                (err) =>
+                    void this._reportActionError(
+                        err,
+                        'admin.orders.adjust.error'
+                    )
+            )
+            .finally(() => this.adjustSaving.set(false));
+    }
+
+    // ---- Advance status (ops bridge) --------------------------------------
+
+    /** Localized label of the stage this order would move to next. */
+    nextStatusLabel(): string {
+        const next = this.nextStatus();
+        return next ? this.statusLabel(next) : '—';
+    }
+
+    advance(): void {
+        const orderId = this.order()?.orderId;
+        const next = this.nextStatus();
+        if (!orderId || !next || this.advancing()) {
+            return;
+        }
+        this.actionError.set(null);
+        this.advancing.set(true);
+        this._admin
+            .advanceOrderStatus(orderId, next)
+            .then((updated) => {
+                this._notify('admin.orders.advance.success');
+                if (updated) {
+                    this.order.set(updated);
+                } else {
+                    this._fetch(orderId);
+                }
+            })
+            .catch(
+                (err) =>
+                    void this._reportActionError(
+                        err,
+                        'admin.orders.advance.error'
+                    )
+            )
+            .finally(() => this.advancing.set(false));
+    }
+
     detailEntries(row: AdminOrderDetail): { label: string; value: string }[] {
         return this._rawScalars(row)
             .filter(([key]) => !DERIVED_ROW_KEYS.has(key))
@@ -151,14 +356,12 @@ export class OrderDetailComponent implements OnInit {
             }));
     }
 
-    itemsOf(row: AdminOrderDetail | null): Record<string, unknown>[] {
+    itemsOf(row: AdminOrderDetail | null): AdminOrderItem[] {
         const items = row?.items;
-        return Array.isArray(items) ? (items as Record<string, unknown>[]) : [];
+        return Array.isArray(items) ? items : [];
     }
 
-    itemEntries(
-        item: Record<string, unknown>
-    ): { label: string; value: string }[] {
+    itemEntries(item: AdminOrderItem): { label: string; value: string }[] {
         return this._rawScalars(item).map(([key, value]) => ({
             label: this._fieldLabel('itemField', key),
             value: this._displayValue(key, value),
@@ -300,5 +503,26 @@ export class OrderDetailComponent implements OnInit {
             'admin.orders.actionError'
         );
         this._snackBar.open(message, undefined, { duration: 5000 });
+    }
+
+    /**
+     * Shows why an ops action was refused, both inline (so it survives long
+     * enough to act on) and as a toast. Every documented rejection resolves to
+     * its own localized sentence via `describeApiError` +
+     * `API_ERROR_MESSAGE_KEYS` — `ORDER_CANNOT_ADJUST`,
+     * `INVALID_ACTUAL_QUANTITY`, `ORDER_ITEM_NOT_FOUND`,
+     * `ORDER_INVALID_TRANSITION` and `ORDER_NOT_FOUND` included.
+     */
+    private async _reportActionError(
+        err: unknown,
+        fallbackKey: string
+    ): Promise<void> {
+        const message = await describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            fallbackKey
+        );
+        this.actionError.set(message);
+        this._snackBar.open(message, undefined, { duration: 6000 });
     }
 }
