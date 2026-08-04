@@ -195,24 +195,60 @@
         }
     }
 
+    /*
+     * Flush product sheet: tiles share borders with no gap, matching the
+     * reference catalog board. Wishlist stays hidden until the tile is
+     * hovered / focused (favorited hearts stay visible).
+     */
     &__grid {
         margin-top: 1.5rem;
         display: grid;
-        gap: 1.25rem;
+        gap: 0;
         grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-top: 1px solid var(--fuse-border);
+        border-left: 1px solid var(--fuse-border);
 
         @screen md {
             grid-template-columns: repeat(3, minmax(0, 1fr));
         }
 
-        @screen xl {
+        @screen lg {
             grid-template-columns: repeat(4, minmax(0, 1fr));
         }
 
-        /* No `2xl` in the theme's breakpoints — the fifth column only pays off
-           past the widest named screen, so it is a raw query on purpose. */
-        @media (min-width: 1700px) {
+        @screen xl {
             grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .ff-product-card {
+            border-radius: 0;
+            border: none;
+            border-right: 1px solid var(--fuse-border);
+            border-bottom: 1px solid var(--fuse-border);
+            box-shadow: none;
+
+            &:hover,
+            &:focus-within {
+                z-index: 1;
+                transform: none;
+                box-shadow: none;
+            }
+        }
+
+        .ff-product-card__fav {
+            opacity: 0;
+            pointer-events: none;
+            transition:
+                opacity 150ms ease,
+                background-color 150ms ease,
+                color 150ms ease;
+        }
+
+        .ff-product-card:hover .ff-product-card__fav,
+        .ff-product-card:focus-within .ff-product-card__fav,
+        .ff-product-card__fav--on {
+            opacity: 1;
+            pointer-events: auto;
         }
     }
 
@@ -227,8 +263,10 @@
     /* ---- Loading placeholders --------------------------------------- */
 
     &__skeleton {
-        border-radius: 1rem;
-        border: 1px solid var(--fuse-border);
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid var(--fuse-border);
+        border-bottom: 1px solid var(--fuse-border);
         padding: 0 0 1rem;
         overflow: hidden;
         @apply bg-card;
@@ -271,5 +309,9 @@
     .ff-catalog__skeleton-thumb,
     .ff-catalog__skeleton-line {
         animation: none;
+    }
+
+    .ff-catalog__grid .ff-product-card__fav {
+        transition: none;
     }
 }

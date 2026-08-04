@@ -426,6 +426,19 @@ export class CatalogAdminService {
         await marketsApi.apiV1MarketsIdDeactivatePatch({ id });
     }
 
+    /**
+     * Permanently removes a market (`DELETE /markets/{id}`).
+     *
+     * Distinct from {@link deactivateMarket}, which retires a market while
+     * keeping its price history. Whether a given market may actually be
+     * deleted — no listings, no orders referencing it — is the server's call:
+     * it answers 409/400 and the caller shows that reason. Nothing is assumed
+     * here about which markets qualify.
+     */
+    async deleteMarket(id: string): Promise<void> {
+        await marketsApi.apiV1MarketsIdDelete({ id });
+    }
+
     /** Single market by id (edit page). */
     async getMarket(id: string): Promise<CrudRow | null> {
         const res = await marketsApi.apiV1MarketsIdGetRaw({ id });

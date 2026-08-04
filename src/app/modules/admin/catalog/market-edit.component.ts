@@ -262,6 +262,55 @@ export class MarketEditComponent implements OnInit {
         });
     }
 
+    /**
+     * Permanently deletes the market, as opposed to retiring it.
+     *
+     * Whether this market *can* be deleted is the server's decision — a market
+     * with listings or order history is refused, and that refusal is shown as
+     * the reason rather than pre-judged here. The confirmation says the action
+     * cannot be undone because `DELETE` has no counterpart.
+     */
+    deleteMarket(): void {
+        const row = this.market();
+        if (!row || this.saving()) {
+            return;
+        }
+        const ref = this._confirmation.open({
+            title: this._transloco.translate('admin.markets.delete.title'),
+            message: this._transloco.translate('admin.markets.delete.message', {
+                name: String(row['name'] ?? ''),
+            }),
+            actions: {
+                confirm: {
+                    label: this._transloco.translate(
+                        'admin.markets.delete.confirm'
+                    ),
+                    color: 'warn',
+                },
+            },
+        });
+        ref.afterClosed().subscribe((result) => {
+            if (result !== 'confirmed') {
+                return;
+            }
+            this.saving.set(true);
+            void this._catalog
+                .deleteMarket(row.id)
+                .then(() => {
+                    this._notify('admin.markets.delete.success');
+                    this.goBack();
+                })
+                .catch(
+                    (err) =>
+                        void this._notifyError(
+                            err,
+                            'admin.markets.delete.error'
+                        )
+                )
+                .finally(() => this.saving.set(false));
+        });
+    }
+
     agentLabel(agent: AdminUserRow): string {
         return agent.email || String(agent['name'] ?? agent.id);
     }

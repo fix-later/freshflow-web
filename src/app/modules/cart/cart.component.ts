@@ -5,14 +5,9 @@ import {
     ViewEncapsulation,
     computed,
     inject,
-    signal,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
@@ -28,12 +23,8 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
     standalone: true,
     imports: [
         DecimalPipe,
-        FormsModule,
         MatButtonModule,
-        MatFormFieldModule,
         MatIconModule,
-        MatInputModule,
-        MatSnackBarModule,
         RouterLink,
         TranslocoModule,
     ],
@@ -42,24 +33,18 @@ export class CartComponent {
     private readonly _router = inject(Router);
     private readonly _draftOrder = inject(DraftOrderService);
     private readonly _transloco = inject(TranslocoService);
-    private readonly _snackBar = inject(MatSnackBar);
 
     readonly lines = this._draftOrder.lines;
     readonly subtotal = this._draftOrder.subtotal;
 
-    readonly couponCode = signal('');
-    readonly appliedCoupon = signal<string | null>(null);
-
-    readonly discount = computed(() => {
-        if (!this.appliedCoupon()) {
-            return 0;
-        }
-        return Math.round(this.subtotal() * 0.1);
-    });
-
-    readonly total = computed(() =>
-        Math.max(0, this.subtotal() - this.discount())
-    );
+    /**
+     * The backend prices an order as the sum of its line subtotals — no tax,
+     * no delivery fee — and that is the figure charged to the restaurant's
+     * credit (BR-CRE-1). The coupon box here never had an API behind it and
+     * rejected every code, so it only promised a discount that could not
+     * exist.
+     */
+    readonly total = computed(() => this.subtotal());
 
     readonly isVi = computed(() => this._transloco.getActiveLang() === 'vi');
 
@@ -85,20 +70,6 @@ export class CartComponent {
 
     remove(productId: string): void {
         this._draftOrder.remove(productId);
-    }
-
-    applyCoupon(): void {
-        const code = this.couponCode().trim().toUpperCase();
-        if (!code) {
-            return;
-        }
-        // No coupon API yet — any code is rejected.
-        this.appliedCoupon.set(null);
-        this._snackBar.open(
-            this._transloco.translate('cart.coupon.invalid'),
-            undefined,
-            { duration: 2500 }
-        );
     }
 
     proceedToCheckout(): void {

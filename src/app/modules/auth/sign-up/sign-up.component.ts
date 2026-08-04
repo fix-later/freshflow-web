@@ -72,6 +72,7 @@ const FIELD_TO_CONTROL: Readonly<Record<string, string>> = {
 @Component({
     selector: 'auth-sign-up',
     templateUrl: './sign-up.component.html',
+    styleUrl: './sign-up.component.scss',
     encapsulation: ViewEncapsulation.None,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,

@@ -3,43 +3,73 @@
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
 
-    @if (loadError()) {
+    @if (loadError(); as message) {
         <div
-            class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
         >
             <mat-icon
-                class="text-red-500 icon-size-5"
+                class="shrink-0 text-red-500 icon-size-5"
                 svgIcon="heroicons_outline:exclamation-triangle"
             ></mat-icon>
-            <span>{{ t('restaurantCredit.loadError') }}</span>
+            <span class="min-w-0 flex-auto">{{ message }}</span>
+            <button mat-button type="button" (click)="reload()">
+                {{ t('common.retry') }}
+            </button>
         </div>
     } @else {
-        <!-- Balance summary -->
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <div class="rounded-xl border p-4">
-                <div class="text-secondary text-xs uppercase tracking-wide">
-                    {{ t('restaurantCredit.creditLimit') }}
+        @if (actionError(); as message) {
+            <div
+                class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-amber-500 icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <span>{{ message }}</span>
+            </div>
+        }
+
+        <!-- Balance summary — labelled stat tiles + one line of plain English
+             about what the figure means (Render / Replit billing pattern). -->
+        <div class="flex flex-col gap-2">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.creditLimit') }}
+                    </div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums">
+                        {{ formatAmount(balance()?.creditLimit) }}
+                    </div>
                 </div>
-                <div class="mt-1 text-2xl font-bold tabular-nums">
-                    {{ formatAmount(balance()?.creditLimit) }}
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.currentBalance') }}
+                    </div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums">
+                        {{
+                            formatAmount(
+                                balance()?.outstandingBalance ??
+                                    balance()?.currentBalance
+                            )
+                        }}
+                    </div>
+                </div>
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.availableCredit') }}
+                    </div>
+                    <div
+                        class="mt-1 text-2xl font-bold tabular-nums text-primary"
+                    >
+                        {{ formatAmount(balance()?.availableCredit) }}
+                    </div>
                 </div>
             </div>
-            <div class="rounded-xl border p-4">
-                <div class="text-secondary text-xs uppercase tracking-wide">
-                    {{ t('restaurantCredit.currentBalance') }}
-                </div>
-                <div class="mt-1 text-2xl font-bold tabular-nums">
-                    {{ formatAmount(balance()?.currentBalance) }}
-                </div>
-            </div>
-            <div class="rounded-xl border p-4">
-                <div class="text-secondary text-xs uppercase tracking-wide">
-                    {{ t('restaurantCredit.availableCredit') }}
-                </div>
-                <div class="mt-1 text-2xl font-bold tabular-nums text-primary">
-                    {{ formatAmount(balance()?.availableCredit) }}
-                </div>
-            </div>
+            <p class="text-secondary text-sm">
+                {{ t('restaurantCredit.balanceHint') }}
+            </p>
         </div>
 
         <!-- Statements -->

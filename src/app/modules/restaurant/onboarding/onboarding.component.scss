@@ -1,0 +1,150 @@
+/**
+ * Guided setup. A dark brand rail beside a light working column — the split
+ * Remote uses for its multi-step hiring flow, which keeps "what this is" and
+ * "how far along" on screen without spending the working column on them.
+ */
+.ff-onboarding__rail {
+    width: 22rem;
+    padding: 2.5rem 2rem;
+    box-sizing: border-box;
+    background: var(--fuse-primary, #1e293b);
+    color: #fff;
+}
+
+.ff-onboarding__rail-sub {
+    color: rgb(255 255 255 / 0.72);
+}
+
+/* Step list: a connector runs behind the markers, drawn per row so the last
+   row can stop short instead of trailing into the progress block. */
+.ff-onboarding__step {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.875rem;
+    padding-bottom: 1.5rem;
+
+    &:last-child {
+        padding-bottom: 0;
+    }
+
+    &:not(:last-child)::before {
+        content: '';
+        position: absolute;
+        top: 1.75rem;
+        bottom: 0.25rem;
+        left: 0.875rem;
+        width: 2px;
+        background: rgb(255 255 255 / 0.18);
+    }
+}
+
+.ff-onboarding__step-marker {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 2px solid rgb(255 255 255 / 0.32);
+    background: var(--fuse-primary, #1e293b);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    color: rgb(255 255 255 / 0.72);
+}
+
+.ff-onboarding__step-label {
+    display: block;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    line-height: 1.75rem;
+    color: rgb(255 255 255 / 0.72);
+}
+
+.ff-onboarding__step-optional {
+    margin-left: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: rgb(255 255 255 / 0.5);
+}
+
+.ff-onboarding__step--current {
+    .ff-onboarding__step-marker {
+        border-color: #fff;
+        background: #fff;
+        color: var(--fuse-primary, #1e293b);
+    }
+
+    .ff-onboarding__step-label {
+        color: #fff;
+        font-weight: 700;
+    }
+}
+
+.ff-onboarding__step--done {
+    .ff-onboarding__step-marker {
+        border-color: var(--fuse-accent, #34d399);
+        background: var(--fuse-accent, #34d399);
+        color: var(--fuse-primary, #1e293b);
+    }
+
+    .ff-onboarding__step-label {
+        color: rgb(255 255 255 / 0.9);
+    }
+}
+
+/* Required-item meter. Shared by the rail and the mobile header, so the track
+   colour comes from `currentColor` at 20% rather than a fixed value. */
+.ff-onboarding__meter {
+    height: 4px;
+    border-radius: 9999px;
+    background: rgb(148 163 184 / 0.35);
+    overflow: hidden;
+
+    > span {
+        display: block;
+        height: 100%;
+        border-radius: inherit;
+        background: var(--fuse-accent, #34d399);
+        transition: width 240ms ease;
+    }
+}
+
+.ff-onboarding__rail .ff-onboarding__meter {
+    background: rgb(255 255 255 / 0.2);
+}
+
+.ff-onboarding__exit {
+    color: rgb(255 255 255 / 0.72);
+    font-size: 0.875rem;
+    font-weight: 500;
+
+    &:hover {
+        color: #fff;
+    }
+}
+
+/**
+ * The stepper keeps `matStepContent`'s lazy rendering — the forms behind each
+ * step are API-backed and must not all mount at once — but its header is
+ * redundant next to the rail, and its default padding fights the column.
+ */
+.ff-onboarding__stepper {
+    background: transparent;
+
+    .mat-horizontal-stepper-header-container,
+    .mat-stepper-horizontal-line {
+        display: none !important;
+    }
+
+    .mat-horizontal-content-container {
+        padding: 0 !important;
+        overflow: visible;
+    }
+}

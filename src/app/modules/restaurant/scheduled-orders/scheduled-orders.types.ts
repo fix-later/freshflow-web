@@ -50,3 +50,24 @@ export interface RestaurantApprovalStatus {
     reviewedAt?: string;
     [key: string]: unknown;
 }
+
+/**
+ * Recurrence vocabulary. The OpenAPI spec types `recurrenceType` as an opaque
+ * `minLength: 1` string, but the product docs name the two values it can take:
+ * BR-ORD-5 — "Recurring orders generate concrete instances on a **daily/weekly**
+ * schedule" — and UC-ORD-09 / FR-ORD-009 — "Nhà hàng tạo lịch đặt hàng lặp lại
+ * hằng ngày hoặc hằng tuần". Sent uppercase, matching how this backend spells
+ * every other enum on the wire (DRAFT, PENDING_APPROVAL, …).
+ */
+export const SCHEDULE_RECURRENCE_TYPES = ['DAILY', 'WEEKLY'] as const;
+
+export type ScheduleRecurrenceType = (typeof SCHEDULE_RECURRENCE_TYPES)[number];
+
+/** True when the value is one of the documented recurrence values. */
+export function isKnownRecurrence(
+    value: string | null | undefined
+): value is ScheduleRecurrenceType {
+    return (SCHEDULE_RECURRENCE_TYPES as readonly string[]).includes(
+        (value ?? '').toUpperCase()
+    );
+}

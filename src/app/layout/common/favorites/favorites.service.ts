@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { extractList, parseJson } from 'app/core/api/envelope';
+import { isUuid } from 'app/core/api/validators';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { restaurantFavoritesApi } from 'contract';
 
@@ -55,9 +56,29 @@ export class FavoritesService {
     private readonly _loaded = signal(false);
     private _loading: Promise<void> | null = null;
 
+    /**
+     * The rejection behind the last failed favorites call, or `null`. Kept raw
+     * (not a message) so each surface localizes it with its own fallback via
+     * `describeApiError` — the service stays DI-free of Transloco.
+     */
+    private readonly _error = signal<unknown>(null);
+
     readonly items = this._items.asReadonly();
     readonly loaded = this._loaded.asReadonly();
+    readonly error = this._error.asReadonly();
     readonly count = computed(() => this._items().length);
+
+    /** Clears the stored rejection once a surface has shown it. */
+    clearError(): void {
+        this._error.set(null);
+    }
+
+    /** Re-reads the saved favorites, e.g. the retry action on an error state. */
+    async reload(): Promise<void> {
+        this._loaded.set(false);
+        this._loading = null;
+        await this.ensureLoaded();
+    }
 
     /**
      * Open-state of the header favorites drawer. Kept here (not in the
@@ -100,6 +121,7 @@ export class FavoritesService {
     }
 
     private async _load(): Promise<void> {
+        this._error.set(null);
         try {
             const res =
                 await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesGetRaw();
@@ -108,8 +130,11 @@ export class FavoritesService {
                 .map((row) => this._toFavoriteProduct(row))
                 .filter((item): item is CatalogProduct => !!item);
             this._items.set(items);
-        } catch {
+        } catch (err) {
+            // A failed read is not an empty list: keep the rejection so the
+            // wishlist can say why it is blank and offer a retry.
             this._items.set([]);
+            this._error.set(err);
         } finally {
             this._loaded.set(true);
         }
@@ -121,6 +146,14 @@ export class FavoritesService {
             await this.remove(product.marketProductId);
             return;
         }
+        // `marketProductId` is `format: uuid` on AddFavoriteRequest. Anything
+        // else answers 400, which as an optimistic toggle would flicker on and
+        // silently off again — reject it here instead.
+        if (!isUuid(product.marketProductId)) {
+            this._error.set(new Error('INVALID_MARKET_PRODUCT_ID'));
+            return;
+        }
+        this._error.set(null);
         this._items.update((items) => [...items, product]);
         try {
             await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesPost({
@@ -128,17 +161,20 @@ export class FavoritesService {
                     marketProductId: product.marketProductId,
                 },
             });
-        } catch {
-            // Revert the optimistic add — the backend rejected it.
+        } catch (err) {
+            // Revert the optimistic add — the backend rejected it — and keep
+            // the reason so the surface can explain the disappearing heart.
             this._items.update((items) =>
                 items.filter(
                     (item) => item.marketProductId !== product.marketProductId
                 )
             );
+            this._error.set(err);
         }
     }
 
     async remove(marketProductId: string): Promise<void> {
+        this._error.set(null);
         const previous = this._items();
         this._items.set(
             previous.filter((item) => item.marketProductId !== marketProductId)
@@ -147,9 +183,10 @@ export class FavoritesService {
             await restaurantFavoritesApi.apiV1RestaurantsMeFavoritesMarketProductIdDelete(
                 { marketProductId }
             );
-        } catch {
+        } catch (err) {
             // Revert — the backend rejected the removal.
             this._items.set(previous);
+            this._error.set(err);
         }
     }
 

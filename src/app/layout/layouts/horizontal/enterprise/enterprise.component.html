@@ -38,9 +38,17 @@
 
             <!--
               Catalog desktop: persistent max-width grid (logo stays in flow —
-              no remount jitter). border-b only on content cells. When pinned,
-              a logo-primary overlay slides in; in-flow row-2 is visually hidden
-              but keeps layout height. Other pages: standard main + nav row.
+              no remount jitter). The logo spans both grid rows (explicit
+              `row-start-1 row-span-2` — without it the auto-placement
+              algorithm can't fit it in a column the full-bleed rule below
+              already claims, and pushes it into new implicit rows instead).
+              The seam between the two rows needs a masked full-bleed rule
+              (the logo sits *inside* that boundary); the seam below both rows
+              needs no masking — the logo is bounded by `self-stretch` to
+              never cross it, so it's a plain `border-b` on the block. When
+              pinned, a logo-primary overlay slides in; in-flow row-2 is
+              visually hidden but keeps layout height. Other pages: standard
+              main + nav row.
             -->
             <div class="w-full [overflow-anchor:none]">
                 @if (isCatalogRoute() && !isScreenSmall) {
@@ -76,12 +84,14 @@
                         </div>
                     }
 
-                    <div class="bg-card w-full">
+                    <div
+                        class="bg-card relative w-full overflow-x-clip border-b"
+                    >
                         <div
                             class="mx-auto grid w-full max-w-[95rem] grid-cols-[auto_minmax(0,1fr)] grid-rows-[auto_auto] items-stretch gap-x-6 px-4 md:px-8 lg:px-14"
                         >
                             <a
-                                class="ff-header-logo ff-header-logo--market row-span-2 flex items-center self-center py-1"
+                                class="ff-header-logo ff-header-logo--market col-start-1 row-span-2 row-start-1 flex items-center self-stretch py-1"
                                 routerLink="/home"
                                 [class.is-away]="isMainBarStuck()"
                                 [class.ff-header-logo--route-in]="
@@ -99,7 +109,7 @@
                             </a>
 
                             <div
-                                class="flex h-18 min-w-0 items-center gap-6 border-b md:h-22"
+                                class="col-start-2 row-start-1 flex h-18 min-w-0 items-center gap-6 md:h-22"
                                 [class.pointer-events-none]="isMainBarStuck()"
                                 [class.opacity-0]="isMainBarStuck()"
                             >
@@ -114,8 +124,13 @@
                                     ></ng-container>
                                 }
                             </div>
+                            <!-- Full-bleed rule under main bar (spans logo + content). -->
+                            <div
+                                class="ff-header-catalog-rule col-span-full row-start-1"
+                                aria-hidden="true"
+                            ></div>
 
-                            <div class="min-w-0 border-b">
+                            <div class="col-start-2 row-start-2 min-w-0">
                                 <storefront-nav-row
                                     embedded
                                 ></storefront-nav-row>
@@ -162,7 +177,7 @@
                                     class="ml-auto"
                                     mat-icon-button
                                     type="button"
-                                    aria-label="Open menu"
+                                    [attr.aria-label]="t('header.openMenu')"
                                     (click)="toggleNavigation('mainNavigation')"
                                 >
                                     <mat-icon
@@ -208,6 +223,7 @@
             <ng-template #mainBarActions>
                 <div
                     class="relative shrink-0"
+                    *transloco="let t"
                     (mouseenter)="megaMenuOpen = true"
                     (mouseleave)="megaMenuOpen = false"
                 >
@@ -215,7 +231,7 @@
                         class="text-default bg-default flex h-12 w-56 items-center justify-between rounded-full px-5 text-base font-semibold transition-all hover:bg-card hover:shadow-md"
                         type="button"
                     >
-                        <span>Danh mục</span>
+                        <span>{{ t('header.categories') }}</span>
                         <mat-icon
                             class="text-current icon-size-4.5"
                             [svgIcon]="'heroicons_outline:bars-3'"
@@ -225,47 +241,90 @@
                     @if (megaMenuOpen) {
                         <div class="absolute left-0 top-full z-999 pt-2">
                             <div
-                                class="bg-card w-[76rem] max-w-[calc(100vw-8rem)] overflow-hidden rounded-2xl border shadow-2xl"
+                                class="bg-card w-[64rem] max-w-[calc(100vw-8rem)] overflow-hidden rounded-2xl border shadow-2xl"
                             >
-                                <div
-                                    class="grid grid-cols-6 gap-6 px-10 pb-8 pt-8"
-                                >
-                                    @for (
-                                        cat of megaCategories;
-                                        track cat.name
-                                    ) {
-                                        <div class="flex flex-col">
-                                            <div
-                                                class="flex h-24 items-center justify-center"
-                                            >
-                                                <span class="text-6xl">{{
-                                                    cat.emoji
-                                                }}</span>
-                                            </div>
-                                            <h3
-                                                class="text-default mt-3 text-lg font-bold"
-                                            >
-                                                {{ cat.name }}
-                                            </h3>
-                                            <ul
-                                                class="mt-3 flex flex-col gap-2.5"
-                                            >
-                                                @for (
-                                                    sub of cat.sub;
-                                                    track sub
-                                                ) {
-                                                    <li>
-                                                        <a
-                                                            class="text-secondary block text-base no-underline hover:text-primary"
-                                                            routerLink="/catalog"
-                                                            >{{ sub }}</a
-                                                        >
-                                                    </li>
+                                @if (megaCategoriesLoading()) {
+                                    <div
+                                        class="flex items-center justify-center px-10 py-16"
+                                    >
+                                        <mat-progress-spinner
+                                            [diameter]="32"
+                                            [mode]="'indeterminate'"
+                                        ></mat-progress-spinner>
+                                    </div>
+                                } @else if (megaCategories().length) {
+                                    <div
+                                        class="grid grid-cols-4 gap-x-6 gap-y-8 px-10 pb-8 pt-8"
+                                    >
+                                        @for (
+                                            cat of megaCategories();
+                                            track cat.id
+                                        ) {
+                                            <div class="flex min-w-0 flex-col">
+                                                <a
+                                                    class="text-default truncate text-base font-bold no-underline hover:text-primary"
+                                                    routerLink="/catalog"
+                                                    [queryParams]="{
+                                                        category: cat.id,
+                                                    }"
+                                                    (click)="
+                                                        megaMenuOpen = false
+                                                    "
+                                                    >{{
+                                                        isVi()
+                                                            ? cat.name
+                                                            : cat.nameEn
+                                                    }}</a
+                                                >
+                                                @if (cat.children.length) {
+                                                    <ul
+                                                        class="mt-3 flex flex-col gap-2.5"
+                                                    >
+                                                        @for (
+                                                            child of cat.children;
+                                                            track child.id
+                                                        ) {
+                                                            <li>
+                                                                <a
+                                                                    class="text-secondary block truncate text-base no-underline hover:text-primary"
+                                                                    routerLink="/catalog"
+                                                                    [queryParams]="{
+                                                                        category:
+                                                                            child.id,
+                                                                    }"
+                                                                    (click)="
+                                                                        megaMenuOpen = false
+                                                                    "
+                                                                    >{{
+                                                                        isVi()
+                                                                            ? child.name
+                                                                            : child.nameEn
+                                                                    }}</a
+                                                                >
+                                                            </li>
+                                                        }
+                                                    </ul>
                                                 }
-                                            </ul>
-                                        </div>
-                                    }
-                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                } @else {
+                                    <div
+                                        class="flex flex-col items-center justify-center px-10 py-16 text-center"
+                                    >
+                                        <mat-icon
+                                            class="text-hint icon-size-10"
+                                            [svgIcon]="
+                                                'heroicons_outline:squares-2x2'
+                                            "
+                                        ></mat-icon>
+                                        <p
+                                            class="text-secondary mt-3 text-base"
+                                        >
+                                            {{ t('header.categoriesEmpty') }}
+                                        </p>
+                                    </div>
+                                }
 
                                 <a
                                     class="relative m-10 mt-2 flex min-h-24 items-center gap-8 overflow-hidden rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-8 py-5"
@@ -274,7 +333,7 @@
                                     <div class="flex flex-col gap-1 text-white">
                                         <span
                                             class="self-start rounded-full bg-fuchsia-800/80 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-widest text-white"
-                                            >Cuối mùa</span
+                                            >{{ t('header.promo.badge') }}</span
                                         >
                                         <p
                                             class="flex items-center gap-1 text-4xl font-black"
@@ -292,7 +351,7 @@
                                     <p
                                         class="border-l-2 border-white/40 pl-8 text-xl font-bold text-white"
                                     >
-                                        Giảm đến 50% cho toàn bộ đồ ăn vặt
+                                        {{ t('header.promo.line') }}
                                     </p>
                                     <span
                                         class="absolute right-8 text-7xl opacity-90"
@@ -308,6 +367,7 @@
             <ng-template #mainBarSearchAndTools>
                 <form
                     class="relative flex min-w-0 flex-auto items-center"
+                    *transloco="let t"
                     (ngSubmit)="megaMenuOpen = false"
                 >
                     <input
@@ -315,13 +375,13 @@
                         type="search"
                         name="query"
                         [(ngModel)]="searchQuery"
-                        placeholder="Bạn đang tìm gì?"
-                        aria-label="Tìm kiếm sản phẩm"
+                        [placeholder]="t('header.searchPlaceholder')"
+                        [attr.aria-label]="t('header.searchAria')"
                     />
                     <button
                         class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
                         type="submit"
-                        aria-label="Search"
+                        [attr.aria-label]="t('header.searchAria')"
                     >
                         <mat-icon
                             class="icon-size-5"
@@ -392,18 +452,25 @@
         </header>
     }
 
-    <!-- Content: same max width as header / footer -->
-    <div
-        class="mx-auto w-full max-w-[95rem] flex-auto flex-col px-4 py-6 md:px-8 md:py-8 lg:px-14"
-    >
+    <!--
+      Content slot: full-bleed on purpose — no max width, no gutters. Each page
+      owns its own frame, so a page that wants the standard storefront column
+      opts into `.ff-page` (see src/styles/styles.scss) and a page that needs
+      edge-to-edge chrome (account shell, hero sections) simply doesn't.
+    -->
+    <div class="w-full min-w-0 flex-auto">
         <!-- *ngIf="true" hack is required here for router-outlet to work correctly. -->
         @if (true) {
             <router-outlet fuseRouteAnimation></router-outlet>
         }
     </div>
 
-    <!-- Footer -->
-    <storefront-footer></storefront-footer>
+    <!-- Footer: full marketing chrome on browse pages; compact elsewhere -->
+    @if (showFullFooter()) {
+        <storefront-footer></storefront-footer>
+    } @else {
+        <storefront-footer-simple></storefront-footer-simple>
+    }
 </div>
 
 <!-- Header-triggered side drawers, rendered at the layout root (outside the
@@ -411,12 +478,14 @@
 <favorites-drawer></favorites-drawer>
 <draft-order-drawer></draft-order-drawer>
 
-<!-- Scroll to top (pinned bottom-right) -->
+<!-- Floating contact + scroll to top (pinned bottom-right) -->
+<contact-fab [raised]="showScrollTop()"></contact-fab>
+
 @if (showScrollTop()) {
     <ng-container *transloco="let t">
         <button
             type="button"
-            class="fixed right-4 z-90 flex h-11 w-11 items-center justify-center rounded-xl bg-primary shadow-md transition hover:brightness-95 md:right-6 print:hidden"
+            class="contact-scroll-top fixed right-4 z-90 flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition hover:shadow-[0_6px_18px_rgba(0,0,0,0.14)] md:right-6 print:hidden"
             [class.bottom-20]="isScreenSmall"
             [class.bottom-6]="!isScreenSmall"
             (click)="scrollToTop()"
@@ -424,7 +493,7 @@
             [attr.aria-label]="t('header.scrollTop')"
         >
             <mat-icon
-                class="text-white icon-size-5"
+                class="text-default icon-size-5"
                 [svgIcon]="'heroicons_outline:chevron-up'"
             ></mat-icon>
         </button>

@@ -98,6 +98,33 @@
                     </div>
                 </section>
 
+                <!-- Dispatch's own quote for this order. Read-only, and it
+                     hides when logistics has no estimate rather than showing
+                     an empty card next to real order data. -->
+                @if (estimateEntries().length) {
+                    <section>
+                        <div class="mb-3 text-lg font-semibold">
+                            {{ t('admin.orders.estimate.title') }}
+                        </div>
+                        <div
+                            class="grid grid-cols-1 gap-x-6 gap-y-1 rounded-xl border p-4 text-sm sm:grid-cols-2 lg:grid-cols-3"
+                        >
+                            @for (row of estimateEntries(); track row.label) {
+                                <div class="flex justify-between gap-4 py-1">
+                                    <span class="text-secondary">{{
+                                        row.label
+                                    }}</span>
+                                    <span class="font-medium">{{
+                                        row.value
+                                    }}</span>
+                                </div>
+                            }
+                        </div>
+                    </section>
+                } @else if (estimateError(); as message) {
+                    <p class="text-secondary text-sm">{{ message }}</p>
+                }
+
                 @if (itemsOf(o).length) {
                     <section>
                         <div class="mb-3 text-lg font-semibold">

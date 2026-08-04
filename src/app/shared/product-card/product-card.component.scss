@@ -38,9 +38,11 @@ ff-product-card {
 
     /* ---- Media ------------------------------------------------------ */
 
+    /* Same surface as the card itself: product photos are shot on white, and
+       `bg-default` (a step darker) left a visible gray box around them. */
     &__media {
         position: relative;
-        @apply bg-default;
+        @apply bg-card;
     }
 
     &__media-link {

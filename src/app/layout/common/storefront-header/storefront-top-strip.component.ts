@@ -48,19 +48,19 @@ export class StorefrontTopStripComponent implements OnInit, OnDestroy {
 
     isScreenSmall = false;
 
-    /** Value props shown on the left of the top strip. */
+    /** Value props shown on the left of the top strip, as i18n keys. */
     readonly topBenefits = [
         {
             icon: 'heroicons_outline:truck',
-            text: 'Giao hàng từ 6h sáng',
+            labelKey: 'header.strip.earlyDelivery',
         },
         {
             icon: 'heroicons_outline:receipt-percent',
-            text: 'VAT đầy đủ',
+            labelKey: 'header.strip.vat',
         },
         {
             icon: 'heroicons_outline:lifebuoy',
-            text: 'Hỗ trợ 24/24',
+            labelKey: 'header.strip.support',
         },
     ];
 

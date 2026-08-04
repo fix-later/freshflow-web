@@ -18,7 +18,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
@@ -27,15 +27,10 @@ import { FavoritesService } from 'app/layout/common/favorites/favorites.service'
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
-import { CatalogService } from './catalog.service';
+import { CatalogService, CategoryNode } from './catalog.service';
 import { CatalogCategory, CatalogProduct } from './catalog.types';
 
 type SortOption = '' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc';
-
-/** A root category with the children the API reports beneath it. */
-interface CategoryNode extends CatalogCategory {
-    children: CatalogCategory[];
-}
 
 /** Placeholder tiles rendered while the first page is in flight. */
 const SKELETON_TILES = 10;
@@ -66,15 +61,21 @@ export class CatalogComponent implements OnInit {
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
     private _marketSelection = inject(MarketSelectionService);
+    private _route = inject(ActivatedRoute);
+    private _router = inject(Router);
 
-    readonly resultsSection =
-        viewChild<ElementRef<HTMLElement>>('resultsSection');
     readonly sentinel = viewChild<ElementRef<HTMLElement>>('sentinel');
 
     private _sentinelObserver: IntersectionObserver | null = null;
 
     readonly searchControl = new FormControl('', { nonNullable: true });
-    readonly selectedCategory = signal<string>('');
+    /**
+     * Seeded from `?category=` so a link into the catalog (the header's mega
+     * menu) lands already filtered, not on the unfiltered "all products" view.
+     */
+    readonly selectedCategory = signal<string>(
+        this._route.snapshot.queryParamMap.get('category') ?? ''
+    );
     readonly searchTerm = signal<string>('');
     readonly sortOption = signal<SortOption>('');
 
@@ -100,27 +101,8 @@ export class CatalogComponent implements OnInit {
         () => this._translocoService.getActiveLang() === 'vi'
     );
 
-    /**
-     * Sidebar tree. A category whose `parentId` names a category the API did
-     * not return is treated as a root rather than dropped — an unresolvable
-     * parent must not make its children unreachable.
-     */
-    readonly categoryTree = computed<CategoryNode[]>(() => {
-        const all = this.categories();
-        const ids = new Set(all.map((cat) => cat.id));
-        const childrenOf = new Map<string, CatalogCategory[]>();
-        for (const cat of all) {
-            if (!cat.parentId || !ids.has(cat.parentId)) {
-                continue;
-            }
-            const siblings = childrenOf.get(cat.parentId) ?? [];
-            siblings.push(cat);
-            childrenOf.set(cat.parentId, siblings);
-        }
-        return all
-            .filter((cat) => !cat.parentId || !ids.has(cat.parentId))
-            .map((cat) => ({ ...cat, children: childrenOf.get(cat.id) ?? [] }));
-    });
+    /** Sidebar tree — same shape the header's mega menu renders. */
+    readonly categoryTree = this._catalogService.categoryTree;
 
     /** Selected category plus its parent, for the breadcrumb and page title. */
     readonly selectedTrail = computed<CatalogCategory[]>(() => {
@@ -140,14 +122,36 @@ export class CatalogComponent implements OnInit {
     });
 
     /**
-     * Search and sort run over the pages loaded so far, not the whole market.
-     * The listing endpoint offers neither a query nor a sort parameter, so
-     * anything past the last loaded page cannot be matched until it is fetched.
+     * Category ids that match the current sidebar selection. A leaf is just
+     * itself; a parent includes its children so products assigned to a leaf
+     * still show when the parent row is clicked (the listing API exact-matches
+     * a single id and would otherwise return an empty page).
+     */
+    readonly categoryScopeIds = computed<ReadonlySet<string>>(() => {
+        const id = this.selectedCategory();
+        if (!id) {
+            return new Set();
+        }
+        const node = this.categoryTree().find((n) => n.id === id);
+        if (!node?.children.length) {
+            return new Set([id]);
+        }
+        return new Set([id, ...node.children.map((child) => child.id)]);
+    });
+
+    /**
+     * Search, category, and sort run over the pages loaded so far. Category is
+     * also sent to the listing endpoint for leaf filters; parent filters stay
+     * client-side because the API does not expand descendants.
      */
     readonly filteredProducts = computed(() => {
         const search = this.searchTerm().trim().toLowerCase();
         const sort = this.sortOption();
+        const scope = this.categoryScopeIds();
         let items = this.products();
+        if (scope.size > 0) {
+            items = items.filter((product) => scope.has(product.categoryId));
+        }
         if (search) {
             items = items.filter(
                 (product) =>
@@ -201,14 +205,18 @@ export class CatalogComponent implements OnInit {
     constructor() {
         // Market and category are server-side query parameters: changing either
         // starts a new listing from the first page rather than filtering rows
-        // that are already on screen.
+        // that are already on screen. Parent categories with children are not
+        // sent to the API (exact-match would empty the page); those stay
+        // client-scoped via `categoryScopeIds`.
         effect(() => {
             const marketId = this._marketSelection.selectedId();
             const category = this.selectedCategory();
-            void this._catalogService.loadFirstPage(
-                marketId,
-                category || undefined
-            );
+            const node = category
+                ? this.categoryTree().find((n) => n.id === category)
+                : undefined;
+            const serverCategory =
+                category && !node?.children.length ? category : undefined;
+            void this._catalogService.loadFirstPage(marketId, serverCategory);
         });
 
         // Keep the branch holding the selection open — categories arrive after
@@ -221,6 +229,21 @@ export class CatalogComponent implements OnInit {
             this.expandedCategories.update((open) =>
                 open.has(parent.id) ? open : new Set([...open, parent.id])
             );
+        });
+
+        // When a parent (or search) filter hides the whole first page, keep
+        // pulling until something matches or the listing is exhausted — otherwise
+        // the grid looks empty and the filter appears broken.
+        effect(() => {
+            if (
+                !this.hasActiveFilters() ||
+                this.loading() ||
+                !this.hasMore() ||
+                this.visibleProducts().length > 0
+            ) {
+                return;
+            }
+            this.loadMore();
         });
 
         // The sentinel <div> is unconditionally rendered (see template), so
@@ -255,13 +278,33 @@ export class CatalogComponent implements OnInit {
                 takeUntilDestroyed(this._destroyRef)
             )
             .subscribe((search) => this.searchTerm.set(search));
+
+        // The constructor only reads `?category=` once, at construction —
+        // Angular reuses this component across a query-param-only navigation
+        // (e.g. picking a different category from the header's mega menu
+        // while already on this page), which fires no lifecycle hook a
+        // one-shot read would catch. Subscribing keeps that link live for as
+        // long as the component does.
+        this._route.queryParamMap
+            .pipe(
+                distinctUntilChanged(
+                    (a, b) => a.get('category') === b.get('category')
+                ),
+                takeUntilDestroyed(this._destroyRef)
+            )
+            .subscribe((params) => {
+                const next = params.get('category') ?? '';
+                if (next !== this.selectedCategory()) {
+                    this.selectedCategory.set(next);
+                }
+            });
     }
 
     filterByCategory(categoryId: string): void {
         // The effect in the constructor reloads page 1 for the new category.
         this.selectedCategory.set(categoryId);
         this.filtersOpen.set(false);
-        this._scrollToResults();
+        this._syncCategoryQueryParam(categoryId);
     }
 
     toggleCategory(categoryId: string): void {
@@ -304,6 +347,7 @@ export class CatalogComponent implements OnInit {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
         this.selectedCategory.set('');
+        this._syncCategoryQueryParam('');
     }
 
     /** Fetches the next server page — driven by the scroll sentinel. */
@@ -370,7 +414,17 @@ export class CatalogComponent implements OnInit {
         };
     }
 
-    private _scrollToResults(): void {
-        this.resultsSection()?.nativeElement.scrollIntoView({ block: 'start' });
+    /**
+     * Keeps `?category=` in step with in-page filtering, so the URL a click
+     * on the sidebar leaves behind is the same one that lands here filtered
+     * from the header's mega menu — shareable and back/forward-safe either way.
+     */
+    private _syncCategoryQueryParam(categoryId: string): void {
+        void this._router.navigate([], {
+            relativeTo: this._route,
+            queryParams: { category: categoryId || null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+        });
     }
 }

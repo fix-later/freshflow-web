@@ -1,9 +1,10 @@
 import {
     ChangeDetectionStrategy,
     Component,
-    OnInit,
     inject,
+    OnInit,
     signal,
+    ViewEncapsulation,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,7 +16,23 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from 'app/core/api/envelope';
+import { describeApiError } from 'app/core/api/error-codes';
+import {
+    applyApiErrorToForm,
+    clearServerErrors,
+    fieldErrorKey,
+    fieldMaxLength,
+    serverError,
+} from 'app/core/api/form-errors';
+import {
+    ADDRESS_LINE_MAX_LENGTH,
+    latitudeValidator,
+    longitudeValidator,
+    NAME_MAX_LENGTH,
+    nonBlankValidator,
+    phoneNumberValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { DeliveryAddressRequest } from 'contract';
 import { RestaurantProfileService } from '../restaurant-profile.service';
@@ -29,7 +46,9 @@ import { DeliveryAddressView } from '../restaurant-profile.types';
     selector: 'delivery-addresses',
     standalone: true,
     changeDetection: ChangeDetectionStrategy.OnPush,
+    encapsulation: ViewEncapsulation.None,
     templateUrl: './delivery-addresses.component.html',
+    styleUrl: './delivery-addresses.component.scss',
     imports: [
         ReactiveFormsModule,
         MatFormFieldModule,
@@ -54,28 +73,61 @@ export class DeliveryAddressesComponent implements OnInit {
 
     readonly loading = signal(false);
     readonly saving = signal(false);
+    /** Localized reason the list read failed — drives the retry state. */
+    readonly loadError = signal<string | null>(null);
+    /** Localized reason a write failed when it wasn't a per-field rejection. */
+    readonly formError = signal<string | null>(null);
+    /** Id of the address a delete is in flight for, so only its row spins. */
+    readonly removingId = signal<string | null>(null);
+
+    /** Template helpers for per-field messages. */
+    readonly errorKey = fieldErrorKey;
+    readonly maxLength = fieldMaxLength;
+    readonly serverMessage = serverError;
     readonly formOpen = signal(false);
     /** `null` while adding; the address id while editing an existing one. */
     readonly editingId = signal<string | null>(null);
 
     readonly form = this._fb.group({
+        // `addressLine` is `minLength 1, maxLength 500` on
+        // DeliveryAddressRequest; the rest are nullable, bound by the
+        // documented §6 rules (name ≤255, phone 7–15 digits, real coordinates).
         addressLine: this._fb.control('', {
-            validators: [Validators.required],
+            validators: [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(ADDRESS_LINE_MAX_LENGTH),
+            ],
             nonNullable: true,
         }),
-        recipientName: this._fb.control<string | null>(null),
-        phone: this._fb.control<string | null>(null),
-        latitude: this._fb.control<number | null>(null),
-        longitude: this._fb.control<number | null>(null),
+        recipientName: this._fb.control<string | null>(null, [
+            trimmedMaxLengthValidator(NAME_MAX_LENGTH),
+        ]),
+        phone: this._fb.control<string | null>(null, [phoneNumberValidator]),
+        latitude: this._fb.control<number | null>(null, [latitudeValidator]),
+        longitude: this._fb.control<number | null>(null, [longitudeValidator]),
         isDefault: this._fb.control(false, { nonNullable: true }),
     });
 
     async ngOnInit(): Promise<void> {
+        await this.reload();
+    }
+
+    /** (Re)loads the saved addresses; also the retry action on the error state. */
+    async reload(): Promise<void> {
         this.loading.set(true);
+        this.loadError.set(null);
         try {
             await this._service.loadDeliveryAddresses();
-        } catch {
-            // Empty list on failure — the section just shows the empty state.
+        } catch (err) {
+            // A failed read is not an empty address book — say which it is.
+            this.loadError.set(
+                await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'restaurantProfile.deliveryAddresses.loadError'
+                )
+            );
         } finally {
             this.loading.set(false);
         }
@@ -83,6 +135,7 @@ export class DeliveryAddressesComponent implements OnInit {
 
     openAdd(): void {
         this.editingId.set(null);
+        this.formError.set(null);
         this.form.reset({
             addressLine: '',
             recipientName: null,
@@ -96,6 +149,7 @@ export class DeliveryAddressesComponent implements OnInit {
 
     openEdit(address: DeliveryAddressView): void {
         this.editingId.set(address.id);
+        this.formError.set(null);
         this.form.reset({
             addressLine: address.addressLine,
             recipientName: address.recipientName ?? null,
@@ -113,6 +167,8 @@ export class DeliveryAddressesComponent implements OnInit {
 
     /** Persist the open address form. Resolves `true` when the write succeeded. */
     async save(): Promise<boolean> {
+        clearServerErrors(this.form);
+        this.formError.set(null);
         if (this.form.invalid) {
             this.form.markAllAsTouched();
             return false;
@@ -139,12 +195,22 @@ export class DeliveryAddressesComponent implements OnInit {
             this.formOpen.set(false);
             return true;
         } catch (err) {
-            const message =
-                (await apiErrorMessage(err)) ??
-                this._transloco.translate(
-                    'restaurantProfile.deliveryAddresses.saveError'
-                );
-            this._snackBar.open(message, undefined, { duration: 6000 });
+            const translate = (key: string): string =>
+                this._transloco.translate(key);
+            const { handled } = await applyApiErrorToForm(
+                this.form,
+                err,
+                translate
+            );
+            this.formError.set(
+                handled
+                    ? translate('errors.api.validation')
+                    : await describeApiError(
+                          err,
+                          translate,
+                          'restaurantProfile.deliveryAddresses.saveError'
+                      )
+            );
             return false;
         } finally {
             this.saving.set(false);
@@ -152,19 +218,27 @@ export class DeliveryAddressesComponent implements OnInit {
     }
 
     async remove(address: DeliveryAddressView): Promise<void> {
-        this.saving.set(true);
+        if (this.removingId()) {
+            return;
+        }
+        this.formError.set(null);
+        this.removingId.set(address.id);
         try {
             await this._service.removeDeliveryAddress(address.id);
             this._toast('restaurantProfile.deliveryAddresses.removed');
         } catch (err) {
-            const message =
-                (await apiErrorMessage(err)) ??
-                this._transloco.translate(
+            // A 404 here means someone else already deleted it — re-read so the
+            // list stops showing a row the backend no longer has.
+            this.formError.set(
+                await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
                     'restaurantProfile.deliveryAddresses.removeError'
-                );
-            this._snackBar.open(message, undefined, { duration: 6000 });
+                )
+            );
+            await this.reload();
         } finally {
-            this.saving.set(false);
+            this.removingId.set(null);
         }
     }
 

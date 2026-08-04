@@ -3,6 +3,7 @@ import {
     extractList,
     extractPagination,
     extractTotal,
+    MAX_PAGE_SIZE,
     parseJson,
     unwrapData,
     withId,
@@ -25,7 +26,11 @@ export class RestaurantInvoicesService {
         const res = await invoicesApi.apiV1InvoicesGetRaw({
             status: filters.status || undefined,
             page: filters.page,
-            pageSize: filters.pageSize,
+            // Anything above the cap answers 400, which would surface as an
+            // empty page rather than an error the user can act on.
+            pageSize: filters.pageSize
+                ? Math.min(filters.pageSize, MAX_PAGE_SIZE)
+                : undefined,
         });
         const body = await parseJson<unknown>(res.raw);
         const invoices = withId<InvoiceRow>(extractList(body), 'invoiceId');

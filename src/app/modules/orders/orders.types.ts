@@ -54,6 +54,13 @@ export interface OrderingWindow {
     cutoffTime: string | null;
     /** Earliest deliverable service date as `yyyy-MM-dd`, when reported. */
     earliestServiceDate: string | null;
+    /**
+     * How many days ahead a delivery may be booked — the admin's
+     * `deliveryWindowDays` operational setting (1–30), which the live response
+     * carries alongside `dailyCutoffTime`. `null` when the server omits it, so
+     * the picker keeps its own default.
+     */
+    deliveryWindowDays: number | null;
 }
 
 /**
@@ -63,15 +70,43 @@ export interface OrderingWindow {
  * is optional and read tolerantly; an unreadable body is treated as "no
  * objection" and the confirm proceeds, letting the server reject it.
  */
+/**
+ * `GET /orders/{orderId}/confirm-preview?deliveryAddressId=…`. The live body is
+ *
+ * ```json
+ * { "wouldSucceed": true, "issues": [], "totalAmount": 126250,
+ *   "resolvedScheduledFor": "2026-08-06T06:45:05.681Z",
+ *   "remainingCreditAfter": 773750, "subtotalAmount": 110000,
+ *   "vatAmount": 0, "deliveryFee": 16250, "deliveryDistanceKm": 3.25 }
+ * ```
+ *
+ * This is the only endpoint that prices delivery, and only when the address is
+ * supplied — the fee depends on the distance to it.
+ */
 export interface OrderConfirmPreview {
     /** False only when the server explicitly says the order cannot confirm. */
     canConfirm: boolean;
-    /** Machine codes or human reasons explaining a refusal. */
+    /** Machine codes or human reasons explaining a refusal (`issues`). */
     blockers: string[];
     /** Priced total the restaurant is about to commit to. */
     totalAmount: number | null;
-    /** Credit still available after this order, when reported. */
+    /** Credit left after this order (`remainingCreditAfter`), when reported. */
     availableCredit: number | null;
+    /**
+     * The delivery slot the server actually settled on. It can differ from what
+     * was requested when the cutoff rolls the order to the next cycle
+     * (BR-ORD-2), so the buyer is told before committing rather than finding
+     * out from the confirmation.
+     */
+    resolvedScheduledFor: string | null;
+    /** Goods total before delivery and tax (`subtotalAmount`). */
+    subtotal: number | null;
+    /** Delivery fee the server priced for this address (`deliveryFee`). */
+    deliveryFee: number | null;
+    /** Distance the fee was priced from, in km (`deliveryDistanceKm`). */
+    deliveryDistanceKm: number | null;
+    /** Tax the server charges (`vatAmount`) — currently 0. */
+    vatAmount: number | null;
 }
 
 /**

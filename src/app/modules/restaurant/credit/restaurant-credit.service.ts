@@ -6,9 +6,8 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { UserService } from 'app/core/user/user.service';
+import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { restaurantCreditApi } from 'contract';
-import { firstValueFrom } from 'rxjs';
 import {
     CreditStatement,
     CreditTransaction,
@@ -18,14 +17,14 @@ import {
 /**
  * The signed-in restaurant's own credit/debt balance, statements, and
  * transaction ledger. `RestaurantCreditApi` requires an explicit
- * `restaurantId` (no "me" variant) — the signed-in user's own id doubles as
- * their restaurant id in this backend, so it's resolved from `UserService`
- * rather than passed in by callers. Read-only: generating a statement is an
- * admin-only action (ROLE_MATRIX M6 Credit).
+ * `restaurantId` (no "me" variant), resolved from
+ * `GET /restaurants/me/profile` — **not** from the signed-in user's id, which
+ * is a different id and answers 404 here. Read-only: generating a statement is
+ * an admin-only action (ROLE_MATRIX M6 Credit).
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantCreditService {
-    private readonly _userService = inject(UserService);
+    private readonly _profileService = inject(RestaurantProfileService);
 
     async getBalance(): Promise<RestaurantCreditBalance | null> {
         const restaurantId = await this._restaurantId();
@@ -106,15 +105,7 @@ export class RestaurantCreditService {
         return res.raw.blob();
     }
 
-    private async _restaurantId(): Promise<string> {
-        const current =
-            this._userService.current ??
-            (await firstValueFrom(this._userService.user$));
-        if (!current?.id) {
-            throw new Error(
-                'No signed-in user to resolve a restaurant id from'
-            );
-        }
-        return current.id;
+    private _restaurantId(): Promise<string> {
+        return this._profileService.restaurantId();
     }
 }

@@ -90,7 +90,7 @@ export class UserService {
     private async _update(user: User): Promise<User> {
         await profileApi.apiV1ProfileMePut({
             updateMyProfileRequest: {
-                fullName: user.fullName ?? user.name ?? null,
+                fullName: user.fullName ?? null,
                 phone: user.phone ?? null,
                 avatarUrl: user.avatarUrl ?? null,
             },

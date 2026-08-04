@@ -11,6 +11,20 @@ body {
     font-family: theme('fontFamily.sans');
 }
 
+/* Verified account tick (BR-AUTH-1 approved) — blue badge on avatar / name */
+.user-verified-badge {
+    color: #1d9bf0;
+    background: #fff;
+    border-radius: 9999px;
+    line-height: 1;
+}
+
+/* Edge/IE native password reveal duplicates our matSuffix eye toggles. */
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+    display: none;
+}
+
 /**
  * Theme (dark / light) switch cross-fade.
  *
@@ -29,6 +43,19 @@ body {
         color 350ms ease,
         fill 350ms ease,
         stroke 350ms ease !important;
+}
+
+/**
+ * Standard storefront page column.
+ *
+ * The enterprise layout's content slot is full-bleed — each page owns its own
+ * frame. Pages that want the default column (same max width and gutters as the
+ * header and footer) opt in with this class; full-bleed pages don't. Keep the
+ * values in sync with the header/footer wrappers in `enterprise.component.html`
+ * and `storefront-footer.component.html`.
+ */
+.ff-page {
+    @apply mx-auto w-full min-w-0 max-w-[95rem] px-4 py-6 md:px-8 md:py-8 lg:px-14;
 }
 
 /**

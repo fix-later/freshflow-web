@@ -32,6 +32,7 @@ import {
     AdminMarketOption,
     AdminOperationalSettings,
     AdminOrderDetail,
+    AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminOrderGroupsResult,
     AdminOrderListFilters,
@@ -75,6 +76,9 @@ export class AdminService {
             role: filters.role || undefined,
             isActive: filters.isActive,
             search: filters.search || undefined,
+            // Server-side, so the count and paging stay honest — filtering
+            // approval client-side would only ever narrow the current page.
+            restaurantStatus: filters.restaurantStatus || undefined,
             page: filters.page,
             pageSize: filters.pageSize,
         });
@@ -315,7 +319,12 @@ export class AdminService {
                 await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditGetRaw(
                     { restaurantId }
                 );
-            return (await parseJson<AdminRestaurantCredit>(res.raw)) ?? null;
+            // `{ success, data }` — without unwrapping, every field read off
+            // the snapshot is `undefined` and the card renders 0 ₫ / "—".
+            return (
+                unwrapData<AdminRestaurantCredit>(await parseJson(res.raw)) ??
+                null
+            );
         } catch {
             return null;
         }
@@ -536,7 +545,15 @@ export class AdminService {
                 force: payload.force ?? null,
             },
         });
-        return unwrapData<AdminAutoBatchResult>(await parseJson(res.raw)) ?? {};
+        const result =
+            unwrapData<AdminAutoBatchResult>(await parseJson(res.raw)) ?? {};
+        // The response does not echo the request, but the banner has to say
+        // whether what it is showing was applied or only previewed.
+        return {
+            ...result,
+            targetDate: result.targetDate ?? payload.targetDate ?? null,
+            dryRun: result.dryRun ?? payload.dryRun ?? null,
+        };
     }
 
     /** Market-agent users, for the "assign agent" picker on a batch. */
@@ -709,6 +726,25 @@ export class AdminService {
             page: p?.page,
             pageSize: p?.pageSize,
         };
+    }
+
+    /**
+     * Batching progress for `date` (defaults to today), optionally narrowed by
+     * batch status. PRD M7 gives Operations the monitoring view; the run
+     * itself is `auto-batch`.
+     */
+    async getOrderGroupProgress(options?: {
+        date?: Date;
+        status?: string;
+    }): Promise<AdminOrderGroupProgress | null> {
+        const res = await adminApi.apiV1AdminOrderGroupsProgressGetRaw({
+            date: options?.date,
+            status: options?.status || undefined,
+        });
+        return (
+            unwrapData<AdminOrderGroupProgress>(await parseJson(res.raw)) ??
+            null
+        );
     }
 
     async getInvoice(invoiceId: string): Promise<AdminInvoiceRow | null> {

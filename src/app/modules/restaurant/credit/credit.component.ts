@@ -11,7 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { apiErrorMessage } from 'app/core/api/envelope';
+import { describeApiError } from 'app/core/api/error-codes';
 import { RestaurantCreditService } from './restaurant-credit.service';
 import {
     CreditStatement,
@@ -43,7 +43,10 @@ export class CreditComponent implements OnInit {
     readonly transactions = signal<CreditTransaction[]>([]);
     readonly statements = signal<CreditStatement[]>([]);
     readonly loading = signal(false);
-    readonly loadError = signal(false);
+    /** Localized reason the read failed (403 not yours, 404, 5xx, offline). */
+    readonly loadError = signal<string | null>(null);
+    /** Localized reason the last paging/detail/download call failed. */
+    readonly actionError = signal<string | null>(null);
     readonly downloadingId = signal<string | null>(null);
 
     private _transactionsCursor: string | undefined;
@@ -57,9 +60,17 @@ export class CreditComponent implements OnInit {
     readonly loadingStatement = signal(false);
 
     ngOnInit(): void {
+        void this.reload();
+    }
+
+    /** (Re)loads balance + both ledgers; also the retry action on failure. */
+    async reload(): Promise<void> {
         this.loading.set(true);
-        this.loadError.set(false);
-        Promise.all([
+        this.loadError.set(null);
+        this.actionError.set(null);
+        this._transactionsCursor = undefined;
+        this._statementsCursor = undefined;
+        await Promise.all([
             this._service.getBalance(),
             this._service.listTransactions(),
             this._service.listStatements(),
@@ -73,7 +84,14 @@ export class CreditComponent implements OnInit {
                 this._statementsCursor = st.nextCursor;
                 this.hasMoreStatements.set(!!st.nextCursor);
             })
-            .catch(() => this.loadError.set(true))
+            .catch(async (err) => {
+                this.balance.set(null);
+                this.transactions.set([]);
+                this.statements.set([]);
+                this.loadError.set(
+                    await this._describe(err, 'restaurantCredit.loadError')
+                );
+            })
             .finally(() => this.loading.set(false));
     }
 
@@ -99,7 +117,15 @@ export class CreditComponent implements OnInit {
                     this.statementDetail.set(detail);
                 }
             })
-            .catch(() => this.statementDetail.set(null))
+            .catch(async (err) => {
+                this.statementDetail.set(null);
+                this.actionError.set(
+                    await this._describe(
+                        err,
+                        'restaurantCredit.statements.detailUnavailable'
+                    )
+                );
+            })
             .finally(() => this.loadingStatement.set(false));
     }
 
@@ -161,7 +187,14 @@ export class CreditComponent implements OnInit {
                 this._transactionsCursor = res.nextCursor;
                 this.hasMoreTransactions.set(!!res.nextCursor);
             })
-            .catch(() => this.hasMoreTransactions.set(false));
+            .catch(async (err) => {
+                // Stop offering "load more" on a page that cannot be fetched,
+                // but say why rather than silently ending the list.
+                this.hasMoreTransactions.set(false);
+                this.actionError.set(
+                    await this._describe(err, 'restaurantCredit.loadError')
+                );
+            });
     }
 
     loadMoreStatements(): void {
@@ -178,10 +211,16 @@ export class CreditComponent implements OnInit {
                 this._statementsCursor = res.nextCursor;
                 this.hasMoreStatements.set(!!res.nextCursor);
             })
-            .catch(() => this.hasMoreStatements.set(false));
+            .catch(async (err) => {
+                this.hasMoreStatements.set(false);
+                this.actionError.set(
+                    await this._describe(err, 'restaurantCredit.loadError')
+                );
+            });
     }
 
     downloadStatement(statement: CreditStatement): void {
+        this.actionError.set(null);
         this.downloadingId.set(statement.id);
         this._service
             .downloadStatementPdf(statement.id)
@@ -194,12 +233,23 @@ export class CreditComponent implements OnInit {
                 URL.revokeObjectURL(url);
             })
             .catch(async (err) => {
-                const message =
-                    (await apiErrorMessage(err)) ??
-                    this._transloco.translate('restaurantCredit.downloadError');
+                const message = await this._describe(
+                    err,
+                    'restaurantCredit.downloadError'
+                );
+                this.actionError.set(message);
                 this._snackBar.open(message, undefined, { duration: 6000 });
             })
             .finally(() => this.downloadingId.set(null));
+    }
+
+    /** Localizes any API rejection: field detail → code → status → network. */
+    private _describe(err: unknown, fallbackKey: string): Promise<string> {
+        return describeApiError(
+            err,
+            (key) => this._transloco.translate(key),
+            fallbackKey
+        );
     }
 
     formatAmount(value: number | null | undefined): string {

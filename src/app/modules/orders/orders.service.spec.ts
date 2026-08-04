@@ -1,4 +1,4 @@
-import { ordersApi } from 'contract';
+import { ordersApi, rawApi } from 'contract';
 import { OrdersService } from './orders.service';
 
 /**
@@ -72,15 +72,57 @@ describe('OrdersService', () => {
     });
 
     describe('confirmOrder', () => {
-        it('calls confirm with the order id', async () => {
-            const confirm = spyOn(
-                ordersApi,
-                'apiV1OrdersOrderIdConfirmPostRaw'
-            ).and.resolveTo(rawResponse(undefined));
+        /**
+         * The confirm ships to an address and the backend rejects the call
+         * without one (`'Delivery Address Id' must not be empty`). The spec
+         * snapshot declares no request body for this route, so it goes through
+         * `rawApi` rather than the generated client.
+         */
+        it('posts the delivery address with the confirm', async () => {
+            const send = spyOn(rawApi, 'send').and.resolveTo(
+                new Response('{}')
+            );
 
-            await service.confirmOrder('o-3');
+            await service.confirmOrder('o-3', 'addr-1');
 
-            expect(confirm).toHaveBeenCalledWith({ orderId: 'o-3' });
+            expect(send).toHaveBeenCalledWith(
+                '/api/v1/orders/o-3/confirm',
+                'POST',
+                { deliveryAddressId: 'addr-1' }
+            );
+        });
+    });
+
+    describe('getConfirmPreview', () => {
+        it('passes the delivery address the fee is priced from', async () => {
+            const send = spyOn(rawApi, 'send').and.resolveTo(
+                new Response(
+                    JSON.stringify({
+                        data: {
+                            wouldSucceed: true,
+                            issues: [],
+                            subtotalAmount: 110000,
+                            deliveryFee: 16250,
+                            deliveryDistanceKm: 3.25,
+                            vatAmount: 0,
+                            totalAmount: 126250,
+                        },
+                    })
+                )
+            );
+
+            const preview = await service.getConfirmPreview('o-4', 'addr-1');
+
+            expect(send).toHaveBeenCalledWith(
+                '/api/v1/orders/o-4/confirm-preview',
+                'GET',
+                undefined,
+                { deliveryAddressId: 'addr-1' }
+            );
+            expect(preview.subtotal).toBe(110000);
+            expect(preview.deliveryFee).toBe(16250);
+            expect(preview.deliveryDistanceKm).toBe(3.25);
+            expect(preview.totalAmount).toBe(126250);
         });
     });
 });

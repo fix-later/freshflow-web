@@ -1,5 +1,8 @@
 @if (!isScreenSmall) {
-    <div class="w-full bg-[#083B4B] text-base text-gray-100">
+    <div
+        *transloco="let t"
+        class="w-full bg-[#083B4B] text-[length:calc(1.125rem*0.9)] text-white"
+    >
         <div
             class="mx-auto flex h-12 w-full max-w-[95rem] items-center justify-between gap-6 px-4 md:px-8 lg:px-14"
         >
@@ -7,22 +10,22 @@
                 <!-- Service area tagline -->
                 <span class="flex items-center gap-1.5 font-medium">
                     <mat-icon
-                        class="text-primary-400 icon-size-5"
+                        class="text-white icon-size-4.5"
                         [svgIcon]="'heroicons_outline:building-storefront'"
                     ></mat-icon>
-                    <span>Chuyên phục vụ nhà hàng tại TP.HCM</span>
+                    <span>{{ t('header.strip.serviceArea') }}</span>
                 </span>
 
                 <div
                     class="hidden items-center gap-8 whitespace-nowrap lg:flex"
                 >
-                    @for (item of topBenefits; track item.text) {
+                    @for (item of topBenefits; track item.labelKey) {
                         <span class="flex items-center gap-1.5">
                             <mat-icon
-                                class="text-primary-400 icon-size-5"
+                                class="text-white icon-size-4.5"
                                 [svgIcon]="item.icon"
                             ></mat-icon>
-                            <span>{{ item.text }}</span>
+                            <span>{{ t(item.labelKey) }}</span>
                         </span>
                     }
                 </div>
@@ -33,23 +36,21 @@
 
                 <languages></languages>
 
-                <ng-container *transloco="let t">
-                    <button
-                        class="flex items-center gap-1.5 border-l border-white/20 pl-4 font-medium"
-                        type="button"
-                        [matMenuTriggerFor]="currencyMenu"
-                        [matTooltip]="t('header.currency')"
-                    >
-                        <span>
-                            <span class="text-primary-400">₫</span>
-                            VND
-                        </span>
-                        <mat-icon
-                            class="text-current icon-size-4"
-                            [svgIcon]="'heroicons_outline:chevron-down'"
-                        ></mat-icon>
-                    </button>
-                </ng-container>
+                <button
+                    class="flex items-center gap-1.5 border-l border-white/20 pl-4 font-medium leading-none"
+                    type="button"
+                    [matMenuTriggerFor]="currencyMenu"
+                    [matTooltip]="t('header.currency')"
+                >
+                    <span>
+                        <span class="text-white">₫</span>
+                        VND
+                    </span>
+                    <mat-icon
+                        class="text-white icon-size-3.5"
+                        [svgIcon]="'heroicons_outline:chevron-down'"
+                    ></mat-icon>
+                </button>
                 <mat-menu #currencyMenu="matMenu">
                     <button mat-menu-item type="button">₫ VND</button>
                 </mat-menu>

@@ -17,6 +17,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
     NavigationEnd,
@@ -31,11 +32,12 @@ import {
     FuseVerticalNavigationComponent,
 } from '@fuse/components/navigation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
+import { ContactFabComponent } from 'app/layout/common/contact-fab/contact-fab.component';
 import { DraftOrderDrawerComponent } from 'app/layout/common/draft-order/draft-order-drawer.component';
 import { DraftOrderComponent } from 'app/layout/common/draft-order/draft-order.component';
 import { FavoritesDrawerComponent } from 'app/layout/common/favorites/favorites-drawer.component';
@@ -45,10 +47,12 @@ import { NotificationsComponent } from 'app/layout/common/notifications/notifica
 import { OrderTrackingComponent } from 'app/layout/common/order-tracking/order-tracking.component';
 import { QuickBuyComponent } from 'app/layout/common/quick-buy/quick-buy.component';
 import { QuickSignInComponent } from 'app/layout/common/quick-sign-in/quick-sign-in.component';
+import { StorefrontFooterSimpleComponent } from 'app/layout/common/storefront-footer/storefront-footer-simple.component';
 import { StorefrontFooterComponent } from 'app/layout/common/storefront-footer/storefront-footer.component';
 import { StorefrontNavRowComponent } from 'app/layout/common/storefront-header/storefront-nav-row.component';
 import { StorefrontTopStripComponent } from 'app/layout/common/storefront-header/storefront-top-strip.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
+import { CatalogService } from 'app/modules/catalog/catalog.service';
 import { filter, fromEvent, Subject, takeUntil } from 'rxjs';
 
 interface AiChatMessage {
@@ -58,6 +62,16 @@ interface AiChatMessage {
 
 /** Show the scroll-top control after the user has scrolled this far. */
 const SCROLL_TOP_THRESHOLD_PX = 400;
+
+/** Marketing / browse routes that keep the detailed storefront footer. */
+const FULL_FOOTER_PREFIXES = [
+    '/home',
+    '/catalog',
+    '/about',
+    '/faq',
+    '/contact',
+    '/deals',
+] as const;
 
 @Component({
     selector: 'enterprise-layout',
@@ -78,13 +92,16 @@ const SCROLL_TOP_THRESHOLD_PX = 400;
         OrderTrackingComponent,
         QuickBuyComponent,
         QuickSignInComponent,
+        ContactFabComponent,
         StorefrontFooterComponent,
+        StorefrontFooterSimpleComponent,
         StorefrontTopStripComponent,
         StorefrontNavRowComponent,
         UserComponent,
         MatButtonModule,
         MatIconModule,
         MatMenuModule,
+        MatProgressSpinnerModule,
         MatTooltipModule,
         FormsModule,
         NgClass,
@@ -108,6 +125,8 @@ export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
     }
 
     private _permissionsService = inject(PermissionsService);
+    private _catalogService = inject(CatalogService);
+    private _translocoService = inject(TranslocoService);
     private _router = inject(Router);
     private _ngZone = inject(NgZone);
     private _stickyObserver: IntersectionObserver | null = null;
@@ -152,97 +171,25 @@ export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
 
     readonly isCatalogRoute = computed(() => this._isCatalogRoute(this._url()));
 
+    /**
+     * Detailed marketing footer on browse pages; compact bar elsewhere
+     * (profile, orders, cart, onboarding, …).
+     */
+    readonly showFullFooter = computed(() =>
+        this._isFullFooterRoute(this._url())
+    );
+
     // Header state
     searchQuery = '';
     megaMenuOpen = false;
 
-    readonly megaCategories = [
-        {
-            name: 'Rau củ',
-            emoji: '🥦',
-            sub: [
-                'Rau ăn lá',
-                'Củ quả',
-                'Hành & hành tím',
-                'Cà chua',
-                'Nấm',
-                'Khoai tây & khoai lang',
-                'Dưa leo',
-                'Bí & bí ngòi',
-                'Bắp',
-            ],
-        },
-        {
-            name: 'Thịt & gia cầm',
-            emoji: '🥩',
-            sub: [
-                'Thịt bò',
-                'Gia cầm',
-                'Thịt heo',
-                'Thịt cừu',
-                'Thịt nguội',
-                'Đóng gói sẵn',
-                'Thịt đặc sản',
-            ],
-        },
-        {
-            name: 'Bánh mì & bánh ngọt',
-            emoji: '🍞',
-            sub: [
-                'Bánh ngọt',
-                'Bánh mặn',
-                'Bánh có nhân',
-                'Bánh mì nướng',
-                'Bánh quy & bánh kem',
-                'Bánh mì lát',
-                'Khác',
-            ],
-        },
-        {
-            name: 'Trái cây',
-            emoji: '🍓',
-            sub: [
-                'Quả hạch',
-                'Táo',
-                'Lê',
-                'Dưa',
-                'Nho',
-                'Quả mọng',
-                'Cam quýt',
-                'Hồng',
-                'Trái cây nhiệt đới',
-            ],
-        },
-        {
-            name: 'Đồ uống',
-            emoji: '🧃',
-            sub: [
-                'Trà',
-                'Nước ngọt',
-                'Nước trái cây',
-                'Sữa',
-                'Sữa gạo & đậu nành',
-                'Cà phê',
-                'Nước thể thao',
-                'Khác',
-            ],
-        },
-        {
-            name: 'Ăn vặt',
-            emoji: '🍿',
-            sub: [
-                'Kẹo',
-                'Snack khoai',
-                'Bánh quy giòn',
-                'Hạt & đậu',
-                'Rong biển',
-                'Tàu hũ ky',
-                'Đồ khô',
-                'Hải sản khô',
-                'Trái cây sấy',
-            ],
-        },
-    ];
+    /** Real categories for the "Danh mục" mega menu — same tree the catalog sidebar uses. */
+    readonly megaCategories = this._catalogService.categoryTree;
+    readonly megaCategoriesLoading = this._catalogService.categoriesLoading;
+
+    readonly isVi = computed(
+        () => this._translocoService.getActiveLang() === 'vi'
+    );
 
     /** Value props shown on the left of the top strip. */
     readonly topBenefits = [
@@ -289,6 +236,16 @@ export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        // Header is global (rendered on every storefront route), so the mega
+        // menu's category data can't wait for the catalog page's own route
+        // resolver — load it here instead. `getCategories()` caches, so this
+        // costs nothing extra once the catalog page (or another instance of
+        // this layout) has already fetched it.
+        this._catalogService
+            .getCategories()
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe();
+
         this._navigationService.navigation$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((navigation: Navigation) => {
@@ -372,6 +329,13 @@ export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
     private _isCatalogRoute(url: string): boolean {
         const path = url.split('?')[0];
         return path === '/catalog' || path.startsWith('/catalog/');
+    }
+
+    private _isFullFooterRoute(url: string): boolean {
+        const path = url.split('?')[0];
+        return FULL_FOOTER_PREFIXES.some(
+            (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+        );
     }
 
     /** Restart the logo enter animation (CSS needs class removed then re-added). */

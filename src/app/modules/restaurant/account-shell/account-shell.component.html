@@ -1,0 +1,154 @@
+<!--
+  Account area frame. The enterprise layout's content slot is full-bleed, so
+  the shell brings its own column: same max width as the header/footer, page
+  gutters on the content side, and the drawer hugging the column's right edge.
+-->
+<div
+    class="account-shell mx-auto flex w-full min-w-0 max-w-[95rem] flex-auto flex-col"
+>
+    <mat-drawer-container
+        class="account-shell__drawer-container flex-auto bg-white"
+    >
+        <mat-drawer-content
+            class="account-shell__content flex flex-col bg-white px-4 py-6 md:px-8 md:py-8 lg:px-14"
+        >
+            <!-- Page header -->
+            <div
+                class="relative flex flex-col gap-2 pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                *transloco="let t"
+            >
+                <div class="min-w-0">
+                    <div
+                        class="text-secondary flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5"
+                    >
+                        <span>{{ t(breadcrumbRootKey()) }}</span>
+                        <mat-icon
+                            class="text-hint icon-size-3"
+                            [svgIcon]="'heroicons_mini:chevron-right'"
+                        ></mat-icon>
+                        <span class="text-default font-medium">{{
+                            t(breadcrumbKey())
+                        }}</span>
+                    </div>
+                    <h1
+                        class="text-default mt-1 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl"
+                    >
+                        {{ t(titleKey()) }}
+                    </h1>
+                </div>
+
+                <button
+                    class="account-shell__menu-btn order-first -ml-2 sm:order-none sm:ml-0"
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="t('restaurantProfile.sidebar.toggle')"
+                    (click)="toggleDrawer()"
+                >
+                    <mat-icon [svgIcon]="'heroicons_outline:bars-3'"></mat-icon>
+                </button>
+            </div>
+
+            <div class="flex w-full min-w-0 flex-auto flex-col bg-white">
+                <ng-content></ng-content>
+            </div>
+        </mat-drawer-content>
+
+        <!-- Right sidebar (Fuse right-sidebar demo pattern) -->
+        <mat-drawer
+            class="account-shell__drawer bg-card dark:bg-gray-900"
+            [mode]="drawerMode()"
+            [opened]="drawerOpened()"
+            [position]="'end'"
+            [disableClose]="drawerMode() === 'side'"
+            (openedChange)="onOpenedChange($event)"
+            #drawer
+        >
+            <div
+                class="flex h-full min-h-0 flex-auto flex-col overflow-y-auto"
+                *transloco="let t"
+            >
+                <div class="account-shell__rail flex w-full flex-col">
+                    <!-- Who this account belongs to — the rail's only header,
+                         pinned so the nav below can scroll under it. -->
+                    <div
+                        class="account-shell__header flex w-full items-center gap-3"
+                    >
+                        <span class="relative inline-flex shrink-0">
+                            @if (avatarUrl(); as url) {
+                                <img
+                                    class="account-shell__avatar object-cover"
+                                    [src]="url"
+                                    [alt]="displayName()"
+                                />
+                            } @else {
+                                <div
+                                    class="account-shell__avatar account-shell__avatar--fallback flex items-center justify-center"
+                                    aria-hidden="true"
+                                >
+                                    {{ initials() }}
+                                </div>
+                            }
+                            @if (isApproved()) {
+                                <mat-icon
+                                    class="user-verified-badge absolute -bottom-0.5 -right-0.5 icon-size-4"
+                                    [svgIcon]="'heroicons_solid:check-badge'"
+                                    [attr.aria-label]="t('user.verified')"
+                                ></mat-icon>
+                            }
+                        </span>
+                        <div class="min-w-0 flex-auto">
+                            <div
+                                class="account-shell__owner text-default flex min-w-0 items-center gap-1"
+                            >
+                                <span class="truncate">{{
+                                    displayName()
+                                }}</span>
+                                @if (isApproved()) {
+                                    <mat-icon
+                                        class="user-verified-badge shrink-0 icon-size-4"
+                                        [svgIcon]="
+                                            'heroicons_solid:check-badge'
+                                        "
+                                        [attr.aria-label]="t('user.verified')"
+                                    ></mat-icon>
+                                }
+                            </div>
+                            <div class="account-shell__owner-sub truncate">
+                                {{ t('accountShell.group') }}
+                            </div>
+                        </div>
+                    </div>
+
+                    @for (group of navGroups(); track group.id) {
+                        <nav
+                            class="account-shell__nav flex w-full flex-col"
+                            [attr.aria-label]="t(group.labelKey)"
+                        >
+                            <div class="account-shell__nav-heading">
+                                {{ t(group.labelKey) }}
+                            </div>
+                            @for (item of group.items; track item.id) {
+                                <a
+                                    class="account-shell__nav-item flex w-full cursor-pointer items-center no-underline"
+                                    [routerLink]="item.link"
+                                    routerLinkActive="account-shell__nav-item--active"
+                                    [routerLinkActiveOptions]="{ exact: false }"
+                                    (click)="onNavClick()"
+                                >
+                                    <mat-icon
+                                        class="account-shell__nav-icon icon-size-5"
+                                        [svgIcon]="item.icon"
+                                    ></mat-icon>
+                                    <span
+                                        class="account-shell__nav-title min-w-0 flex-auto truncate"
+                                        >{{ t(item.labelKey) }}</span
+                                    >
+                                </a>
+                            }
+                        </nav>
+                    }
+                </div>
+            </div>
+        </mat-drawer>
+    </mat-drawer-container>
+</div>

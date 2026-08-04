@@ -18,7 +18,6 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -39,8 +38,8 @@ const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 
 /**
  * Admin ▸ Users — Fuse ecommerce inventory pattern: searchable list with an
- * expandable detail panel (profile, role, activate). Unlock lives on the row;
- * market-agent assignment is managed from the Markets screen.
+ * expandable detail panel (profile, role, activate). Restaurant approval and
+ * unlock live on the Restaurants screen (BR-AUTH-1), not here.
  */
 @Component({
     selector: 'admin-users-list',
@@ -59,16 +58,16 @@ const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
-        MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
     styles: [
         `
             .users-grid {
+                /* email | role | restaurant | status | details */
                 grid-template-columns:
-                    minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr)
-                    minmax(0, 1fr) auto auto;
+                    minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr)
+                    minmax(0, 0.9fr) auto;
             }
         `,
     ],
@@ -100,7 +99,6 @@ export class UsersListComponent implements OnInit {
     readonly selectedId = signal<string | null>(null);
     readonly savingRole = signal(false);
     readonly savingActive = signal(false);
-    readonly unlocking = signal(false);
 
     readonly selectedUser = computed(() => {
         const id = this.selectedId();
@@ -159,7 +157,11 @@ export class UsersListComponent implements OnInit {
     }
 
     clearFilters(): void {
-        this.filterForm.reset({ search: '', role: '', isActive: '' });
+        this.filterForm.reset({
+            search: '',
+            role: '',
+            isActive: '',
+        });
     }
 
     toggleDetails(user: AdminUserRow): void {
@@ -214,18 +216,6 @@ export class UsersListComponent implements OnInit {
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.savingActive.set(false));
-    }
-
-    unlock(user: AdminUserRow): void {
-        this.unlocking.set(true);
-        this._admin
-            .unlockUser(user.id)
-            .then(() => {
-                this._patchUser(user.id, { lockedUntil: null });
-                this._notify('admin.users.unlock.success');
-            })
-            .catch((err) => void this._notifyError(err))
-            .finally(() => this.unlocking.set(false));
     }
 
     trackById(_: number, user: AdminUserRow): string {

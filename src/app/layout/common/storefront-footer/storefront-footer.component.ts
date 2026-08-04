@@ -7,8 +7,10 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 
 /**
- * The storefront footer — contact strip, newsletter, link columns,
- * app-download CTAs, and copyright.
+ * Detailed storefront footer — contact strip, newsletter, link columns,
+ * app-download CTAs, and copyright. Shown on marketing/browse routes
+ * (`/home`, `/catalog`, about/faq/contact/deals). App routes use
+ * `storefront-footer-simple` instead.
  */
 @Component({
     selector: 'storefront-footer',

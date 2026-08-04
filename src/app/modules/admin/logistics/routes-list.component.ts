@@ -11,6 +11,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -20,7 +21,11 @@ import { AdminLoadingStateComponent } from '../shared/admin-loading-state.compon
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 import { ROUTE_STATUSES } from './logistics-admin.types';
-import { routeStatusPillClass } from './route-status';
+import {
+    routeStatusLabelKey,
+    routeStatusPillClass,
+    routeTypeLabelKey,
+} from './route-status';
 
 /**
  * Admin ▸ Logistics ▸ Routes — the day's delivery routes (M9 Logistics, admin
@@ -41,6 +46,7 @@ import { routeStatusPillClass } from './route-status';
         MatDatepickerModule,
         MatFormFieldModule,
         MatIconModule,
+        MatInputModule,
         MatProgressBarModule,
         MatSelectModule,
         ReactiveFormsModule,
@@ -63,6 +69,8 @@ export class RoutesListComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     readonly statusPillClass = routeStatusPillClass;
+    readonly statusLabelKey = routeStatusLabelKey;
+    readonly typeLabelKey = routeTypeLabelKey;
     readonly statusOptions = ROUTE_STATUSES;
 
     readonly rows = signal<CrudRow[]>([]);

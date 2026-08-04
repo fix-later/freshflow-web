@@ -1,26 +1,56 @@
+<!--
+  Personal account (`/profile/me`). Layout follows the settings pattern from
+  StackAI / Langdock on Mobbin: one bordered card per concern, each row a
+  label + one-line explanation on the left and its control on the right,
+  read-only identity fields shown as text rather than disabled inputs.
+-->
 <ng-container *transloco="let t">
-    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-4">
-        <div class="flex items-center gap-4">
-            @if (avatarUrl(); as avatar) {
-                <img
-                    [src]="avatar"
-                    class="h-16 w-16 rounded-full object-cover"
-                    [alt]="email()"
-                />
-            } @else {
+    <form
+        class="flex w-full flex-col gap-6"
+        [formGroup]="form"
+        (ngSubmit)="save()"
+    >
+        @if (formError(); as message) {
+            <div
+                class="flex items-start gap-3 rounded-xl border border-warn-200 bg-warn-50 p-4 dark:border-warn-800 dark:bg-warn-900/20"
+                role="alert"
+            >
                 <mat-icon
-                    class="text-hint icon-size-16"
-                    svgIcon="heroicons_outline:user-circle"
+                    class="shrink-0 text-warn icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
                 ></mat-icon>
-            }
-            <div class="flex min-w-0 flex-col">
-                <span class="text-secondary text-sm">{{
-                    t('accountInfo.email')
-                }}</span>
-                <span class="truncate font-medium">{{ email() }}</span>
-                <div class="mt-1 flex items-center gap-1">
+                <p class="text-default text-sm leading-relaxed">
+                    {{ message }}
+                </p>
+            </div>
+        }
+
+        <!-- Avatar -->
+        <section class="rounded-xl border p-5 sm:p-6">
+            <h3 class="text-default text-base font-semibold">
+                {{ t('accountInfo.avatarTitle') }}
+            </h3>
+            <p class="text-secondary mt-0.5 text-sm">
+                {{ t('accountInfo.avatarHint') }}
+            </p>
+
+            <div class="mt-4 flex flex-wrap items-center gap-4">
+                @if (avatarUrl(); as avatar) {
+                    <img
+                        [src]="avatar"
+                        class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-black/5"
+                        [alt]="email()"
+                    />
+                } @else {
+                    <mat-icon
+                        class="text-hint shrink-0 icon-size-16"
+                        svgIcon="heroicons_outline:user-circle"
+                    ></mat-icon>
+                }
+
+                <div class="flex flex-wrap items-center gap-1">
                     <button
-                        mat-button
+                        mat-stroked-button
                         type="button"
                         [disabled]="uploading()"
                         (click)="avatarInput.click()"
@@ -48,41 +78,92 @@
                         </button>
                     }
                 </div>
+                <input
+                    #avatarInput
+                    class="hidden"
+                    type="file"
+                    accept="image/*"
+                    (change)="onAvatarPicked($event)"
+                />
             </div>
-            <input
-                #avatarInput
-                class="hidden"
-                type="file"
-                accept="image/*"
-                (change)="onAvatarPicked($event)"
-            />
-        </div>
+        </section>
 
-        <mat-form-field subscriptSizing="dynamic">
-            <mat-label>{{ t('accountInfo.fullName') }}</mat-label>
-            <input matInput formControlName="fullName" />
-        </mat-form-field>
+        <!-- Identity + contact -->
+        <section class="rounded-xl border p-5 sm:p-6">
+            <h3 class="text-default text-base font-semibold">
+                {{ t('accountInfo.detailsTitle') }}
+            </h3>
+            <p class="text-secondary mt-0.5 text-sm">
+                {{ t('accountInfo.detailsHint') }}
+            </p>
 
-        <mat-form-field subscriptSizing="dynamic">
-            <mat-label>{{ t('accountInfo.phone') }}</mat-label>
-            <input matInput formControlName="phone" />
-        </mat-form-field>
+            <div class="mt-5 flex flex-col gap-5">
+                <!-- Email is identity, not a profile field: `/profile/me` has
+                     no way to change it, so it reads as text. -->
+                <div class="flex flex-col gap-0.5">
+                    <span class="text-secondary text-sm">{{
+                        t('accountInfo.email')
+                    }}</span>
+                    <span class="text-default break-all font-medium">{{
+                        email()
+                    }}</span>
+                </div>
 
-        <div class="flex justify-end">
-            <button
-                mat-flat-button
-                color="primary"
-                type="submit"
-                [disabled]="saving()"
-            >
-                @if (saving()) {
-                    <mat-icon
-                        class="animate-spin icon-size-5"
-                        svgIcon="heroicons_outline:arrow-path"
-                    ></mat-icon>
-                }
-                <span>{{ t('accountInfo.save') }}</span>
-            </button>
-        </div>
+                <mat-form-field
+                    class="w-full max-w-md"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('accountInfo.fullName') }}</mat-label>
+                    <input
+                        matInput
+                        formControlName="fullName"
+                        autocomplete="name"
+                    />
+                    @if (serverMessage(form.controls.fullName); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (errorKey(form.controls.fullName); as key) {
+                        <mat-error>{{
+                            t(key, { max: maxLength(form.controls.fullName) })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field
+                    class="w-full max-w-md"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('accountInfo.phone') }}</mat-label>
+                    <input
+                        matInput
+                        formControlName="phone"
+                        autocomplete="tel"
+                        inputmode="tel"
+                    />
+                    <mat-hint>{{ t('accountInfo.phoneHint') }}</mat-hint>
+                    @if (serverMessage(form.controls.phone); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (errorKey(form.controls.phone); as key) {
+                        <mat-error>{{ t(key) }}</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving() || uploading()"
+                >
+                    @if (saving()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            svgIcon="heroicons_outline:arrow-path"
+                        ></mat-icon>
+                    }
+                    <span>{{ t('accountInfo.save') }}</span>
+                </button>
+            </div>
+        </section>
     </form>
 </ng-container>

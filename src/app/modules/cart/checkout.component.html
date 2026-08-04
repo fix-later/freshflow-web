@@ -1,4 +1,4 @@
-<div class="cart checkout w-full" *transloco="let t">
+<div class="cart checkout ff-page" *transloco="let t">
     <nav class="cart-breadcrumb" aria-label="Breadcrumb">
         <a routerLink="/home">{{ t('cart.breadcrumb.home') }}</a>
         <mat-icon
@@ -63,9 +63,33 @@
                 <h2>{{ t('checkout.shipping.title') }}</h2>
 
                 <div class="checkout-shipping__address">
-                    <span class="checkout-field__label">{{
-                        t('checkout.shipping.address')
-                    }}</span>
+                    <div class="checkout-shipping__address-head">
+                        <span class="checkout-field__label">{{
+                            t('checkout.shipping.address')
+                        }}</span>
+                        <!-- Editing here rather than sending the buyer to
+                             /profile: leaving checkout to add an address is
+                             how a full cart gets abandoned. -->
+                        <button
+                            class="checkout-shipping__address-edit"
+                            type="button"
+                            (click)="openAddresses()"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="
+                                    defaultAddress()
+                                        ? 'heroicons_outline:pencil-square'
+                                        : 'heroicons_outline:plus'
+                                "
+                            ></mat-icon>
+                            <span>{{
+                                defaultAddress()
+                                    ? t('checkout.shipping.changeAddress')
+                                    : t('checkout.shipping.addAddress')
+                            }}</span>
+                        </button>
+                    </div>
                     <div class="checkout-shipping__address-body">
                         <mat-icon
                             class="text-primary icon-size-5"
@@ -74,12 +98,7 @@
                         @if (defaultAddress(); as address) {
                             <p>{{ address }}</p>
                         } @else {
-                            <p>
-                                {{ t('checkout.shipping.noAddress') }}
-                                <a routerLink="/profile">{{
-                                    t('checkout.shipping.manageAddresses')
-                                }}</a>
-                            </p>
+                            <p>{{ t('checkout.shipping.noAddress') }}</p>
                         }
                     </div>
                 </div>
@@ -98,6 +117,7 @@
                                 matInput
                                 [matDatepicker]="deliveryPicker"
                                 [min]="minDeliveryDate()"
+                                [max]="maxDeliveryDate()"
                                 [ngModel]="deliveryDate()"
                                 (ngModelChange)="onDeliveryDateChange($event)"
                                 [placeholder]="t('checkout.shipping.date')"
@@ -133,11 +153,11 @@
                         >
                             <mat-select
                                 [ngModel]="deliverySlot()"
-                                (ngModelChange)="deliverySlot.set($event)"
+                                (ngModelChange)="onDeliverySlotChange($event)"
                             >
-                                @for (slot of deliverySlots; track slot) {
+                                @for (slot of deliverySlots(); track slot) {
                                     <mat-option [value]="slot">{{
-                                        slot.replace('-', ' - ')
+                                        windowLabel(slot)
                                     }}</mat-option>
                                 }
                             </mat-select>
@@ -211,68 +231,13 @@
                     <strong>{{ t('checkout.payment.credit') }}</strong>
                 </div>
 
-                <div class="checkout-card checkout-voucher">
-                    <div class="checkout-voucher__main">
-                        <mat-icon
-                            class="text-amber-600 icon-size-6"
-                            [svgIcon]="'heroicons_outline:receipt-percent'"
-                        ></mat-icon>
-                        <span>{{ t('checkout.voucher.title') }}</span>
-                    </div>
-                    <button
-                        type="button"
-                        class="checkout-voucher__action"
-                        (click)="voucherOpen.set(!voucherOpen())"
-                    >
-                        @if (appliedCoupon()) {
-                            {{ appliedCoupon() }}
-                        } @else {
-                            {{ t('checkout.voucher.choose') }}
-                        }
-                        <mat-icon
-                            class="icon-size-4"
-                            [svgIcon]="'heroicons_mini:chevron-right'"
-                        ></mat-icon>
-                    </button>
-                </div>
-
-                @if (voucherOpen()) {
-                    <div class="checkout-card checkout-voucher-form">
-                        <mat-form-field
-                            class="w-full"
-                            appearance="outline"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{ t('cart.coupon.label') }}</mat-label>
-                            <input
-                                matInput
-                                [ngModel]="couponCode()"
-                                (ngModelChange)="couponCode.set($event)"
-                                [placeholder]="t('cart.coupon.placeholder')"
-                            />
-                        </mat-form-field>
-                        <button
-                            mat-flat-button
-                            color="primary"
-                            type="button"
-                            (click)="applyCoupon()"
-                        >
-                            {{ t('cart.coupon.apply') }}
-                        </button>
-                    </div>
-                }
-
                 <div class="checkout-card checkout-summary">
                     <h3>{{ t('checkout.summary.title') }}</h3>
 
                     <div class="checkout-summary__row">
                         <span>{{ t('checkout.summary.goods') }}</span>
                         <div class="checkout-summary__value">
-                            <strong
-                                >{{
-                                    goodsBeforeTax() | number: '1.0-0'
-                                }}₫</strong
-                            >
+                            <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
                             <small>{{
                                 t('checkout.summary.weightNote')
                             }}</small>
@@ -280,16 +245,37 @@
                     </div>
 
                     <div class="checkout-summary__row">
-                        <span>{{ t('checkout.summary.serviceFee') }}</span>
-                        <strong class="is-free">{{
-                            t('checkout.summary.free')
-                        }}</strong>
+                        <span>
+                            {{ t('checkout.summary.deliveryFee') }}
+                            @if (deliveryDistanceKm(); as km) {
+                                <small class="text-secondary">
+                                    ({{ km | number: '1.0-1' }} km)
+                                </small>
+                            }
+                        </span>
+                        @if (quoting()) {
+                            <strong class="text-secondary">…</strong>
+                        } @else if (deliveryFee(); as fee) {
+                            <strong>{{ fee | number: '1.0-0' }}₫</strong>
+                        } @else if (deliveryFee() === 0) {
+                            <strong class="is-free">{{
+                                t('checkout.summary.free')
+                            }}</strong>
+                        } @else {
+                            <strong class="text-secondary">{{
+                                t('checkout.summary.feePending')
+                            }}</strong>
+                        }
                     </div>
 
-                    <div class="checkout-summary__row">
-                        <span>{{ t('checkout.summary.vat') }}</span>
-                        <strong>{{ vat() | number: '1.0-0' }}₫</strong>
-                    </div>
+                    @if (vatAmount()) {
+                        <div class="checkout-summary__row">
+                            <span>{{ t('checkout.summary.vat') }}</span>
+                            <strong
+                                >{{ vatAmount() | number: '1.0-0' }}₫</strong
+                            >
+                        </div>
+                    }
 
                     <div class="checkout-summary__total">
                         <span>{{ t('checkout.summary.payable') }}</span>
@@ -297,6 +283,10 @@
                             <strong>{{ total() | number: '1.0-0' }}₫</strong>
                         </div>
                     </div>
+
+                    <p class="checkout-summary__note">
+                        {{ t('checkout.summary.creditNote') }}
+                    </p>
 
                     @if (blockers().length) {
                         <div

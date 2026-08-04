@@ -1,39 +1,97 @@
-<div
-    class="flex min-w-0 flex-auto justify-center p-4 sm:p-8"
-    *transloco="let t"
->
-    <div class="flex w-full max-w-4xl flex-col">
-        <!-- Header: what this is for, and the way out (FR-003) -->
-        <div class="mb-6 flex items-start justify-between gap-4">
-            <div class="min-w-0">
-                <h1 class="truncate text-3xl font-extrabold tracking-tight">
-                    {{ t('restaurantOnboarding.title') }}
-                </h1>
-                <p class="text-secondary mt-1">
-                    {{ t('restaurantOnboarding.subtitle') }}
-                </p>
-            </div>
-            <button mat-stroked-button type="button" (click)="exit()">
-                <mat-icon
-                    class="icon-size-5"
-                    [svgIcon]="'heroicons_outline:x-mark'"
-                ></mat-icon>
-                <span class="ml-1 hidden sm:inline">{{
-                    t('restaurantOnboarding.actions.exit')
-                }}</span>
-            </button>
+<!--
+  Guided setup, full screen on the `empty` layout.
+
+  Two panes, after Remote's and Mercury's onboarding on Mobbin: a fixed brand
+  rail that says what this is and how far along you are, and a single working
+  column on the right with a sticky action bar (Melio). The stepper's own
+  header is hidden — the rail already names every step and its state.
+-->
+<div class="ff-onboarding flex min-h-screen w-full" *transloco="let t">
+    <!-- Rail — desktop only; the mobile header below carries the same state -->
+    <aside class="ff-onboarding__rail hidden shrink-0 flex-col lg:flex">
+        <img
+            class="h-9 w-auto self-start object-contain"
+            src="images/logo/logo-primary-dark.svg"
+            alt="FreshFlow"
+        />
+
+        <div class="mt-10">
+            <h1 class="text-2xl font-extrabold leading-tight tracking-tight">
+                {{ t('restaurantOnboarding.title') }}
+            </h1>
+            <p class="ff-onboarding__rail-sub mt-2 text-sm leading-relaxed">
+                {{ t('restaurantOnboarding.subtitle') }}
+            </p>
         </div>
 
-        @if (loading()) {
-            <div class="flex items-center justify-center py-16">
-                <mat-progress-bar
-                    class="max-w-xs"
-                    [mode]="'indeterminate'"
-                ></mat-progress-bar>
+        <ol class="ff-onboarding__steps mt-10 flex flex-col">
+            @for (step of steps; track step.labelKey; let i = $index) {
+                <li
+                    class="ff-onboarding__step"
+                    [class.ff-onboarding__step--current]="i === stepIndex()"
+                    [class.ff-onboarding__step--done]="i < stepIndex()"
+                    [attr.aria-current]="i === stepIndex() ? 'step' : null"
+                >
+                    <span class="ff-onboarding__step-marker" aria-hidden="true">
+                        @if (i < stepIndex()) {
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_solid:check'"
+                            ></mat-icon>
+                        } @else {
+                            {{ i + 1 }}
+                        }
+                    </span>
+                    <span class="min-w-0 flex-auto">
+                        <span class="ff-onboarding__step-label">
+                            {{ t(step.labelKey) }}
+                            @if (step.optional) {
+                                <span class="ff-onboarding__step-optional">{{
+                                    t('restaurantOnboarding.steps.optional')
+                                }}</span>
+                            }
+                        </span>
+                    </span>
+                </li>
+            }
+        </ol>
+
+        <div class="mt-auto pt-10">
+            <!-- Required items, not steps: skipping the optional step still
+                 leaves the account reviewable, and this says so. -->
+            <div class="ff-onboarding__rail-sub text-xs font-medium">
+                {{
+                    t('restaurantOnboarding.progress.required', {
+                        completed: progress().completed,
+                        total: progress().total,
+                    })
+                }}
             </div>
-        } @else {
-            <!-- Position and required-item progress (FR-007) -->
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div class="ff-onboarding__meter mt-2" aria-hidden="true">
+                <span [style.width.%]="progressPercent()"></span>
+            </div>
+
+            <button
+                class="ff-onboarding__exit mt-6 inline-flex items-center gap-1.5"
+                type="button"
+                (click)="exit()"
+            >
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="'heroicons_outline:arrow-left'"
+                ></mat-icon>
+                <span>{{ t('restaurantOnboarding.actions.exit') }}</span>
+            </button>
+        </div>
+    </aside>
+
+    <!-- Working column -->
+    <main class="bg-default flex min-w-0 flex-auto flex-col">
+        <!-- Mobile header: the rail's state, compressed to one bar -->
+        <header
+            class="bg-card sticky top-0 z-10 flex flex-col gap-2 border-b px-4 py-3 lg:hidden"
+        >
+            <div class="flex items-center justify-between gap-3">
                 <span class="text-secondary text-sm font-medium">
                     {{
                         t('restaurantOnboarding.progress.step', {
@@ -42,81 +100,103 @@
                         })
                     }}
                 </span>
-                <span class="text-secondary text-sm">
+                <button mat-button type="button" (click)="exit()">
+                    {{ t('restaurantOnboarding.actions.exit') }}
+                </button>
+            </div>
+            <div class="ff-onboarding__meter" aria-hidden="true">
+                <span [style.width.%]="progressPercent()"></span>
+            </div>
+        </header>
+
+        @if (loading()) {
+            <div class="flex flex-auto items-center justify-center p-16">
+                <mat-progress-bar
+                    class="max-w-xs"
+                    [mode]="'indeterminate'"
+                ></mat-progress-bar>
+            </div>
+        } @else {
+            <div class="mx-auto w-full max-w-3xl flex-auto px-4 py-8 sm:px-8">
+                <!-- Step heading, so the working column stands on its own -->
+                <p
+                    class="text-secondary text-xs font-bold uppercase tracking-wider"
+                >
                     {{
-                        t('restaurantOnboarding.progress.required', {
-                            completed: progress().completed,
-                            total: progress().total,
+                        t('restaurantOnboarding.progress.step', {
+                            current: stepNumber(),
+                            total: stepCount,
                         })
                     }}
-                </span>
-            </div>
-
-            <div class="bg-card rounded-2xl shadow">
-                <mat-stepper
-                    [selectedIndex]="stepIndex()"
-                    (selectionChange)="onSelectionChange($event.selectedIndex)"
+                </p>
+                <h2
+                    class="text-default mt-1 text-2xl font-bold tracking-tight sm:text-3xl"
                 >
-                    <!--
-                      Step 1 — business profile INCLUDING the licence upload.
-                      These stay in one step on purpose: `businessLicenseUrl` is
-                      a field of this same form, so splitting them would issue a
-                      second PUT that overwrites this one (research R2).
-                    -->
-                    <mat-step
-                        [label]="t('restaurantOnboarding.steps.business')"
-                    >
-                        <ng-template matStepContent>
-                            <div class="p-4 sm:p-6">
-                                <business-profile-form></business-profile-form>
-                            </div>
-                        </ng-template>
-                    </mat-step>
+                    {{ t(steps[stepIndex()].labelKey) }}
+                </h2>
+                <p class="text-secondary mt-1.5">
+                    {{ t(steps[stepIndex()].hintKey) }}
+                </p>
 
-                    <!-- Step 2 — tax/billing, optional and unverifiable -->
-                    <mat-step
-                        [label]="t('restaurantOnboarding.steps.tax')"
-                        [optional]="true"
+                <div class="mt-6">
+                    <mat-stepper
+                        class="ff-onboarding__stepper"
+                        [selectedIndex]="stepIndex()"
+                        (selectionChange)="
+                            onSelectionChange($event.selectedIndex)
+                        "
                     >
-                        <ng-template matStepContent>
-                            <div class="p-4 sm:p-6">
-                                <p class="text-secondary mb-4 text-sm">
-                                    {{
-                                        t('restaurantOnboarding.steps.taxHint')
-                                    }}
-                                </p>
-                                <tax-profile-form></tax-profile-form>
-                            </div>
-                        </ng-template>
-                    </mat-step>
+                        <!--
+                          Step 1 — business profile INCLUDING the licence upload.
+                          These stay in one step on purpose: `businessLicenseUrl`
+                          is a field of this same form, so splitting them would
+                          issue a second PUT that overwrites this one (R2).
+                        -->
+                        <mat-step>
+                            <ng-template matStepContent>
+                                <business-profile-form
+                                    hideActions
+                                ></business-profile-form>
+                            </ng-template>
+                        </mat-step>
 
-                    <!-- Step 3 — at least one delivery address -->
-                    <mat-step [label]="t('restaurantOnboarding.steps.address')">
-                        <ng-template matStepContent>
-                            <div class="p-4 sm:p-6">
+                        <!-- Step 2 — tax/billing, optional and unverifiable -->
+                        <mat-step [optional]="true">
+                            <ng-template matStepContent>
+                                <tax-profile-form
+                                    hideActions
+                                ></tax-profile-form>
+                            </ng-template>
+                        </mat-step>
+
+                        <!-- Step 3 — at least one delivery address -->
+                        <mat-step>
+                            <ng-template matStepContent>
                                 <delivery-addresses></delivery-addresses>
-                            </div>
-                        </ng-template>
-                    </mat-step>
+                            </ng-template>
+                        </mat-step>
 
-                    <!-- Step 4 — review; saves nothing, submits nothing -->
-                    <mat-step [label]="t('restaurantOnboarding.steps.review')">
-                        <ng-template matStepContent>
-                            <div class="p-4 sm:p-6">
+                        <!-- Step 4 — review; saves nothing, submits nothing -->
+                        <mat-step>
+                            <ng-template matStepContent>
                                 <onboarding-review-step
                                     (openItem)="openItem($event)"
                                 ></onboarding-review-step>
-                            </div>
-                        </ng-template>
-                    </mat-step>
-                </mat-stepper>
+                            </ng-template>
+                        </mat-step>
+                    </mat-stepper>
+                </div>
+            </div>
 
-                <!-- Navigation lives outside the stepper so it reads the same on every step -->
+            <!-- Action bar, pinned so it is reachable from a long form -->
+            <div
+                class="bg-card sticky bottom-0 border-t px-4 py-3 sm:px-8 sm:py-4"
+            >
                 <div
-                    class="flex flex-wrap items-center justify-between gap-3 border-t p-4 sm:p-6"
+                    class="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-3"
                 >
                     <button
-                        mat-button
+                        mat-stroked-button
                         type="button"
                         [disabled]="stepNumber() === 1 || advancing()"
                         (click)="back()"
@@ -166,5 +246,5 @@
                 </div>
             </div>
         }
-    </div>
+    </main>
 </div>

@@ -41,7 +41,9 @@ import { includesFolded } from 'app/core/util/text-search';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
+    AdminAutoBatchBatch,
     AdminAutoBatchResult,
+    AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
@@ -51,13 +53,16 @@ import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 import { statusLabelKey, statusPillClass } from './order-group-status';
 
-/** Reason codes the auto-batch run reports for skipped orders (see doc §4.2). */
+/**
+ * Reasons the run reports for doing nothing (`{"skipped":true,"reason":…}`).
+ * Verified live: a run with nothing to group answers `no_eligible_orders`.
+ * Anything unlisted falls back to the raw code rather than an empty banner.
+ */
 const KNOWN_SKIP_REASONS = new Set([
-    'ALREADY_BATCHED',
-    'NOT_CONFIRMED',
-    'CANCELLED',
-    'OUT_OF_STOCK',
-    'NO_ELIGIBLE_ITEMS',
+    'no_eligible_orders',
+    'already_batched',
+    'batching_disabled',
+    'outside_window',
 ]);
 
 /** Optional Luxon day from the Material datepicker. */
@@ -145,6 +150,36 @@ export class OrderGroupsComponent implements OnInit {
     readonly pageIndex = signal(0);
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
+
+    /**
+     * Server-side batching progress (`GET /admin/order-groups/progress`).
+     * The table lists the batches; this says how far the run itself has got,
+     * which is the question an operator has while it is still running.
+     */
+    readonly progress = signal<AdminOrderGroupProgress | null>(null);
+
+    /** The run's own figures, or `null` when the endpoint reports no run. */
+    readonly progressSummary = computed(() => this.progress()?.summary ?? null);
+
+    /**
+     * Items purchased as a percentage of items in the run. The endpoint counts
+     * **items**, not batches — a batch sits at "Built" for as long as it takes
+     * its agent to buy every line, so batch counts barely move while the run
+     * is actually progressing.
+     */
+    readonly progressPercent = computed(() => {
+        const s = this.progressSummary();
+        const total = Number(s?.totalItems ?? 0);
+        if (!total) {
+            return null;
+        }
+        return Math.round((Number(s?.itemsPurchased ?? 0) / total) * 100);
+    });
+
+    /** Exceptions still open across the run — the number that needs an owner. */
+    readonly openExceptions = computed(() =>
+        Number(this.progressSummary()?.openExceptions ?? 0)
+    );
     readonly batching = signal(false);
     readonly resetting = signal(false);
     readonly search = signal('');
@@ -482,16 +517,50 @@ export class OrderGroupsComponent implements OnInit {
             .finally(() => this.resetting.set(false));
     }
 
-    /** Localized label for a skipped-order reason code (raw code as fallback). */
-    skippedReasonLabel(reason: string | null | undefined): string {
-        if (!reason) {
-            return '—';
+    /**
+     * Batches the run produced. A dry run persists nothing, so `batchesCreated`
+     * is 0 even when it has a full preview — the preview length is the honest
+     * answer to "how many would this make".
+     */
+    resultBatchCount(result: AdminAutoBatchResult): number {
+        return result.dryRun
+            ? result.preview?.length ?? 0
+            : result.batchesCreated ?? 0;
+    }
+
+    /** Orders the run absorbed, counted from the preview on a dry run. */
+    resultOrderCount(result: AdminAutoBatchResult): number {
+        if (!result.dryRun) {
+            return result.ordersBatched ?? 0;
         }
-        return KNOWN_SKIP_REASONS.has(reason)
-            ? this._transloco.translate(
-                  'admin.orderGroups.skipReason.' + reason
-              )
-            : reason;
+        const ids = new Set<string>();
+        for (const batch of result.preview ?? []) {
+            for (const id of batch.coveredOrderIds ?? []) {
+                ids.add(String(id));
+            }
+        }
+        return ids.size;
+    }
+
+    /** Market name for a previewed batch, falling back to its id. */
+    previewMarketLabel(batch: AdminAutoBatchBatch): string {
+        const id = String(batch.marketId ?? '');
+        return this.markets().find((m) => m.id === id)?.name || id || '—';
+    }
+
+    /** Localized reason the run grouped nothing (raw code as fallback). */
+    skipReasonLabel(reason: string | null | undefined): string {
+        const code = String(reason ?? '')
+            .trim()
+            .toLowerCase();
+        if (!code) {
+            return this._transloco.translate(
+                'admin.orderGroups.skipReason.unknown'
+            );
+        }
+        return KNOWN_SKIP_REASONS.has(code)
+            ? this._transloco.translate('admin.orderGroups.skipReason.' + code)
+            : String(reason);
     }
 
     /**
@@ -645,6 +714,14 @@ export class OrderGroupsComponent implements OnInit {
             this.totalCount.set(0);
         } finally {
             this.loading.set(false);
+        }
+        // Progress is a separate endpoint and a separate failure: the table is
+        // still useful when only the progress strip could not be read, so it
+        // just hides rather than taking the page down with it.
+        try {
+            this.progress.set(await this._admin.getOrderGroupProgress());
+        } catch {
+            this.progress.set(null);
         }
     });
 

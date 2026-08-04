@@ -1,12 +1,11 @@
-<div class="flex w-full flex-col" *transloco="let t">
+<div class="ff-page flex flex-col" *transloco="let t">
     <div class="px-6 pt-6 md:px-8">
         <nav
             class="text-hint flex items-center gap-1 text-sm"
             aria-label="Breadcrumb"
         >
             <a
-                routerLink="/profile"
-                [queryParams]="{ tab: 'orders' }"
+                routerLink="/orders"
                 class="font-medium text-primary hover:underline"
             >
                 {{ t('orders.title') }}
@@ -24,6 +23,18 @@
             class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
         >
             {{ t('orders.detail.notFound') }}
+        </div>
+    } @else if (loadError(); as message) {
+        <!-- Not "no such order": a permission or server failure says so. -->
+        <div class="flex flex-col items-center gap-3 p-8 text-center sm:p-16">
+            <mat-icon
+                class="text-hint icon-size-10"
+                svgIcon="heroicons_outline:exclamation-triangle"
+            ></mat-icon>
+            <p class="text-secondary max-w-md">{{ message }}</p>
+            <a mat-stroked-button routerLink="/orders">{{
+                t('orders.title')
+            }}</a>
         </div>
     } @else if (order(); as order) {
         <div class="flex flex-col gap-6 px-6 py-6 md:px-8">
@@ -78,13 +89,86 @@
                             color="warn"
                             type="button"
                             [disabled]="acting()"
-                            (click)="cancel()"
+                            (click)="openCancel()"
                         >
                             {{ t('orders.detail.cancel') }}
                         </button>
                     }
                 </div>
             </div>
+
+            @if (actionError(); as message) {
+                <div
+                    class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                    role="alert"
+                >
+                    <mat-icon
+                        class="shrink-0 text-red-500 icon-size-5"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    <span>{{ message }}</span>
+                </div>
+            }
+
+            <!-- Cancelling asks why, like Walmart's "Request cancellation".
+                 `CancelOrderRequest.reason` is optional but capped at 500. -->
+            @if (cancelOpen()) {
+                <form
+                    class="flex flex-col gap-3 rounded-xl border p-4"
+                    [formGroup]="cancelForm"
+                    (ngSubmit)="cancel()"
+                >
+                    <h2 class="text-base font-semibold">
+                        {{ t('orders.detail.cancelTitle') }}
+                    </h2>
+                    <mat-form-field subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('orders.detail.cancelReason')
+                        }}</mat-label>
+                        <textarea
+                            matInput
+                            rows="3"
+                            formControlName="reason"
+                        ></textarea>
+                        <mat-hint>{{
+                            t('orders.detail.cancelReasonHint')
+                        }}</mat-hint>
+                        @if (
+                            serverMessage(cancelForm.controls.reason);
+                            as msg
+                        ) {
+                            <mat-error>{{ msg }}</mat-error>
+                        } @else if (
+                            errorKey(cancelForm.controls.reason);
+                            as key
+                        ) {
+                            <mat-error>{{
+                                t(key, {
+                                    max: maxLength(cancelForm.controls.reason),
+                                })
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+                    <div class="flex justify-end gap-2">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="acting()"
+                            (click)="closeCancel()"
+                        >
+                            {{ t('orders.detail.issueCancel') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="warn"
+                            type="submit"
+                            [disabled]="acting()"
+                        >
+                            {{ t('orders.detail.cancelConfirm') }}
+                        </button>
+                    </div>
+                </form>
+            }
 
             @if (receiptConfirmed()) {
                 <div
@@ -270,7 +354,96 @@
                         class="grid grid-cols-4 gap-4 border-b px-4 py-3 text-sm last:border-b-0"
                     >
                         <span>{{ item.productNameSnapshot }}</span>
-                        <span>{{ item.quantity }}</span>
+                        <!-- Quantity is editable only while the order is a
+                             draft; the backend refuses the write after that. -->
+                        @if (
+                            canEditItems() &&
+                            editingItemId() === item.orderItemId
+                        ) {
+                            <form
+                                class="flex items-center gap-1"
+                                [formGroup]="quantityForm"
+                                (ngSubmit)="
+                                    saveItemQuantity(item.orderItemId ?? '')
+                                "
+                            >
+                                <input
+                                    class="w-20 rounded border px-2 py-1"
+                                    type="number"
+                                    min="1"
+                                    step="1"
+                                    formControlName="quantity"
+                                    [attr.aria-label]="
+                                        t('orders.detail.quantity')
+                                    "
+                                />
+                                <button
+                                    mat-icon-button
+                                    type="submit"
+                                    [disabled]="acting()"
+                                    [matTooltip]="t('orders.detail.itemSave')"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:check"
+                                    ></mat-icon>
+                                </button>
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    (click)="cancelEditItem()"
+                                    [matTooltip]="
+                                        t('orders.detail.issueCancel')
+                                    "
+                                >
+                                    <mat-icon
+                                        class="text-hint icon-size-5"
+                                        svgIcon="heroicons_outline:x-mark"
+                                    ></mat-icon>
+                                </button>
+                            </form>
+                        } @else {
+                            <span class="flex items-center gap-1">
+                                {{ item.quantity }}
+                                @if (canEditItems()) {
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [disabled]="acting()"
+                                        (click)="
+                                            startEditItem(
+                                                item.orderItemId ?? '',
+                                                item.quantity
+                                            )
+                                        "
+                                        [matTooltip]="
+                                            t('orders.detail.itemEdit')
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="text-hint icon-size-4"
+                                            svgIcon="heroicons_outline:pencil-square"
+                                        ></mat-icon>
+                                    </button>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [disabled]="acting()"
+                                        (click)="
+                                            removeItem(item.orderItemId ?? '')
+                                        "
+                                        [matTooltip]="
+                                            t('orders.detail.itemRemove')
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="text-hint icon-size-4"
+                                            svgIcon="heroicons_outline:trash"
+                                        ></mat-icon>
+                                    </button>
+                                }
+                            </span>
+                        }
                         <span class="font-mono">{{
                             formatAmount(item.unitPrice)
                         }}</span>

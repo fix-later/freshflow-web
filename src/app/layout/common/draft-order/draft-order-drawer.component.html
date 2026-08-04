@@ -44,9 +44,13 @@
                             <span class="line-clamp-1 font-medium">{{
                                 productName(line.product)
                             }}</span>
-                            <span class="text-secondary text-sm">{{
-                                productUnit(line.product)
-                            }}</span>
+                            <span class="text-secondary text-sm">
+                                {{ productUnit(line.product) }}
+                                @if (line.unitPrice > 0) {
+                                    ·
+                                    {{ line.unitPrice | number: '1.0-0' }}₫
+                                }
+                            </span>
                         </div>
 
                         <!-- Quantity stepper -->

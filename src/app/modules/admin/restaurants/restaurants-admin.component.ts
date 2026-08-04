@@ -21,9 +21,10 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
-import { AdminUserRow } from '../admin.types';
+import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
@@ -38,7 +39,7 @@ const RESTAURANT_ROLE = 'restaurant';
 
 /**
  * Admin ▸ Restaurants — inventory list of `restaurant` users.
- * Detail view is a dedicated route.
+ * Approval status and unlock belong here (BR-AUTH-1); detail is a dedicated route.
  */
 @Component({
     selector: 'admin-restaurants-admin',
@@ -64,11 +65,10 @@ const RESTAURANT_ROLE = 'restaurant';
     styles: [
         `
             .restaurants-grid {
-                /* name | email | phone | status | details — fixed
-                   action col so header and each row line up. */
+                /* name | email | phone | status | approval | approve | unlock | details */
                 grid-template-columns:
-                    minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(0, 1fr)
-                    7rem 5rem;
+                    minmax(0, 1.25fr) minmax(0, 1.4fr) minmax(0, 0.9fr)
+                    7rem minmax(0, 0.9fr) 7.5rem auto 5rem;
             }
         `,
     ],
@@ -90,12 +90,17 @@ export class RestaurantsAdminComponent implements OnInit {
     );
     readonly totalCount = signal(0);
     readonly loading = signal(false);
+    readonly unlocking = signal(false);
+    /** Restaurant id whose approval call is in flight, so only its row spins. */
+    readonly approvingId = signal<string | null>(null);
     readonly pageIndex = signal(0);
     readonly pageSize = signal(DEFAULT_PAGE_SIZE);
+    readonly approvalStatuses = RESTAURANT_APPROVAL_STATUSES;
 
     readonly filterForm = this._formBuilder.nonNullable.group({
         search: [''],
         isActive: [''],
+        restaurantStatus: [''],
     });
 
     private readonly _filterValues = toSignal(this.filterForm.valueChanges, {
@@ -104,8 +109,92 @@ export class RestaurantsAdminComponent implements OnInit {
 
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
-        return (v.search ?? '').trim() !== '' || !!(v.isActive ?? '');
+        return (
+            (v.search ?? '').trim() !== '' ||
+            !!(v.isActive ?? '') ||
+            !!(v.restaurantStatus ?? '')
+        );
     });
+
+    /** i18n key for a restaurant's approval lifecycle pill. */
+    approvalKey(user: AdminUserRow): string {
+        const status = String(user.restaurantStatus ?? '')
+            .trim()
+            .toLowerCase();
+        if (status) {
+            return `admin.users.approval.${status}`;
+        }
+        return user.isApproved
+            ? 'admin.users.approval.active'
+            : 'admin.users.approval.pending';
+    }
+
+    /**
+     * A restaurant is approvable while it is still waiting for review.
+     * Deliberately *not* keyed off `isActive`: the live API reports that as
+     * `true` for every restaurant, pending ones included.
+     */
+    canApprove(user: AdminUserRow): boolean {
+        return this.approvalKey(user).endsWith('.pending');
+    }
+
+    /**
+     * Approve straight from the list — the common case is a queue of waiting
+     * sign-ups, and opening each one just to approve it is a detour.
+     */
+    approve(user: AdminUserRow): void {
+        const restaurantId = user.restaurantId;
+        if (!restaurantId || this.approvingId()) {
+            return;
+        }
+        this.approvingId.set(user.id);
+        this._admin
+            .approveRestaurant(restaurantId)
+            .then(() => {
+                // The endpoint moves `restaurantStatus`, never `isActive`.
+                this.users.update((list) =>
+                    list.map((row) =>
+                        row.id === user.id
+                            ? {
+                                  ...row,
+                                  isApproved: true,
+                                  restaurantStatus: 'active',
+                              }
+                            : row
+                    )
+                );
+                this._snackBar.open(
+                    this._transloco.translate(
+                        'admin.restaurants.approve.success'
+                    ),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .catch(async (err) => {
+                this._snackBar.open(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.userDetail.actionError'
+                    ),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .finally(() => this.approvingId.set(null));
+    }
+
+    approvalPillClass(user: AdminUserRow): string {
+        const key = this.approvalKey(user);
+        if (key.endsWith('.active')) {
+            return 'admin-pill admin-pill-success';
+        }
+        if (key.endsWith('.suspended')) {
+            return 'admin-pill admin-pill-danger';
+        }
+        return 'admin-pill admin-pill-warning';
+    }
 
     ngOnInit(): void {
         this._load();
@@ -131,7 +220,41 @@ export class RestaurantsAdminComponent implements OnInit {
     }
 
     clearFilters(): void {
-        this.filterForm.reset({ search: '', isActive: '' });
+        this.filterForm.reset({
+            search: '',
+            isActive: '',
+            restaurantStatus: '',
+        });
+    }
+
+    unlock(user: AdminUserRow): void {
+        this.unlocking.set(true);
+        this._admin
+            .unlockUser(user.id)
+            .then(() => {
+                this.users.update((list) =>
+                    list.map((row) =>
+                        row.id === user.id ? { ...row, lockedUntil: null } : row
+                    )
+                );
+                this._snackBar.open(
+                    this._transloco.translate('admin.users.unlock.success'),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .catch(async (err) => {
+                this._snackBar.open(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.userDetail.actionError'
+                    ),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .finally(() => this.unlocking.set(false));
     }
 
     openDetail(user: AdminUserRow): void {
@@ -164,6 +287,7 @@ export class RestaurantsAdminComponent implements OnInit {
                 role: RESTAURANT_ROLE,
                 isActive:
                     raw.isActive === '' ? undefined : raw.isActive === 'true',
+                restaurantStatus: raw.restaurantStatus || undefined,
                 page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });

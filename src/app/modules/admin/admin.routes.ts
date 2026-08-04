@@ -9,8 +9,10 @@ import { PackingCodesComponent } from './catalog/packing-codes.component';
 import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
+import { FinanceComponent } from './finance/finance.component';
 import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
+import { HubEditComponent } from './logistics/hub-edit.component';
 import { HubsComponent } from './logistics/hubs.component';
 import { RouteCreateComponent } from './logistics/route-create.component';
 import { RouteDetailComponent } from './logistics/route-detail.component';
@@ -97,6 +99,10 @@ export default [
         component: HubsComponent,
     },
     {
+        path: 'hubs/:hubId',
+        component: HubEditComponent,
+    },
+    {
         path: 'routes',
         component: RoutesListComponent,
     },
@@ -125,6 +131,10 @@ export default [
     {
         path: 'order-groups',
         component: OrderGroupsComponent,
+    },
+    {
+        path: 'finance',
+        component: FinanceComponent,
     },
     {
         path: 'order-groups/:batchId',

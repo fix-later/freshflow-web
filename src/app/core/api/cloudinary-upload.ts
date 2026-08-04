@@ -62,3 +62,30 @@ export async function uploadSignedImage(
     }
     return body.secure_url;
 }
+
+/** Longest image URL the backend accepts on a profile/licence field. */
+export const CLOUDINARY_URL_MAX_LENGTH = 512;
+
+/**
+ * The backend rejects anything that is not a Cloudinary-hosted image URL of at
+ * most {@link CLOUDINARY_URL_MAX_LENGTH} characters, so a value that fails here
+ * would come back as a 400 on save — check it before sending.
+ */
+export function isUploadedImageUrl(value: string | null | undefined): boolean {
+    if (!value) {
+        return true; // absent is valid — the field is nullable
+    }
+    return (
+        value.length <= CLOUDINARY_URL_MAX_LENGTH &&
+        value.startsWith('https://res.cloudinary.com/')
+    );
+}
+
+/**
+ * True when `file` is something the signed `/image/upload` endpoint can take.
+ * Cloudinary rejects a non-image outright; catching it here turns a failed
+ * round-trip into an immediate, explainable message.
+ */
+export function isImageFile(file: File): boolean {
+    return file.type.startsWith('image/');
+}

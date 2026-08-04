@@ -27,9 +27,9 @@ const PAGE_SIZE = 20;
 /**
  * The signed-in user's notifications (`GET /notifications`,
  * `PATCH /notifications/{id}/read`). The backend only supports listing
- * (cursor-paginated, optionally filtered by read state) and marking a single
- * notification read — there is no delete, mark-all-read, or unread-toggle
- * endpoint, so the UI built on this service doesn't offer those actions.
+ * (cursor-paginated, filtered by read state via `is_read`) and marking a
+ * single notification read — there is no delete and no mark-all-read endpoint,
+ * so the UI built on this service does not offer those actions.
  *
  * Response bodies are untyped in the spec, so rows are parsed defensively —
  * same convention as `catalog.service.ts` / `favorites.service.ts`.
@@ -42,9 +42,20 @@ export class NotificationsService {
     private readonly _hasMore = signal(false);
     private _loading: Promise<void> | null = null;
 
+    /**
+     * The rejection behind the last failed call, or `null`. Kept raw so each
+     * surface localizes it with `describeApiError` and its own fallback — the
+     * service stays free of Transloco.
+     */
+    private readonly _error = signal<unknown>(null);
+    /** `is_read` filter: `undefined` = all, `false` = unread only. */
+    private readonly _unreadOnly = signal(false);
+
     readonly items = this._items.asReadonly();
     readonly loaded = this._loaded.asReadonly();
     readonly hasMore = this._hasMore.asReadonly();
+    readonly error = this._error.asReadonly();
+    readonly unreadOnly = this._unreadOnly.asReadonly();
     readonly unreadCount = computed(
         () => this._items().filter((item) => !item.isRead).length
     );
@@ -68,6 +79,27 @@ export class NotificationsService {
         await this._load(this._cursor(), false);
     }
 
+    /** Re-reads the first page — the retry action on an error state. */
+    async reload(): Promise<void> {
+        this._loading = this._load(undefined, true);
+        await this._loading;
+    }
+
+    /**
+     * Switches the `is_read` filter and re-reads. The endpoint filters
+     * server-side, so an unread-only view must not be faked client-side: the
+     * unread items on later pages would never be fetched.
+     */
+    async setUnreadOnly(unreadOnly: boolean): Promise<void> {
+        this._unreadOnly.set(unreadOnly);
+        await this.reload();
+    }
+
+    /** Clears the stored rejection once a surface has shown it. */
+    clearError(): void {
+        this._error.set(null);
+    }
+
     /** Marks one notification read, optimistically, reverting on failure. */
     async markRead(id: string): Promise<void> {
         const item = this._items().find((i) => i.id === id);
@@ -80,8 +112,11 @@ export class NotificationsService {
         );
         try {
             await notificationApi.apiV1NotificationsIdReadPatch({ id });
-        } catch {
+        } catch (err) {
+            // Revert the optimistic read and keep the reason: a badge that
+            // silently comes back needs an explanation.
             this._items.set(previous);
+            this._error.set(err);
         }
     }
 
@@ -89,10 +124,12 @@ export class NotificationsService {
         cursor: string | undefined,
         replace: boolean
     ): Promise<void> {
+        this._error.set(null);
         try {
             const res = await notificationApi.apiV1NotificationsGetRaw({
                 cursor,
                 pageSize: PAGE_SIZE,
+                isRead: this._unreadOnly() ? false : undefined,
             });
             const body = await parseJson(res.raw);
             const rows = extractList<RawRow>(body);
@@ -101,11 +138,14 @@ export class NotificationsService {
             const next = extractNextCursor(body);
             this._cursor.set(next);
             this._hasMore.set(!!next);
-        } catch {
+        } catch (err) {
+            // A failed read is not "no notifications" — record why so the
+            // panel can say so and offer a retry.
             if (replace) {
                 this._items.set([]);
                 this._hasMore.set(false);
             }
+            this._error.set(err);
         } finally {
             this._loaded.set(true);
         }

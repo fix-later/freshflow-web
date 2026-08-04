@@ -15,7 +15,7 @@
 }
 
 <ng-template #navContent>
-    <nav class="flex min-w-0 flex-auto items-center gap-1">
+    <nav class="flex min-w-0 flex-auto items-center gap-1" *transloco="let t">
         @for (
             item of navigation.horizontal;
             track item.id;
@@ -23,7 +23,7 @@
         ) {
             @if (item.children?.length) {
                 <a
-                    class="text-default inline-flex h-14 items-center gap-1 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
+                    class="text-default inline-flex h-14 items-center gap-2 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
                     [class.pl-0]="first"
                     [class.pl-3]="!first"
                     [class.border-primary]="isBranchActive(item)"
@@ -38,7 +38,7 @@
                     }
                     {{ item.title }}
                     <mat-icon
-                        class="text-current icon-size-3"
+                        class="text-current icon-size-4"
                         [svgIcon]="'heroicons_outline:chevron-down'"
                     ></mat-icon>
                 </a>
@@ -73,16 +73,19 @@
         }
     </nav>
 
-    <div class="flex shrink-0 items-center gap-6 whitespace-nowrap">
+    <div
+        class="flex shrink-0 items-center gap-6 whitespace-nowrap"
+        *transloco="let t"
+    >
         <a
-            class="inline-flex items-center gap-1.5 text-base font-semibold text-[#F0508A] hover:underline"
+            class="inline-flex items-center gap-1.5 text-base font-semibold text-sale-700 hover:underline"
             routerLink="/deals"
         >
             <mat-icon
                 class="text-current icon-size-5"
                 [svgIcon]="'heroicons_outline:fire'"
             ></mat-icon>
-            <span>Hot Deals</span>
+            <span>{{ t('header.hotDeals') }}</span>
         </a>
 
         <a
@@ -94,7 +97,7 @@
                 [svgIcon]="'heroicons_outline:phone'"
             ></mat-icon>
             <span
-                >Hỗ trợ:
+                >{{ t('header.hotline') }}
                 <span class="font-semibold text-primary">{{
                     hotline.text
                 }}</span></span

@@ -4,6 +4,7 @@ import {
     ViewEncapsulation,
     inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { ResourceCrudComponent } from '../shared/resource-crud.component';
 import { CrudResource, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
@@ -21,9 +22,16 @@ import { LogisticsAdminService } from './logistics-admin.service';
 })
 export class HubsComponent {
     private readonly _logistics = inject(LogisticsAdminService);
+    private readonly _router = inject(Router);
 
     readonly resource: CrudResource = {
         title: 'admin.hubs.title',
+        // A hub has more than master data behind it — staff assignments and the
+        // inbound/discrepancy oversight panel — so the row opens the hub page
+        // instead of the inline edit panel the other CRUD screens use.
+        openDetail: (row) => {
+            void this._router.navigate(['/admin/hubs', row.id]);
+        },
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
         searchKeys: ['name', 'address', 'managedByName', 'marketName'],

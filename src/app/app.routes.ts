@@ -92,6 +92,31 @@ export const appRoutes: Route[] = [
         ],
     },
 
+    // Guided setup for a restaurant whose profile is not yet reviewable
+    // (FR-005). Deliberately outside the storefront area and on the `empty`
+    // layout: the wizard is a task to finish, and the storefront header, nav
+    // and footer are all invitations to leave it half-done. The only way out
+    // is the wizard's own exit, which is explicit about what is unsaved.
+    {
+        path: '',
+        canActivate: [roleGuard(['restaurant'])],
+        canActivateChild: [roleGuard(['restaurant'])],
+        component: LayoutComponent,
+        data: {
+            layout: 'empty',
+            theme: 'theme-default',
+        },
+        children: [
+            {
+                path: 'onboarding',
+                loadChildren: () =>
+                    import(
+                        'app/modules/restaurant/onboarding/onboarding.routes'
+                    ),
+            },
+        ],
+    },
+
     // Storefront area — public, restaurant-facing. Browsable by guests; a
     // valid session is restored when present. The area drives the chrome
     // (enterprise layout + storefront nav) regardless of the viewer's role.
@@ -118,16 +143,10 @@ export const appRoutes: Route[] = [
                 loadChildren: () =>
                     import('app/modules/restaurant/profile.routes'),
             },
-            // Guided setup for a restaurant whose profile is not yet reviewable.
-            // Restaurant-only (FR-005); sign-in routes an incomplete account
-            // here, and the wizard always offers a way back to the storefront.
             {
-                path: 'onboarding',
-                canActivate: [roleGuard(['restaurant'])],
+                path: 'settings',
                 loadChildren: () =>
-                    import(
-                        'app/modules/restaurant/onboarding/onboarding.routes'
-                    ),
+                    import('app/modules/restaurant/settings/settings.routes'),
             },
             {
                 path: 'invoices',

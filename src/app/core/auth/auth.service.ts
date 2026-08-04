@@ -1,7 +1,11 @@
 import { inject, Injectable } from '@angular/core';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
-import { ApprovalStatus, User } from 'app/core/user/user.types';
+import {
+    ApprovalStatus,
+    toApprovalStatus,
+    User,
+} from 'app/core/user/user.types';
 import {
     authApi,
     clearTokens,
@@ -58,17 +62,22 @@ export class AuthService {
     }
 
     /**
-     * Self-register a restaurant (`POST /api/v1/auth/register`, UC-AUTH-11).
-     * Account is usable immediately but `isApproved: false` until Admin approves
-     * (BR-AUTH-1). `phone` is optional per the contract.
+     * Self-register a restaurant (`POST /api/v1/auth/register`, UC-AUTH-11),
+     * then mint and send the email verification code
+     * (`POST /api/v1/auth/verify/request`). Register alone creates the account;
+     * it does not send the code — without the second call the user only gets
+     * mail after manually pressing "resend" on the confirmation screen.
+     *
+     * Account is usable after verify + Admin approval (BR-AUTH-1). `phone` is
+     * optional per the contract.
      */
-    signUp(user: {
+    async signUp(user: {
         email: string;
         password: string;
         restaurantName: string;
         phone?: string;
     }): Promise<void> {
-        return authApi.apiV1AuthRegisterPost({
+        await authApi.apiV1AuthRegisterPost({
             registerRestaurantRequest: {
                 email: user.email,
                 password: user.password,
@@ -76,6 +85,19 @@ export class AuthService {
                 phone: user.phone,
             },
         });
+
+        // Best-effort: the account already exists. If this fails (mail outage,
+        // rate limit), the confirmation page's resend still works.
+        try {
+            await authApi.apiV1AuthVerifyRequestPost({
+                requestVerificationRequest: {
+                    identifier: user.email,
+                    channel: 'email',
+                },
+            });
+        } catch {
+            // Intentionally empty — see comment above.
+        }
     }
 
     /** Request a password-reset link/code for an email or phone. */
@@ -215,15 +237,7 @@ export class AuthService {
             const res =
                 await restaurantProfileApi.apiV1RestaurantsMeApprovalStatusGetRaw();
             const data = unwrap<{ status?: string }>(await res.raw.json());
-            const status = (data?.status ?? '').toLowerCase();
-            if (
-                status === 'approved' ||
-                status === 'pending' ||
-                status === 'rejected'
-            ) {
-                return status;
-            }
-            return 'pending';
+            return toApprovalStatus(data?.status);
         } catch {
             return 'pending';
         }

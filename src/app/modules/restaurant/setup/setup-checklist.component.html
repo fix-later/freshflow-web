@@ -61,11 +61,7 @@
                     </div>
 
                     @if (!isDone(item)) {
-                        <a
-                            mat-button
-                            [routerLink]="'/profile'"
-                            [queryParams]="sectionFor(item)"
-                        >
+                        <a mat-button [routerLink]="routeFor(item)">
                             {{ t('restaurantOnboarding.checklist.add') }}
                         </a>
                     }
@@ -85,11 +81,7 @@
             <span class="text-secondary text-sm">
                 {{ t('restaurantOnboarding.checklist.taxOptional') }}
             </span>
-            <a
-                mat-button
-                [routerLink]="'/profile'"
-                [queryParams]="{ section: 'tax' }"
-            >
+            <a mat-button [routerLink]="'/profile/tax'">
                 {{ t('restaurantOnboarding.checklist.taxAction') }}
             </a>
         </div>

@@ -1,150 +1,261 @@
 <ng-container *transloco="let t">
     @if (loading()) {
-        <div class="flex items-center justify-center py-16">
+        <div class="ff-dash flex items-center justify-center py-20">
             <mat-progress-spinner
                 [diameter]="36"
                 [mode]="'indeterminate'"
             ></mat-progress-spinner>
         </div>
     } @else {
-        <!--
-          Headline figures first, ledger beneath — the shape the reference
-          wallets use, so the number a buyer opens this page for is the first
-          thing on screen.
-        -->
-        @if (isPendingApproval()) {
-            <div
-                class="mb-6 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50 p-4 dark:bg-amber-900/20"
-            >
-                <mat-icon
-                    class="mt-0.5 shrink-0 text-amber-600 icon-size-5"
-                    [svgIcon]="'heroicons_outline:clock'"
-                ></mat-icon>
-                <p class="text-sm font-medium">
-                    {{ t('restaurantDashboard.approvalPending') }}
-                </p>
-            </div>
-        }
-
-        <!--
-          What is still missing before the account can be reviewed. Sits above
-          the credit figures because an unapproved restaurant cannot spend
-          credit yet — finishing setup is the more useful next action. The card
-          hides itself once nothing verifiable is outstanding.
-        -->
-        <setup-checklist></setup-checklist>
-
-        <div class="grid gap-4 sm:grid-cols-3">
-            <div class="rounded-2xl border p-5">
-                <p class="text-secondary text-sm font-medium uppercase">
-                    {{ t('restaurantDashboard.available') }}
-                </p>
-                <p
-                    class="mt-2 font-mono text-3xl font-bold tabular-nums text-primary"
-                >
-                    {{ balance()?.availableCredit ?? 0 | number: '1.0-0' }}
-                    <span class="text-lg">₫</span>
-                </p>
-            </div>
-
-            <div class="rounded-2xl border p-5">
-                <p class="text-secondary text-sm font-medium uppercase">
-                    {{ t('restaurantDashboard.used') }}
-                </p>
-                <p class="mt-2 font-mono text-3xl font-bold tabular-nums">
-                    {{ balance()?.currentBalance ?? 0 | number: '1.0-0' }}
-                    <span class="text-lg">₫</span>
-                </p>
-            </div>
-
-            <div class="rounded-2xl border p-5">
-                <p class="text-secondary text-sm font-medium uppercase">
-                    {{ t('restaurantDashboard.limit') }}
-                </p>
-                <p class="mt-2 font-mono text-3xl font-bold tabular-nums">
-                    {{ balance()?.creditLimit ?? 0 | number: '1.0-0' }}
-                    <span class="text-lg">₫</span>
-                </p>
-            </div>
-        </div>
-
-        <!-- Usage bar: how much of the limit is committed -->
-        <div class="mt-6">
-            <div class="text-secondary flex justify-between text-sm">
-                <span>{{ t('restaurantDashboard.usage') }}</span>
-                <span class="font-mono tabular-nums">{{ usedRatio() }}%</span>
-            </div>
-            <div class="bg-hover mt-2 h-2 overflow-hidden rounded-full">
+        <div class="ff-dash flex w-full min-w-0 flex-col gap-8">
+            @if (isPendingApproval()) {
                 <div
-                    class="h-full rounded-full bg-primary transition-all"
-                    [style.width.%]="usedRatio()"
-                ></div>
-            </div>
-        </div>
-
-        <!-- Recent ledger movements -->
-        <div class="mt-10">
-            <div class="mb-3 flex items-center justify-between">
-                <h3 class="text-lg font-bold">
-                    {{ t('restaurantDashboard.recentActivity') }}
-                </h3>
-                <a
-                    class="text-sm font-semibold text-primary hover:underline"
-                    [routerLink]="[]"
-                    [queryParams]="{ section: 'credit' }"
+                    class="ff-dash__banner flex items-start gap-3 rounded-2xl px-4 py-3.5 sm:px-5"
+                    role="status"
                 >
-                    {{ t('restaurantDashboard.viewAll') }}
-                </a>
-            </div>
-
-            @if (recentTransactions().length > 0) {
-                <div class="divide-y rounded-2xl border">
-                    @for (item of recentTransactions(); track item.id) {
-                        <div class="flex items-center gap-4 px-5 py-4">
-                            <span
-                                class="bg-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
-                            >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    [class.text-primary]="isPayment(item)"
-                                    [svgIcon]="
-                                        isPayment(item)
-                                            ? 'heroicons_outline:arrow-down-left'
-                                            : 'heroicons_outline:arrow-up-right'
-                                    "
-                                ></mat-icon>
-                            </span>
-
-                            <div class="min-w-0 flex-1">
-                                <p class="truncate font-medium">
-                                    {{
-                                        item.description ||
-                                            t('restaurantDashboard.movement')
-                                    }}
-                                </p>
-                                @if (item.reference) {
-                                    <p class="text-secondary truncate text-sm">
-                                        {{ item.reference }}
-                                    </p>
-                                }
-                            </div>
-
-                            <p
-                                class="shrink-0 font-mono font-semibold tabular-nums"
-                                [class.text-primary]="isPayment(item)"
-                            >
-                                {{ item.amount ?? 0 | number: '1.0-0' }} ₫
-                            </p>
-                        </div>
-                    }
-                </div>
-            } @else {
-                <div
-                    class="text-secondary rounded-2xl border px-5 py-10 text-center"
-                >
-                    {{ t('restaurantDashboard.noActivity') }}
+                    <mat-icon
+                        class="ff-dash__banner-icon mt-0.5 shrink-0 icon-size-5"
+                        [svgIcon]="'heroicons_outline:clock'"
+                    ></mat-icon>
+                    <div class="min-w-0">
+                        <p class="text-sm font-semibold leading-snug">
+                            {{ t('restaurantDashboard.approvalPending') }}
+                        </p>
+                        <p
+                            class="ff-dash__banner-hint mt-1 text-sm leading-snug"
+                        >
+                            {{ t('restaurantDashboard.subtitle') }}
+                        </p>
+                    </div>
                 </div>
             }
+
+            <setup-checklist></setup-checklist>
+
+            <!-- Credit hero: available leads; used + limit support -->
+            <section
+                class="ff-dash__hero"
+                aria-labelledby="ff-dash-credit-title"
+            >
+                <div
+                    class="flex flex-wrap items-end justify-between gap-3 border-b pb-4"
+                >
+                    <div class="min-w-0">
+                        <p
+                            id="ff-dash-credit-title"
+                            class="text-secondary text-xs font-semibold uppercase tracking-[0.14em]"
+                        >
+                            {{ t('restaurantDashboard.available') }}
+                        </p>
+                        <p
+                            class="ff-dash__hero-amount mt-1 font-mono text-4xl font-bold tabular-nums tracking-tight text-primary sm:text-5xl"
+                        >
+                            {{
+                                balance()?.availableCredit ?? 0
+                                    | number: '1.0-0'
+                            }}
+                            <span class="text-xl font-semibold sm:text-2xl"
+                                >₫</span
+                            >
+                        </p>
+                    </div>
+                    <a
+                        mat-stroked-button
+                        color="primary"
+                        class="shrink-0"
+                        routerLink="/profile/credit"
+                    >
+                        {{ t('restaurantDashboard.viewAll') }}
+                    </a>
+                </div>
+
+                <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                    <div class="ff-dash__stat rounded-xl px-4 py-3">
+                        <p
+                            class="text-secondary text-xs font-medium uppercase tracking-wide"
+                        >
+                            {{ t('restaurantDashboard.used') }}
+                        </p>
+                        <p
+                            class="mt-1 font-mono text-xl font-semibold tabular-nums"
+                        >
+                            {{
+                                balance()?.outstandingBalance ??
+                                    balance()?.currentBalance ??
+                                    0 | number: '1.0-0'
+                            }}
+                            ₫
+                        </p>
+                    </div>
+                    <div class="ff-dash__stat rounded-xl px-4 py-3">
+                        <p
+                            class="text-secondary text-xs font-medium uppercase tracking-wide"
+                        >
+                            {{ t('restaurantDashboard.limit') }}
+                        </p>
+                        <p
+                            class="mt-1 font-mono text-xl font-semibold tabular-nums"
+                        >
+                            {{ balance()?.creditLimit ?? 0 | number: '1.0-0' }}
+                            ₫
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-5">
+                    <div
+                        class="text-secondary flex items-center justify-between text-sm"
+                    >
+                        <span>{{ t('restaurantDashboard.usage') }}</span>
+                        <span class="font-mono tabular-nums"
+                            >{{ usedRatio() }}%</span
+                        >
+                    </div>
+                    <div
+                        class="ff-dash__meter mt-2 h-2.5 overflow-hidden rounded-full"
+                        role="meter"
+                        [attr.aria-valuenow]="usedRatio()"
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                    >
+                        <div
+                            class="ff-dash__meter-fill h-full rounded-full transition-[width] duration-500"
+                            [style.width.%]="usedRatio()"
+                        ></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Shortcuts into the rest of the profile rail -->
+            <nav
+                class="ff-dash__shortcuts grid grid-cols-2 gap-2 sm:grid-cols-4"
+                [attr.aria-label]="t('restaurantProfile.sidebar.title')"
+            >
+                @for (item of shortcuts; track item.id) {
+                    <a
+                        class="ff-dash__shortcut group flex flex-col items-start gap-3 rounded-2xl border px-4 py-4 no-underline transition"
+                        [routerLink]="item.link"
+                    >
+                        <span
+                            class="ff-dash__shortcut-icon flex h-9 w-9 items-center justify-center rounded-xl"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                [svgIcon]="item.icon"
+                            ></mat-icon>
+                        </span>
+                        <span
+                            class="text-sm font-semibold leading-snug group-hover:text-primary"
+                        >
+                            {{ t(item.labelKey) }}
+                        </span>
+                    </a>
+                }
+            </nav>
+
+            <!-- Recent ledger -->
+            <section aria-labelledby="ff-dash-activity-title">
+                <div class="mb-4 flex items-center justify-between gap-3">
+                    <h3
+                        id="ff-dash-activity-title"
+                        class="text-base font-bold tracking-tight sm:text-lg"
+                    >
+                        {{ t('restaurantDashboard.recentActivity') }}
+                    </h3>
+                    <a
+                        class="text-sm font-semibold text-primary hover:underline"
+                        routerLink="/profile/credit"
+                    >
+                        {{ t('restaurantDashboard.viewAll') }}
+                    </a>
+                </div>
+
+                @if (recentTransactions().length > 0) {
+                    <div
+                        class="ff-dash__activity overflow-hidden rounded-2xl border"
+                    >
+                        @for (
+                            item of recentTransactions();
+                            track item.id;
+                            let last = $last
+                        ) {
+                            <div
+                                class="flex items-center gap-3.5 px-4 py-3.5 sm:gap-4 sm:px-5"
+                                [class.border-b]="!last"
+                            >
+                                <span
+                                    class="ff-dash__tx-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+                                    [class.ff-dash__tx-icon--in]="
+                                        isPayment(item)
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            isPayment(item)
+                                                ? 'heroicons_outline:arrow-down-left'
+                                                : 'heroicons_outline:arrow-up-right'
+                                        "
+                                    ></mat-icon>
+                                </span>
+
+                                <div class="min-w-0 flex-1">
+                                    <p class="truncate text-sm font-medium">
+                                        {{
+                                            item.description ||
+                                                t(
+                                                    'restaurantDashboard.movement'
+                                                )
+                                        }}
+                                    </p>
+                                    <p
+                                        class="text-secondary mt-0.5 truncate text-xs"
+                                    >
+                                        @if (item.createdAt) {
+                                            {{
+                                                item.createdAt
+                                                    | date: 'dd/MM/yyyy HH:mm'
+                                            }}
+                                        }
+                                        @if (item.createdAt && item.reference) {
+                                            <span aria-hidden="true"> · </span>
+                                        }
+                                        @if (item.reference) {
+                                            {{ item.reference }}
+                                        }
+                                    </p>
+                                </div>
+
+                                <p
+                                    class="shrink-0 font-mono text-sm font-semibold tabular-nums"
+                                    [class.text-primary]="isPayment(item)"
+                                >
+                                    {{ item.amount ?? 0 | number: '1.0-0' }} ₫
+                                </p>
+                            </div>
+                        }
+                    </div>
+                } @else {
+                    <div
+                        class="ff-dash__empty text-secondary flex flex-col items-center gap-3 rounded-2xl border border-dashed px-5 py-12 text-center"
+                    >
+                        <mat-icon
+                            class="text-hint icon-size-8"
+                            [svgIcon]="'heroicons_outline:banknotes'"
+                        ></mat-icon>
+                        <p class="text-sm">
+                            {{ t('restaurantDashboard.noActivity') }}
+                        </p>
+                        <a
+                            mat-stroked-button
+                            routerLink="/catalog"
+                            class="mt-1"
+                        >
+                            {{ t('catalog.title') }}
+                        </a>
+                    </div>
+                }
+            </section>
         </div>
     }
 </ng-container>

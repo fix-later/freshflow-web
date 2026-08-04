@@ -5,8 +5,8 @@ import { DraftOrderLine } from './draft-order.types';
 /**
  * The restaurant's in-progress order (PRD M5 · FR-ORD: draft → add/update/
  * remove items → confirm before the 22:00 cutoff → price snapshot). This is
- * *not* a consumer prepaid cart — no price/subtotal is computed here since
- * price is locked only at confirmation (PRD §5, M4). Shared root singleton so
+ * *not* a consumer prepaid cart — the displayed unit price is indicative;
+ * final price locks at confirmation (PRD §5, M4). Shared root singleton so
  * both the catalog and the header panel read/write the same state. Client-side
  * until backed by the real order-draft API.
  */
@@ -47,17 +47,33 @@ export class DraftOrderService {
         this._drawerOpen.set(false);
     }
 
-    add(product: CatalogProduct, quantity = 1, unitPrice = 0): void {
+    /**
+     * Adds a product line (or bumps quantity). Unit price defaults to the
+     * catalog listing price so callers don't have to pass it every time.
+     */
+    add(product: CatalogProduct, quantity = 1, unitPrice?: number): void {
+        const price = unitPrice ?? product.price ?? 0;
         const existing = this._lines().find(
             (line) => line.product.id === product.id
         );
         if (existing) {
-            this.setQuantity(product.id, existing.quantity + quantity);
+            this._lines.update((lines) =>
+                lines.map((line) =>
+                    line.product.id === product.id
+                        ? {
+                              ...line,
+                              quantity: line.quantity + quantity,
+                              // Heal lines that were stored with the old 0 default.
+                              unitPrice: line.unitPrice || price,
+                          }
+                        : line
+                )
+            );
             return;
         }
         this._lines.update((lines) => [
             ...lines,
-            { product, quantity, unitPrice },
+            { product, quantity, unitPrice: price },
         ]);
     }
 
@@ -68,7 +84,14 @@ export class DraftOrderService {
         }
         this._lines.update((lines) =>
             lines.map((line) =>
-                line.product.id === productId ? { ...line, quantity } : line
+                line.product.id === productId
+                    ? {
+                          ...line,
+                          quantity,
+                          // Heal lines stored with the old 0-price default.
+                          unitPrice: line.unitPrice || line.product.price || 0,
+                      }
+                    : line
             )
         );
     }

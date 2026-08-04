@@ -7,7 +7,8 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { DraftOrderItemRequest, ordersApi } from 'contract';
+import { DraftOrderItemRequest, ordersApi, rawApi } from 'contract';
+import { parseConfirmPreview } from './confirm-preview';
 import {
     OrderConfirmPreview,
     OrderingWindow,
@@ -92,43 +93,54 @@ export class OrdersService {
      * tolerantly: a body we can't interpret yields `canConfirm: true` so the
      * confirm still runs and the server stays the authority — the preview is
      * there to explain a refusal early, never to invent one.
+     *
+     * The live names lead each list (`wouldSucceed`, `issues`,
+     * `remainingCreditAfter`); the rest are kept as tolerated aliases. They
+     * used to be absent, so the verdict always fell through to `true` and the
+     * gate never fired — a refusal surfaced as a generic failure on confirm
+     * instead of a specific reason before it.
      */
-    async getConfirmPreview(orderId: string): Promise<OrderConfirmPreview> {
-        const res = await ordersApi.apiV1OrdersOrderIdConfirmPreviewGetRaw({
-            orderId,
-        });
-        const data =
-            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
-        const verdict = this._firstOf(data, [
-            'canConfirm',
-            'isValid',
-            'canPlace',
-            'isConfirmable',
-        ]);
-        return {
-            canConfirm: verdict === false ? false : true,
-            blockers: this._stringList(data, [
-                'blockers',
-                'errors',
-                'reasons',
-                'violations',
-                'warnings',
-            ]),
-            totalAmount: this._firstNumber(data, [
-                'totalAmount',
-                'total',
-                'grandTotal',
-            ]),
-            availableCredit: this._firstNumber(data, [
-                'availableCredit',
-                'remainingCredit',
-                'creditAvailable',
-            ]),
-        };
+    async getConfirmPreview(
+        orderId: string,
+        deliveryAddressId: string
+    ): Promise<OrderConfirmPreview> {
+        // `deliveryAddressId` is required — see `confirmOrder`. Without it the
+        // route resolves the address to `Guid.Empty` and answers
+        // `404 DELIVERY_ADDRESS_NOT_FOUND`, and the priced breakdown
+        // (`subtotalAmount` / `deliveryFee` / `vatAmount`) never arrives.
+        const res = await rawApi.send(
+            `/api/v1/orders/${encodeURIComponent(orderId)}/confirm-preview`,
+            'GET',
+            undefined,
+            { deliveryAddressId }
+        );
+        return parseConfirmPreview(
+            unwrapData<Record<string, unknown>>(await parseJson(res))
+        );
     }
 
-    async confirmOrder(orderId: string): Promise<void> {
-        await ordersApi.apiV1OrdersOrderIdConfirmPostRaw({ orderId });
+    /**
+     * Commits a draft order to the delivery address it ships to.
+     *
+     * `deliveryAddressId` is **required**, and the snapshot in
+     * `src/contract/openapi.json` predates it: the spec declares no request
+     * body for this route, so the generated client sends none and the backend
+     * answers `415` (no content type) or
+     * `400 VALIDATION_ERROR — 'Delivery Address Id' must not be empty`. Every
+     * checkout therefore created a draft it could never confirm, which is what
+     * filled the restaurant's order list with drafts and left auto-batching
+     * with `no_eligible_orders`. Passed through `initOverrides` until the
+     * contract is regenerated.
+     */
+    async confirmOrder(
+        orderId: string,
+        deliveryAddressId: string
+    ): Promise<void> {
+        await rawApi.send(
+            `/api/v1/orders/${encodeURIComponent(orderId)}/confirm`,
+            'POST',
+            { deliveryAddressId }
+        );
     }
 
     /** Marks a delivered order as received by the restaurant. Takes no body. */
@@ -232,6 +244,10 @@ export class OrdersService {
                 'earliestDeliveryDate',
                 'serviceDate',
             ]),
+            deliveryWindowDays: this._firstNumber(data, [
+                'deliveryWindowDays',
+                'deliveryWindow',
+            ]),
         };
     }
 
@@ -253,6 +269,46 @@ export class OrdersService {
     ): string | null {
         const value = this._firstOf(data, keys);
         return typeof value === 'string' && value.trim() ? value.trim() : null;
+    }
+
+    /**
+     * Adds a line to a **draft** order (`POST /orders/{orderId}/items`).
+     *
+     * `marketProductId` is `format: uuid` and `quantity` is an `int32` with
+     * `exclusiveMinimum: 0` on `AddOrderItemRequest` — both are checked by
+     * `orders.validation.ts` before the call, so a 422 here means the order
+     * left draft or the listing became unavailable, not a typo.
+     */
+    async addItem(
+        orderId: string,
+        marketProductId: string,
+        quantity: number
+    ): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdItemsPostRaw({
+            orderId,
+            addOrderItemRequest: { marketProductId, quantity },
+        });
+    }
+
+    /** Changes a draft line's quantity (`PUT /orders/{orderId}/items/{itemId}`). */
+    async updateItemQuantity(
+        orderId: string,
+        itemId: string,
+        quantity: number
+    ): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdItemsItemIdPut({
+            orderId,
+            itemId,
+            updateOrderItemRequest: { quantity },
+        });
+    }
+
+    /** Removes a draft line (`DELETE /orders/{orderId}/items/{itemId}`). */
+    async removeItem(orderId: string, itemId: string): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdItemsItemIdDelete({
+            orderId,
+            itemId,
+        });
     }
 
     async reorder(

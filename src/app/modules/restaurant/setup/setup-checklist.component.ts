@@ -16,13 +16,13 @@ import { UserService } from 'app/core/user/user.service';
 import { SetupCompletionService } from './setup-completion.service';
 import { REQUIRED_SETUP_ITEMS, RequiredSetupItemId } from './setup.types';
 
-/** Where each item is completed, using the profile area's `section` query param. */
-const ITEM_SECTION: Readonly<Record<RequiredSetupItemId, string>> = {
+/** Where each item is completed — real child routes under `/profile/*`. */
+const ITEM_ROUTE: Readonly<Record<RequiredSetupItemId, string>> = {
     // The licence is a field of the business-profile form, so it shares a
     // destination with the business item (research R2).
-    business: 'business',
-    license: 'business',
-    address: 'addresses',
+    business: '/profile/business',
+    license: '/profile/business',
+    address: '/profile/addresses',
 };
 
 /**
@@ -90,9 +90,9 @@ export class SetupChecklistComponent implements OnInit {
         return `restaurantOnboarding.items.${item}`;
     }
 
-    /** Deep link into the profile section where `item` is completed (FR-017). */
-    sectionFor(item: RequiredSetupItemId): Record<string, string> {
-        return { section: ITEM_SECTION[item] };
+    /** Deep link into the profile route where `item` is completed (FR-017). */
+    routeFor(item: RequiredSetupItemId): string {
+        return ITEM_ROUTE[item];
     }
 
     isDone(item: RequiredSetupItemId): boolean {

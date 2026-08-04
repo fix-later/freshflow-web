@@ -63,7 +63,9 @@
                         t('admin.crud.filterAll')
                     }}</mat-option>
                     @for (opt of statusOptions; track opt) {
-                        <mat-option [value]="opt">{{ opt }}</mat-option>
+                        <mat-option [value]="opt">{{
+                            t(statusLabelKey(opt))
+                        }}</mat-option>
                     }
                 </mat-select>
             </mat-form-field>
@@ -120,11 +122,19 @@
                             </div>
                             <div>
                                 <span [class]="statusPillClass(row['status'])">
-                                    {{ row['status'] || '—' }}
+                                    {{
+                                        row['status']
+                                            ? t(statusLabelKey(row['status']))
+                                            : '—'
+                                    }}
                                 </span>
                             </div>
                             <div class="min-w-0 truncate">
-                                {{ row['routeType'] || '—' }}
+                                {{
+                                    row['routeType']
+                                        ? t(typeLabelKey(row['routeType']))
+                                        : '—'
+                                }}
                             </div>
                             <div class="hidden truncate tabular-nums md:block">
                                 {{

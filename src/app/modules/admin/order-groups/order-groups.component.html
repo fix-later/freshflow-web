@@ -20,6 +20,50 @@
                     {{ t('admin.orderGroups.subtitle') }}
                 </div>
             </div>
+
+            <!-- How far the current batching run has got, from
+                 GET /admin/order-groups/progress. Hidden only when the endpoint
+                 reports no run at all — `!== null`, not truthiness, because a
+                 run sitting at 0% is exactly when an operator needs to see it. -->
+            @if (progressPercent() !== null) {
+                <div class="min-w-0 sm:w-72">
+                    <div
+                        class="text-secondary flex items-center justify-between gap-2 text-xs font-medium"
+                    >
+                        <span>{{ t('admin.orderGroups.progress.label') }}</span>
+                        <span class="tabular-nums"
+                            >{{ progressPercent() }}%</span
+                        >
+                    </div>
+                    <div
+                        class="bg-hover mt-1.5 h-1.5 overflow-hidden rounded-full"
+                        aria-hidden="true"
+                    >
+                        <span
+                            class="block h-full rounded-full bg-primary transition-all"
+                            [style.width.%]="progressPercent()"
+                        ></span>
+                    </div>
+                    <div
+                        class="text-hint mt-1 flex flex-wrap gap-x-2 text-xs tabular-nums"
+                    >
+                        <span>{{
+                            t('admin.orderGroups.progress.counts', {
+                                completed:
+                                    progressSummary()?.itemsPurchased ?? 0,
+                                total: progressSummary()?.totalItems ?? 0,
+                            })
+                        }}</span>
+                        @if (openExceptions() > 0) {
+                            <span class="font-semibold text-red-600">{{
+                                t('admin.orderGroups.progress.exceptions', {
+                                    count: openExceptions(),
+                                })
+                            }}</span>
+                        }
+                    </div>
+                </div>
+            }
             <div class="flex min-w-0 flex-wrap items-center gap-3">
                 <mat-form-field
                     class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
@@ -259,6 +303,23 @@
                         </button>
                     </div>
 
+                    <!--
+                        A run that did nothing reports why. Without this the
+                        banner showed three zeroes and no explanation.
+                    -->
+                    @if (result.skipped) {
+                        <div
+                            class="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800"
+                            data-testid="auto-batch-skipped"
+                        >
+                            <mat-icon
+                                class="text-amber-500 icon-size-5"
+                                svgIcon="heroicons_outline:information-circle"
+                            ></mat-icon>
+                            <span>{{ skipReasonLabel(result.reason) }}</span>
+                        </div>
+                    }
+
                     <div class="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div class="rounded-xl border p-4">
                             <div
@@ -269,7 +330,7 @@
                                 }}
                             </div>
                             <div class="mt-1 text-2xl font-bold tabular-nums">
-                                {{ result.createdBatchCount ?? 0 }}
+                                {{ resultBatchCount(result) }}
                             </div>
                         </div>
                         <div class="rounded-xl border p-4">
@@ -281,7 +342,7 @@
                                 }}
                             </div>
                             <div class="mt-1 text-2xl font-bold tabular-nums">
-                                {{ result.batchedOrderCount ?? 0 }}
+                                {{ resultOrderCount(result) }}
                             </div>
                         </div>
                         <div class="rounded-xl border p-4">
@@ -289,77 +350,71 @@
                                 class="text-secondary text-xs uppercase tracking-wide"
                             >
                                 {{
-                                    t('admin.orderGroups.result.skippedOrders')
+                                    t(
+                                        'admin.orderGroups.result.itemsAggregated'
+                                    )
                                 }}
                             </div>
                             <div class="mt-1 text-2xl font-bold tabular-nums">
-                                {{
-                                    result.skippedOrderCount ??
-                                        (result.skippedOrders?.length || 0)
-                                }}
+                                {{ result.itemsAggregated ?? 0 }}
                             </div>
                         </div>
                     </div>
 
-                    @if (result.batches?.length) {
+                    @if (result.preview?.length) {
                         <div class="mt-5">
                             <div class="mb-2 text-sm font-semibold">
                                 {{ t('admin.orderGroups.result.batchesTitle') }}
                             </div>
                             <div class="flex flex-col gap-2">
-                                @for (batch of result.batches; track $index) {
+                                @for (batch of result.preview; track $index) {
                                     <div
-                                        class="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border px-4 py-2 text-sm"
+                                        class="rounded-xl border px-4 py-2 text-sm"
                                     >
-                                        <span class="font-medium">{{
-                                            batch.sourceMarketName ||
-                                                batch.sourceMarketId ||
-                                                '—'
-                                        }}</span>
-                                        @if (batch.deliveryZone) {
-                                            <span
-                                                class="admin-pill admin-pill-neutral"
-                                                >{{ batch.deliveryZone }}</span
-                                            >
-                                        }
-                                        <span class="text-secondary">{{
-                                            t(
-                                                'admin.orderGroups.result.orderCount',
-                                                {
-                                                    count:
-                                                        batch.orderIds
-                                                            ?.length || 0,
-                                                }
-                                            )
-                                        }}</span>
-                                    </div>
-                                }
-                            </div>
-                        </div>
-                    }
-
-                    @if (result.skippedOrders?.length) {
-                        <div class="mt-5">
-                            <div class="mb-2 text-sm font-semibold">
-                                {{ t('admin.orderGroups.result.skippedTitle') }}
-                            </div>
-                            <div class="flex flex-col gap-1">
-                                @for (
-                                    skip of result.skippedOrders;
-                                    track $index
-                                ) {
-                                    <div
-                                        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-1.5 text-xs"
-                                    >
-                                        <span class="font-mono">{{
-                                            skip.orderId || '—'
-                                        }}</span>
-                                        <span
-                                            class="admin-pill admin-pill-neutral"
-                                            >{{
-                                                skippedReasonLabel(skip.reason)
-                                            }}</span
+                                        <div
+                                            class="flex flex-wrap items-center gap-x-4 gap-y-1"
                                         >
+                                            <span class="font-medium">{{
+                                                previewMarketLabel(batch)
+                                            }}</span>
+                                            @if (batch.batchDate) {
+                                                <span
+                                                    class="admin-pill admin-pill-neutral"
+                                                    >{{ batch.batchDate }}</span
+                                                >
+                                            }
+                                            <span class="text-secondary">{{
+                                                t(
+                                                    'admin.orderGroups.result.orderCount',
+                                                    {
+                                                        count:
+                                                            batch
+                                                                .coveredOrderIds
+                                                                ?.length || 0,
+                                                    }
+                                                )
+                                            }}</span>
+                                        </div>
+                                        @if (batch.items?.length) {
+                                            <div
+                                                class="text-secondary mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs"
+                                            >
+                                                @for (
+                                                    item of batch.items;
+                                                    track $index
+                                                ) {
+                                                    <span
+                                                        >{{
+                                                            item.productNameSnapshot
+                                                        }}
+                                                        ×
+                                                        {{
+                                                            item.totalQuantity
+                                                        }}</span
+                                                    >
+                                                }
+                                            </div>
+                                        }
                                     </div>
                                 }
                             </div>

@@ -26,7 +26,7 @@ const NAVIGATION: AreaNavItem[] = [
     // Storefront — public, restaurant-facing
     {
         id: 'home',
-        title: 'Trang chủ',
+        title: 'nav.home',
         type: 'basic',
         icon: 'heroicons_outline:home',
         link: '/home',
@@ -34,7 +34,7 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'shopping',
-        title: 'Mua sắm',
+        title: 'nav.shopping',
         type: 'basic',
         icon: 'heroicons_outline:shopping-bag',
         link: '/catalog',
@@ -42,26 +42,26 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'learn',
-        title: 'Tìm hiểu FreshFlow',
+        title: 'nav.learn',
         type: 'collapsable',
         icon: 'heroicons_outline:information-circle',
         area: 'storefront',
         children: [
             {
                 id: 'learn.about',
-                title: 'Về chúng tôi',
+                title: 'nav.learn.about',
                 type: 'basic',
                 link: '/about',
             },
             {
                 id: 'learn.faq',
-                title: 'FAQ',
+                title: 'nav.learn.faq',
                 type: 'basic',
                 link: '/faq',
             },
             {
                 id: 'learn.contact',
-                title: 'Liên hệ',
+                title: 'nav.learn.contact',
                 type: 'basic',
                 link: '/contact',
             },
@@ -70,7 +70,7 @@ const NAVIGATION: AreaNavItem[] = [
     // Cross-area entry: admins browsing the storefront can reach the console
     {
         id: 'admin',
-        title: 'Quản trị',
+        title: 'nav.admin',
         type: 'basic',
         icon: 'heroicons_outline:wrench-screwdriver',
         link: '/admin',
@@ -87,11 +87,11 @@ const NAVIGATION: AreaNavItem[] = [
     // the list screen, not a nav entry.
     //
     // `modes` splits the console by job: the daily dispatch work belongs to
-    // `operations`, account/finance/system administration to `administration`,
-    // and the shared master data (hàng hóa, mạng lưới) shows in both.
+    // `operations` (orders, restaurants, network, finance), account/system
+    // administration and hàng hóa to `administration`.
     {
         id: 'admin-dashboard',
-        title: 'Dashboard',
+        title: 'nav.admin.dashboard',
         type: 'basic',
         icon: 'heroicons_outline:home',
         link: '/admin',
@@ -101,7 +101,7 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'admin.operations',
-        title: 'Vận hành',
+        title: 'nav.admin.operations',
         type: 'collapsable',
         icon: 'heroicons_outline:clipboard-document-list',
         area: 'admin',
@@ -109,27 +109,55 @@ const NAVIGATION: AreaNavItem[] = [
         children: [
             {
                 id: 'admin-order-groups',
-                title: 'Phiên chợ & gom đơn',
+                title: 'nav.admin.orderGroups',
                 type: 'basic',
                 link: '/admin/order-groups',
             },
             {
                 id: 'admin-orders',
-                title: 'Đơn hàng',
+                title: 'nav.admin.orders',
                 type: 'basic',
                 link: '/admin/orders',
             },
             {
                 id: 'admin-routes',
-                title: 'Cuốc giao hàng',
+                title: 'nav.admin.routes',
                 type: 'basic',
                 link: '/admin/routes',
+            },
+            {
+                id: 'admin-restaurants',
+                title: 'nav.admin.restaurants',
+                type: 'basic',
+                link: '/admin/restaurants',
+            },
+        ],
+    },
+    {
+        id: 'admin.finance',
+        title: 'nav.admin.finance',
+        type: 'collapsable',
+        icon: 'heroicons_outline:banknotes',
+        area: 'admin',
+        modes: ['operations'],
+        children: [
+            {
+                id: 'admin-finance-overview',
+                title: 'nav.admin.financeOverview',
+                type: 'basic',
+                link: '/admin/finance',
+            },
+            {
+                id: 'admin-finance-invoices',
+                title: 'nav.admin.invoices',
+                type: 'basic',
+                link: '/admin/invoices',
             },
         ],
     },
     {
         id: 'admin.accounts',
-        title: 'Người dùng & nhà hàng',
+        title: 'nav.admin.accounts',
         type: 'collapsable',
         icon: 'heroicons_outline:users',
         area: 'admin',
@@ -137,46 +165,41 @@ const NAVIGATION: AreaNavItem[] = [
         children: [
             {
                 id: 'admin-users',
-                title: 'Người dùng',
+                title: 'nav.admin.users',
                 type: 'basic',
                 link: '/admin/users',
-            },
-            {
-                id: 'admin-restaurants',
-                title: 'Nhà hàng',
-                type: 'basic',
-                link: '/admin/restaurants',
             },
         ],
     },
     {
         id: 'admin.goods',
-        title: 'Hàng hóa',
+        title: 'nav.admin.goods',
         type: 'collapsable',
         icon: 'heroicons_outline:cube',
         area: 'admin',
+        modes: ['administration'],
         children: [
             {
                 id: 'admin-products',
-                title: 'Sản phẩm',
+                title: 'nav.admin.products',
                 type: 'basic',
                 link: '/admin/products',
             },
             {
                 id: 'admin-categories',
-                title: 'Danh mục',
+                title: 'nav.admin.categories',
                 type: 'basic',
                 link: '/admin/categories',
             },
             {
                 id: 'admin-units',
-                title: 'Đơn vị tính',
+                title: 'nav.admin.units',
                 type: 'basic',
                 link: '/admin/units',
             },
             {
                 id: 'admin-packing-codes',
-                title: 'Mã đóng gói',
+                title: 'nav.admin.packingCodes',
                 type: 'basic',
                 link: '/admin/packing-codes',
             },
@@ -184,43 +207,35 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'admin.network',
-        title: 'Mạng lưới',
+        title: 'nav.admin.network',
         type: 'collapsable',
         icon: 'heroicons_outline:map',
         area: 'admin',
+        modes: ['operations'],
         children: [
             {
                 id: 'admin-markets',
-                title: 'Chợ đầu mối',
+                title: 'nav.admin.markets',
                 type: 'basic',
                 link: '/admin/markets',
             },
             {
                 id: 'admin-hubs',
-                title: 'Hub',
+                title: 'nav.admin.hubs',
                 type: 'basic',
                 link: '/admin/hubs',
             },
             {
                 id: 'admin-vehicles',
-                title: 'Phương tiện',
+                title: 'nav.admin.vehicles',
                 type: 'basic',
                 link: '/admin/vehicles',
             },
         ],
     },
     {
-        id: 'admin-invoices',
-        title: 'Hóa đơn',
-        type: 'basic',
-        icon: 'heroicons_outline:banknotes',
-        link: '/admin/invoices',
-        area: 'admin',
-        modes: ['administration'],
-    },
-    {
         id: 'admin.system',
-        title: 'Hệ thống',
+        title: 'nav.admin.system',
         type: 'collapsable',
         icon: 'heroicons_outline:cog-6-tooth',
         area: 'admin',
@@ -228,13 +243,13 @@ const NAVIGATION: AreaNavItem[] = [
         children: [
             {
                 id: 'admin-order-group-settings',
-                title: 'Cấu hình phiên chợ',
+                title: 'nav.admin.orderGroupSettings',
                 type: 'basic',
                 link: '/admin/order-group-settings',
             },
             {
                 id: 'admin-audit-logs',
-                title: 'Nhật ký hệ thống',
+                title: 'nav.admin.auditLogs',
                 type: 'basic',
                 link: '/admin/audit-logs',
             },
@@ -242,13 +257,13 @@ const NAVIGATION: AreaNavItem[] = [
     },
     {
         id: 'admin.links',
-        title: 'Liên kết',
+        title: 'nav.admin.links',
         type: 'group',
         area: 'admin',
         children: [
             {
                 id: 'admin-view-store',
-                title: 'Xem cửa hàng',
+                title: 'nav.admin.viewStore',
                 type: 'basic',
                 icon: 'heroicons_outline:shopping-bag',
                 link: '/home',

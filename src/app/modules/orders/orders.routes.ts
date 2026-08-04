@@ -1,14 +1,20 @@
 import { Routes } from '@angular/router';
 import { roleGuard } from 'app/core/auth/guards/role.guard';
+import { OrdersHistoryPageComponent } from './orders-history-page.component';
 import { OrderDetailComponent } from './pages/order-detail/order-detail.component';
 
 /**
- * The list lives as the "Lịch sử đơn hàng" tab on `/profile` — only the
- * detail page is a real route here, so a bare `/orders` (bookmark, typo)
- * lands somewhere useful instead of a blank outlet.
+ * `/orders` — the restaurant's own order history (M5), wrapped in
+ * `account-shell` alongside `/profile` and `/settings`. `/orders/:orderId`
+ * is the detail page. Both are restaurant-only, matching the role that owns
+ * an order history in the first place.
  */
 export default [
-    { path: '', redirectTo: '/profile?tab=orders', pathMatch: 'full' },
+    {
+        path: '',
+        canActivate: [roleGuard(['restaurant'])],
+        component: OrdersHistoryPageComponent,
+    },
     {
         path: ':orderId',
         canActivate: [roleGuard(['restaurant'])],

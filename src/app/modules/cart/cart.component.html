@@ -1,4 +1,4 @@
-<div class="cart w-full" *transloco="let t">
+<div class="cart ff-page" *transloco="let t">
     <!-- Breadcrumb -->
     <nav class="cart-breadcrumb" aria-label="Breadcrumb">
         <a routerLink="/home">{{ t('cart.breadcrumb.home') }}</a>
@@ -125,46 +125,10 @@
         <aside class="cart-totals">
             <h2>{{ t('cart.totals.title') }}</h2>
 
-            @if (lines().length) {
-                <div class="cart-coupon">
-                    <mat-form-field
-                        class="cart-coupon__field"
-                        appearance="outline"
-                        subscriptSizing="dynamic"
-                    >
-                        <mat-label>{{ t('cart.coupon.label') }}</mat-label>
-                        <input
-                            matInput
-                            [ngModel]="couponCode()"
-                            (ngModelChange)="couponCode.set($event)"
-                            [placeholder]="t('cart.coupon.placeholder')"
-                        />
-                    </mat-form-field>
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        (click)="applyCoupon()"
-                    >
-                        {{ t('cart.coupon.apply') }}
-                    </button>
-                </div>
-            }
-
             <div class="cart-totals__row">
                 <span>{{ t('cart.totals.subtotal') }}</span>
                 <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
             </div>
-            @if (discount() > 0) {
-                <div class="cart-totals__row cart-totals__row--discount">
-                    <span
-                        >{{ t('cart.totals.discount') }} ({{
-                            appliedCoupon()
-                        }})</span
-                    >
-                    <strong>−{{ discount() | number: '1.0-0' }}₫</strong>
-                </div>
-            }
             <div class="cart-totals__row cart-totals__row--total">
                 <span>{{ t('cart.totals.total') }}</span>
                 <strong>{{ total() | number: '1.0-0' }}₫</strong>

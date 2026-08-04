@@ -20,7 +20,8 @@ import {
 import { MatButton, MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
 import { NotificationView } from 'app/layout/common/notifications/notifications.types';
 
@@ -49,6 +50,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     private readonly _overlay = inject(Overlay);
     private readonly _viewContainerRef = inject(ViewContainerRef);
     protected readonly notificationsService = inject(NotificationsService);
+    private readonly _transloco = inject(TranslocoService);
 
     /** Storefront-only: hover scale + bell nudge on unread increase. */
     readonly microMotion = input(false, { transform: booleanAttribute });
@@ -57,6 +59,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     readonly unreadCount = this.notificationsService.unreadCount;
     readonly hasMore = this.notificationsService.hasMore;
     readonly nudging = signal(false);
+    /**
+     * Localized reason the last notifications call failed. The panel showing
+     * "no notifications" after a failed read would be a lie — every rejection
+     * the API can answer with (400 bad cursor, 401, offline) says so here.
+     */
+    readonly loadError = signal<string | null>(null);
 
     private _overlayRef: OverlayRef;
     private _baselineReady = false;
@@ -64,6 +72,19 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     private _nudgeTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
+        effect(() => {
+            const err = this.notificationsService.error();
+            if (!err) {
+                this.loadError.set(null);
+                return;
+            }
+            void describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'notifications.loadError'
+            ).then((message) => this.loadError.set(message));
+        });
+
         this._destroyRef.onDestroy(() => {
             if (this._nudgeTimer) {
                 clearTimeout(this._nudgeTimer);
@@ -126,6 +147,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
     open(notification: NotificationView): void {
         void this.notificationsService.markRead(notification.id);
+    }
+
+    /** Retry action on the error state. */
+    reload(): void {
+        this.loadError.set(null);
+        void this.notificationsService.reload();
     }
 
     loadMore(): void {

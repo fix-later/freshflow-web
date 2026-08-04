@@ -1,4 +1,4 @@
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -25,24 +25,19 @@ import { SetupChecklistComponent } from '../setup/setup-checklist.component';
 /**
  * Restaurant overview — the landing section of the profile area.
  *
- * Layout follows the wallet pattern the reference boards converge on (Uvodo,
- * Mercury): a row of headline figures first, then the most recent ledger
- * activity beneath. Every figure comes from an endpoint the app already calls,
- * so this adds a view rather than a new data contract:
- *
- *  - credit limit / used / available — `GET /restaurants/{id}/credit`
- *  - recent movements               — `GET /restaurants/{id}/credit/transactions`
- *
- * Money is read-only here; acting on it belongs to the credit and invoice
- * sections, which this page links to.
+ * Layout: approval/setup first when needed, then a credit hero (available as
+ * the lead figure), usage meter, quick links, and recent ledger activity.
+ * Data from existing credit + approval endpoints only.
  */
 @Component({
     selector: 'restaurant-dashboard',
     templateUrl: './restaurant-dashboard.component.html',
+    styleUrl: './restaurant-dashboard.component.scss',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        DatePipe,
         DecimalPipe,
         MatButtonModule,
         MatIconModule,
@@ -74,7 +69,11 @@ export class RestaurantDashboardComponent implements OnInit {
     /** How much of the limit is committed, for the usage bar. */
     readonly usedRatio = computed(() => {
         const limit = this.balance()?.creditLimit ?? 0;
-        const used = this.balance()?.currentBalance ?? 0;
+        // Live field is `outstandingBalance`; `currentBalance` is only an
+        // alias, so reading it alone pinned the bar at empty.
+        const snapshot = this.balance();
+        const used =
+            snapshot?.outstandingBalance ?? snapshot?.currentBalance ?? 0;
         if (limit <= 0) {
             return 0;
         }
@@ -85,6 +84,33 @@ export class RestaurantDashboardComponent implements OnInit {
     readonly recentTransactions = computed(() =>
         this.transactions().slice(0, 5)
     );
+
+    readonly shortcuts = [
+        {
+            id: 'credit',
+            link: '/profile/credit',
+            icon: 'heroicons_outline:banknotes',
+            labelKey: 'restaurantCredit.title',
+        },
+        {
+            id: 'invoices',
+            link: '/profile/invoices',
+            icon: 'heroicons_outline:receipt-percent',
+            labelKey: 'restaurantProfile.tabs.invoices',
+        },
+        {
+            id: 'scheduled',
+            link: '/profile/scheduled',
+            icon: 'heroicons_outline:arrow-path',
+            labelKey: 'scheduledOrders.title',
+        },
+        {
+            id: 'business',
+            link: '/profile/business',
+            icon: 'heroicons_outline:building-storefront',
+            labelKey: 'restaurantProfile.profile.sectionTitle',
+        },
+    ] as const;
 
     async ngOnInit(): Promise<void> {
         this.loading.set(true);

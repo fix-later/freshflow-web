@@ -1,0 +1,144 @@
+.ff-rd__header {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+    flex-shrink: 0;
+}
+
+.ff-rd__body {
+    /* Flex child must be allowed to shrink so overflow-y-auto works. */
+    min-height: 0;
+}
+
+.ff-rd__eyebrow {
+    color: rgb(107 114 128);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.ff-rd__empty {
+    padding: 4rem 2rem;
+    border: 1px dashed var(--fuse-border, rgb(0 0 0 / 0.18));
+    border-radius: 1rem;
+    color: rgb(107 114 128);
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+.ff-rd__card {
+    /**
+     * The body is a column flex container, so a card is a flex item and
+     * defaults to `flex-shrink: 1` — once the cards together outgrow the
+     * viewport they each get squeezed a little, and `overflow: hidden` turns
+     * that squeeze into content cut off mid-row instead of the body scrolling.
+     * Cards keep their natural height; the body is what scrolls.
+     */
+    flex: 0 0 auto;
+    overflow: hidden;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-rd__card-head {
+    display: flex;
+    gap: 0.875rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+}
+
+.ff-rd__card-head--wrap {
+    flex-wrap: wrap;
+    align-items: flex-start;
+    row-gap: 0.75rem;
+}
+
+.ff-rd__icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-primary, #22c55e);
+}
+
+.ff-rd__card-body {
+    padding: 1.125rem 1.25rem 1.25rem;
+}
+
+.ff-rd__field-label {
+    display: block;
+    color: rgb(107 114 128);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ff-rd__field-value {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.9375rem;
+    font-weight: 600;
+}
+
+.ff-rd__stat {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    padding: 1rem;
+    border-radius: 0.875rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.03));
+}
+
+.ff-rd__stat--accent {
+    background: color-mix(
+        in srgb,
+        var(--fuse-primary, #22c55e) 10%,
+        transparent
+    );
+}
+
+.ff-rd__stat-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+        monospace;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+}
+
+.ff-rd__list {
+    overflow: hidden;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 0.875rem;
+}
+
+.ff-rd__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.08));
+}
+
+.ff-rd__row--tx {
+    gap: 0.75rem 1rem;
+}
+
+.ff-rd__alert {
+    border: 1px solid rgb(252 165 165);
+    background: rgb(254 242 242);
+    color: rgb(185 28 28);
+}

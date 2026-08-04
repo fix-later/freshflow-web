@@ -15,6 +15,7 @@ import {
     hubsApi,
     marketsApi,
     routesApi,
+    shippingApi,
     vehiclesApi,
 } from 'contract';
 import {
@@ -306,6 +307,11 @@ export class LogisticsAdminService {
      * Discrepancies logged at `hubId`, optionally narrowed by status. An open
      * discrepancy blocks dispatch (BR-HUB-2) — surfaced so Admin can see what's
      * currently stuck without needing hub-staff mobile access.
+     *
+     * `status` is left unset by the oversight panel: the live API rejects
+     * every value probed (`open`, `Open`, `Pending`, `Acknowledged` all
+     * answer 400 on `Status`) and the spec does not publish the vocabulary,
+     * so the panel counts every logged discrepancy rather than guessing.
      */
     async getDiscrepancies(hubId: string, status?: string): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdDiscrepanciesGetRaw({
@@ -314,6 +320,47 @@ export class LogisticsAdminService {
             pageSize: 50,
         });
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+    }
+
+    /**
+     * The server's shipping estimate for one order — distance, duration and
+     * fee as it would be charged. `vehicleId` narrows the estimate to a
+     * specific vehicle when one is already assigned.
+     *
+     * Read-only: this is what dispatch quotes, not something the console sets.
+     */
+    async getShippingEstimate(
+        orderId: string,
+        vehicleId?: string
+    ): Promise<Record<string, unknown> | null> {
+        const res =
+            await shippingApi.apiV1LogisticsShippingOrdersOrderIdEstimateGetRaw(
+                { orderId, vehicleId: vehicleId || undefined }
+            );
+        return (
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ??
+            null
+        );
+    }
+
+    /**
+     * Goods already received at `hubId` on `date` (defaults to today).
+     *
+     * The pending list says what is still expected; this says what actually
+     * arrived — PRD M8 gives Operations/Admin the inbound history even though
+     * the receiving itself is a Hub Staff mobile action.
+     */
+    async getInboundHistory(hubId: string, date?: string): Promise<CrudRow[]> {
+        const res = await hubInboundApi.apiV1HubsHubIdInboundGetRaw({
+            hubId,
+            date: date ? new Date(date) : undefined,
+            pageSize: 50,
+        });
+        // Rows carry `inboundId`, not `id` — verified against the live API.
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'inboundId'
+        );
     }
 
     /** In-flight cross-dock transfers at `hubId`, optionally narrowed by status. */
@@ -336,16 +383,25 @@ export class LogisticsAdminService {
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
     }
 
-    /** What this hub needs to procure for `date` (defaults to today), aggregated from confirmed orders. */
+    /**
+     * What this hub needs to procure on `date`, aggregated from confirmed
+     * orders. `date` is **required** by the API — omitting it answers 400
+     * `'Date' must not be empty` — so it falls back to today rather than being
+     * left off.
+     */
     async getProcurementPlan(hubId: string, date?: string): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdProcurementPlanGetRaw({
             hubId,
-            date: date ? new Date(date) : undefined,
+            date: date ? new Date(date) : new Date(),
         });
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
     }
 
-    /** Orders routed through `hubId`, grouped by restaurant, for `serviceDate`. */
+    /**
+     * Orders routed through `hubId`, grouped by restaurant, for
+     * `serviceDate` — **required** by the API (400 `'Service Date' must not be
+     * empty` without it), so it defaults to today.
+     */
     async getOrdersByRestaurant(
         hubId: string,
         serviceDate?: string,
@@ -353,7 +409,7 @@ export class LogisticsAdminService {
     ): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdOrdersByRestaurantGetRaw({
             hubId,
-            serviceDate: serviceDate ? new Date(serviceDate) : undefined,
+            serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
             includeBatched,
         });
         return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');

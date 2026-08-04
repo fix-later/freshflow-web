@@ -1,0 +1,100 @@
+.ff-dash__banner {
+    border: 1px solid rgb(251 191 36 / 0.55);
+    background: rgb(255 251 235);
+    color: rgb(120 53 15);
+
+    .dark & {
+        border-color: rgb(245 158 11 / 0.35);
+        background: rgb(120 53 15 / 0.22);
+        color: rgb(254 243 199);
+    }
+}
+
+.ff-dash__banner-icon {
+    color: rgb(217 119 6);
+
+    .dark & {
+        color: rgb(251 191 36);
+    }
+}
+
+.ff-dash__banner-hint {
+    opacity: 0.85;
+}
+
+.ff-dash__hero {
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    padding: 1.25rem 1.25rem 1.5rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-dash__stat {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.03));
+}
+
+.ff-dash__meter {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.06));
+}
+
+.ff-dash__meter-fill {
+    background: var(--fuse-primary, #22c55e);
+}
+
+.ff-dash__shortcut {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+    color: inherit;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+
+    &:hover {
+        border-color: color-mix(
+            in srgb,
+            var(--fuse-primary, #22c55e) 45%,
+            var(--fuse-border, #ccc)
+        );
+        background: var(--fuse-hover, rgb(0 0 0 / 0.03));
+    }
+}
+
+.ff-dash__shortcut-icon {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-primary, #22c55e);
+}
+
+.ff-dash__activity {
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-dash__tx-icon {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-text-secondary, #6b7280);
+
+    &--in {
+        background: color-mix(
+            in srgb,
+            var(--fuse-primary, #22c55e) 14%,
+            transparent
+        );
+        color: var(--fuse-primary, #22c55e);
+    }
+}
+
+.ff-dash__empty {
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}

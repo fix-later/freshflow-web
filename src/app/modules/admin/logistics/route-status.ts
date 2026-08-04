@@ -27,3 +27,36 @@ export function routeStatusPillClass(
             return 'admin-pill admin-pill-neutral';
     }
 }
+
+/**
+ * i18n key for a route status. Backend values are shown raw today — a driver
+ * or operator reading "assigned" in a Vietnamese console is being handed the
+ * database's vocabulary, not theirs.
+ *
+ * `ROUTE_STATUSES` is the documented set; anything outside it falls back to
+ * `admin.routes.status.unknown` rather than rendering a missing-key string.
+ */
+export function routeStatusLabelKey(status: string | null | undefined): string {
+    const normalized = String(status ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+    return normalized
+        ? `admin.routes.status.${normalized}`
+        : 'admin.routes.status.unknown';
+}
+
+/**
+ * i18n key for a route type. The live API answers `hub_relay` (Market → Hub →
+ * Restaurant) and `direct` (Market → Restaurant) — the two shapes PRD M9
+ * names.
+ */
+export function routeTypeLabelKey(type: string | null | undefined): string {
+    const normalized = String(type ?? '')
+        .trim()
+        .toLowerCase()
+        .replace(/[\s-]+/g, '_');
+    return normalized
+        ? `admin.routes.type.${normalized}`
+        : 'admin.routes.type.unknown';
+}

@@ -1,0 +1,18 @@
+<footer
+    class="bg-card relative z-10 w-full shrink-0 border-t print:hidden"
+    *transloco="let t"
+>
+    <div
+        class="mx-auto flex w-full max-w-[95rem] flex-col gap-2 px-4 py-5 sm:flex-row sm:items-center sm:justify-between md:px-8 lg:px-14"
+    >
+        <p class="text-secondary text-sm font-medium">
+            {{ t('footer.simple.copyright', { year: currentYear }) }}
+        </p>
+        <a
+            class="text-secondary text-sm font-medium underline-offset-4 hover:text-primary hover:underline"
+            href="tel:+1900777525"
+        >
+            {{ t('footer.simple.support') }}: +1 900 777525
+        </a>
+    </div>
+</footer>

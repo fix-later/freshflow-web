@@ -66,6 +66,7 @@ const STEP_ITEMS: ReadonlyArray<readonly RequiredSetupItemId[]> = [
     changeDetection: ChangeDetectionStrategy.OnPush,
     encapsulation: ViewEncapsulation.None,
     templateUrl: './onboarding.component.html',
+    styleUrl: './onboarding.component.scss',
     imports: [
         MatButtonModule,
         MatIconModule,
@@ -86,6 +87,38 @@ export class OnboardingComponent implements OnInit {
     private readonly _taxStep = viewChild(TaxProfileFormComponent);
     private readonly _addressStep = viewChild(DeliveryAddressesComponent);
 
+    /**
+     * The rail's step list. The stepper's own header is hidden — with a
+     * permanent rail showing every step and its state, two progress indicators
+     * on one screen just compete with each other.
+     */
+    readonly steps: ReadonlyArray<{
+        labelKey: string;
+        hintKey: string;
+        optional: boolean;
+    }> = [
+        {
+            labelKey: 'restaurantOnboarding.steps.business',
+            hintKey: 'restaurantOnboarding.steps.businessHint',
+            optional: false,
+        },
+        {
+            labelKey: 'restaurantOnboarding.steps.tax',
+            hintKey: 'restaurantOnboarding.steps.taxHint',
+            optional: true,
+        },
+        {
+            labelKey: 'restaurantOnboarding.steps.address',
+            hintKey: 'restaurantOnboarding.steps.addressHint',
+            optional: false,
+        },
+        {
+            labelKey: 'restaurantOnboarding.steps.review',
+            hintKey: 'restaurantOnboarding.steps.reviewHint',
+            optional: false,
+        },
+    ];
+
     readonly stepIndex = signal(STEP_BUSINESS);
     readonly advancing = signal(false);
     readonly loading = signal(true);
@@ -98,6 +131,12 @@ export class OnboardingComponent implements OnInit {
 
     /** Human step position, 1-based, for "step N of 4" (FR-007). */
     readonly stepNumber = computed(() => this.stepIndex() + 1);
+
+    /** Required items done, as a percentage — the rail's progress bar. */
+    readonly progressPercent = computed(() => {
+        const { completed, total } = this.progress();
+        return total > 0 ? Math.round((completed / total) * 100) : 0;
+    });
 
     async ngOnInit(): Promise<void> {
         this.loading.set(true);

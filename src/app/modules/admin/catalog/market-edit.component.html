@@ -247,16 +247,30 @@
                             <div
                                 class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
                             >
-                                <button
-                                    class="-ml-2"
-                                    mat-button
-                                    color="warn"
-                                    type="button"
-                                    [disabled]="!isActive() || saving()"
-                                    (click)="deactivate()"
-                                >
-                                    {{ t('admin.crud.deactivate') }}
-                                </button>
+                                <div class="-ml-2 flex flex-wrap items-center">
+                                    <button
+                                        mat-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="!isActive() || saving()"
+                                        (click)="deactivate()"
+                                    >
+                                        {{ t('admin.crud.deactivate') }}
+                                    </button>
+                                    <!-- Deactivate retires the market and keeps
+                                         its price history; delete removes it.
+                                         The server refuses a market that is
+                                         still referenced and says why. -->
+                                    <button
+                                        mat-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="saving()"
+                                        (click)="deleteMarket()"
+                                    >
+                                        {{ t('admin.markets.delete.action') }}
+                                    </button>
+                                </div>
                                 <div class="flex items-center gap-2">
                                     <button
                                         mat-stroked-button

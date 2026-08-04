@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
-import { UserService } from 'app/core/user/user.service';
 import { restaurantCreditApi } from 'contract';
+import { RestaurantProfileService } from '../restaurant-profile.service';
 import { RestaurantCreditService } from './restaurant-credit.service';
 
 /**
@@ -18,21 +18,22 @@ function rawResponse(body: unknown): any {
 
 describe('RestaurantCreditService', () => {
     let service: RestaurantCreditService;
-    let userService: UserService;
+    let profileService: RestaurantProfileService;
 
     beforeEach(() => {
         TestBed.configureTestingModule({});
         service = TestBed.inject(RestaurantCreditService);
-        userService = TestBed.inject(UserService);
+        profileService = TestBed.inject(RestaurantProfileService);
     });
 
     describe('getBalance', () => {
-        it('resolves restaurantId from the signed-in user id (userId doubles as restaurantId)', async () => {
-            userService.user = {
-                id: 'user-123',
-                email: 'r@example.com',
-                role: 'restaurant',
-            };
+        /**
+         * Regression: this used to send the signed-in **user** id, which the
+         * backend answers 404 for. The restaurant has its own id, published by
+         * `GET /restaurants/me/profile`.
+         */
+        it('sends the restaurant id from the profile, not the user id', async () => {
+            spyOn(profileService, 'restaurantId').and.resolveTo('rest-456');
             const get = spyOn(
                 restaurantCreditApi,
                 'apiV1RestaurantsRestaurantIdCreditGetRaw'
@@ -44,7 +45,7 @@ describe('RestaurantCreditService', () => {
 
             const balance = await service.getBalance();
 
-            expect(get).toHaveBeenCalledWith({ restaurantId: 'user-123' });
+            expect(get).toHaveBeenCalledWith({ restaurantId: 'rest-456' });
             expect(balance).toEqual({ creditLimit: 1000, currentBalance: 200 });
         });
     });

@@ -6,9 +6,8 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { UserService } from 'app/core/user/user.service';
+import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { ordersApi, restaurantProfileApi } from 'contract';
-import { firstValueFrom } from 'rxjs';
 import {
     OrderHistoryEntry,
     RestaurantApprovalStatus,
@@ -24,19 +23,18 @@ export const SCHEDULED_PAGE_SIZE = 20;
  * state — the three restaurant-facing endpoints the profile area did not reach.
  *
  * `GET /orders/scheduled` and `/orders/history` both accept an optional
- * `restaurantId`; the signed-in user's id doubles as their restaurant id in this
- * backend (same assumption `RestaurantCreditService` documents), so it is
- * resolved here rather than passed in by callers.
+ * `restaurantId`, resolved from `GET /restaurants/me/profile` — **not** from
+ * the signed-in user's id, which is a different id and answers 403 here.
  *
- * Creating a schedule is deliberately absent: `CreateScheduledOrderRequest`
- * takes only `recurrenceType`, `firstRunAt` and `notes` — no items — and the
- * spec neither enumerates the recurrence vocabulary nor says where the lines
- * come from. Guessing that contract would invent business logic, so the UI
- * lists, inspects and cancels schedules until the backend semantics are known.
+ * Recurrence is daily or weekly (BR-ORD-5, UC-ORD-09/FR-ORD-009) — see
+ * `SCHEDULE_RECURRENCE_TYPES`. `CreateScheduledOrderRequest` carries no items:
+ * per UC-ORD-11/FR-ORD-011 the *system* generates each concrete order from the
+ * schedule, so the lines are the backend's to resolve and this client sends
+ * only the three fields the request model declares.
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantScheduledOrdersService {
-    private readonly _userService = inject(UserService);
+    private readonly _profileService = inject(RestaurantProfileService);
 
     /** Recurring order templates. `includeCancelled` shows ended schedules too. */
     async listScheduled(
@@ -58,6 +56,25 @@ export class RestaurantScheduledOrdersService {
             ),
             total: extractTotal(body),
         };
+    }
+
+    /**
+     * Creates a recurring schedule (UC-ORD-09). `recurrenceType` and
+     * `firstRunAt` are both required by `CreateScheduledOrderRequest`;
+     * `notes` is optional and capped at 500.
+     */
+    async createScheduled(input: {
+        recurrenceType: string;
+        firstRunAt: Date;
+        notes?: string | null;
+    }): Promise<void> {
+        await ordersApi.apiV1OrdersScheduledPostRaw({
+            createScheduledOrderRequest: {
+                recurrenceType: input.recurrenceType,
+                firstRunAt: input.firstRunAt,
+                notes: input.notes || undefined,
+            },
+        });
     }
 
     async getScheduled(
@@ -87,6 +104,28 @@ export class RestaurantScheduledOrdersService {
             ),
             total: extractTotal(body),
         };
+    }
+
+    /**
+     * Edits a schedule in place (`PATCH /orders/scheduled/{id}`). Every field
+     * is optional on `UpdateScheduledOrderRequest` — send only what changed.
+     */
+    async updateScheduled(
+        scheduledOrderId: string,
+        changes: {
+            recurrenceType?: string | null;
+            firstRunAt?: Date | null;
+            notes?: string | null;
+        }
+    ): Promise<void> {
+        await ordersApi.apiV1OrdersScheduledScheduledOrderIdPatchRaw({
+            scheduledOrderId,
+            updateScheduledOrderRequest: {
+                recurrenceType: changes.recurrenceType ?? undefined,
+                firstRunAt: changes.firstRunAt ?? undefined,
+                notes: changes.notes ?? undefined,
+            },
+        });
     }
 
     /** Stops future runs. The runs already placed stay as ordinary orders. */
@@ -139,15 +178,7 @@ export class RestaurantScheduledOrdersService {
         );
     }
 
-    private async _restaurantId(): Promise<string> {
-        const current =
-            this._userService.current ??
-            (await firstValueFrom(this._userService.user$));
-        if (!current?.id) {
-            throw new Error(
-                'No signed-in user to resolve a restaurant id from'
-            );
-        }
-        return current.id;
+    private _restaurantId(): Promise<string> {
+        return this._profileService.restaurantId();
     }
 }

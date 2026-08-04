@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { RestaurantInvoicesService } from './restaurant-invoices.service';
 import { invoiceStatusPillClass } from './restaurant-invoices.status';
 import { InvoiceRow } from './restaurant-invoices.types';
@@ -40,7 +41,8 @@ export class InvoicesListComponent implements OnInit {
 
     readonly rows = signal<InvoiceRow[]>([]);
     readonly loading = signal(false);
-    readonly loadError = signal(false);
+    /** Localized reason the read failed (400 bad filter, 403, 5xx, offline). */
+    readonly loadError = signal<string | null>(null);
     readonly totalCount = signal(0);
     readonly page = signal(1);
 
@@ -50,14 +52,26 @@ export class InvoicesListComponent implements OnInit {
 
     load(): void {
         this.loading.set(true);
-        this.loadError.set(false);
+        this.loadError.set(null);
         this._service
             .listInvoices({ page: this.page(), pageSize: PAGE_SIZE })
             .then(({ invoices, totalCount }) => {
                 this.rows.set(invoices);
                 this.totalCount.set(totalCount);
             })
-            .catch(() => this.loadError.set(true))
+            .catch(async (err) => {
+                // An empty table after a failed read would read as "no
+                // invoices"; name the reason and keep the retry available.
+                this.rows.set([]);
+                this.totalCount.set(0);
+                this.loadError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'restaurantInvoices.loadError'
+                    )
+                );
+            })
             .finally(() => this.loading.set(false));
     }
 

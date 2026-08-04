@@ -1,4 +1,4 @@
-import { inject, Injectable, signal } from '@angular/core';
+import { computed, inject, Injectable, signal } from '@angular/core';
 import {
     extractList,
     extractNextCursor,
@@ -9,6 +9,11 @@ import { MarketSelectionService } from 'app/core/market/market-selection.service
 import { categoriesApi, marketsApi, productsApi } from 'contract';
 import { from, Observable, tap } from 'rxjs';
 import { CatalogCategory, CatalogProduct, PricePoint } from './catalog.types';
+
+/** A root category with the children the API reports beneath it. */
+export interface CategoryNode extends CatalogCategory {
+    children: CatalogCategory[];
+}
 
 /** Listings fetched per request — one screenful, then infinite scroll. */
 export const CATALOG_PAGE_SIZE = 20;
@@ -72,6 +77,7 @@ export class CatalogService {
     private _marketSelection = inject(MarketSelectionService);
 
     private _categories = signal<CatalogCategory[]>([]);
+    private _categoriesLoading = signal(false);
     private _products = signal<CatalogProduct[]>([]);
     private _product = signal<CatalogProduct | null>(null);
     private _loading = signal(false);
@@ -82,8 +88,16 @@ export class CatalogService {
     /** Identifies the active query so a stale response cannot overwrite it. */
     private _requestKey = '';
     private _baseProducts: Promise<Map<string, RawRow>> | null = null;
+    /**
+     * Cached category fetch. Both the catalog page (sidebar tree) and the
+     * header (mega menu) call {@link getCategories}, and without this they'd
+     * each fire their own `GET /categories` for the same session-lifetime data.
+     */
+    private _categoriesPromise: Promise<CatalogCategory[]> | null = null;
 
     readonly categories = this._categories.asReadonly();
+    /** True while the first (uncached) category fetch of the session is in flight. */
+    readonly categoriesLoading = this._categoriesLoading.asReadonly();
     readonly products = this._products.asReadonly();
     readonly product = this._product.asReadonly();
     /** True while a page is in flight — drives the scroll spinner. */
@@ -91,8 +105,54 @@ export class CatalogService {
     /** True when the server reported another page after the last one. */
     readonly hasMore = this._hasMore.asReadonly();
 
+    /**
+     * Categories arranged into a two-level tree (root categories with their
+     * direct children), the shape both the catalog sidebar and the header's
+     * mega menu render. A category whose `parentId` names a category the API
+     * did not return is treated as a root rather than dropped — an
+     * unresolvable parent must not make its children unreachable.
+     */
+    readonly categoryTree = computed<CategoryNode[]>(() => {
+        const all = this._categories();
+        const ids = new Set(all.map((cat) => cat.id));
+        const childrenOf = new Map<string, CatalogCategory[]>();
+        for (const cat of all) {
+            if (!cat.parentId || !ids.has(cat.parentId)) {
+                continue;
+            }
+            const siblings = childrenOf.get(cat.parentId) ?? [];
+            siblings.push(cat);
+            childrenOf.set(cat.parentId, siblings);
+        }
+        return all
+            .filter((cat) => !cat.parentId || !ids.has(cat.parentId))
+            .map((cat) => ({ ...cat, children: childrenOf.get(cat.id) ?? [] }));
+    });
+
+    /**
+     * Fetches once per session and caches; every later call (catalog page,
+     * header mega menu) replays the same result instead of re-fetching.
+     *
+     * An empty result is not cached: `_loadCategories` swallows its own
+     * failures into `[]` rather than rejecting, and a guest 401 looks
+     * identical to "no categories exist" from here. Not caching it means the
+     * first call after signing in (or once categories actually exist) tries
+     * again instead of replaying a stale empty list for the rest of the tab.
+     */
     getCategories(): Observable<CatalogCategory[]> {
-        return from(this._loadCategories()).pipe(
+        if (!this._categoriesPromise) {
+            this._categoriesLoading.set(true);
+            this._categoriesPromise = this._loadCategories().then(
+                (categories) => {
+                    this._categoriesLoading.set(false);
+                    if (categories.length === 0) {
+                        this._categoriesPromise = null;
+                    }
+                    return categories;
+                }
+            );
+        }
+        return from(this._categoriesPromise).pipe(
             tap((categories) => this._categories.set(categories))
         );
     }
@@ -320,7 +380,7 @@ export class CatalogService {
             nameEn: str(base, ['nameEn']) || name,
             description,
             descriptionEn: str(base, ['descriptionEn']) || description,
-            categoryId: str(base, ['categoryId']),
+            categoryId: str(row, ['categoryId']) || str(base, ['categoryId']),
             unit: str(base, ['unitName', 'unit']),
             unitEn:
                 str(base, ['unitAbbreviation', 'unitEn']) ||

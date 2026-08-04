@@ -22,9 +22,10 @@ const CHANNEL = 'email';
 
 /**
  * Post-registration email verification (`POST /auth/verify`, with
- * `POST /auth/verify/request` to re-send). The address arrives as a query
- * param from sign-up; a visitor who lands here directly (a bookmarked link, a
- * reload after clearing state) can type it in.
+ * `POST /auth/verify/request` to send / re-send the code). Sign-up already
+ * requests the first code after register; this screen is for entering it and
+ * for resending if needed. The address arrives as a query param from sign-up;
+ * a visitor who lands here directly can type it in.
  */
 @Component({
     selector: 'auth-confirmation-required',

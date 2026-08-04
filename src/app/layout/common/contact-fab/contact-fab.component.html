@@ -1,0 +1,78 @@
+<div
+    class="contact-fab print:hidden"
+    [class.contact-fab--raised]="raised()"
+    [class.contact-fab--open]="open()"
+    *transloco="let t"
+>
+    @if (open()) {
+        <ul class="contact-fab__list" role="list">
+            @for (action of actions; track action.id) {
+                <li class="contact-fab__item">
+                    <a
+                        class="contact-fab__action"
+                        [class.contact-fab__action--hotline]="
+                            action.id === 'hotline'
+                        "
+                        [href]="action.href"
+                        [attr.target]="action.external ? '_blank' : null"
+                        [attr.rel]="
+                            action.external ? 'noopener noreferrer' : null
+                        "
+                        [attr.aria-label]="t(action.labelKey)"
+                    >
+                        <span class="contact-fab__label">{{
+                            t(action.labelKey)
+                        }}</span>
+                        <span
+                            class="contact-fab__icon-wrap"
+                            [class.contact-fab__icon-wrap--hotline]="
+                                action.id === 'hotline'
+                            "
+                        >
+                            @if (action.image) {
+                                <img
+                                    class="contact-fab__brand"
+                                    [src]="action.image"
+                                    alt=""
+                                    width="48"
+                                    height="48"
+                                />
+                            } @else if (action.matIcon) {
+                                <mat-icon
+                                    class="contact-fab__mat-icon icon-size-6"
+                                    [svgIcon]="action.matIcon"
+                                ></mat-icon>
+                            }
+                        </span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+
+    <button
+        class="contact-fab__toggle"
+        type="button"
+        [attr.aria-expanded]="open()"
+        [attr.aria-label]="
+            open() ? t('contactFab.close') : t('contactFab.open')
+        "
+        [matTooltip]="open() ? t('contactFab.close') : t('contactFab.open')"
+        (click)="toggle()"
+    >
+        @if (open()) {
+            <mat-icon
+                class="contact-fab__close-icon icon-size-6"
+                [svgIcon]="'heroicons_outline:x-mark'"
+            ></mat-icon>
+        } @else {
+            <img
+                class="contact-fab__mascot"
+                src="assistant.svg"
+                alt=""
+                width="32"
+                height="32"
+            />
+        }
+    </button>
+</div>

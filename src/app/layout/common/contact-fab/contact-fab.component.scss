@@ -1,0 +1,146 @@
+.contact-fab {
+    position: fixed;
+    right: 1rem;
+    bottom: 1.5rem;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    transition: bottom 200ms ease;
+
+    @media (min-width: 768px) {
+        right: 1.5rem;
+    }
+
+    &--raised {
+        bottom: 5.25rem;
+
+        @media (min-width: 768px) {
+            bottom: 5.5rem;
+        }
+    }
+}
+
+.contact-fab__list {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.75rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.contact-fab__action {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    text-decoration: none;
+    color: inherit;
+}
+
+.contact-fab__label {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid rgb(0 0 0 / 0.1);
+    border-radius: 0.5rem;
+    background: #fff;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+    color: rgb(55 65 81);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: nowrap;
+}
+
+.contact-fab__icon-wrap,
+.contact-fab__toggle {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 4px 16px rgb(0 0 0 / 0.12);
+}
+
+/* Brand logos keep their own shape — no circular crop */
+.contact-fab__icon-wrap:not(.contact-fab__icon-wrap--hotline) {
+    overflow: visible;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.contact-fab__icon-wrap--hotline {
+    overflow: hidden;
+    background: #22c55e;
+    color: #fff;
+}
+
+.contact-fab__brand {
+    width: 3rem;
+    height: 3rem;
+    object-fit: contain;
+    object-position: center;
+    filter: drop-shadow(0 4px 12px rgb(0 0 0 / 0.14));
+}
+
+.contact-fab__mat-icon {
+    color: #fff;
+}
+
+.contact-fab__toggle {
+    border: 0;
+    cursor: pointer;
+    transition:
+        transform 160ms ease,
+        box-shadow 160ms ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgb(0 0 0 / 0.14);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary, #22c55e);
+        outline-offset: 2px;
+    }
+}
+
+.contact-fab__mascot {
+    width: 2rem;
+    height: 2rem;
+    pointer-events: none;
+}
+
+.contact-fab__close-icon {
+    color: #22c55e;
+}
+
+.contact-fab--open .contact-fab__list {
+    animation: contact-fab-in 180ms ease-out;
+}
+
+@keyframes contact-fab-in {
+    from {
+        opacity: 0;
+        transform: translateY(0.5rem);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .contact-fab,
+    .contact-fab__toggle,
+    .contact-fab--open .contact-fab__list {
+        transition: none;
+        animation: none;
+    }
+}

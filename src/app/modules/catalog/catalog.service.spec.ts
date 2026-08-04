@@ -73,6 +73,17 @@ describe('CatalogService paging', () => {
         expect(service.products()[0].marketSource).toBe('Chợ A');
     });
 
+    it('forwards the category filter to the market listing request', async () => {
+        const get = spyOn(
+            marketsApi,
+            'apiV1MarketsMarketIdProductsGetRaw'
+        ).and.resolveTo(envelope([row('p1', 'Cải ngọt')]) as never);
+
+        await service.loadFirstPage('m1', 'cat-leaf');
+
+        expect(get.calls.mostRecent().args[0].category).toBe('cat-leaf');
+    });
+
     it('appends the next page and forwards the cursor', async () => {
         const get = spyOn(
             marketsApi,

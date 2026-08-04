@@ -1,6 +1,12 @@
 /** Restaurant credit/debt snapshot (`GET /restaurants/{id}/credit`). Untyped in the spec. */
 export interface RestaurantCreditBalance {
     creditLimit?: number;
+    /**
+     * What the restaurant owes. The API spells this `outstandingBalance`;
+     * `currentBalance` is kept as a tolerated alias because these types are
+     * read defensively, but the live field is the first one.
+     */
+    outstandingBalance?: number;
     currentBalance?: number;
     availableCredit?: number;
     [key: string]: unknown;

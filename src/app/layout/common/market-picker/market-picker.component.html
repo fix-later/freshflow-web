@@ -6,13 +6,13 @@
         (click)="openPanel()"
         [matTooltip]="t('header.market')"
     >
+        @if (selected(); as market) {
+            <span>{{ t('market.displayName', { name: market.name }) }}</span>
+        } @else {
+            <span>{{ t('market.choosePrompt') }}</span>
+        }
         <mat-icon
-            class="text-primary-400 icon-size-5"
-            [svgIcon]="'heroicons_outline:building-storefront'"
-        ></mat-icon>
-        <span>{{ selected()?.name ?? t('market.choosePrompt') }}</span>
-        <mat-icon
-            class="text-current icon-size-4"
+            class="text-current icon-size-3.5"
             [svgIcon]="'heroicons_outline:chevron-down'"
         ></mat-icon>
     </button>
@@ -115,7 +115,11 @@
                             </span>
                             <span class="flex min-w-0 flex-col">
                                 <span class="truncate font-semibold">
-                                    {{ market.name }}
+                                    {{
+                                        t('market.displayName', {
+                                            name: market.name,
+                                        })
+                                    }}
                                 </span>
                                 @if (market.address) {
                                     <span

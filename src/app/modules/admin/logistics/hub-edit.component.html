@@ -231,7 +231,29 @@
                         <p class="text-secondary -mt-1 text-sm">
                             {{ t('admin.hubs.oversight.subtitle') }}
                         </p>
-                        @if (loadingOversight()) {
+                        @if (oversightError(); as message) {
+                            <div
+                                class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                                role="alert"
+                            >
+                                <mat-icon
+                                    class="shrink-0 text-red-500 icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:exclamation-triangle'
+                                    "
+                                ></mat-icon>
+                                <span class="min-w-0 flex-auto">{{
+                                    message
+                                }}</span>
+                                <button
+                                    mat-button
+                                    type="button"
+                                    (click)="reloadOversight()"
+                                >
+                                    {{ t('common.retry') }}
+                                </button>
+                            </div>
+                        } @else if (loadingOversight()) {
                             <admin-loading-state />
                         } @else {
                             <div
@@ -251,6 +273,18 @@
                                         class="mt-1 text-2xl font-bold tabular-nums"
                                     >
                                         {{ pendingInbound().length }}
+                                    </div>
+                                </div>
+                                <div class="rounded-xl border p-4">
+                                    <div
+                                        class="text-secondary text-xs uppercase tracking-wide"
+                                    >
+                                        {{ t('admin.hubs.oversight.received') }}
+                                    </div>
+                                    <div
+                                        class="mt-1 text-2xl font-bold tabular-nums"
+                                    >
+                                        {{ inboundHistory().length }}
                                     </div>
                                 </div>
                                 <div class="rounded-xl border p-4">

@@ -16,6 +16,10 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import {
+    accountMenuItems,
+    AccountShellNavItem,
+} from 'app/modules/restaurant/account-area-nav';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
@@ -41,6 +45,19 @@ export class UserComponent implements OnInit, OnDestroy {
 
     @Input() showAvatar: boolean = true;
     user: User;
+
+    /** BR-AUTH-1 — approved restaurants (and non-restaurant roles set to approved). */
+    get isApproved(): boolean {
+        return this.user?.approvalStatus === 'approved';
+    }
+
+    /**
+     * The shortcut destinations for this role, taken from the same source as
+     * the account rail so the two can never disagree about what exists.
+     */
+    menuItems(): readonly AccountShellNavItem[] {
+        return accountMenuItems(this.user?.role === 'restaurant');
+    }
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 

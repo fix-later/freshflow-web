@@ -1,0 +1,66 @@
+.ff-tax {
+    max-width: 42rem;
+}
+
+.ff-tax__alert--warn {
+    border: 1px solid rgb(251 191 36 / 0.55);
+    background: rgb(255 251 235);
+    color: rgb(120 53 15);
+
+    .dark & {
+        border-color: rgb(245 158 11 / 0.35);
+        background: rgb(120 53 15 / 0.22);
+        color: rgb(254 243 199);
+    }
+}
+
+.ff-tax__alert--error {
+    border: 1px solid rgb(252 165 165);
+    background: rgb(254 242 242);
+    color: rgb(185 28 28);
+
+    .dark & {
+        border-color: rgb(248 113 113 / 0.4);
+        background: rgb(127 29 29 / 0.25);
+        color: rgb(254 202 202);
+    }
+}
+
+.ff-tax__card {
+    overflow: hidden;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-tax__card-head {
+    display: flex;
+    gap: 0.875rem;
+    align-items: flex-start;
+    padding: 1.125rem 1.25rem;
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+}
+
+.ff-tax__card-icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-primary, #22c55e);
+}
+
+.ff-tax__card-body {
+    padding: 1rem 1.25rem 1.25rem;
+}
+
+.ff-tax__actions {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+}

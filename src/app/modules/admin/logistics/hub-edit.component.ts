@@ -110,12 +110,20 @@ export class HubEditComponent implements OnInit {
 
     /** M8 Hub inbound/discrepancy oversight (admin = read-only, ROLE_MATRIX). */
     readonly pendingInbound = signal<CrudRow[]>([]);
+    /** Goods actually received today — the counterpart to `pendingInbound`. */
+    readonly inboundHistory = signal<CrudRow[]>([]);
     readonly openDiscrepancies = signal<CrudRow[]>([]);
     readonly crossDock = signal<CrudRow[]>([]);
     readonly outbound = signal<CrudRow[]>([]);
     readonly procurementPlan = signal<CrudRow[]>([]);
     readonly ordersByRestaurant = signal<CrudRow[]>([]);
     readonly loadingOversight = signal(false);
+    /**
+     * Localized reason the oversight read failed. Every tile showing 0 after a
+     * failed call reads as "nothing is happening at this hub", which is the
+     * opposite of what an operator needs to know.
+     */
+    readonly oversightError = signal<string | null>(null);
 
     /** Read-only HubDto fields for the detail grid. */
     readonly metaEntries = computed(() => {
@@ -278,11 +286,21 @@ export class HubEditComponent implements OnInit {
             .finally(() => this.loadingStaff.set(false));
     }
 
+    /** Re-reads the oversight tiles; also the retry action on failure. */
+    reloadOversight(): void {
+        const id = this.hub()?.id;
+        if (id) {
+            this._loadOversight(id);
+        }
+    }
+
     private _loadOversight(hubId: string): void {
         this.loadingOversight.set(true);
+        this.oversightError.set(null);
         Promise.all([
             this._logistics.getPendingInbound(hubId),
-            this._logistics.getDiscrepancies(hubId, 'open'),
+            this._logistics.getInboundHistory(hubId),
+            this._logistics.getDiscrepancies(hubId),
             this._logistics.getCrossDock(hubId),
             this._logistics.getOutbound(hubId),
             this._logistics.getProcurementPlan(hubId),
@@ -291,6 +309,7 @@ export class HubEditComponent implements OnInit {
             .then(
                 ([
                     pending,
+                    inbound,
                     discrepancies,
                     crossDock,
                     outbound,
@@ -298,6 +317,7 @@ export class HubEditComponent implements OnInit {
                     ordersByRestaurant,
                 ]) => {
                     this.pendingInbound.set(pending);
+                    this.inboundHistory.set(inbound);
                     this.openDiscrepancies.set(discrepancies);
                     this.crossDock.set(crossDock);
                     this.outbound.set(outbound);
@@ -305,13 +325,21 @@ export class HubEditComponent implements OnInit {
                     this.ordersByRestaurant.set(ordersByRestaurant);
                 }
             )
-            .catch(() => {
+            .catch(async (err) => {
                 this.pendingInbound.set([]);
+                this.inboundHistory.set([]);
                 this.openDiscrepancies.set([]);
                 this.crossDock.set([]);
                 this.outbound.set([]);
                 this.procurementPlan.set([]);
                 this.ordersByRestaurant.set([]);
+                this.oversightError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.hubs.oversight.loadError'
+                    )
+                );
             })
             .finally(() => this.loadingOversight.set(false));
     }

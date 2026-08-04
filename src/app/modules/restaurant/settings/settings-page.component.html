@@ -1,0 +1,97 @@
+<!--
+  Notification settings. Digg / X pattern: a "General" group whose first row is
+  web push, each row a label + one line of what it does, and any state that
+  blocks the control explained in place instead of a dead toggle.
+-->
+<account-shell
+    [titleKey]="'user.settings'"
+    [breadcrumbKey]="'user.settings'"
+    *transloco="let t"
+>
+    <div class="flex w-full min-w-0 flex-auto flex-col gap-6">
+        @if (error(); as message) {
+            <div
+                class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-red-500 icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <span>{{ message }}</span>
+            </div>
+        }
+
+        <section class="rounded-xl border p-5 sm:p-6">
+            <h3 class="text-default text-base font-semibold">
+                {{ t('settings.notifications.title') }}
+            </h3>
+            <p class="text-secondary mt-0.5 text-sm">
+                {{ t('settings.notifications.hint') }}
+            </p>
+
+            <div class="mt-5 flex flex-col divide-y">
+                <!-- Web push for this browser (NotificationDevice API) -->
+                <div
+                    class="flex flex-wrap items-start justify-between gap-4 py-4 first:pt-0"
+                >
+                    <div class="min-w-0 flex-auto">
+                        <div class="text-default font-medium">
+                            {{ t('settings.push.title') }}
+                        </div>
+                        <p class="text-secondary mt-0.5 text-sm">
+                            {{ t(pushStateKey()) }}
+                        </p>
+                    </div>
+                    @if (canTogglePush()) {
+                        <mat-slide-toggle
+                            [color]="'primary'"
+                            [checked]="isRegistered()"
+                            [disabled]="busy()"
+                            (change)="togglePush($event.checked)"
+                            [attr.aria-label]="t('settings.push.title')"
+                        ></mat-slide-toggle>
+                    } @else if (isRegistered()) {
+                        <!-- Registered from somewhere this browser can no
+                             longer renew — unregistering must stay possible. -->
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="busy()"
+                            (click)="togglePush(false)"
+                        >
+                            {{ t('settings.push.unregister') }}
+                        </button>
+                    } @else {
+                        <span
+                            class="text-hint shrink-0 rounded-full border px-3 py-1 text-xs font-medium"
+                            >{{ t('settings.push.unavailable') }}</span
+                        >
+                    }
+                </div>
+
+                <!-- In-app notification list filter (`is_read`) -->
+                <div
+                    class="flex flex-wrap items-start justify-between gap-4 py-4 last:pb-0"
+                >
+                    <div class="min-w-0 flex-auto">
+                        <div class="text-default font-medium">
+                            {{ t('settings.notifications.unreadOnly') }}
+                        </div>
+                        <p class="text-secondary mt-0.5 text-sm">
+                            {{ t('settings.notifications.unreadOnlyHint') }}
+                        </p>
+                    </div>
+                    <mat-slide-toggle
+                        [color]="'primary'"
+                        [checked]="unreadOnly()"
+                        (change)="toggleUnreadOnly($event.checked)"
+                        [attr.aria-label]="
+                            t('settings.notifications.unreadOnly')
+                        "
+                    ></mat-slide-toggle>
+                </div>
+            </div>
+        </section>
+    </div>
+</account-shell>
