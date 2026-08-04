@@ -23,7 +23,6 @@ import { appRoutes } from 'app/app.routes';
 import { provideAuth } from 'app/core/auth/auth.provider';
 import { TranslocoMatPaginatorIntl } from 'app/core/i18n/transloco-mat-paginator-intl';
 import { provideIcons } from 'app/core/icons/icons.provider';
-import { mockApiServices } from 'app/mock-api';
 import { firstValueFrom } from 'rxjs';
 import { TranslocoHttpLoader } from './core/transloco/transloco.http-loader';
 
@@ -103,10 +102,6 @@ export const appConfig: ApplicationConfig = {
         provideAuth(),
         provideIcons(),
         provideFuse({
-            mockApi: {
-                delay: 0,
-                services: mockApiServices,
-            },
             fuse: {
                 layout: 'enterprise',
                 scheme: 'light',
@@ -116,33 +111,9 @@ export const appConfig: ApplicationConfig = {
                     lg: '1280px',
                     xl: '1440px',
                 },
+                // Fallback palette; each area declares its own via
+                // `data.theme` in app.routes.ts.
                 theme: 'theme-default',
-                themes: [
-                    {
-                        id: 'theme-default',
-                        name: 'Default',
-                    },
-                    {
-                        id: 'theme-brand',
-                        name: 'Brand',
-                    },
-                    {
-                        id: 'theme-teal',
-                        name: 'Teal',
-                    },
-                    {
-                        id: 'theme-rose',
-                        name: 'Rose',
-                    },
-                    {
-                        id: 'theme-purple',
-                        name: 'Purple',
-                    },
-                    {
-                        id: 'theme-amber',
-                        name: 'Amber',
-                    },
-                ],
             },
         }),
     ],

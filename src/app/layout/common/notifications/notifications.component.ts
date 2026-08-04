@@ -1,28 +1,34 @@
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
-import { DatePipe, NgClass, NgTemplateOutlet } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
-    ChangeDetectorRef,
     Component,
+    DestroyRef,
     OnDestroy,
     OnInit,
     TemplateRef,
     ViewChild,
     ViewContainerRef,
     ViewEncapsulation,
+    booleanAttribute,
+    effect,
+    inject,
+    input,
+    signal,
 } from '@angular/core';
 import { MatButton, MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
-import { Notification } from 'app/layout/common/notifications/notifications.types';
-import { Subject, takeUntil } from 'rxjs';
+import { NotificationView } from 'app/layout/common/notifications/notifications.types';
 
 @Component({
     selector: 'notifications',
     templateUrl: './notifications.component.html',
+    styleUrls: ['../header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'notifications',
@@ -31,10 +37,8 @@ import { Subject, takeUntil } from 'rxjs';
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
-        NgClass,
-        NgTemplateOutlet,
-        RouterLink,
         DatePipe,
+        TranslocoModule,
     ],
 })
 export class NotificationsComponent implements OnInit, OnDestroy {
@@ -42,137 +46,124 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     @ViewChild('notificationsPanel')
     private _notificationsPanel: TemplateRef<any>;
 
-    notifications: Notification[];
-    unreadCount: number = 0;
+    private readonly _destroyRef = inject(DestroyRef);
+    private readonly _overlay = inject(Overlay);
+    private readonly _viewContainerRef = inject(ViewContainerRef);
+    protected readonly notificationsService = inject(NotificationsService);
+    private readonly _transloco = inject(TranslocoService);
+
+    /** Storefront-only: hover scale + bell nudge on unread increase. */
+    readonly microMotion = input(false, { transform: booleanAttribute });
+
+    readonly items = this.notificationsService.items;
+    readonly unreadCount = this.notificationsService.unreadCount;
+    readonly hasMore = this.notificationsService.hasMore;
+    readonly nudging = signal(false);
+    /**
+     * Localized reason the last notifications call failed. The panel showing
+     * "no notifications" after a failed read would be a lie — every rejection
+     * the API can answer with (400 bad cursor, 401, offline) says so here.
+     */
+    readonly loadError = signal<string | null>(null);
+
     private _overlayRef: OverlayRef;
-    private _unsubscribeAll: Subject<any> = new Subject<any>();
+    private _baselineReady = false;
+    private _prevUnread = 0;
+    private _nudgeTimer: ReturnType<typeof setTimeout> | null = null;
 
-    /**
-     * Constructor
-     */
-    constructor(
-        private _changeDetectorRef: ChangeDetectorRef,
-        private _notificationsService: NotificationsService,
-        private _overlay: Overlay,
-        private _viewContainerRef: ViewContainerRef
-    ) {}
+    constructor() {
+        effect(() => {
+            const err = this.notificationsService.error();
+            if (!err) {
+                this.loadError.set(null);
+                return;
+            }
+            void describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'notifications.loadError'
+            ).then((message) => this.loadError.set(message));
+        });
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Lifecycle hooks
-    // -----------------------------------------------------------------------------------------------------
+        this._destroyRef.onDestroy(() => {
+            if (this._nudgeTimer) {
+                clearTimeout(this._nudgeTimer);
+            }
+        });
 
-    /**
-     * On init
-     */
+        effect(() => {
+            if (!this.microMotion()) {
+                return;
+            }
+            const loaded = this.notificationsService.loaded();
+            const unread = this.unreadCount();
+            if (!loaded) {
+                return;
+            }
+            if (!this._baselineReady) {
+                this._baselineReady = true;
+                this._prevUnread = unread;
+                return;
+            }
+            if (unread > this._prevUnread) {
+                this.nudging.set(true);
+                if (this._nudgeTimer) {
+                    clearTimeout(this._nudgeTimer);
+                }
+                this._nudgeTimer = setTimeout(
+                    () => this.nudging.set(false),
+                    300
+                );
+            }
+            this._prevUnread = unread;
+        });
+    }
+
     ngOnInit(): void {
-        // Subscribe to notification changes
-        this._notificationsService.notifications$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((notifications: Notification[]) => {
-                // Load the notifications
-                this.notifications = notifications;
-
-                // Calculate the unread count
-                this._calculateUnreadCount();
-
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
-            });
+        // Eagerly-rendered header trigger — load once so the badge count and
+        // panel are ready regardless of which page the user lands on.
+        void this.notificationsService.ensureLoaded();
     }
 
-    /**
-     * On destroy
-     */
     ngOnDestroy(): void {
-        // Unsubscribe from all subscriptions
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-
-        // Dispose the overlay
-        if (this._overlayRef) {
-            this._overlayRef.dispose();
-        }
+        this._overlayRef?.dispose();
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Public methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Open the notifications panel
-     */
     openPanel(): void {
-        // Return if the notifications panel or its origin is not defined
         if (!this._notificationsPanel || !this._notificationsOrigin) {
             return;
         }
-
-        // Create the overlay if it doesn't exist
         if (!this._overlayRef) {
             this._createOverlay();
         }
-
-        // Attach the portal to the overlay
         this._overlayRef.attach(
             new TemplatePortal(this._notificationsPanel, this._viewContainerRef)
         );
     }
 
-    /**
-     * Close the notifications panel
-     */
     closePanel(): void {
         this._overlayRef.detach();
     }
 
-    /**
-     * Mark all notifications as read
-     */
-    markAllAsRead(): void {
-        // Mark all as read
-        this._notificationsService.markAllAsRead().subscribe();
+    open(notification: NotificationView): void {
+        void this.notificationsService.markRead(notification.id);
     }
 
-    /**
-     * Toggle read status of the given notification
-     */
-    toggleRead(notification: Notification): void {
-        // Toggle the read status
-        notification.read = !notification.read;
-
-        // Update the notification
-        this._notificationsService
-            .update(notification.id, notification)
-            .subscribe();
+    /** Retry action on the error state. */
+    reload(): void {
+        this.loadError.set(null);
+        void this.notificationsService.reload();
     }
 
-    /**
-     * Delete the given notification
-     */
-    delete(notification: Notification): void {
-        // Delete the notification
-        this._notificationsService.delete(notification.id).subscribe();
+    loadMore(): void {
+        void this.notificationsService.loadMore();
     }
 
-    /**
-     * Track by function for ngFor loops
-     *
-     * @param index
-     * @param item
-     */
-    trackByFn(index: number, item: any): any {
-        return item.id || index;
+    trackByFn(_: number, item: NotificationView): string {
+        return item.id;
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ Private methods
-    // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Create the overlay
-     */
     private _createOverlay(): void {
-        // Create the overlay
         this._overlayRef = this._overlay.create({
             hasBackdrop: true,
             backdropClass: 'fuse-backdrop-on-mobile',
@@ -212,26 +203,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 ]),
         });
 
-        // Detach the overlay from the portal on backdrop click
         this._overlayRef.backdropClick().subscribe(() => {
             this._overlayRef.detach();
         });
-    }
-
-    /**
-     * Calculate the unread count
-     *
-     * @private
-     */
-    private _calculateUnreadCount(): void {
-        let count = 0;
-
-        if (this.notifications && this.notifications.length) {
-            count = this.notifications.filter(
-                (notification) => !notification.read
-            ).length;
-        }
-
-        this.unreadCount = count;
     }
 }

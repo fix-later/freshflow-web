@@ -1,11 +1,10 @@
-export interface Notification {
+/** A notification row (`GET /notifications`), parsed defensively — untyped in the spec. */
+export interface NotificationView {
     id: string;
-    icon?: string;
-    image?: string;
-    title?: string;
-    description?: string;
-    time: string;
-    link?: string;
-    useRouter?: boolean;
-    read: boolean;
+    title: string;
+    description: string;
+    link: string | null;
+    /** ISO timestamp. */
+    createdAt: string;
+    isRead: boolean;
 }

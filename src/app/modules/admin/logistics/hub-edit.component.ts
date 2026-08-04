@@ -98,6 +98,7 @@ export class HubEditComponent implements OnInit {
     readonly saving = signal(false);
     readonly notFound = signal(false);
     readonly managerOptions = signal<CrudOption[]>([]);
+    readonly marketOptions = signal<CrudOption[]>([]);
     readonly hubName = computed(() => String(this.hub()?.['name'] ?? ''));
     readonly isActive = computed(() => this.hub()?.isActive !== false);
 
@@ -109,8 +110,20 @@ export class HubEditComponent implements OnInit {
 
     /** M8 Hub inbound/discrepancy oversight (admin = read-only, ROLE_MATRIX). */
     readonly pendingInbound = signal<CrudRow[]>([]);
+    /** Goods actually received today — the counterpart to `pendingInbound`. */
+    readonly inboundHistory = signal<CrudRow[]>([]);
     readonly openDiscrepancies = signal<CrudRow[]>([]);
+    readonly crossDock = signal<CrudRow[]>([]);
+    readonly outbound = signal<CrudRow[]>([]);
+    readonly procurementPlan = signal<CrudRow[]>([]);
+    readonly ordersByRestaurant = signal<CrudRow[]>([]);
     readonly loadingOversight = signal(false);
+    /**
+     * Localized reason the oversight read failed. Every tile showing 0 after a
+     * failed call reads as "nothing is happening at this hub", which is the
+     * opposite of what an operator needs to know.
+     */
+    readonly oversightError = signal<string | null>(null);
 
     /** Read-only HubDto fields for the detail grid. */
     readonly metaEntries = computed(() => {
@@ -125,6 +138,10 @@ export class HubEditComponent implements OnInit {
     });
 
     readonly form = new FormGroup({
+        marketId: new FormControl('', {
+            nonNullable: true,
+            validators: [Validators.required],
+        }),
         name: new FormControl('', {
             nonNullable: true,
             validators: [Validators.required, Validators.maxLength(200)],
@@ -145,6 +162,9 @@ export class HubEditComponent implements OnInit {
         void this._logistics
             .hubManagerOptions()
             .then((opts) => this.staffOptions.set(opts));
+        void this._logistics
+            .marketOptions()
+            .then((opts) => this.marketOptions.set(opts));
 
         const id = this._route.snapshot.paramMap.get('hubId') ?? '';
         const passed = (history.state?.hub ?? null) as CrudRow | null;
@@ -179,6 +199,7 @@ export class HubEditComponent implements OnInit {
         const value = this.form.getRawValue();
         void this._logistics
             .updateHub(row.id, {
+                marketId: value.marketId,
                 name: value.name,
                 capacityKg: value.capacityKg,
                 address: value.address || null,
@@ -265,19 +286,60 @@ export class HubEditComponent implements OnInit {
             .finally(() => this.loadingStaff.set(false));
     }
 
+    /** Re-reads the oversight tiles; also the retry action on failure. */
+    reloadOversight(): void {
+        const id = this.hub()?.id;
+        if (id) {
+            this._loadOversight(id);
+        }
+    }
+
     private _loadOversight(hubId: string): void {
         this.loadingOversight.set(true);
+        this.oversightError.set(null);
         Promise.all([
             this._logistics.getPendingInbound(hubId),
-            this._logistics.getDiscrepancies(hubId, 'open'),
+            this._logistics.getInboundHistory(hubId),
+            this._logistics.getDiscrepancies(hubId),
+            this._logistics.getCrossDock(hubId),
+            this._logistics.getOutbound(hubId),
+            this._logistics.getProcurementPlan(hubId),
+            this._logistics.getOrdersByRestaurant(hubId),
         ])
-            .then(([pending, discrepancies]) => {
-                this.pendingInbound.set(pending);
-                this.openDiscrepancies.set(discrepancies);
-            })
-            .catch(() => {
+            .then(
+                ([
+                    pending,
+                    inbound,
+                    discrepancies,
+                    crossDock,
+                    outbound,
+                    procurementPlan,
+                    ordersByRestaurant,
+                ]) => {
+                    this.pendingInbound.set(pending);
+                    this.inboundHistory.set(inbound);
+                    this.openDiscrepancies.set(discrepancies);
+                    this.crossDock.set(crossDock);
+                    this.outbound.set(outbound);
+                    this.procurementPlan.set(procurementPlan);
+                    this.ordersByRestaurant.set(ordersByRestaurant);
+                }
+            )
+            .catch(async (err) => {
                 this.pendingInbound.set([]);
+                this.inboundHistory.set([]);
                 this.openDiscrepancies.set([]);
+                this.crossDock.set([]);
+                this.outbound.set([]);
+                this.procurementPlan.set([]);
+                this.ordersByRestaurant.set([]);
+                this.oversightError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.hubs.oversight.loadError'
+                    )
+                );
             })
             .finally(() => this.loadingOversight.set(false));
     }
@@ -307,6 +369,7 @@ export class HubEditComponent implements OnInit {
         this.hub.set(row);
         this.notFound.set(false);
         this.form.reset({
+            marketId: row['marketId'] == null ? '' : String(row['marketId']),
             name: String(row['name'] ?? ''),
             capacityKg:
                 row['capacityKg'] == null || row['capacityKg'] === ''

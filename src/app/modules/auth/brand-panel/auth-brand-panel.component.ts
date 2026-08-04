@@ -7,9 +7,8 @@ import { TranslocoModule } from '@jsverse/transloco';
 
 /**
  * Shared brand panel for the auth pages (sign-in / sign-up): the dark
- * FreshFlow surface with logo, tagline and decorative leaves. Colors are the
- * splash-screen brand values (see public/styles/splash-screen.css) — the
- * brand-dark surface has no theme token yet.
+ * FreshFlow surface with logo, tagline and decorative leaves. Uses the
+ * brand-dark surface (`#083B4B`) — there is no theme token for it yet.
  *
  * Host fills its padded parent; the template paints full-bleed with rounded
  * corners so the panel sits inset on the top / left / bottom edges.

@@ -1,0 +1,184 @@
+<article
+    class="ff-product-card"
+    [class.ff-product-card--inactive]="product.inactive"
+    [class.ff-product-card--out]="isOutOfStock()"
+    *transloco="let t"
+>
+    <!-- Media: badges + favorite float over the thumb -->
+    <div class="ff-product-card__media">
+        <!--
+          The thumb is the link target together with the name below; both point
+          at the same route, so a screen reader announces one product link.
+        -->
+        <a
+            class="ff-product-card__media-link"
+            [routerLink]="product.link"
+            [class.ff-product-card__media-link--static]="!product.link"
+            tabindex="-1"
+            aria-hidden="true"
+        >
+            <div
+                class="ff-product-card__thumb"
+                [style.background]="
+                    product.thumbnail ? null : product.thumbTint
+                "
+            >
+                @if (product.thumbnail) {
+                    <img
+                        class="ff-product-card__img"
+                        [src]="product.thumbnail"
+                        alt=""
+                        loading="lazy"
+                        decoding="async"
+                    />
+                } @else {
+                    <span class="ff-product-card__emoji">
+                        {{ product.emoji || '🧺' }}
+                    </span>
+                }
+            </div>
+        </a>
+
+        <!-- Status pills, top-left. At most two so the thumb stays readable. -->
+        <div class="ff-product-card__badges">
+            @if (product.badge) {
+                <span
+                    class="ff-product-card__badge"
+                    [ngClass]="product.badgeClass"
+                >
+                    {{ product.badge }}
+                </span>
+            }
+            @if (product.inactive) {
+                <span
+                    class="ff-product-card__badge ff-product-card__badge--muted"
+                >
+                    {{ t('catalog.inactive') }}
+                </span>
+            } @else if (isOutOfStock()) {
+                <span
+                    class="ff-product-card__badge ff-product-card__badge--muted"
+                >
+                    {{ t('productCard.outOfStock') }}
+                </span>
+            }
+        </div>
+
+        @if (showFavorite) {
+            <button
+                type="button"
+                class="ff-product-card__fav"
+                [class.ff-product-card__fav--on]="product.favorite"
+                [matTooltip]="
+                    product.favorite
+                        ? t('favorites.remove')
+                        : t('favorites.add')
+                "
+                [attr.aria-label]="
+                    product.favorite
+                        ? t('favorites.remove')
+                        : t('favorites.add')
+                "
+                [attr.aria-pressed]="!!product.favorite"
+                (click)="onFavorite($event)"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="
+                        product.favorite
+                            ? 'heroicons_solid:heart'
+                            : 'heroicons_outline:heart'
+                    "
+                ></mat-icon>
+            </button>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="ff-product-card__body">
+        <h3 class="ff-product-card__name">
+            <a
+                class="ff-product-card__name-link"
+                [routerLink]="product.link"
+                [class.ff-product-card__name-link--static]="!product.link"
+                >{{ product.name }}</a
+            >
+        </h3>
+
+        @if (product.description) {
+            <p class="ff-product-card__desc">{{ product.description }}</p>
+        }
+
+        @if (product.rating) {
+            <div
+                class="ff-product-card__rating"
+                [attr.aria-label]="
+                    t('productCard.rating', { rating: product.rating })
+                "
+            >
+                @for (on of stars(); track $index) {
+                    <mat-icon
+                        class="ff-product-card__star"
+                        [class.ff-product-card__star--on]="on"
+                        [svgIcon]="'heroicons_solid:star'"
+                        aria-hidden="true"
+                    ></mat-icon>
+                }
+            </div>
+        }
+
+        <!-- Spacer keeps the foot flush across tiles of unequal text length -->
+        <div class="ff-product-card__spacer"></div>
+
+        @if (product.eyebrow || product.meta) {
+            <p class="ff-product-card__meta">
+                {{ product.eyebrow || product.meta }}
+            </p>
+        }
+
+        @if (hasStock()) {
+            <p class="ff-product-card__stock">
+                {{ t('productCard.inStock', { count: product.stock }) }}
+                @if (product.stockUnit) {
+                    <span>{{ product.stockUnit }}</span>
+                }
+            </p>
+        }
+
+        <!-- Foot: price left, cart action right (always reachable, not on hover) -->
+        <div class="ff-product-card__foot">
+            <span class="ff-product-card__price">
+                @if (product.oldPrice) {
+                    <span class="ff-product-card__price-old">{{
+                        product.oldPrice
+                    }}</span>
+                }
+                <span
+                    class="ff-product-card__price-now"
+                    [class.ff-product-card__price-now--sale]="
+                        !!product.oldPrice
+                    "
+                    >{{ product.price }}</span
+                >
+            </span>
+
+            @if (showAddToCart) {
+                <button
+                    type="button"
+                    class="ff-product-card__atc"
+                    [disabled]="!canAddToCart()"
+                    [matTooltip]="t('productCard.addToCart')"
+                    [attr.aria-label]="
+                        t('productCard.addToCartNamed', { name: product.name })
+                    "
+                    (click)="onAddToCart($event)"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:shopping-cart'"
+                    ></mat-icon>
+                </button>
+            }
+        </div>
+    </div>
+</article>

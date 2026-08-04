@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -19,13 +20,32 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
+import { OrdersService } from 'app/modules/orders/orders.service';
+import { OrderConfirmPreview } from 'app/modules/orders/orders.types';
+import { DeliveryAddressesComponent } from 'app/modules/restaurant/delivery-addresses/delivery-addresses.component';
+import {
+    DELIVERY_WINDOWS,
+    windowFromTimestamp,
+    windowLabel,
+    windowsWithin,
+} from 'app/modules/restaurant/delivery-windows';
+import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { DateTime } from 'luxon';
 
 /** Daily order cutoff (BR-ORD-2): 22:00 — after this, earliest delivery +1 extra day. */
 const CUTOFF_HOUR = 22;
+
+/**
+ * How many days of delivery dates the picker offers, counting the earliest
+ * selectable day. Prices are quoted per market day and only locked at
+ * confirmation (BR-ORD-3), so booking months ahead would promise a slot the
+ * procurement side cannot plan or price.
+ */
+const DELIVERY_WINDOW_DAYS = 7;
 
 function addCalendarDays(base: Date, days: number): Date {
     const next = new Date(base);
@@ -61,6 +81,7 @@ function toLuxonDay(date: Date): DateTime {
         MatButtonModule,
         MatCheckboxModule,
         MatDatepickerModule,
+        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -75,54 +96,139 @@ export class CheckoutComponent implements OnInit {
     private readonly _draftOrder = inject(DraftOrderService);
     private readonly _transloco = inject(TranslocoService);
     private readonly _snackBar = inject(MatSnackBar);
+    private readonly _orders = inject(OrdersService);
+    private readonly _restaurantProfile = inject(RestaurantProfileService);
+    private readonly _dialog = inject(MatDialog);
 
     readonly lines = this._draftOrder.lines;
     readonly subtotal = this._draftOrder.subtotal;
 
     readonly placed = signal(false);
-    readonly voucherOpen = signal(false);
-    readonly couponCode = signal('');
-    readonly appliedCoupon = signal<string | null>(null);
+    readonly submitting = signal(false);
+
+    /** The draft this checkout created, and the order it was created for. */
+    private _draftId: string | null = null;
+    private _draftKey: string | null = null;
+    /** Reasons the server refused to confirm, from `confirm-preview`. */
+    readonly blockers = signal<string[]>([]);
     readonly freshQualityNote = signal(true);
     readonly extraNote = signal('');
 
-    /** Earliest day the restaurant may pick (respects 22:00 cutoff). */
-    readonly minDeliveryDate = toLuxonDay(earliestDeliveryDate());
+    /**
+     * Earliest day the restaurant may pick. Seeded from the local 22:00 rule
+     * so the picker works offline, then corrected by
+     * `GET /orders/ordering-window` — the server owns the real cutoff.
+     */
+    readonly minDeliveryDate = signal(toLuxonDay(earliestDeliveryDate()));
 
-    readonly deliveryDate = signal<DateTime>(this.minDeliveryDate);
-    readonly deliverySlot = signal('09:00-11:00');
+    /**
+     * How many days wide the picker is. Seeded with the local default and
+     * replaced by the server's `deliveryWindowDays` operational setting, so an
+     * admin widening or narrowing the booking horizon takes effect here.
+     */
+    readonly deliveryWindowDays = signal(DELIVERY_WINDOW_DAYS);
 
-    readonly afterCutoff = new Date().getHours() >= CUTOFF_HOUR;
-
-    readonly deliverySlots = [
-        '06:00-08:00',
-        '09:00-11:00',
-        '14:00-16:00',
-        '16:00-18:00',
-    ] as const;
-
-    readonly demoAddress =
-        'PASSION COFFEE, (Nhà Văn hóa Sinh viên TP.HCM) Số 1 Lưu Hữu Phước, Thành phố Hồ Chí Minh, Phường Đông Hòa, Thành phố Hồ Chí Minh';
-
-    readonly discount = computed(() => {
-        if (!this.appliedCoupon()) {
-            return 0;
-        }
-        return Math.round(this.subtotal() * 0.1);
-    });
-
-    /** Goods total before tax (after coupon). */
-    readonly goodsBeforeTax = computed(() =>
-        Math.max(0, this.subtotal() - this.discount())
+    /**
+     * Last day the restaurant may pick. The window counts the earliest day, so
+     * a delivery cannot be booked further out than the market can plan for.
+     */
+    readonly maxDeliveryDate = computed(() =>
+        this.minDeliveryDate()
+            .plus({ days: this.deliveryWindowDays() - 1 })
+            .startOf('day')
     );
 
-    readonly vat = computed(() => Math.round(this.goodsBeforeTax() * 0.08));
+    readonly deliveryDate = signal<DateTime>(this.minDeliveryDate());
 
-    readonly total = computed(() => this.goodsBeforeTax() + this.vat());
+    readonly afterCutoff = signal(new Date().getHours() >= CUTOFF_HOUR);
 
-    /** Demo strikethrough: show a slightly higher “list” total when discounted. */
-    readonly listTotal = computed(() =>
-        this.discount() > 0 ? this.total() + this.discount() : null
+    /**
+     * The windows this restaurant can order into: those that fit the receiving
+     * hours declared on `/profile/business`. Every window until the profile
+     * loads (and for a restaurant that declared none) — the picker must never
+     * be empty, and an unconfigured kitchen is not restricted.
+     */
+    readonly deliverySlots = signal<string[]>([...DELIVERY_WINDOWS]);
+
+    /**
+     * Preselected window: the one the last order was placed for, else the
+     * earliest available. Seeded with the earliest so the field is never blank
+     * while `/orders` and the profile are still loading.
+     */
+    readonly deliverySlot = signal<string>(DELIVERY_WINDOWS[0]);
+
+    readonly windowLabel = windowLabel;
+
+    /** The restaurant's default saved delivery address, once loaded. */
+    readonly defaultAddress = computed(
+        () =>
+            this._restaurantProfile.defaultDeliveryAddress()?.addressLine ??
+            null
+    );
+
+    /**
+     * The address the order ships to. `POST /orders/{id}/confirm` requires it,
+     * and it is what the delivery fee is priced from.
+     */
+    private _addressId(): string | null {
+        return this._restaurantProfile.defaultDeliveryAddress()?.id ?? null;
+    }
+
+    /**
+     * The server's priced breakdown for the current cart, from
+     * `confirm-preview`. It is the only place delivery is priced, so the
+     * summary shows the real figures instead of guessing at them.
+     */
+    readonly quote = signal<OrderConfirmPreview | null>(null);
+    readonly quoting = signal(false);
+
+    readonly deliveryFee = computed(() => this.quote()?.deliveryFee ?? null);
+    readonly vatAmount = computed(() => this.quote()?.vatAmount ?? null);
+    readonly deliveryDistanceKm = computed(
+        () => this.quote()?.deliveryDistanceKm ?? null
+    );
+
+    /**
+     * Opens the saved-address manager over checkout.
+     *
+     * `CreateDraftOrderRequest` carries no address — the backend delivers to
+     * the restaurant's default — so this is not a per-order picker: it exists
+     * so a buyer who has no address yet, or the wrong one set as default, can
+     * fix that without losing the cart they are standing in.
+     */
+    openAddresses(): void {
+        const ref = this._dialog.open(DeliveryAddressesComponent, {
+            autoFocus: false,
+            width: '44rem',
+            maxWidth: '95vw',
+            panelClass: 'checkout-address-dialog',
+        });
+        // The dialog writes through the same service the summary reads, but a
+        // dialog dismissed mid-edit may have saved before closing — re-read so
+        // the summary can never show a stale default.
+        ref.afterClosed().subscribe(() => {
+            void this._restaurantProfile
+                .loadDeliveryAddresses()
+                .catch(() => {
+                    // Keep whatever the summary already had.
+                })
+                // A different address is a different distance, so the fee has
+                // to be re-priced.
+                .then(() => this.refreshQuote());
+        });
+    }
+
+    /**
+     * What the restaurant will actually owe: the server's own figure once the
+     * quote lands, the goods total until then.
+     *
+     * The summary used to add an 8% VAT and offer a 10% coupon that the backend
+     * never charged, so the payable both overstated the debt *and* left out the
+     * delivery fee the server does charge. Every number here now comes from
+     * `confirm-preview`.
+     */
+    readonly total = computed(
+        () => this.quote()?.totalAmount ?? this.subtotal()
     );
 
     readonly isVi = computed(() => this._transloco.getActiveLang() === 'vi');
@@ -131,6 +237,118 @@ export class CheckoutComponent implements OnInit {
         if (!this.lines().length && !this.placed()) {
             void this._router.navigateByUrl('/cart');
         }
+        this._applyOrderingWindow();
+        void this._restaurantProfile
+            .loadDeliveryAddresses()
+            .catch(() => {
+                // The summary just shows no address; not fatal to checkout.
+            })
+            .then(() => this._applyDeliverySlots())
+            .then(() => this.refreshQuote());
+    }
+
+    /**
+     * Prices the current order with the server.
+     *
+     * Delivery is charged by distance to the address, so `confirm-preview` is
+     * the only place the fee exists — and it prices an *order*, which is why
+     * this needs the draft. The draft is the one the confirm will use, so no
+     * extra order is created for the quote.
+     *
+     * Best-effort: a failed quote leaves the summary on the goods total rather
+     * than blocking checkout, and the server still prices the confirm itself.
+     */
+    async refreshQuote(): Promise<void> {
+        const addressId = this._addressId();
+        const items = this._items();
+        if (!items.length || !addressId || this.quoting()) {
+            return;
+        }
+        this.quoting.set(true);
+        try {
+            const orderId = await this._draftFor(
+                items,
+                this._scheduledFor(),
+                this.extraNote().trim() || undefined
+            );
+            this.quote.set(
+                await this._orders.getConfirmPreview(orderId, addressId)
+            );
+        } catch {
+            this.quote.set(null);
+        } finally {
+            this.quoting.set(false);
+        }
+    }
+
+    private _items(): { marketProductId: string; quantity: number }[] {
+        return this.lines().map((line) => ({
+            marketProductId: line.product.marketProductId,
+            quantity: line.quantity,
+        }));
+    }
+
+    /**
+     * Narrows the slot list to the restaurant's declared receiving hours, then
+     * preselects the window its last order used — repeat buyers order into the
+     * same slot, so re-picking it every time is friction. Falls back to the
+     * earliest available window when there is no previous order, or when that
+     * order's window is no longer offered.
+     *
+     * Both reads are best-effort: on failure the picker keeps the full list and
+     * the earliest window, which is exactly the pre-configuration behaviour.
+     */
+    private async _applyDeliverySlots(): Promise<void> {
+        const [profile, latest] = await Promise.all([
+            this._restaurantProfile.loadProfile().catch(() => null),
+            this._orders.getLatestOrder().catch(() => null),
+        ]);
+
+        const slots = windowsWithin(profile?.pickupStart, profile?.pickupEnd);
+        this.deliverySlots.set(slots);
+
+        const previous = windowFromTimestamp(latest?.scheduledFor);
+        this.deliverySlot.set(
+            previous && slots.includes(previous) ? previous : slots[0]
+        );
+    }
+
+    /**
+     * Replaces the locally derived cutoff with the server's, so a backend that
+     * moves the cutoff (or blocks ordering entirely) is reflected here. A
+     * failed call leaves the local BR-ORD-2 fallback in place.
+     */
+    private _applyOrderingWindow(): void {
+        void this._orders
+            .getOrderingWindow()
+            .then((window) => {
+                this.afterCutoff.set(!window.isOpen);
+                // 1–30 per `UpdateOperationalSettingsRequest`; anything outside
+                // that is not a horizon the picker should honour.
+                const days = window.deliveryWindowDays;
+                if (days != null && days >= 1 && days <= 30) {
+                    this.deliveryWindowDays.set(days);
+                }
+                const earliest = window.earliestServiceDate
+                    ? DateTime.fromISO(window.earliestServiceDate).startOf(
+                          'day'
+                      )
+                    : null;
+                if (!earliest?.isValid) {
+                    return;
+                }
+                this.minDeliveryDate.set(earliest);
+                // A later cutoff moves the whole window, so a date picked
+                // before the correction can fall outside it at either end.
+                if (this.deliveryDate() < earliest) {
+                    this.deliveryDate.set(earliest);
+                } else if (this.deliveryDate() > this.maxDeliveryDate()) {
+                    this.deliveryDate.set(this.maxDeliveryDate());
+                }
+            })
+            .catch(() => {
+                // Keep the local cutoff rule; the server still enforces its own.
+            });
     }
 
     productName(product: CatalogProduct): string {
@@ -142,42 +360,32 @@ export class CheckoutComponent implements OnInit {
     }
 
     onDeliveryDateChange(value: DateTime | null): void {
-        if (!value || !value.isValid || value < this.minDeliveryDate) {
-            this.deliveryDate.set(this.minDeliveryDate);
+        if (!value || !value.isValid || value < this.minDeliveryDate()) {
+            this.deliveryDate.set(this.minDeliveryDate());
+            return;
+        }
+        // The picker's own `max` blocks this, but a typed or restored value
+        // can still land past the window.
+        if (value > this.maxDeliveryDate()) {
+            this.deliveryDate.set(this.maxDeliveryDate());
             return;
         }
         this.deliveryDate.set(value.startOf('day'));
+        void this.refreshQuote();
     }
 
-    applyCoupon(): void {
-        const code = this.couponCode().trim().toUpperCase();
-        if (!code) {
-            return;
-        }
-        if (code === 'FRESH10' || code === 'GIAM10') {
-            this.appliedCoupon.set(code);
-            this.voucherOpen.set(false);
-            this._snackBar.open(
-                this._transloco.translate('cart.coupon.applied'),
-                undefined,
-                { duration: 2500 }
-            );
-            return;
-        }
-        this.appliedCoupon.set(null);
-        this._snackBar.open(
-            this._transloco.translate('cart.coupon.invalid'),
-            undefined,
-            { duration: 2500 }
-        );
+    /** Re-prices when the slot moves — the server resolves the date from it. */
+    onDeliverySlotChange(slot: string): void {
+        this.deliverySlot.set(slot);
+        void this.refreshQuote();
     }
 
     placeOrder(): void {
-        if (!this.lines().length) {
+        if (!this.lines().length || this.submitting()) {
             return;
         }
-        if (this.deliveryDate() < this.minDeliveryDate) {
-            this.deliveryDate.set(this.minDeliveryDate);
+        if (this.deliveryDate() < this.minDeliveryDate()) {
+            this.deliveryDate.set(this.minDeliveryDate());
             this._snackBar.open(
                 this._transloco.translate('checkout.shipping.dateInvalid'),
                 undefined,
@@ -185,13 +393,160 @@ export class CheckoutComponent implements OnInit {
             );
             return;
         }
-        this.placed.set(true);
-        this._draftOrder.clear();
-        this._snackBar.open(
-            this._transloco.translate('cart.orderPlaced'),
-            undefined,
-            { duration: 3000 }
+        // The confirm ships to this address and the fee is priced from it, so
+        // without one there is nothing to place.
+        if (!this._addressId()) {
+            this.blockers.set([
+                this._transloco.translate('checkout.noAddress'),
+            ]);
+            return;
+        }
+
+        const items = this._items();
+        const scheduledFor = this._scheduledFor();
+        const notes = this.extraNote().trim() || undefined;
+
+        this.submitting.set(true);
+        this.blockers.set([]);
+        void this._placeOrder(items, scheduledFor, notes).finally(() =>
+            this.submitting.set(false)
         );
+    }
+
+    /**
+     * Draft → preview → confirm. The preview asks the server whether the
+     * approval / cutoff / credit gates pass *before* committing, so a refusal
+     * arrives as a specific reason instead of a generic failure on confirm.
+     * A blocked attempt leaves the draft in place — the restaurant can fix the
+     * cause and retry without rebuilding the cart.
+     */
+    private async _placeOrder(
+        items: { marketProductId: string; quantity: number }[],
+        scheduledFor: Date,
+        notes: string | undefined
+    ): Promise<void> {
+        const addressId = this._addressId();
+        if (!addressId) {
+            return;
+        }
+        try {
+            const orderId = await this._draftFor(items, scheduledFor, notes);
+
+            const preview = await this._orders
+                .getConfirmPreview(orderId, addressId)
+                // A preview that fails to load must not block a legal order —
+                // the server still gates the confirm itself.
+                .catch(() => null);
+            if (preview) {
+                this.quote.set(preview);
+            }
+            if (preview && !preview.canConfirm) {
+                this.blockers.set(
+                    preview.blockers.length
+                        ? preview.blockers
+                        : [this._transloco.translate('checkout.blockedGeneric')]
+                );
+                return;
+            }
+            this._noteResolvedSchedule(preview?.resolvedScheduledFor ?? null);
+
+            await this._orders.confirmOrder(orderId, addressId);
+            this._draftId = null;
+            this._draftKey = null;
+            this.quote.set(null);
+            this.placed.set(true);
+            this._draftOrder.clear();
+            this._snackBar.open(
+                this._transloco.translate('cart.orderPlaced'),
+                undefined,
+                { duration: 3000 }
+            );
+        } catch (err) {
+            // Keep the cart intact so the restaurant can retry. Every rejection
+            // the API can answer with — 400 bad payload, 403 not yours, 422
+            // approval / credit / stock — resolves to its own message, shown
+            // both inline (blockers) and as a toast.
+            const message = await describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'checkout.placeOrderError'
+            );
+            this.blockers.set([message]);
+            this._snackBar.open(message, undefined, { duration: 6000 });
+        }
+    }
+
+    /**
+     * Tells the buyer when the server settled on a different delivery slot than
+     * the one they picked — the cutoff can roll an order to the next cycle
+     * (BR-ORD-2), and finding that out from the order list afterwards is worse
+     * than a line on the confirmation.
+     */
+    private _noteResolvedSchedule(resolved: string | null): void {
+        if (!resolved) {
+            return;
+        }
+        const settled = DateTime.fromISO(resolved);
+        if (!settled.isValid || settled.hasSame(this.deliveryDate(), 'day')) {
+            return;
+        }
+        this._snackBar.open(
+            this._transloco.translate('checkout.shipping.dateMoved', {
+                date: settled.toFormat('dd/MM/yyyy'),
+            }),
+            undefined,
+            { duration: 6000 }
+        );
+    }
+
+    /**
+     * The server-side draft to confirm, reusing the one this checkout already
+     * created when nothing about the order has changed.
+     *
+     * `POST /orders` creates a real order in `draft` status (BR-ORD-4), and a
+     * blocked or failed attempt leaves it there. Creating a fresh one per retry
+     * therefore littered the restaurant's order list with a draft per attempt.
+     * A retry now confirms the same draft; only an edited cart, date, slot or
+     * note starts a new one, and the superseded draft is cancelled so it does
+     * not linger either.
+     */
+    private async _draftFor(
+        items: { marketProductId: string; quantity: number }[],
+        scheduledFor: Date,
+        notes: string | undefined
+    ): Promise<string> {
+        const key = JSON.stringify([items, scheduledFor.toISOString(), notes]);
+        if (this._draftId && this._draftKey === key) {
+            return this._draftId;
+        }
+        if (this._draftId) {
+            const stale = this._draftId;
+            this._draftId = null;
+            // Best-effort: a draft we can't cancel is not worth failing on.
+            void this._orders
+                .cancelOrder(
+                    stale,
+                    this._transloco.translate('checkout.draftSuperseded')
+                )
+                .catch(() => undefined);
+        }
+        const orderId = await this._orders.createOrder(
+            items,
+            scheduledFor,
+            notes
+        );
+        this._draftId = orderId;
+        this._draftKey = key;
+        return orderId;
+    }
+
+    /** Combines the selected delivery day with the chosen slot's start time. */
+    private _scheduledFor(): Date {
+        const slotStart = this.deliverySlot().split('-')[0] ?? '00:00';
+        const [hour, minute] = slotStart.split(':').map(Number);
+        return this.deliveryDate()
+            .set({ hour, minute, second: 0, millisecond: 0 })
+            .toJSDate();
     }
 
     trackByLine(_: number, line: DraftOrderLine): string {

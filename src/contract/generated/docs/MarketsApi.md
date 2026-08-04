@@ -9,8 +9,10 @@ All URIs are relative to *http://localhost*
 | [**apiV1MarketsIdDelete**](MarketsApi.md#apiv1marketsiddelete) | **DELETE** /api/v1/markets/{id} |  |
 | [**apiV1MarketsIdGet**](MarketsApi.md#apiv1marketsidget) | **GET** /api/v1/markets/{id} |  |
 | [**apiV1MarketsIdPut**](MarketsApi.md#apiv1marketsidput) | **PUT** /api/v1/markets/{id} |  |
+| [**apiV1MarketsImageUploadSignaturePost**](MarketsApi.md#apiv1marketsimageuploadsignaturepost) | **POST** /api/v1/markets/image/upload-signature |  |
 | [**apiV1MarketsMarketIdProductsGet**](MarketsApi.md#apiv1marketsmarketidproductsget) | **GET** /api/v1/markets/{marketId}/products |  |
 | [**apiV1MarketsMarketIdProductsPost**](MarketsApi.md#apiv1marketsmarketidproductspost) | **POST** /api/v1/markets/{marketId}/products |  |
+| [**apiV1MarketsMarketIdProductsProductIdDelete**](MarketsApi.md#apiv1marketsmarketidproductsproductiddelete) | **DELETE** /api/v1/markets/{marketId}/products/{productId} |  |
 | [**apiV1MarketsMarketIdProductsProductIdPriceHistoryGet**](MarketsApi.md#apiv1marketsmarketidproductsproductidpricehistoryget) | **GET** /api/v1/markets/{marketId}/products/{productId}/price-history |  |
 | [**apiV1MarketsMarketIdProductsProductIdPricePatch**](MarketsApi.md#apiv1marketsmarketidproductsproductidpricepatch) | **PATCH** /api/v1/markets/{marketId}/products/{productId}/price |  |
 | [**apiV1MarketsMarketIdProductsProductIdQuantityPatch**](MarketsApi.md#apiv1marketsmarketidproductsproductidquantitypatch) | **PATCH** /api/v1/markets/{marketId}/products/{productId}/quantity |  |
@@ -366,6 +368,67 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
+## apiV1MarketsImageUploadSignaturePost
+
+> apiV1MarketsImageUploadSignaturePost()
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MarketsApi,
+} from '';
+import type { ApiV1MarketsImageUploadSignaturePostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MarketsApi(config);
+
+  try {
+    const data = await api.apiV1MarketsImageUploadSignaturePost();
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
 ## apiV1MarketsMarketIdProductsGet
 
 > apiV1MarketsMarketIdProductsGet(marketId, category, cursor, pageSize)
@@ -520,6 +583,81 @@ example().catch(console.error);
 | **404** | Not Found |  -  |
 | **409** | Conflict |  -  |
 | **422** | Unprocessable Content |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1MarketsMarketIdProductsProductIdDelete
+
+> apiV1MarketsMarketIdProductsProductIdDelete(marketId, productId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MarketsApi,
+} from '';
+import type { ApiV1MarketsMarketIdProductsProductIdDeleteRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MarketsApi(config);
+
+  const body = {
+    // string
+    marketId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // string
+    productId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1MarketsMarketIdProductsProductIdDeleteRequest;
+
+  try {
+    const data = await api.apiV1MarketsMarketIdProductsProductIdDelete(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **marketId** | `string` |  | [Defaults to `undefined`] |
+| **productId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: `text/plain`, `application/json`, `text/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **204** | No Content |  -  |
+| **401** | Unauthorized |  -  |
+| **403** | Forbidden |  -  |
+| **404** | Not Found |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

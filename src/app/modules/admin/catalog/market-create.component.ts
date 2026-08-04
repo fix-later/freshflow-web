@@ -108,10 +108,37 @@ export class MarketCreateComponent implements OnInit {
             validators: [Validators.required],
         }),
         location: new FormControl('', { nonNullable: true }),
+        description: new FormControl('', { nonNullable: true }),
+        imageUrl: new FormControl('', { nonNullable: true }),
         address: new FormControl('', { nonNullable: true }),
         latitude: new FormControl<number | null>(null),
         longitude: new FormControl<number | null>(null),
     });
+
+    readonly uploading = signal(false);
+
+    /** Uploads the picked file and stores the hosted URL in `imageUrl`. */
+    onImagePicked(event: Event): void {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        if (!file || this.uploading()) {
+            return;
+        }
+        this.uploading.set(true);
+        void this._catalog
+            .uploadMarketImage(file)
+            .then((url) => this.createForm.controls.imageUrl.setValue(url))
+            .catch(
+                (err) =>
+                    void this._notifyError(err, 'admin.crud.image.uploadError')
+            )
+            .finally(() => this.uploading.set(false));
+    }
+
+    clearImage(): void {
+        this.createForm.controls.imageUrl.setValue('');
+    }
 
     ngOnInit(): void {
         this.loadingProducts.set(true);
@@ -169,7 +196,7 @@ export class MarketCreateComponent implements OnInit {
     }
 
     save(): void {
-        if (this.createForm.invalid) {
+        if (this.createForm.invalid || this.uploading()) {
             this.createForm.markAllAsTouched();
             this.selectedTab.set(0);
             return;

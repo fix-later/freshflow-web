@@ -1,0 +1,77 @@
+.ff-sched {
+    max-width: 52rem;
+}
+
+.ff-sched__alert--error {
+    border: 1px solid rgb(252 165 165);
+    background: rgb(254 242 242);
+    color: rgb(185 28 28);
+
+    .dark & {
+        border-color: rgb(248 113 113 / 0.4);
+        background: rgb(127 29 29 / 0.25);
+        color: rgb(254 202 202);
+    }
+}
+
+.ff-sched__panel,
+.ff-sched__card {
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-sched__card--ended {
+    opacity: 0.72;
+}
+
+.ff-sched__panel-head {
+    display: flex;
+    gap: 0.875rem;
+    align-items: flex-start;
+    padding: 1.125rem 1.25rem;
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+}
+
+.ff-sched__panel-body {
+    padding: 1rem 1.25rem 0.5rem;
+}
+
+.ff-sched__icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.75rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-primary, #22c55e);
+}
+
+.ff-sched__actions {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+}
+
+.ff-sched__empty {
+    border: 1px dashed var(--fuse-border, rgb(0 0 0 / 0.18));
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));
+}
+
+.ff-sched__empty-icon {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+    color: var(--fuse-primary, #22c55e);
+}
+
+.ff-sched__runs-list {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.015));
+}
+
+.ff-sched__runs .border-b {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.08));
+}

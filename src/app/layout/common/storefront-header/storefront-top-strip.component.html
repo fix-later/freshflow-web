@@ -1,0 +1,60 @@
+@if (!isScreenSmall) {
+    <div
+        *transloco="let t"
+        class="w-full bg-[#083B4B] text-[length:calc(1.125rem*0.9)] text-white"
+    >
+        <div
+            class="mx-auto flex h-12 w-full max-w-[95rem] items-center justify-between gap-6 px-4 md:px-8 lg:px-14"
+        >
+            <div class="flex items-center gap-8 whitespace-nowrap">
+                <!-- Service area tagline -->
+                <span class="flex items-center gap-1.5 font-medium">
+                    <mat-icon
+                        class="text-white icon-size-4.5"
+                        [svgIcon]="'heroicons_outline:building-storefront'"
+                    ></mat-icon>
+                    <span>{{ t('header.strip.serviceArea') }}</span>
+                </span>
+
+                <div
+                    class="hidden items-center gap-8 whitespace-nowrap lg:flex"
+                >
+                    @for (item of topBenefits; track item.labelKey) {
+                        <span class="flex items-center gap-1.5">
+                            <mat-icon
+                                class="text-white icon-size-4.5"
+                                [svgIcon]="item.icon"
+                            ></mat-icon>
+                            <span>{{ t(item.labelKey) }}</span>
+                        </span>
+                    }
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4 whitespace-nowrap">
+                <market-picker></market-picker>
+
+                <languages></languages>
+
+                <button
+                    class="flex items-center gap-1.5 border-l border-white/20 pl-4 font-medium leading-none"
+                    type="button"
+                    [matMenuTriggerFor]="currencyMenu"
+                    [matTooltip]="t('header.currency')"
+                >
+                    <span>
+                        <span class="text-white">₫</span>
+                        VND
+                    </span>
+                    <mat-icon
+                        class="text-white icon-size-3.5"
+                        [svgIcon]="'heroicons_outline:chevron-down'"
+                    ></mat-icon>
+                </button>
+                <mat-menu #currencyMenu="matMenu">
+                    <button mat-menu-item type="button">₫ VND</button>
+                </mat-menu>
+            </div>
+        </div>
+    </div>
+}

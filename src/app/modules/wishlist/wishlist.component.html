@@ -1,4 +1,4 @@
-<div class="wishlist w-full" *transloco="let t">
+<div class="wishlist ff-page" *transloco="let t">
     <nav class="wishlist-breadcrumb" aria-label="Breadcrumb">
         <a routerLink="/home">{{ t('wishlist.breadcrumb.home') }}</a>
         <mat-icon
@@ -17,7 +17,35 @@
         }
     </div>
 
-    @if (!items().length) {
+    <!--
+      A failed read must not read as "you have no favorites" (Urban Outfitters
+      shows the count next to the title; an error state has to say so instead).
+    -->
+    @if (error(); as message) {
+        <div
+            class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
+        >
+            <mat-icon
+                class="shrink-0 text-red-500 icon-size-5"
+                [svgIcon]="'heroicons_outline:exclamation-triangle'"
+            ></mat-icon>
+            <span class="min-w-0 flex-auto">{{ message }}</span>
+            <button mat-button type="button" (click)="reload()">
+                {{ t('common.retry') }}
+            </button>
+        </div>
+    }
+
+    @if (!loaded()) {
+        <div class="wishlist-empty">
+            <mat-icon
+                class="text-hint animate-spin icon-size-8"
+                [svgIcon]="'heroicons_outline:arrow-path'"
+            ></mat-icon>
+            <p>{{ t('favorites.loading') }}</p>
+        </div>
+    } @else if (!items().length) {
         <div class="wishlist-empty">
             <div class="wishlist-empty__icon">
                 <mat-icon [svgIcon]="'heroicons_outline:heart'"></mat-icon>
@@ -61,7 +89,7 @@
                         <button
                             type="button"
                             mat-icon-button
-                            (click)="remove(product.id)"
+                            (click)="remove(product.marketProductId)"
                             [matTooltip]="t('favorites.remove')"
                             [attr.aria-label]="t('favorites.remove')"
                         >

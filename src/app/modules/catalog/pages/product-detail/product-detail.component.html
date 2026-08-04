@@ -1,4 +1,4 @@
-<div class="flex w-full flex-col" *transloco="let t">
+<div class="ff-page flex flex-col" *transloco="let t">
     @if (product(); as product) {
         <!-- Header: breadcrumb + title -->
         <div class="px-6 pt-6 md:px-8">
@@ -78,14 +78,51 @@
 
             <!-- Details -->
             <div class="flex flex-1 flex-col gap-4 md:w-1/2">
-                <span
-                    class="text-hint text-sm font-medium uppercase tracking-wider"
-                >
-                    {{ categoryName(product.categoryId) }}
-                </span>
+                <div class="flex items-start justify-between gap-4">
+                    <span
+                        class="text-hint text-sm font-medium uppercase tracking-wider"
+                    >
+                        {{ categoryName(product.categoryId) }}
+                    </span>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [matTooltip]="
+                            isFavorite(product)
+                                ? t('favorites.remove')
+                                : t('favorites.add')
+                        "
+                        (click)="toggleFavorite(product)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [class.text-red-500]="isFavorite(product)"
+                            [svgIcon]="
+                                isFavorite(product)
+                                    ? 'heroicons_solid:heart'
+                                    : 'heroicons_outline:heart'
+                            "
+                        ></mat-icon>
+                        <span>{{
+                            isFavorite(product)
+                                ? t('favorites.remove')
+                                : t('favorites.add')
+                        }}</span>
+                    </button>
+                </div>
 
                 <!-- Attribute table -->
                 <div class="grid grid-cols-2 gap-6">
+                    <div>
+                        <span class="text-hint text-sm">
+                            {{ t('catalog.price') }}
+                        </span>
+                        <p
+                            class="mt-1 font-mono text-2xl font-semibold tabular-nums text-primary"
+                        >
+                            {{ formatPrice(product.price) }}
+                        </p>
+                    </div>
                     <div>
                         <span class="text-hint text-sm">
                             {{ t('catalog.unit') }}
@@ -103,6 +140,64 @@
                         </p>
                     </div>
                 </div>
+
+                <!-- Price trend over the last 30 days -->
+                @if (priceStats(); as stats) {
+                    <div class="mt-2 rounded-xl border p-4">
+                        <div class="flex items-start justify-between gap-4">
+                            <div class="flex flex-col">
+                                <span class="text-hint text-sm">{{
+                                    t('catalog.priceHistory.title')
+                                }}</span>
+                                <span class="mt-1 text-sm">
+                                    {{ t('catalog.priceHistory.range') }}:
+                                    <strong class="tabular-nums"
+                                        >{{ stats.low | number: '1.0-0' }}₫ –
+                                        {{
+                                            stats.high | number: '1.0-0'
+                                        }}₫</strong
+                                    >
+                                </span>
+                            </div>
+                            <div class="flex flex-col items-end">
+                                <svg
+                                    class="h-8 w-28 overflow-visible"
+                                    viewBox="0 0 100 32"
+                                    preserveAspectRatio="none"
+                                    aria-hidden="true"
+                                >
+                                    <polyline
+                                        [attr.points]="sparkline()"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="2"
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        [class.text-red-500]="
+                                            stats.changePct > 0
+                                        "
+                                        [class.text-green-600]="
+                                            stats.changePct <= 0
+                                        "
+                                    />
+                                </svg>
+                                <span
+                                    class="mt-1 text-sm font-medium tabular-nums"
+                                    [class.text-red-600]="stats.changePct > 0"
+                                    [class.text-green-700]="
+                                        stats.changePct <= 0
+                                    "
+                                >
+                                    {{ stats.changePct > 0 ? '+' : ''
+                                    }}{{ stats.changePct | number: '1.0-1' }}%
+                                </span>
+                            </div>
+                        </div>
+                        <p class="text-hint mt-2 text-xs">
+                            {{ t('catalog.priceHistory.hint') }}
+                        </p>
+                    </div>
+                }
 
                 <!-- Description (collapsible) -->
                 <div class="mt-2 border-t border-gray-200 pt-4">

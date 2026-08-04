@@ -1,95 +1,301 @@
 <ng-container *transloco="let t">
-    <form [formGroup]="form" (ngSubmit)="save()" class="flex flex-col gap-4">
+    <form
+        class="ff-biz flex w-full min-w-0 flex-col gap-6"
+        [formGroup]="form"
+        (ngSubmit)="save()"
+    >
         <approval-banner></approval-banner>
 
         @if (loading()) {
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
         }
 
-        @if (loadError()) {
+        @if (loadError(); as message) {
             <div
-                class="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                class="ff-biz__alert ff-biz__alert--error flex flex-wrap items-center gap-2 rounded-2xl p-3.5 text-sm"
+                role="alert"
             >
                 <mat-icon
-                    class="text-red-500 icon-size-5"
+                    class="shrink-0 icon-size-5"
                     [svgIcon]="'heroicons_outline:exclamation-triangle'"
                 ></mat-icon>
-                <span>{{ t('restaurantProfile.profile.loadError') }}</span>
+                <span class="min-w-0 flex-auto">{{ message }}</span>
+                <button mat-button type="button" (click)="reload()">
+                    {{ t('common.retry') }}
+                </button>
             </div>
         }
 
-        <mat-form-field subscriptSizing="dynamic">
-            <mat-label>{{ t('restaurantProfile.profile.name') }}</mat-label>
-            <input
-                matInput
-                formControlName="name"
-                [placeholder]="t('restaurantProfile.profile.namePlaceholder')"
-            />
-            @if (form.controls.name.hasError('required')) {
-                <mat-error>{{
-                    t('restaurantProfile.profile.nameRequired')
-                }}</mat-error>
-            }
-        </mat-form-field>
-
-        <mat-form-field subscriptSizing="dynamic">
-            <mat-label>{{ t('restaurantProfile.profile.address') }}</mat-label>
-            <input matInput formControlName="address" />
-        </mat-form-field>
-
-        <mat-form-field subscriptSizing="dynamic">
-            <mat-label>{{
-                t('restaurantProfile.profile.contactPerson')
-            }}</mat-label>
-            <input matInput formControlName="contactPerson" />
-        </mat-form-field>
-
-        <div class="flex flex-col gap-2">
-            <div class="text-secondary text-sm font-medium">
-                {{ t('restaurantProfile.profile.pickupWindow') }}
-            </div>
-            <div class="flex flex-col gap-4 sm:flex-row">
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{
-                        t('restaurantProfile.profile.pickupStart')
-                    }}</mat-label>
-                    <input matInput type="time" formControlName="pickupStart" />
-                </mat-form-field>
-                <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                    <mat-label>{{
-                        t('restaurantProfile.profile.pickupEnd')
-                    }}</mat-label>
-                    <input matInput type="time" formControlName="pickupEnd" />
-                </mat-form-field>
-            </div>
-            @if (form.hasError('pickupWindow') && form.touched) {
-                <div class="text-sm text-red-600">
-                    @if (form.getError('pickupWindow') === 'incomplete') {
-                        {{ t('restaurantProfile.profile.pickupIncomplete') }}
-                    } @else {
-                        {{
-                            t('restaurantProfile.profile.pickupEndBeforeStart')
-                        }}
-                    }
-                </div>
-            }
-        </div>
-
-        <div class="flex justify-end">
-            <button
-                mat-flat-button
-                color="primary"
-                type="submit"
-                [disabled]="saving() || loading()"
+        @if (formError(); as message) {
+            <div
+                class="ff-biz__alert ff-biz__alert--error flex items-start gap-2 rounded-2xl p-3.5 text-sm"
+                role="alert"
             >
-                @if (saving()) {
+                <mat-icon
+                    class="shrink-0 icon-size-5"
+                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                ></mat-icon>
+                <span>{{ message }}</span>
+            </div>
+        }
+
+        <!-- Identity -->
+        <section class="ff-biz__card" aria-labelledby="ff-biz-identity-title">
+            <header class="ff-biz__card-head">
+                <div class="ff-biz__card-icon" aria-hidden="true">
                     <mat-icon
-                        class="animate-spin icon-size-5"
-                        [svgIcon]="'heroicons_outline:arrow-path'"
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:building-storefront'"
                     ></mat-icon>
-                }
-                <span>{{ t('restaurantProfile.profile.save') }}</span>
-            </button>
-        </div>
+                </div>
+                <div class="min-w-0">
+                    <h2
+                        id="ff-biz-identity-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('restaurantProfile.profile.sectionTitle') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('restaurantProfile.profile.sectionSubtitle') }}
+                    </p>
+                </div>
+            </header>
+
+            <div class="ff-biz__card-body flex flex-col gap-1">
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.profile.name')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        formControlName="name"
+                        [placeholder]="
+                            t('restaurantProfile.profile.namePlaceholder')
+                        "
+                        [attr.maxlength]="nameMaxLength"
+                    />
+                    @if (serverMessage(form.controls.name); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (form.controls.name.hasError('required')) {
+                        <mat-error>{{
+                            t('restaurantProfile.profile.nameRequired')
+                        }}</mat-error>
+                    } @else if (errorKey(form.controls.name); as key) {
+                        <mat-error>{{
+                            t(key, { max: maxLength(form.controls.name) })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.profile.address')
+                    }}</mat-label>
+                    <input matInput formControlName="address" />
+                    @if (serverMessage(form.controls.address); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.profile.contactPerson')
+                    }}</mat-label>
+                    <input matInput formControlName="contactPerson" />
+                    @if (
+                        serverMessage(form.controls.contactPerson);
+                        as message
+                    ) {
+                        <mat-error>{{ message }}</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+        </section>
+
+        <!-- Receiving window -->
+        <section class="ff-biz__card" aria-labelledby="ff-biz-pickup-title">
+            <header class="ff-biz__card-head">
+                <div class="ff-biz__card-icon" aria-hidden="true">
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:clock'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2
+                        id="ff-biz-pickup-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('restaurantProfile.profile.pickupWindow') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('restaurantProfile.profile.pickupHint') }}
+                    </p>
+                </div>
+            </header>
+
+            <div class="ff-biz__card-body">
+                <mat-form-field
+                    class="w-full sm:max-w-xs"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{
+                        t('restaurantProfile.profile.pickupWindow')
+                    }}</mat-label>
+                    <mat-select
+                        formControlName="pickupWindow"
+                        data-testid="business-pickup-window"
+                    >
+                        <mat-option [value]="null">{{
+                            t('restaurantProfile.profile.pickupAny')
+                        }}</mat-option>
+                        @for (slot of windowOptions(); track slot) {
+                            <mat-option [value]="slot">{{
+                                windowLabel(slot)
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            </div>
+        </section>
+
+        <!-- Licence -->
+        <section class="ff-biz__card" aria-labelledby="ff-biz-license-title">
+            <header class="ff-biz__card-head">
+                <div class="ff-biz__card-icon" aria-hidden="true">
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:document-text'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2
+                        id="ff-biz-license-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('restaurantProfile.profile.businessLicense') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('restaurantProfile.profile.licenseHint') }}
+                    </p>
+                </div>
+            </header>
+
+            <div class="ff-biz__card-body">
+                <div
+                    class="ff-biz__license flex flex-col gap-4 sm:flex-row sm:items-center"
+                >
+                    @if (
+                        form.controls.businessLicenseUrl.value;
+                        as licenseUrl
+                    ) {
+                        <a
+                            class="ff-biz__license-preview shrink-0"
+                            [href]="licenseUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                [src]="licenseUrl"
+                                [alt]="
+                                    t(
+                                        'restaurantProfile.profile.businessLicense'
+                                    )
+                                "
+                            />
+                        </a>
+                    } @else {
+                        <div
+                            class="ff-biz__license-empty flex shrink-0 flex-col items-center justify-center gap-2"
+                            aria-hidden="true"
+                        >
+                            <mat-icon
+                                class="text-hint icon-size-8"
+                                [svgIcon]="'heroicons_outline:photo'"
+                            ></mat-icon>
+                        </div>
+                    }
+
+                    <div class="flex min-w-0 flex-1 flex-col gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                color="primary"
+                                [disabled]="uploading() || loading()"
+                                (click)="licenseInput.click()"
+                            >
+                                @if (uploading()) {
+                                    <mat-icon
+                                        class="animate-spin icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:arrow-path'
+                                        "
+                                    ></mat-icon>
+                                } @else {
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:cloud-arrow-up'
+                                        "
+                                    ></mat-icon>
+                                }
+                                <span class="ml-2">{{
+                                    form.controls.businessLicenseUrl.value
+                                        ? t(
+                                              'restaurantProfile.profile.licenseChange'
+                                          )
+                                        : t(
+                                              'restaurantProfile.profile.licenseUpload'
+                                          )
+                                }}</span>
+                            </button>
+                            @if (form.controls.businessLicenseUrl.value) {
+                                <button
+                                    mat-button
+                                    type="button"
+                                    [disabled]="uploading()"
+                                    (click)="clearLicense()"
+                                >
+                                    {{
+                                        t(
+                                            'restaurantProfile.profile.licenseRemove'
+                                        )
+                                    }}
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <input
+                    #licenseInput
+                    class="hidden"
+                    type="file"
+                    accept="image/*"
+                    (change)="onLicensePicked($event)"
+                />
+            </div>
+        </section>
+
+        @if (!hideActions()) {
+            <div
+                class="ff-biz__actions flex flex-wrap items-center justify-end gap-3 border-t pt-4"
+            >
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving() || loading() || uploading()"
+                >
+                    @if (saving()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-path'"
+                        ></mat-icon>
+                    }
+                    <span>{{ t('restaurantProfile.profile.save') }}</span>
+                </button>
+            </div>
+        }
     </form>
 </ng-container>

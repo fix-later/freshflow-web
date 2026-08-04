@@ -225,7 +225,7 @@ example().catch(console.error);
 
 ## apiV1ProcurementTasksBatchIdHandoverPatch
 
-> apiV1ProcurementTasksBatchIdHandoverPatch(batchId, handoverRequest)
+> apiV1ProcurementTasksBatchIdHandoverPatch(batchId)
 
 
 
@@ -249,8 +249,6 @@ async function example() {
   const body = {
     // string
     batchId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-    // HandoverRequest (optional)
-    handoverRequest: ...,
   } satisfies ApiV1ProcurementTasksBatchIdHandoverPatchRequest;
 
   try {
@@ -271,7 +269,6 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **batchId** | `string` |  | [Defaults to `undefined`] |
-| **handoverRequest** | [HandoverRequest](HandoverRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -283,7 +280,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Content-Type**: Not defined
 - **Accept**: Not defined
 
 

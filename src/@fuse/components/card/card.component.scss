@@ -4,6 +4,18 @@ fuse-card {
     overflow: hidden;
     @apply bg-card rounded-2xl shadow;
 
+    /*
+     * Flat (storefront product tile): no surface of its own — sits directly on
+     * the page background, per the product-grid pattern. `overflow: visible` so
+     * a tile can lift a hover layer (add-to-cart row, thumb actions) past its
+     * own box without being clipped.
+     */
+    &.fuse-card-flat {
+        background: transparent;
+        overflow: visible;
+        @apply rounded-none shadow-none;
+    }
+
     /* Flippable */
     &.fuse-card-flippable {
         border-radius: 0;

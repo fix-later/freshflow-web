@@ -65,12 +65,12 @@ const OPERATIONS: Permission[] = [
     'analytics:read',
 ];
 
+// Admin is a superset of Operations: no `operations_manager` account is issued
+// today, so the admin account also runs procurement and logistics dispatch
+// (ROLE_MATRIX § Current deployment).
 const ADMIN: Permission[] = [
-    'catalog:read',
+    ...OPERATIONS,
     'catalog:manage',
-    'markets:configure',
-    'pricing:read',
-    'pricing:history:read',
     'pricing:alerts:configure',
     'orders:read:all',
     'credit:read:own',
@@ -78,8 +78,6 @@ const ADMIN: Permission[] = [
     'credit:configure',
     'hub:manage',
     'logistics:vehicles:manage',
-    'delivery:track',
-    'analytics:read',
     'analytics:export',
     'admin:approve',
     'admin:rbac',

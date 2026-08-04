@@ -14,6 +14,12 @@
 
 /** Restaurant business profile (`GET/PUT /api/v1/restaurants/me/profile`). */
 export interface RestaurantProfileView {
+    /**
+     * The restaurant's own id — **not** the signed-in user's id. Endpoints
+     * that take a `{restaurantId}` path parameter (credit, scheduled orders)
+     * need this one; passing the user id answers 404/403.
+     */
+    restaurantId?: string;
     name: string;
     address?: string | null;
     contactPerson?: string | null;
@@ -22,6 +28,15 @@ export interface RestaurantProfileView {
     /** Receiving-window end, `HH:mm:ss`. */
     pickupEnd?: string | null;
     businessLicenseUrl?: string | null;
+    /** Approval/activity state, e.g. `active`. */
+    status?: string | null;
+    // Tax profile — the spec publishes no GET for `PUT .../tax-profile`, but
+    // the business-profile read returns the saved values, so the tax form can
+    // open pre-filled instead of blank.
+    taxCode?: string | null;
+    invoiceLegalName?: string | null;
+    invoiceAddress?: string | null;
+    invoiceEmail?: string | null;
 }
 
 /** A saved delivery address (`GET /api/v1/restaurants/me/delivery-addresses`). */

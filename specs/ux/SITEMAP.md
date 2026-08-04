@@ -19,8 +19,9 @@ shared `LayoutComponent`, guarded by `AuthGuard` / `NoAuthGuard` (see `src/app/a
 
 ### Authenticated shell (`AuthGuard`, role-filtered nav)
 
-Layout is selected per role (see [`NAVIGATION.md`](./NAVIGATION.md) § Layout per role):
-Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
+Layout is selected per area (see [`NAVIGATION.md`](./NAVIGATION.md) § Layout per area):
+Storefront → `enterprise`, Admin console → `dense`, auth/error screens → `empty`. These are the
+only three layouts the app ships (see [`NAVIGATION.md`](./NAVIGATION.md) § Layout per area).
 
 ```
 /                        → redirect to role landing
@@ -29,7 +30,7 @@ Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
 
 # ── Restaurant (layout: 'enterprise') ──────
 /prices                  M4  live market price board (landing for restaurant)
-/catalog                 M3  browse / search products
+/catalog                 M3  browse the selected market (20/page, infinite scroll)
 /catalog/:productId      M3  product detail
 /orders                  M5  order list (own)
 /orders/new              M5  order builder (draft)
@@ -41,7 +42,7 @@ Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
 /profile                 M2  personal + restaurant profile, addresses
 /notifications           M11 notification center
 
-# ── Operations Manager (layout: 'classic') ──
+# ── Operations Manager (inside the admin console, mode: 'operations') ──
 /ops                     M12 operations dashboard (landing for ops)
 /ops/procurement         M7  batches & manifests
 /ops/procurement/:batchId M7 batch detail / monitor
@@ -50,7 +51,7 @@ Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
 /ops/hub                 M8  hub inbound/outbound & discrepancy oversight
 /ops/deliveries          M10 delivery performance monitoring
 
-# ── Admin (layout: 'classic') ───────────────
+# ── Admin (layout: 'dense', mode: 'administration') ───────────────
 /admin                   M12 admin dashboard (landing for admin)
 /admin/users             M13 user accounts
 /admin/restaurants       M13 restaurant approval & profiles
@@ -64,17 +65,17 @@ Restaurant → `enterprise`, Admin/Operations → `classic`, Hub → `classy`.
 /admin/audit             M13 audit log
 ```
 
-> Paths above are the **target IA**. The repo currently ships Fuse demo routes
-> (`/home`, `/shop`, `/example`); replace them feature-by-feature, keeping the lazy-route
-> convention. Do not introduce NgModules.
+> Paths above are the **target IA**; the repo reaches it feature-by-feature, keeping the
+> lazy-route convention. Do not introduce NgModules. The Fuse demo routes and their mock API
+> have been removed — every screen that ships now talks to the real backend via `src/contract`.
 
 ## Landing per role
 
-| Role | Landing route |
-|------|---------------|
-| Restaurant | `/prices` |
-| Operations Manager | `/ops` |
-| Admin | `/admin` |
+| Role               | Landing route                 |
+| ------------------ | ----------------------------- |
+| Restaurant         | `/prices`                     |
+| Operations Manager | `/admin` (mode: `operations`) |
+| Admin              | `/admin`                      |
 
 ## Depth rule
 

@@ -24,7 +24,9 @@ import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { AuthService } from 'app/core/auth/auth.service';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
+import { UserService } from 'app/core/user/user.service';
 import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
+import { SetupCompletionService } from 'app/modules/restaurant/setup/setup-completion.service';
 
 @Component({
     selector: 'auth-sign-in',
@@ -66,7 +68,9 @@ export class AuthSignInComponent implements OnInit {
         private _formBuilder: UntypedFormBuilder,
         private _permissions: PermissionsService,
         private _router: Router,
-        private _translocoService: TranslocoService
+        private _setupCompletion: SetupCompletionService,
+        private _translocoService: TranslocoService,
+        private _userService: UserService
     ) {}
 
     // -----------------------------------------------------------------------------------------------------
@@ -108,15 +112,9 @@ export class AuthSignInComponent implements OnInit {
         this._authService.signIn(this.signInForm.value).subscribe(
             () => {
                 // The profile (and role) is loaded by the time signIn resolves,
-                // so resolve the per-role landing page here and navigate directly
-                // — a synchronous `redirectTo` can't reliably read the async role.
-                const redirectURL =
-                    this._activatedRoute.snapshot.queryParamMap.get(
-                        'redirectURL'
-                    ) || this._permissions.landingUrl();
-
-                // Navigate to the redirect url
-                this._router.navigateByUrl(redirectURL);
+                // so resolve the landing page here and navigate directly — a
+                // synchronous `redirectTo` can't reliably read the async role.
+                void this._navigateAfterSignIn();
             },
             (response) => {
                 // Re-enable the form
@@ -137,5 +135,56 @@ export class AuthSignInComponent implements OnInit {
                 this.showAlert = true;
             }
         );
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+    // @ Private methods
+    // -----------------------------------------------------------------------------------------------------
+
+    /**
+     * Where to land after a successful sign-in.
+     *
+     * An explicit `redirectURL` always wins, so a deep link into the app is
+     * never hijacked. Otherwise a restaurant whose setup is not yet reviewable
+     * is guided into `/onboarding` (FR-002) — the wizard it can leave at any
+     * time — and everyone else lands on their usual per-role page.
+     */
+    private async _navigateAfterSignIn(): Promise<void> {
+        const explicitURL =
+            this._activatedRoute.snapshot.queryParamMap.get('redirectURL');
+        if (explicitURL) {
+            await this._router.navigateByUrl(explicitURL);
+            return;
+        }
+
+        if (await this._needsOnboarding()) {
+            await this._router.navigateByUrl('/onboarding');
+            return;
+        }
+
+        await this._router.navigateByUrl(this._permissions.landingUrl());
+    }
+
+    /**
+     * See `specs/003-restaurant-onboarding-wizard/data-model.md` § 5 — every
+     * clause here maps to a requirement, and an approved or already-complete
+     * restaurant is never pulled in.
+     */
+    private async _needsOnboarding(): Promise<boolean> {
+        if (!this._permissions.hasRole('restaurant')) {
+            return false;
+        }
+        if (this._userService.current?.approvalStatus === 'approved') {
+            return false;
+        }
+        if (this._setupCompletion.isDismissed()) {
+            return false;
+        }
+
+        // Fresh read: a profile completed in an earlier session must not send
+        // the restaurant back through the wizard.
+        this._setupCompletion.invalidate();
+        await this._setupCompletion.load();
+        return !this._setupCompletion.progress().isComplete;
     }
 }

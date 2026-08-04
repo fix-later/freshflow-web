@@ -74,6 +74,25 @@
                     </mat-select>
                 </mat-form-field>
 
+                <mat-form-field
+                    class="fuse-mat-dense w-48"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{
+                        t('admin.users.filters.approval')
+                    }}</mat-label>
+                    <mat-select formControlName="restaurantStatus">
+                        <mat-option value="">{{
+                            t('admin.users.filters.allApprovals')
+                        }}</mat-option>
+                        @for (status of approvalStatuses; track status) {
+                            <mat-option [value]="status">{{
+                                t('admin.users.approval.' + status)
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
                 @if (hasActiveFilters()) {
                     <button
                         mat-stroked-button
@@ -118,6 +137,10 @@
                                     key: 'status',
                                     label: 'admin.restaurants.table.status',
                                 },
+                                {
+                                    key: 'restaurantStatus',
+                                    label: 'admin.users.table.approval',
+                                },
                             ];
                             track col.key
                         ) {
@@ -141,6 +164,12 @@
                                 </button>
                             </div>
                         }
+                        <div class="text-right">
+                            {{ t('admin.restaurants.table.approval') }}
+                        </div>
+                        <div class="text-right">
+                            {{ t('admin.users.actions.unlock') }}
+                        </div>
                         <div class="text-right">
                             {{ t('admin.crud.details') }}
                         </div>
@@ -175,8 +204,69 @@
                                         {{ t('admin.users.filters.inactive') }}
                                     </span>
                                 }
+                                @if (user.lockedUntil) {
+                                    <span
+                                        class="admin-pill admin-pill-warning ml-1"
+                                    >
+                                        {{ t('admin.users.table.locked') }}
+                                    </span>
+                                }
                             </div>
-
+                            <div>
+                                <span [class]="approvalPillClass(user)">
+                                    {{ t(approvalKey(user)) }}
+                                </span>
+                            </div>
+                            <div class="flex justify-end">
+                                @if (canApprove(user)) {
+                                    <button
+                                        class="h-7 min-h-7 px-2 leading-6"
+                                        mat-flat-button
+                                        color="primary"
+                                        type="button"
+                                        data-testid="restaurant-approve"
+                                        [disabled]="
+                                            !user.restaurantId ||
+                                            approvingId() !== null
+                                        "
+                                        [matTooltip]="
+                                            t(
+                                                'admin.restaurants.approve.submit'
+                                            )
+                                        "
+                                        (click)="approve(user)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:check-circle"
+                                        ></mat-icon>
+                                        <span class="ml-1.5 mr-1 text-sm">{{
+                                            t(
+                                                'admin.restaurants.table.approval'
+                                            )
+                                        }}</span>
+                                    </button>
+                                } @else {
+                                    <span class="text-secondary">—</span>
+                                }
+                            </div>
+                            <div class="flex justify-end">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="unlocking()"
+                                    [matTooltip]="
+                                        t('admin.users.actions.unlock')
+                                    "
+                                    (click)="unlock(user)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:key"
+                                    ></mat-icon>
+                                </button>
+                            </div>
                             <div class="flex justify-end">
                                 <button
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"

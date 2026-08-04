@@ -1,10 +1,10 @@
-/** Coarse status for the header's "latest order" hover preview (PRD M5 · FR-ORD). */
-export type RecentOrderStatus = 'CONFIRMED' | 'OUT_FOR_DELIVERY' | 'DELIVERED';
-
+/** The restaurant's most recent order, for the header's hover preview. */
 export interface RecentOrder {
+    /** Short display code — the order id's first segment. */
     code: string;
     /** ISO timestamp. */
     placedAt: string;
     itemCount: number;
-    status: RecentOrderStatus;
+    /** Raw backend status — normalize with `orders.types.ts`'s helpers to render. */
+    status: string;
 }

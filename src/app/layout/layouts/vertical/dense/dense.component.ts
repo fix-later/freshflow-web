@@ -21,9 +21,10 @@ import { TranslocoModule } from '@jsverse/transloco';
 import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
+import { ConsoleModeComponent } from 'app/layout/common/console-mode/console-mode.component';
 import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
-import { SearchComponent } from 'app/layout/common/search/search.component';
+import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { Subject, takeUntil } from 'rxjs';
 
@@ -40,9 +41,10 @@ import { Subject, takeUntil } from 'rxjs';
         MatIconModule,
         MatTooltipModule,
         TranslocoModule,
+        ConsoleModeComponent,
         LanguagesComponent,
         FuseFullscreenComponent,
-        SearchComponent,
+        ShortcutsComponent,
         NotificationsComponent,
         UserComponent,
         RouterOutlet,

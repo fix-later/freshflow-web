@@ -17,20 +17,20 @@
         </button>
     } @else {
         <button
-            class="flex items-center gap-1.5 font-medium"
+            class="inline-flex items-center gap-1.5 font-medium leading-none"
             type="button"
             [matMenuTriggerFor]="languages"
             [matTooltip]="t('header.language')"
         >
             <mat-icon
-                class="text-primary-400 icon-size-5"
+                class="text-current icon-size-4.5"
                 [svgIcon]="'heroicons_outline:globe-alt'"
             ></mat-icon>
             <span>{{
                 langLabels[activeLang] ?? activeLang.toUpperCase()
             }}</span>
             <mat-icon
-                class="text-current icon-size-4"
+                class="text-current icon-size-3.5"
                 [svgIcon]="'heroicons_outline:chevron-down'"
             ></mat-icon>
         </button>

@@ -18,6 +18,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1OrdersOrderIdItemsPost**](OrdersApi.md#apiv1ordersorderiditemspost) | **POST** /api/v1/orders/{orderId}/items |  |
 | [**apiV1OrdersOrderIdReceiptPatch**](OrdersApi.md#apiv1ordersorderidreceiptpatch) | **PATCH** /api/v1/orders/{orderId}/receipt |  |
 | [**apiV1OrdersOrderIdReorderPost**](OrdersApi.md#apiv1ordersorderidreorderpost) | **POST** /api/v1/orders/{orderId}/reorder |  |
+| [**apiV1OrdersOrderingWindowGet**](OrdersApi.md#apiv1ordersorderingwindowget) | **GET** /api/v1/orders/ordering-window |  |
 | [**apiV1OrdersPost**](OrdersApi.md#apiv1orderspost) | **POST** /api/v1/orders |  |
 | [**apiV1OrdersScheduledGet**](OrdersApi.md#apiv1ordersscheduledget) | **GET** /api/v1/orders/scheduled |  |
 | [**apiV1OrdersScheduledPost**](OrdersApi.md#apiv1ordersscheduledpost) | **POST** /api/v1/orders/scheduled |  |
@@ -1098,6 +1099,67 @@ example().catch(console.error);
 | **403** | Forbidden |  -  |
 | **404** | Not Found |  -  |
 | **422** | Unprocessable Content |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1OrdersOrderingWindowGet
+
+> apiV1OrdersOrderingWindowGet()
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  OrdersApi,
+} from '';
+import type { ApiV1OrdersOrderingWindowGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new OrdersApi(config);
+
+  try {
+    const data = await api.apiV1OrdersOrderingWindowGet();
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

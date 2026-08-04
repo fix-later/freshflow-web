@@ -70,3 +70,6 @@ Thumbs.db
 # Generated from .env at build time by scripts/generate-env.mjs — contains the
 # resolved values (including secrets), so it must never be committed.
 /src/environments/env.generated.ts
+
+# Playwright run artifacts
+/test-results

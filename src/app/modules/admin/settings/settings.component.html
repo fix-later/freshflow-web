@@ -90,6 +90,30 @@
                 >
                     {{ t('admin.settings.operational.batchingEnabled') }}
                 </mat-checkbox>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('admin.settings.operational.deliveryWindowDays')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="number"
+                        min="1"
+                        max="30"
+                        formControlName="deliveryWindowDays"
+                    />
+                    @if (
+                        form.controls.deliveryWindowDays.hasError('required') ||
+                        form.controls.deliveryWindowDays.hasError('min') ||
+                        form.controls.deliveryWindowDays.hasError('max')
+                    ) {
+                        <mat-error>{{
+                            t(
+                                'admin.settings.operational.deliveryWindowDaysError'
+                            )
+                        }}</mat-error>
+                    }
+                </mat-form-field>
             </div>
 
             <div class="border-t"></div>

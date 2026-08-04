@@ -1,0 +1,148 @@
+<!-- Trigger -->
+<ng-container *transloco="let t">
+    <button
+        class="inline-flex items-center gap-1.5 font-medium leading-none"
+        type="button"
+        (click)="openPanel()"
+        [matTooltip]="t('header.market')"
+    >
+        @if (selected(); as market) {
+            <span>{{ t('market.displayName', { name: market.name }) }}</span>
+        } @else {
+            <span>{{ t('market.choosePrompt') }}</span>
+        }
+        <mat-icon
+            class="text-current icon-size-3.5"
+            [svgIcon]="'heroicons_outline:chevron-down'"
+        ></mat-icon>
+    </button>
+</ng-container>
+
+<!-- Popup: market list -->
+<ng-template #marketPickerPanel>
+    <ng-container *transloco="let t">
+        <div class="flex max-h-[80vh] flex-col p-6">
+            <!-- Header -->
+            <div class="relative flex items-center justify-center">
+                <h2 class="text-2xl font-bold tracking-tight">
+                    {{ t('market.dialogTitle', { count: markets().length }) }}
+                </h2>
+                <button
+                    class="absolute -right-2 -top-2"
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="t('market.close')"
+                    (click)="closePanel()"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:x-mark'"
+                    ></mat-icon>
+                </button>
+            </div>
+
+            <p class="text-secondary mt-2 text-center text-sm">
+                {{ t('market.dialogHint') }}
+            </p>
+
+            @if (loading()) {
+                <div class="flex items-center justify-center py-12">
+                    <mat-progress-spinner
+                        [diameter]="32"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
+                </div>
+            } @else if (markets().length === 0) {
+                <!-- Empty state: the market list could not be loaded -->
+                <div
+                    class="flex flex-auto flex-col items-center justify-center gap-4 px-6 py-12 text-center"
+                >
+                    <div
+                        class="flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 text-primary dark:bg-primary-500/10"
+                    >
+                        <mat-icon
+                            class="text-current icon-size-8"
+                            [svgIcon]="'heroicons_outline:building-storefront'"
+                        ></mat-icon>
+                    </div>
+                    <div>
+                        <p class="text-lg font-bold">
+                            {{ t('market.empty.title') }}
+                        </p>
+                        <p class="text-secondary mt-1 text-sm">
+                            {{ t('market.empty.description') }}
+                        </p>
+                    </div>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        (click)="reload()"
+                    >
+                        {{ t('market.retry') }}
+                    </button>
+                </div>
+            } @else {
+                <!-- Search -->
+                <mat-form-field class="fuse-mat-dense mt-4 w-full">
+                    <mat-icon
+                        matPrefix
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:magnifying-glass'"
+                    ></mat-icon>
+                    <input
+                        matInput
+                        type="text"
+                        [placeholder]="t('market.searchPlaceholder')"
+                        [value]="search()"
+                        (input)="search.set($any($event.target).value)"
+                    />
+                </mat-form-field>
+
+                <!-- List -->
+                <div class="-mx-2 mt-2 flex flex-col overflow-y-auto px-2">
+                    @for (market of filtered(); track market.id) {
+                        <button
+                            class="flex items-center gap-4 rounded-xl px-3 py-3 text-left hover:bg-hover"
+                            type="button"
+                            [class.bg-hover]="market.id === selected()?.id"
+                            (click)="select(market)"
+                        >
+                            <span
+                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary dark:bg-primary-500/10"
+                            >
+                                {{ initials(market.name) }}
+                            </span>
+                            <span class="flex min-w-0 flex-col">
+                                <span class="truncate font-semibold">
+                                    {{
+                                        t('market.displayName', {
+                                            name: market.name,
+                                        })
+                                    }}
+                                </span>
+                                @if (market.address) {
+                                    <span
+                                        class="text-secondary truncate text-sm"
+                                    >
+                                        {{ market.address }}
+                                    </span>
+                                }
+                            </span>
+                            @if (market.id === selected()?.id) {
+                                <mat-icon
+                                    class="ml-auto shrink-0 text-primary icon-size-5"
+                                    [svgIcon]="'heroicons_solid:check-circle'"
+                                ></mat-icon>
+                            }
+                        </button>
+                    } @empty {
+                        <p class="text-secondary px-3 py-6 text-center text-sm">
+                            {{ t('market.noResults') }}
+                        </p>
+                    }
+                </div>
+            }
+        </div>
+    </ng-container>
+</ng-template>

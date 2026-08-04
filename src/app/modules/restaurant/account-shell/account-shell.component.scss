@@ -1,0 +1,185 @@
+/* Page scroll only — no nested scrollport (Fuse demo pattern). */
+.account-shell__drawer-container {
+    height: auto !important;
+    overflow: visible !important;
+    background-color: #fff !important;
+
+    /**
+     * The drawer is absolutely positioned inside this container, so it is only
+     * as tall as the container is. A short page (Settings, an empty list) left
+     * the rail clipped mid-list — the last two groups simply weren't there.
+     * Reserve enough height for the whole nav on the breakpoints where the
+     * drawer sits beside the content; the rail scrolls inside if it still
+     * doesn't fit.
+     */
+    @media (min-width: 960px) {
+        min-height: 46rem;
+    }
+
+    > .mat-drawer-backdrop.mat-drawer-shown {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+    }
+
+    > .mat-drawer-content {
+        height: auto !important;
+        overflow: visible !important;
+        background-color: #fff !important;
+    }
+}
+
+.account-shell__drawer.mat-drawer {
+    background-color: #fff !important;
+    /* Match storefront header `border-b` / `--fuse-border` */
+    border-left: 1px solid var(--fuse-border) !important;
+    position: absolute !important;
+    box-sizing: border-box !important;
+    visibility: visible;
+    width: 17.5rem !important;
+
+    .mat-drawer-inner-container {
+        overflow-x: hidden !important;
+    }
+}
+
+/**
+ * Rail. One scrolling column: an owner header that stays put, then a stack of
+ * titled groups. Wider than the old 20rem so a four-word label like
+ * "Địa chỉ giao hàng" sits on one line instead of truncating.
+ */
+.account-shell__rail {
+    padding: 0 0.75rem 2rem;
+    box-sizing: border-box;
+}
+
+.account-shell__header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    padding: 1.25rem 0.75rem 1rem;
+    margin-bottom: 0.25rem;
+    background: inherit;
+    border-bottom: 1px solid var(--fuse-border);
+    box-sizing: border-box;
+}
+
+.account-shell__avatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+}
+
+.account-shell__avatar--fallback {
+    background-color: var(--fuse-bg-hover, rgb(0 0 0 / 0.06));
+    color: var(--fuse-text-secondary, rgb(75 85 99));
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    line-height: 1;
+
+    .dark & {
+        background-color: rgb(255 255 255 / 0.08);
+        color: rgb(209 213 219);
+    }
+}
+
+.account-shell__owner {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.account-shell__owner-sub {
+    font-size: 0.75rem;
+    line-height: 1.3;
+    color: var(--fuse-text-secondary, rgb(107 114 128));
+}
+
+.account-shell__nav {
+    padding: 0;
+    margin-top: 1.25rem;
+}
+
+.account-shell__nav-heading {
+    padding: 0 0.75rem 0.5rem;
+    color: var(--fuse-text-hint, rgb(107 114 128));
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+/**
+ * Row. The active state is an accent bar plus a tint rather than a filled
+ * chip: with four groups on screen at once, a solid block on every visited
+ * section competes with the page itself for attention.
+ */
+.account-shell__nav-item {
+    position: relative;
+    min-height: 2.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.5rem;
+    box-sizing: border-box;
+    color: var(--fuse-text-secondary, rgb(75 85 99));
+    gap: 0.75rem;
+    transition:
+        background-color 120ms ease,
+        color 120ms ease;
+
+    .dark & {
+        color: rgb(209 213 219);
+    }
+
+    &::before {
+        content: '';
+        position: absolute;
+        top: 0.5rem;
+        bottom: 0.5rem;
+        left: 0;
+        width: 3px;
+        border-radius: 9999px;
+        background: transparent;
+        transition: background-color 120ms ease;
+    }
+
+    &:hover {
+        background-color: var(--fuse-hover, rgb(0 0 0 / 0.04));
+        color: var(--fuse-text-default, inherit);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary, currentColor);
+        outline-offset: 2px;
+    }
+
+    &--active {
+        background-color: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
+        color: var(--fuse-primary, inherit);
+        font-weight: 600;
+
+        &::before {
+            background: var(--fuse-primary, currentColor);
+        }
+
+        .account-shell__nav-icon {
+            color: var(--fuse-primary, inherit);
+        }
+
+        .dark & {
+            background-color: rgb(255 255 255 / 0.05);
+        }
+    }
+}
+
+.account-shell__nav-icon {
+    color: inherit;
+    flex: 0 0 auto;
+}
+
+.account-shell__nav-title {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}

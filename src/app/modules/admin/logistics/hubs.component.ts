@@ -4,6 +4,7 @@ import {
     ViewEncapsulation,
     inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { ResourceCrudComponent } from '../shared/resource-crud.component';
 import { CrudResource, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
@@ -21,12 +22,19 @@ import { LogisticsAdminService } from './logistics-admin.service';
 })
 export class HubsComponent {
     private readonly _logistics = inject(LogisticsAdminService);
+    private readonly _router = inject(Router);
 
     readonly resource: CrudResource = {
         title: 'admin.hubs.title',
+        // A hub has more than master data behind it — staff assignments and the
+        // inbound/discrepancy oversight panel — so the row opens the hub page
+        // instead of the inline edit panel the other CRUD screens use.
+        openDetail: (row) => {
+            void this._router.navigate(['/admin/hubs', row.id]);
+        },
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
-        searchKeys: ['name', 'address', 'managedByName'],
+        searchKeys: ['name', 'address', 'managedByName', 'marketName'],
         searchPlaceholder: 'admin.hubs.searchPlaceholder',
         columns: [
             {
@@ -34,6 +42,12 @@ export class HubsComponent {
                 sortable: true,
                 width: 'minmax(0, 1.2fr)',
                 cell: (row) => String(row['name'] ?? ''),
+            },
+            {
+                label: 'admin.hubs.market',
+                sortable: true,
+                width: 'minmax(0, 1fr)',
+                cell: (row) => String(row['marketName'] ?? ''),
             },
             {
                 label: 'admin.hubs.address',
@@ -77,6 +91,14 @@ export class HubsComponent {
             },
         ],
         fields: [
+            {
+                name: 'marketId',
+                label: 'admin.hubs.market',
+                type: 'select',
+                required: true,
+                searchable: true,
+                options: () => this._logistics.marketOptions(),
+            },
             {
                 name: 'name',
                 label: 'admin.hubs.name',

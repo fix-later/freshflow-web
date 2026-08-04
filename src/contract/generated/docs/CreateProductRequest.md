@@ -10,6 +10,7 @@ Name | Type
 `unitId` | string
 `categoryId` | string
 `description` | string
+`packingCodeId` | string
 
 ## Example
 
@@ -22,6 +23,7 @@ const example = {
   "unitId": null,
   "categoryId": null,
   "description": null,
+  "packingCodeId": null,
 } satisfies CreateProductRequest
 
 console.log(example)

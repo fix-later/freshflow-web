@@ -34,8 +34,6 @@ import { AdminLoadingStateComponent } from '../shared/admin-loading-state.compon
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
     ADMIN_PAGE_SIZE_OPTIONS,
-    toApiPage,
-    toPageIndex,
 } from '../shared/admin-pagination';
 import { CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
@@ -112,7 +110,6 @@ export class MarketsComponent implements OnInit {
     readonly search = signal('');
     readonly pageIndex = signal(0);
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
-    readonly totalCount = signal(0);
     readonly pageSizeOptions = ADMIN_PAGE_SIZE_OPTIONS;
     readonly sort = new TableSort<CrudRow>();
 
@@ -150,7 +147,14 @@ export class MarketsComponent implements OnInit {
         })
     );
 
-    readonly pagedRows = computed(() => this.sortedRows());
+    /** All markets after filter/sort — the backend has no offset pagination
+     *  for this list, so the table paginates client-side from here. */
+    readonly pagedRows = computed(() => {
+        const start = this.pageIndex() * this.pageSize();
+        return this.sortedRows().slice(start, start + this.pageSize());
+    });
+
+    readonly totalCount = computed(() => this.filteredRows().length);
 
     ngOnInit(): void {
         this.load();
@@ -159,25 +163,14 @@ export class MarketsComponent implements OnInit {
     load(): void {
         this.loading.set(true);
         Promise.all([
-            this._catalog.listMarketsPage({
-                page: toApiPage(this.pageIndex()),
-                pageSize: this.pageSize(),
-                activeOnly: false,
-            }),
+            this._catalog.listMarkets(),
             this._admin.getMarketAgentsWithAssignments().catch(() => ({
                 agents: [] as AdminUserRow[],
                 agentsByMarket: new Map<string, AdminUserRow>(),
             })),
         ])
-            .then(([page, { agents, agentsByMarket }]) => {
-                this.rows.set(page.rows);
-                this.totalCount.set(page.total);
-                if (page.page) {
-                    this.pageIndex.set(toPageIndex(page.page));
-                }
-                if (page.pageSize) {
-                    this.pageSize.set(page.pageSize);
-                }
+            .then(([rows, { agents, agentsByMarket }]) => {
+                this.rows.set(rows);
                 this.agentOptions.set(agents);
                 this.agentsByMarket.set(agentsByMarket);
             })
@@ -261,7 +254,6 @@ export class MarketsComponent implements OnInit {
     onPageChange(event: PageEvent): void {
         this.pageIndex.set(event.pageIndex);
         this.pageSize.set(event.pageSize);
-        this.load();
     }
 
     /** Opens the dedicated market edit page. */

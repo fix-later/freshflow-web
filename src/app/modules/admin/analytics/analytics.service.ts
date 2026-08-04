@@ -29,6 +29,32 @@ export interface AnalyticsActivity {
     [key: string]: unknown;
 }
 
+/** One row of an ApexCharts heatmap series (`{name}` is the row/y-axis label). */
+export interface HeatmapSeries {
+    name: string;
+    data: { x: string; y: number }[];
+}
+
+/** Keys a heatmap row may use for its row (y-axis) grouping. */
+const HEATMAP_ROW_KEYS = [
+    'dayOfWeek',
+    'day',
+    'weekday',
+    'marketName',
+    'region',
+    'category',
+];
+
+/** Keys a heatmap row may use for its column (x-axis) bucket. */
+const HEATMAP_COL_KEYS = [
+    'hour',
+    'hourOfDay',
+    'timeSlot',
+    'bucket',
+    'period',
+    'label',
+];
+
 /** Keys a series row may use for its category/x-axis label. */
 const LABEL_KEYS = [
     'label',
@@ -94,6 +120,27 @@ function toSeries(body: unknown): AnalyticsPoint[] {
             value: pickNumber(row, VALUE_KEYS),
         }))
         .filter((point) => point.label !== '' || point.value !== 0);
+}
+
+/**
+ * Normalises an untyped 2-dimensional demand body into ApexCharts heatmap
+ * series (one series per row/y-axis grouping, each with `{x, y}` cells).
+ * Field names are guessed from a candidate list, same convention as
+ * {@link toSeries} — a shape mismatch degrades to a single "—" row rather
+ * than throwing.
+ */
+function toHeatmap(body: unknown): HeatmapSeries[] {
+    const rows = extractList<Record<string, unknown>>(body);
+    const byRow = new Map<string, { x: string; y: number }[]>();
+    for (const row of rows) {
+        const rowLabel = pick(row, HEATMAP_ROW_KEYS) || '—';
+        const colLabel = pick(row, HEATMAP_COL_KEYS) || '—';
+        const value = pickNumber(row, VALUE_KEYS);
+        const cells = byRow.get(rowLabel) ?? [];
+        cells.push({ x: colLabel, y: value });
+        byRow.set(rowLabel, cells);
+    }
+    return [...byRow.entries()].map(([name, data]) => ({ name, data }));
 }
 
 /** `Date` → `yyyy-MM-dd`, the format the analytics query strings expect. */
@@ -174,6 +221,14 @@ export class AnalyticsService {
             interval,
         });
         return toSeries(await parseJson(res.raw));
+    }
+
+    async getDemandHeatmap(from: string, to: string): Promise<HeatmapSeries[]> {
+        const res = await analyticsApi.apiV1AnalyticsDemandHeatmapGetRaw({
+            from: new Date(from),
+            to: new Date(to),
+        });
+        return toHeatmap(await parseJson(res.raw));
     }
 
     async getDemandTimeDistribution(

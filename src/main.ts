@@ -4,8 +4,7 @@ import { initSplashScreen } from '@fuse/services/splash-screen';
 import { AppComponent } from 'app/app.component';
 import { appConfig } from 'app/app.config';
 
-// Start the cinematic splash before Angular boots; it exits on its own
-// once the intro has played and Fuse signals the app is ready.
+// Hold the splash until Fuse signals the app is ready, then fade it out.
 initSplashScreen();
 
 bootstrapApplication(AppComponent, {

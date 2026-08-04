@@ -1,5 +1,4 @@
 import { BooleanInput } from '@angular/cdk/coercion';
-import { NgClass } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -9,7 +8,6 @@ import {
     OnInit,
     ViewEncapsulation,
 } from '@angular/core';
-import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
@@ -18,6 +16,10 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import {
+    accountMenuItems,
+    AccountShellNavItem,
+} from 'app/modules/restaurant/account-area-nav';
 import { Subject, takeUntil } from 'rxjs';
 
 @Component({
@@ -28,11 +30,9 @@ import { Subject, takeUntil } from 'rxjs';
     exportAs: 'user',
     standalone: true,
     imports: [
-        MatButtonModule,
         MatMenuModule,
         MatIconModule,
         MatTooltipModule,
-        NgClass,
         MatDividerModule,
         TranslocoModule,
         RouterLink,
@@ -45,6 +45,19 @@ export class UserComponent implements OnInit, OnDestroy {
 
     @Input() showAvatar: boolean = true;
     user: User;
+
+    /** BR-AUTH-1 — approved restaurants (and non-restaurant roles set to approved). */
+    get isApproved(): boolean {
+        return this.user?.approvalStatus === 'approved';
+    }
+
+    /**
+     * The shortcut destinations for this role, taken from the same source as
+     * the account rail so the two can never disagree about what exists.
+     */
+    menuItems(): readonly AccountShellNavItem[] {
+        return accountMenuItems(this.user?.role === 'restaurant');
+    }
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -88,26 +101,6 @@ export class UserComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
-
-    /**
-     * Update the user status
-     *
-     * @param status
-     */
-    updateUserStatus(status: string): void {
-        // Return if user is not available
-        if (!this.user) {
-            return;
-        }
-
-        // Update the user
-        this._userService
-            .update({
-                ...this.user,
-                status,
-            })
-            .subscribe();
-    }
 
     /**
      * Sign out

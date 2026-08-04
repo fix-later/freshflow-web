@@ -8,6 +8,7 @@ Name | Type
 ------------ | -------------
 `name` | string
 `parentId` | string
+`imageUrl` | string
 
 ## Example
 
@@ -18,6 +19,7 @@ import type { CreateCategoryRequest } from ''
 const example = {
   "name": null,
   "parentId": null,
+  "imageUrl": null,
 } satisfies CreateCategoryRequest
 
 console.log(example)

@@ -25,6 +25,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { AdminService } from '../admin.service';
 import { AdminOrderDetail } from '../admin.types';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     canCancelOrder,
@@ -66,6 +67,7 @@ export class OrderDetailComponent implements OnInit {
     private readonly _dialog = inject(MatDialog);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _logistics = inject(LogisticsAdminService);
 
     private _cancelDialogRef: MatDialogRef<unknown> | null = null;
 
@@ -76,6 +78,15 @@ export class OrderDetailComponent implements OnInit {
     readonly loading = signal(false);
     readonly notFound = signal(false);
     readonly cancelSaving = signal(false);
+
+    /**
+     * The dispatch estimate for this order (distance / duration / fee) from
+     * `GET /logistics/shipping/orders/{id}/estimate`. Read-only: it is what
+     * logistics quotes, not something the console sets. A failure hides the
+     * card rather than blocking the order — the order detail stands alone.
+     */
+    readonly shippingEstimate = signal<Record<string, unknown> | null>(null);
+    readonly estimateError = signal<string | null>(null);
     readonly cancelReason = new FormControl('', { nonNullable: true });
 
     ngOnInit(): void {
@@ -171,9 +182,42 @@ export class OrderDetailComponent implements OnInit {
             .then((row) => {
                 this.order.set(row);
                 this.notFound.set(!row);
+                if (row) {
+                    this._fetchEstimate(id);
+                }
             })
             .catch(() => this.notFound.set(true))
             .finally(() => this.loading.set(false));
+    }
+
+    /** Rows of the estimate card — whatever scalars the endpoint returned. */
+    estimateEntries(): { label: string; value: string }[] {
+        // Live shape: { orderId, totalBoxes, totalLoadKg, boxTareKg, vehicleId,
+        // vehicleCapacityKg, fitsVehicle, lines[], missingPackingCode[] }.
+        // `orderId` is the page you are already on, so it is dropped.
+        return this._rawScalars(this.shippingEstimate())
+            .filter(([key]) => key !== 'orderId')
+            .map(([key, value]) => ({
+                label: this._humanize(key),
+                value: value == null ? '—' : String(value),
+            }));
+    }
+
+    private _fetchEstimate(orderId: string): void {
+        this.estimateError.set(null);
+        void this._logistics
+            .getShippingEstimate(orderId)
+            .then((estimate) => this.shippingEstimate.set(estimate))
+            .catch(async (err) => {
+                this.shippingEstimate.set(null);
+                this.estimateError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.orders.estimate.error'
+                    )
+                );
+            });
     }
 
     private _rawScalars(obj: unknown): [string, unknown][] {

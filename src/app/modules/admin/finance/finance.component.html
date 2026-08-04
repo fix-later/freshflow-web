@@ -1,0 +1,340 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div
+            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
+        >
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.finance.title') }}
+                </div>
+                <div class="text-secondary mt-1 text-sm">
+                    {{ t('admin.finance.subtitle') }}
+                </div>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+                <mat-slide-toggle
+                    [color]="'primary'"
+                    [checked]="approvedOnly()"
+                    (change)="onApprovedOnlyChange($event.checked)"
+                >
+                    {{ t('admin.finance.approvedOnly') }}
+                </mat-slide-toggle>
+                <button mat-stroked-button type="button" (click)="load()">
+                    <mat-icon svgIcon="heroicons_outline:arrow-path"></mat-icon>
+                    <span class="ml-2 mr-1">{{ t('common.retry') }}</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Portfolio totals. Restaurants whose credit read failed are counted
+             separately and left out of the sums, so the figures never quietly
+             understate what is owed. -->
+        <div class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div class="rounded-xl border p-4">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.finance.totals.limit') }}
+                </div>
+                <div class="mt-1 text-2xl font-bold tabular-nums">
+                    {{ formatAmount(totals().limit) }}
+                </div>
+            </div>
+            <div class="rounded-xl border p-4">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.finance.totals.outstanding') }}
+                </div>
+                <div class="mt-1 text-2xl font-bold tabular-nums text-red-600">
+                    {{ formatAmount(totals().outstanding) }}
+                </div>
+            </div>
+            <div class="rounded-xl border p-4">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.finance.totals.available') }}
+                </div>
+                <div class="mt-1 text-2xl font-bold tabular-nums text-primary">
+                    {{ formatAmount(totals().available) }}
+                </div>
+            </div>
+            <div class="rounded-xl border p-4">
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('admin.finance.totals.risk') }}
+                </div>
+                <div class="mt-1 flex flex-wrap items-baseline gap-x-3">
+                    <span
+                        class="text-2xl font-bold tabular-nums"
+                        [class.text-red-600]="totals().atLimit > 0"
+                    >
+                        {{ totals().atLimit }}
+                    </span>
+                    <span class="text-secondary text-sm">
+                        {{
+                            t('admin.finance.totals.nearLimit', {
+                                count: totals().nearLimit,
+                            })
+                        }}
+                    </span>
+                </div>
+                @if (totals().unavailable > 0) {
+                    <div class="text-hint mt-1 text-xs">
+                        {{
+                            t('admin.finance.totals.unavailable', {
+                                count: totals().unavailable,
+                            })
+                        }}
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Body -->
+    <div class="flex flex-auto flex-col gap-6 overflow-auto px-6 py-6 md:px-8">
+        @if (loadError(); as message) {
+            <div
+                class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-red-500 icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <span class="min-w-0 flex-auto">{{ message }}</span>
+                <button mat-button type="button" (click)="load()">
+                    {{ t('common.retry') }}
+                </button>
+            </div>
+        } @else if (loading() && !rows().length) {
+            <admin-loading-state />
+        } @else if (!rows().length) {
+            <div
+                class="flex flex-col items-center justify-center rounded-2xl border py-16 text-center"
+            >
+                <mat-icon
+                    class="text-hint icon-size-12"
+                    svgIcon="heroicons_outline:banknotes"
+                ></mat-icon>
+                <p class="mt-3 text-base font-semibold">
+                    {{ t('admin.finance.empty') }}
+                </p>
+            </div>
+        } @else {
+            <!-- Credit portfolio, riskiest first -->
+            <section class="flex flex-col gap-3">
+                <h2 class="text-lg font-semibold">
+                    {{ t('admin.finance.portfolio.title') }}
+                </h2>
+                <div class="overflow-hidden rounded-2xl border">
+                    <div
+                        class="finance-grid text-secondary grid items-center gap-x-6 border-b bg-gray-50 px-5 py-3 text-xs font-semibold uppercase tracking-wide dark:bg-black dark:bg-opacity-5"
+                    >
+                        <span>{{ t('admin.finance.table.restaurant') }}</span>
+                        <span class="text-right">{{
+                            t('admin.finance.table.limit')
+                        }}</span>
+                        <span class="text-right">{{
+                            t('admin.finance.table.outstanding')
+                        }}</span>
+                        <span class="text-right">{{
+                            t('admin.finance.table.available')
+                        }}</span>
+                        <span>{{ t('admin.finance.table.usage') }}</span>
+                        <span></span>
+                    </div>
+
+                    @for (row of sortedRows(); track row.id) {
+                        <button
+                            type="button"
+                            class="finance-grid grid w-full items-center gap-x-6 border-b px-5 py-3 text-left transition hover:bg-hover last:border-b-0"
+                            (click)="openRestaurant(row)"
+                        >
+                            <div class="min-w-0">
+                                <div class="truncate font-medium">
+                                    {{ row.name }}
+                                </div>
+                                <!-- GET /admin/users returns no restaurant
+                                     name, so the name falls back to the email
+                                     — printing both would just repeat it. -->
+                                @if (row.name !== row.email) {
+                                    <div
+                                        class="text-secondary truncate text-xs"
+                                    >
+                                        {{ row.email }}
+                                    </div>
+                                }
+                            </div>
+                            <span class="text-right font-mono tabular-nums">{{
+                                formatAmount(row.creditLimit)
+                            }}</span>
+                            <span
+                                class="text-right font-mono tabular-nums"
+                                [class.font-semibold]="
+                                    (row.outstanding ?? 0) > 0
+                                "
+                            >
+                                {{ formatAmount(row.outstanding) }}
+                            </span>
+                            <span class="text-right font-mono tabular-nums">{{
+                                formatAmount(row.available)
+                            }}</span>
+
+                            <div class="min-w-0">
+                                @if (usagePercent(row); as percent) {
+                                    <div
+                                        class="flex items-center justify-between gap-2 text-xs tabular-nums"
+                                    >
+                                        <span>{{ percent }}%</span>
+                                        @if (risk(row) === 'atLimit') {
+                                            <span
+                                                class="admin-pill admin-pill-danger"
+                                                >{{
+                                                    t(
+                                                        'admin.finance.risk.atLimit'
+                                                    )
+                                                }}</span
+                                            >
+                                        } @else if (risk(row) === 'nearLimit') {
+                                            <span
+                                                class="admin-pill admin-pill-warning"
+                                                >{{
+                                                    t(
+                                                        'admin.finance.risk.nearLimit'
+                                                    )
+                                                }}</span
+                                            >
+                                        }
+                                    </div>
+                                    <div
+                                        class="bg-hover mt-1 h-1.5 overflow-hidden rounded-full"
+                                        aria-hidden="true"
+                                    >
+                                        <span
+                                            class="block h-full rounded-full"
+                                            [class]="usageBarClass(row)"
+                                            [style.width.%]="
+                                                percent > 100 ? 100 : percent
+                                            "
+                                        ></span>
+                                    </div>
+                                } @else {
+                                    <span
+                                        class="admin-pill admin-pill-neutral"
+                                        [matTooltip]="
+                                            t(
+                                                'admin.finance.risk.unavailableHint'
+                                            )
+                                        "
+                                        >{{
+                                            t('admin.finance.risk.unavailable')
+                                        }}</span
+                                    >
+                                }
+                            </div>
+
+                            <span class="flex justify-end">
+                                <mat-icon
+                                    class="text-hint icon-size-5"
+                                    svgIcon="heroicons_outline:chevron-right"
+                                ></mat-icon>
+                            </span>
+                        </button>
+                    }
+                </div>
+                <p class="text-hint text-xs">
+                    {{ t('admin.finance.portfolio.hint') }}
+                </p>
+            </section>
+
+            <!-- Invoices waiting to be issued -->
+            <section class="flex flex-col gap-3">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                    <h2 class="text-lg font-semibold">
+                        {{ t('admin.finance.invoices.title') }}
+                    </h2>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="openInvoices()"
+                    >
+                        {{ t('admin.finance.invoices.viewAll') }}
+                    </button>
+                </div>
+
+                @if (invoiceError(); as message) {
+                    <div
+                        class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                        role="alert"
+                    >
+                        <mat-icon
+                            class="shrink-0 text-amber-500 icon-size-5"
+                            svgIcon="heroicons_outline:exclamation-triangle"
+                        ></mat-icon>
+                        <span>{{ message }}</span>
+                    </div>
+                } @else if (!invoices().length) {
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.finance.invoices.empty') }}
+                    </p>
+                } @else {
+                    <div
+                        class="flex flex-col divide-y overflow-hidden rounded-2xl border"
+                    >
+                        @for (invoice of invoices(); track invoice.id) {
+                            <button
+                                type="button"
+                                class="flex w-full items-center gap-4 px-5 py-3 text-left transition hover:bg-hover"
+                                (click)="openInvoice(invoice)"
+                            >
+                                <div class="min-w-0 flex-1">
+                                    <div
+                                        class="flex flex-wrap items-center gap-2"
+                                    >
+                                        <span
+                                            class="font-mono text-sm font-semibold"
+                                            >{{
+                                                invoice.number ||
+                                                    (invoice.id || '').slice(
+                                                        0,
+                                                        8
+                                                    )
+                                            }}</span
+                                        >
+                                        <span
+                                            [class]="
+                                                invoiceStatusPillClass(
+                                                    invoice.status
+                                                )
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    invoiceStatusKey(
+                                                        invoice.status
+                                                    )
+                                                )
+                                            }}
+                                        </span>
+                                    </div>
+                                    <div class="text-secondary mt-0.5 text-xs">
+                                        {{ formatDate(invoice.createdAt) }}
+                                    </div>
+                                </div>
+                                <span
+                                    class="shrink-0 font-mono text-sm font-bold tabular-nums"
+                                    >{{ formatAmount(invoice.total) }}</span
+                                >
+                            </button>
+                        }
+                    </div>
+                }
+            </section>
+        }
+    </div>
+</div>

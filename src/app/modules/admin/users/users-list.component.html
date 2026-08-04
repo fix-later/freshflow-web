@@ -155,9 +155,6 @@
                             </div>
                         }
                         <div class="text-right">
-                            {{ t('admin.users.actions.unlock') }}
-                        </div>
-                        <div class="text-right">
                             {{ t('admin.crud.details') }}
                         </div>
                     </div>
@@ -193,23 +190,6 @@
                                         {{ t('admin.users.table.locked') }}
                                     </span>
                                 }
-                            </div>
-                            <div class="flex justify-end">
-                                <button
-                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    [disabled]="unlocking()"
-                                    [matTooltip]="
-                                        t('admin.users.actions.unlock')
-                                    "
-                                    (click)="unlock(user)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:key"
-                                    ></mat-icon>
-                                </button>
                             </div>
                             <div class="flex justify-end">
                                 <button

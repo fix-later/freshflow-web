@@ -519,6 +519,22 @@
                             </mat-autocomplete>
                         </mat-form-field>
                     </div>
+                    <mat-form-field class="w-full sm:w-1/2">
+                        <mat-label>{{
+                            t('admin.products.packingCode')
+                        }}</mat-label>
+                        <mat-select formControlName="packingCodeId">
+                            <mat-option [value]="''">—</mat-option>
+                            @for (
+                                opt of packingCodeOptions();
+                                track opt.value
+                            ) {
+                                <mat-option [value]="opt.value">{{
+                                    opt.label
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
                     <mat-form-field class="w-full">
                         <mat-label>{{
                             t('admin.products.description')

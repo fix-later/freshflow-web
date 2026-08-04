@@ -6,6 +6,7 @@
 
 Name | Type
 ------------ | -------------
+`marketId` | string
 `name` | string
 `address` | string
 `latitude` | number
@@ -20,6 +21,7 @@ import type { CreateHubRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
+  "marketId": null,
   "name": null,
   "address": null,
   "latitude": null,

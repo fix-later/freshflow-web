@@ -1,0 +1,107 @@
+@if (navigation && !isScreenSmall) {
+    @if (embedded()) {
+        <div class="flex h-14 w-full items-center justify-between gap-4">
+            <ng-container *ngTemplateOutlet="navContent"></ng-container>
+        </div>
+    } @else {
+        <div class="bg-card block w-full border-b">
+            <div
+                class="mx-auto flex h-14 w-full max-w-[95rem] items-center justify-between gap-4 px-4 md:px-8 lg:px-14"
+            >
+                <ng-container *ngTemplateOutlet="navContent"></ng-container>
+            </div>
+        </div>
+    }
+}
+
+<ng-template #navContent>
+    <nav class="flex min-w-0 flex-auto items-center gap-1" *transloco="let t">
+        @for (
+            item of navigation.horizontal;
+            track item.id;
+            let first = $first
+        ) {
+            @if (item.children?.length) {
+                <a
+                    class="text-default inline-flex h-14 items-center gap-2 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
+                    [class.pl-0]="first"
+                    [class.pl-3]="!first"
+                    [class.border-primary]="isBranchActive(item)"
+                    [class.text-primary]="isBranchActive(item)"
+                    [matMenuTriggerFor]="branchMenu"
+                >
+                    @if (item.icon) {
+                        <mat-icon
+                            class="text-current icon-size-5"
+                            [svgIcon]="item.icon"
+                        ></mat-icon>
+                    }
+                    {{ item.title }}
+                    <mat-icon
+                        class="text-current icon-size-4"
+                        [svgIcon]="'heroicons_outline:chevron-down'"
+                    ></mat-icon>
+                </a>
+                <mat-menu #branchMenu="matMenu">
+                    @for (child of item.children; track child.id) {
+                        <a mat-menu-item [routerLink]="child.link">{{
+                            child.title
+                        }}</a>
+                    }
+                </mat-menu>
+            } @else {
+                <a
+                    class="text-default inline-flex h-14 items-center gap-2 border-b-2 border-transparent pr-3 text-base font-medium no-underline transition hover:text-primary"
+                    [class.pl-0]="first"
+                    [class.pl-3]="!first"
+                    [routerLink]="item.link"
+                    routerLinkActive
+                    #rla="routerLinkActive"
+                    [routerLinkActiveOptions]="{ exact: item.link === '/home' }"
+                    [class.border-primary]="rla.isActive"
+                    [class.text-primary]="rla.isActive"
+                >
+                    @if (item.icon) {
+                        <mat-icon
+                            class="text-current icon-size-5"
+                            [svgIcon]="item.icon"
+                        ></mat-icon>
+                    }
+                    {{ item.title }}
+                </a>
+            }
+        }
+    </nav>
+
+    <div
+        class="flex shrink-0 items-center gap-6 whitespace-nowrap"
+        *transloco="let t"
+    >
+        <a
+            class="inline-flex items-center gap-1.5 text-base font-semibold text-sale-700 hover:underline"
+            routerLink="/deals"
+        >
+            <mat-icon
+                class="text-current icon-size-5"
+                [svgIcon]="'heroicons_outline:fire'"
+            ></mat-icon>
+            <span>{{ t('header.hotDeals') }}</span>
+        </a>
+
+        <a
+            class="text-secondary inline-flex items-center gap-1.5 text-base"
+            [href]="hotline.href"
+        >
+            <mat-icon
+                class="text-primary icon-size-5"
+                [svgIcon]="'heroicons_outline:phone'"
+            ></mat-icon>
+            <span
+                >{{ t('header.hotline') }}
+                <span class="font-semibold text-primary">{{
+                    hotline.text
+                }}</span></span
+            >
+        </a>
+    </div>
+</ng-template>

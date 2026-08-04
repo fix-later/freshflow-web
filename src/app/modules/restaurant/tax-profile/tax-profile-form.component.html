@@ -1,0 +1,169 @@
+<ng-container *transloco="let t">
+    <form
+        class="ff-tax flex w-full min-w-0 flex-col gap-6"
+        [formGroup]="form"
+        (ngSubmit)="save()"
+    >
+        @if (loadError(); as message) {
+            <div
+                class="ff-tax__alert ff-tax__alert--warn flex flex-wrap items-center gap-2 rounded-2xl p-3.5 text-sm"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 icon-size-5"
+                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                ></mat-icon>
+                <span class="min-w-0 flex-auto">{{ message }}</span>
+                <button mat-button type="button" (click)="reload()">
+                    {{ t('common.retry') }}
+                </button>
+            </div>
+        }
+
+        @if (formError(); as message) {
+            <div
+                class="ff-tax__alert ff-tax__alert--error flex items-start gap-2 rounded-2xl p-3.5 text-sm"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 icon-size-5"
+                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                ></mat-icon>
+                <span>{{ message }}</span>
+            </div>
+        }
+
+        <!-- Invoice identity -->
+        <section class="ff-tax__card" aria-labelledby="ff-tax-identity-title">
+            <header class="ff-tax__card-head">
+                <div class="ff-tax__card-icon" aria-hidden="true">
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:identification'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2
+                        id="ff-tax-identity-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('restaurantProfile.taxProfile.identityTitle') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('restaurantProfile.taxProfile.identitySubtitle') }}
+                    </p>
+                </div>
+            </header>
+
+            <div class="ff-tax__card-body flex flex-col gap-1">
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.taxProfile.taxCode')
+                    }}</mat-label>
+                    <input matInput formControlName="taxCode" />
+                    @if (serverMessage(form.controls.taxCode); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (errorKey(form.controls.taxCode); as key) {
+                        <mat-error>{{
+                            t(key, { max: maxLength(form.controls.taxCode) })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.taxProfile.legalName')
+                    }}</mat-label>
+                    <input matInput formControlName="legalName" />
+                    @if (serverMessage(form.controls.legalName); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (errorKey(form.controls.legalName); as key) {
+                        <mat-error>{{
+                            t(key, {
+                                max: maxLength(form.controls.legalName),
+                            })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+        </section>
+
+        <!-- Billing contact -->
+        <section class="ff-tax__card" aria-labelledby="ff-tax-billing-title">
+            <header class="ff-tax__card-head">
+                <div class="ff-tax__card-icon" aria-hidden="true">
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:document-text'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2
+                        id="ff-tax-billing-title"
+                        class="text-base font-bold tracking-tight"
+                    >
+                        {{ t('restaurantProfile.taxProfile.billingTitle') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('restaurantProfile.taxProfile.billingSubtitle') }}
+                    </p>
+                </div>
+            </header>
+
+            <div class="ff-tax__card-body flex flex-col gap-1">
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.taxProfile.address')
+                    }}</mat-label>
+                    <input matInput formControlName="address" />
+                    @if (serverMessage(form.controls.address); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (errorKey(form.controls.address); as key) {
+                        <mat-error>{{
+                            t(key, { max: maxLength(form.controls.address) })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('restaurantProfile.taxProfile.email')
+                    }}</mat-label>
+                    <input matInput type="email" formControlName="email" />
+                    @if (serverMessage(form.controls.email); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (form.controls.email.hasError('email')) {
+                        <mat-error>{{
+                            t('restaurantProfile.taxProfile.emailInvalid')
+                        }}</mat-error>
+                    } @else if (errorKey(form.controls.email); as key) {
+                        <mat-error>{{
+                            t(key, { max: maxLength(form.controls.email) })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+        </section>
+
+        @if (!hideActions()) {
+            <div
+                class="ff-tax__actions flex flex-wrap items-center justify-end gap-3 border-t pt-4"
+            >
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving()"
+                >
+                    @if (saving()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-path'"
+                        ></mat-icon>
+                    }
+                    <span>{{ t('restaurantProfile.taxProfile.save') }}</span>
+                </button>
+            </div>
+        }
+    </form>
+</ng-container>

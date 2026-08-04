@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { uploadSignedImage } from 'app/core/api/cloudinary-upload';
 import {
     extractList,
     extractPagination,
@@ -30,27 +31,12 @@ export interface ProductsPage {
     pageSize?: number;
 }
 
-/** Offset page for catalog master-data tables (categories, units, markets). */
-export interface CatalogPage {
-    rows: CrudRow[];
-    total: number;
-    page?: number;
-    pageSize?: number;
-}
-
 /** Query for a single products page. */
 export interface ProductsQuery {
     page: number;
     pageSize: number;
     search?: string;
     categoryId?: string;
-}
-
-/** Query for a catalog master-data page. */
-export interface CatalogPageQuery {
-    page: number;
-    pageSize: number;
-    activeOnly?: boolean;
 }
 
 /** Coerce a form value to a required (non-empty) string. */
@@ -62,20 +48,6 @@ function str(value: unknown): string {
 function optStr(value: unknown): string | null {
     const trimmed = (value == null ? '' : String(value)).trim();
     return trimmed === '' ? null : trimmed;
-}
-
-/**
- * Signed Cloudinary upload params returned by the backend
- * `POST /api/v1/products/image/upload-signature` (admin only). The signature is
- * computed over `folder` + `timestamp`, so those exact params must be forwarded
- * to Cloudinary alongside the file.
- */
-interface ProductImageSignature {
-    signature: string;
-    timestamp: number;
-    apiKey: string;
-    cloudName: string;
-    folder: string;
 }
 
 /** Coerce a form value to an optional number (empty/NaN → null). */
@@ -126,6 +98,7 @@ export class CatalogAdminService {
             createCategoryRequest: {
                 name: str(value['name']),
                 parentId: optStr(value['parentId']),
+                imageUrl: optStr(value['imageUrl']),
             },
         });
     }
@@ -136,6 +109,7 @@ export class CatalogAdminService {
             updateCategoryRequest: {
                 name: str(value['name']),
                 parentId: optStr(value['parentId']),
+                imageUrl: optStr(value['imageUrl']),
             },
         });
     }
@@ -325,6 +299,7 @@ export class CatalogAdminService {
                 unitId: str(value['unitId']),
                 categoryId: optStr(value['categoryId']),
                 description: optStr(value['description']),
+                packingCodeId: optStr(value['packingCodeId']),
             },
         });
     }
@@ -338,6 +313,7 @@ export class CatalogAdminService {
                 categoryId: optStr(value['categoryId']),
                 description: optStr(value['description']),
                 imageUrl: optStr(value['imageUrl']),
+                packingCodeId: optStr(value['packingCodeId']),
             },
         });
     }
@@ -352,29 +328,23 @@ export class CatalogAdminService {
      * store in the product's `imageUrl`.
      */
     async uploadProductImage(file: File): Promise<string> {
-        const res =
-            await productsApi.apiV1ProductsImageUploadSignaturePostRaw();
-        const sig = unwrapData<ProductImageSignature>(await parseJson(res.raw));
-        if (!sig?.signature) {
-            throw new Error('Could not obtain an upload signature.');
-        }
-
-        const form = new FormData();
-        form.append('file', file);
-        form.append('api_key', sig.apiKey);
-        form.append('timestamp', String(sig.timestamp));
-        form.append('signature', sig.signature);
-        form.append('folder', sig.folder);
-
-        const upload = await fetch(
-            `https://api.cloudinary.com/v1_1/${sig.cloudName}/image/upload`,
-            { method: 'POST', body: form }
+        return uploadSignedImage(file, () =>
+            productsApi.apiV1ProductsImageUploadSignaturePostRaw()
         );
-        const body = (await upload.json()) as { secure_url?: string };
-        if (!upload.ok || !body.secure_url) {
-            throw new Error('Image upload failed.');
-        }
-        return body.secure_url;
+    }
+
+    /** Same flow as {@link uploadProductImage}, for a category's `imageUrl`. */
+    async uploadCategoryImage(file: File): Promise<string> {
+        return uploadSignedImage(file, () =>
+            categoriesApi.apiV1CategoriesImageUploadSignaturePostRaw()
+        );
+    }
+
+    /** Same flow as {@link uploadProductImage}, for a market's `imageUrl`. */
+    async uploadMarketImage(file: File): Promise<string> {
+        return uploadSignedImage(file, () =>
+            marketsApi.apiV1MarketsImageUploadSignaturePostRaw()
+        );
     }
 
     /**
@@ -393,38 +363,26 @@ export class CatalogAdminService {
         return this._toOptions(units, 'abbreviation');
     }
 
-    // ---- Markets ----------------------------------------------------------
-
-    /** All markets (pages to completion) for pickers. */
-    async listMarkets(): Promise<CrudRow[]> {
-        const rawRows = await fetchAllOffset<CrudRow>((page, pageSize) =>
-            marketsApi
-                .apiV1MarketsGetRaw({
-                    activeOnly: false,
-                    page,
-                    pageSize,
-                })
-                .then((res) => res.raw)
+    /** Active-only packing-code id/code options for the product form select. */
+    async packingCodeOptions(): Promise<CrudOption[]> {
+        const codes = (await this.listPackingCodes(true)).filter(
+            (c) => c['isActive'] !== false
         );
-        return withId<CrudRow>(rawRows, 'marketId');
+        return codes
+            .filter((row) => !!row.id)
+            .map((row) => ({ value: row.id, label: str(row['code']) }));
     }
 
-    /** One offset page of markets for the admin table. */
-    async listMarketsPage(query: CatalogPageQuery): Promise<CatalogPage> {
-        const res = await marketsApi.apiV1MarketsGetRaw({
-            activeOnly: query.activeOnly ?? false,
-            page: query.page,
-            pageSize: query.pageSize,
-        });
+    // ---- Markets ----------------------------------------------------------
+
+    /**
+     * All markets in one request (BE has no offset pagination). The admin
+     * table paginates client-side from this list.
+     */
+    async listMarkets(activeOnly = false): Promise<CrudRow[]> {
+        const res = await marketsApi.apiV1MarketsGetRaw({ activeOnly });
         const body = await parseJson(res.raw);
-        const rows = withId<CrudRow>(extractList(body), 'marketId');
-        const info = extractPagination(body);
-        return {
-            rows,
-            total: info?.total ?? extractTotal(body) ?? rows.length,
-            page: info?.page,
-            pageSize: info?.pageSize,
-        };
+        return withId<CrudRow>(extractList(body), 'marketId');
     }
 
     async createMarket(value: CrudFormValue): Promise<CrudRow | null> {
@@ -435,6 +393,8 @@ export class CatalogAdminService {
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']),
                 longitude: optNum(value['longitude']),
+                imageUrl: optStr(value['imageUrl']),
+                description: optStr(value['description']),
             },
         });
         const data = unwrapData<Record<string, unknown>>(
@@ -456,12 +416,27 @@ export class CatalogAdminService {
                 address: optStr(value['address']),
                 latitude: optNum(value['latitude']),
                 longitude: optNum(value['longitude']),
+                imageUrl: optStr(value['imageUrl']),
+                description: optStr(value['description']),
             },
         });
     }
 
     async deactivateMarket(id: string): Promise<void> {
         await marketsApi.apiV1MarketsIdDeactivatePatch({ id });
+    }
+
+    /**
+     * Permanently removes a market (`DELETE /markets/{id}`).
+     *
+     * Distinct from {@link deactivateMarket}, which retires a market while
+     * keeping its price history. Whether a given market may actually be
+     * deleted — no listings, no orders referencing it — is the server's call:
+     * it answers 409/400 and the caller shows that reason. Nothing is assumed
+     * here about which markets qualify.
+     */
+    async deleteMarket(id: string): Promise<void> {
+        await marketsApi.apiV1MarketsIdDelete({ id });
     }
 
     /** Single market by id (edit page). */
@@ -528,6 +503,17 @@ export class CatalogAdminService {
             marketId,
             productId,
             updateAvailableQuantityRequest: { quantity },
+        });
+    }
+
+    /** Delists a product from a market (does not deactivate the base product). */
+    async removeMarketProduct(
+        marketId: string,
+        productId: string
+    ): Promise<void> {
+        await marketsApi.apiV1MarketsMarketIdProductsProductIdDelete({
+            marketId,
+            productId,
         });
     }
 

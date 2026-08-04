@@ -1,0 +1,249 @@
+<div class="flex w-full flex-col gap-8" *transloco="let t">
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    @if (loadError(); as message) {
+        <div
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
+        >
+            <mat-icon
+                class="shrink-0 text-red-500 icon-size-5"
+                svgIcon="heroicons_outline:exclamation-triangle"
+            ></mat-icon>
+            <span class="min-w-0 flex-auto">{{ message }}</span>
+            <button mat-button type="button" (click)="reload()">
+                {{ t('common.retry') }}
+            </button>
+        </div>
+    } @else {
+        @if (actionError(); as message) {
+            <div
+                class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-amber-500 icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <span>{{ message }}</span>
+            </div>
+        }
+
+        <!-- Balance summary — labelled stat tiles + one line of plain English
+             about what the figure means (Render / Replit billing pattern). -->
+        <div class="flex flex-col gap-2">
+            <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.creditLimit') }}
+                    </div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums">
+                        {{ formatAmount(balance()?.creditLimit) }}
+                    </div>
+                </div>
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.currentBalance') }}
+                    </div>
+                    <div class="mt-1 text-2xl font-bold tabular-nums">
+                        {{
+                            formatAmount(
+                                balance()?.outstandingBalance ??
+                                    balance()?.currentBalance
+                            )
+                        }}
+                    </div>
+                </div>
+                <div class="rounded-xl border p-4">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('restaurantCredit.availableCredit') }}
+                    </div>
+                    <div
+                        class="mt-1 text-2xl font-bold tabular-nums text-primary"
+                    >
+                        {{ formatAmount(balance()?.availableCredit) }}
+                    </div>
+                </div>
+            </div>
+            <p class="text-secondary text-sm">
+                {{ t('restaurantCredit.balanceHint') }}
+            </p>
+        </div>
+
+        <!-- Statements -->
+        <section class="flex flex-col gap-3">
+            <h2 class="text-xl font-semibold">
+                {{ t('restaurantCredit.statements.title') }}
+            </h2>
+            @if (statements().length) {
+                <div
+                    class="flex flex-col divide-y overflow-hidden rounded-xl border"
+                >
+                    @for (statement of statements(); track statement.id) {
+                        <div class="flex flex-col">
+                            <div
+                                class="flex items-center justify-between gap-4 p-4"
+                            >
+                                <div class="flex flex-col gap-0.5">
+                                    <span class="font-medium">
+                                        {{ statement.month }}/{{
+                                            statement.year
+                                        }}
+                                    </span>
+                                    <span class="text-secondary text-sm">
+                                        {{
+                                            t(
+                                                'restaurantCredit.statements.closingBalance'
+                                            )
+                                        }}:
+                                        {{
+                                            formatAmount(
+                                                statement.closingBalance
+                                            )
+                                        }}
+                                    </span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button
+                                        mat-button
+                                        type="button"
+                                        (click)="toggleStatement(statement)"
+                                    >
+                                        {{
+                                            expandedStatementId() ===
+                                            statement.id
+                                                ? t(
+                                                      'restaurantCredit.statements.hideDetail'
+                                                  )
+                                                : t(
+                                                      'restaurantCredit.statements.viewDetail'
+                                                  )
+                                        }}
+                                    </button>
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="
+                                            downloadingId() === statement.id
+                                        "
+                                        (click)="downloadStatement(statement)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:arrow-down-tray"
+                                        ></mat-icon>
+                                        <span>{{
+                                            t(
+                                                'restaurantCredit.statements.download'
+                                            )
+                                        }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                            @if (expandedStatementId() === statement.id) {
+                                <div class="bg-hover px-4 pb-4">
+                                    @if (loadingStatement()) {
+                                        <p class="text-secondary text-sm">
+                                            {{ t('restaurantCredit.loading') }}
+                                        </p>
+                                    } @else if (statementEntries().length) {
+                                        <div
+                                            class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
+                                        >
+                                            @for (
+                                                entry of statementEntries();
+                                                track entry.label
+                                            ) {
+                                                <div
+                                                    class="flex justify-between gap-4 border-b py-1.5 text-sm"
+                                                >
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{ entry.label }}</span
+                                                    >
+                                                    <span
+                                                        class="text-right font-medium"
+                                                        >{{ entry.value }}</span
+                                                    >
+                                                </div>
+                                            }
+                                        </div>
+                                    } @else {
+                                        <p class="text-secondary text-sm">
+                                            {{
+                                                t(
+                                                    'restaurantCredit.statements.detailUnavailable'
+                                                )
+                                            }}
+                                        </p>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+                @if (hasMoreStatements()) {
+                    <button mat-button (click)="loadMoreStatements()">
+                        {{ t('restaurantCredit.loadMore') }}
+                    </button>
+                }
+            } @else {
+                <p class="text-secondary text-sm">
+                    {{ t('restaurantCredit.statements.empty') }}
+                </p>
+            }
+        </section>
+
+        <!-- Transactions -->
+        <section class="flex flex-col gap-3">
+            <h2 class="text-xl font-semibold">
+                {{ t('restaurantCredit.transactions.title') }}
+            </h2>
+            @if (transactions().length) {
+                <div
+                    class="flex flex-col divide-y overflow-hidden rounded-xl border"
+                >
+                    @for (tx of transactions(); track tx.id) {
+                        <div
+                            class="flex items-center justify-between gap-4 p-4 text-sm"
+                        >
+                            <div class="flex flex-col gap-0.5">
+                                <span class="font-medium">{{
+                                    tx.description || tx.type
+                                }}</span>
+                                <span class="text-secondary">{{
+                                    formatDate(tx.createdAt)
+                                }}</span>
+                            </div>
+                            <div class="flex flex-col items-end gap-0.5">
+                                <span class="font-mono font-semibold">{{
+                                    formatAmount(tx.amount)
+                                }}</span>
+                                <span class="text-secondary text-xs">
+                                    {{
+                                        t(
+                                            'restaurantCredit.transactions.balanceAfter'
+                                        )
+                                    }}:
+                                    {{ formatAmount(tx.balanceAfter) }}
+                                </span>
+                            </div>
+                        </div>
+                    }
+                </div>
+                @if (hasMoreTransactions()) {
+                    <button mat-button (click)="loadMoreTransactions()">
+                        {{ t('restaurantCredit.loadMore') }}
+                    </button>
+                }
+            } @else {
+                <p class="text-secondary text-sm">
+                    {{ t('restaurantCredit.transactions.empty') }}
+                </p>
+            }
+        </section>
+    }
+</div>

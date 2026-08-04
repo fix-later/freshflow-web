@@ -14,7 +14,7 @@ import { ActivatedRoute } from '@angular/router';
 @Component({
     selector: 'placeholder-page',
     template: `
-        <div class="flex w-full flex-col p-6 md:p-8">
+        <div class="ff-page flex flex-col">
             <h1 class="text-3xl font-bold tracking-tight">{{ title }}</h1>
             <p class="text-secondary mt-2">{{ description }}</p>
         </div>

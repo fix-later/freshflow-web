@@ -1,0 +1,587 @@
+<div class="ff-sched flex w-full min-w-0 flex-col gap-5" *transloco="let t">
+    <!-- Toolbar -->
+    <div
+        class="ff-sched__toolbar flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"
+    >
+        <p class="text-secondary min-w-0 max-w-xl text-sm leading-snug">
+            {{ t('scheduledOrders.createHint') }}
+        </p>
+        <div class="flex flex-wrap items-center gap-3 sm:justify-end">
+            <mat-slide-toggle
+                class="text-sm"
+                [checked]="includeCancelled()"
+                (change)="toggleCancelled($event.checked)"
+            >
+                {{ t('scheduledOrders.showCancelled') }}
+            </mat-slide-toggle>
+            <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="saving() || isCreating()"
+                (click)="openCreate()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:plus'"
+                ></mat-icon>
+                <span class="ml-2">{{ t('scheduledOrders.create') }}</span>
+            </button>
+        </div>
+    </div>
+
+    @if (loadError(); as message) {
+        <div
+            class="ff-sched__alert ff-sched__alert--error flex flex-wrap items-center gap-2 rounded-2xl p-3.5 text-sm"
+            role="alert"
+        >
+            <mat-icon
+                class="shrink-0 icon-size-5"
+                [svgIcon]="'heroicons_outline:exclamation-triangle'"
+            ></mat-icon>
+            <span class="min-w-0 flex-auto">{{ message }}</span>
+            <button mat-button type="button" (click)="reload()">
+                {{ t('common.retry') }}
+            </button>
+        </div>
+    }
+
+    @if (actionError(); as message) {
+        <div
+            class="ff-sched__alert ff-sched__alert--error flex items-start gap-2 rounded-2xl p-3.5 text-sm"
+            role="alert"
+        >
+            <mat-icon
+                class="shrink-0 icon-size-5"
+                [svgIcon]="'heroicons_outline:exclamation-triangle'"
+            ></mat-icon>
+            <span>{{ message }}</span>
+        </div>
+    }
+
+    <!-- Create form -->
+    @if (isCreating()) {
+        <form
+            class="ff-sched__panel flex flex-col"
+            [formGroup]="editForm"
+            (ngSubmit)="saveEdit()"
+        >
+            <header class="ff-sched__panel-head">
+                <div class="ff-sched__icon" aria-hidden="true">
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:calendar-days'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <h2 class="text-base font-bold tracking-tight">
+                        {{ t('scheduledOrders.createTitle') }}
+                    </h2>
+                    <p class="text-secondary mt-0.5 text-sm leading-snug">
+                        {{ t('scheduledOrders.hint') }}
+                    </p>
+                </div>
+            </header>
+            <div class="ff-sched__panel-body flex flex-col gap-1">
+                <div
+                    class="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-4"
+                >
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('scheduledOrders.firstRunAt')
+                        }}</mat-label>
+                        <input
+                            matInput
+                            type="datetime-local"
+                            formControlName="firstRunAt"
+                        />
+                        @if (
+                            serverMessage(editForm.controls.firstRunAt);
+                            as msg
+                        ) {
+                            <mat-error>{{ msg }}</mat-error>
+                        } @else if (
+                            errorKey(editForm.controls.firstRunAt);
+                            as key
+                        ) {
+                            <mat-error>{{ t(key) }}</mat-error>
+                        }
+                    </mat-form-field>
+                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('scheduledOrders.recurrenceType')
+                        }}</mat-label>
+                        <mat-select formControlName="recurrenceType">
+                            @for (type of recurrenceTypes; track type) {
+                                <mat-option [value]="type">{{
+                                    t('scheduledOrders.recurrence.' + type)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                        <mat-hint>{{
+                            t('scheduledOrders.recurrenceHint')
+                        }}</mat-hint>
+                        @if (
+                            serverMessage(editForm.controls.recurrenceType);
+                            as msg
+                        ) {
+                            <mat-error>{{ msg }}</mat-error>
+                        } @else if (
+                            errorKey(editForm.controls.recurrenceType);
+                            as key
+                        ) {
+                            <mat-error>{{ t(key) }}</mat-error>
+                        }
+                    </mat-form-field>
+                </div>
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{ t('scheduledOrders.notes') }}</mat-label>
+                    <textarea
+                        matInput
+                        rows="2"
+                        formControlName="notes"
+                    ></textarea>
+                    @if (serverMessage(editForm.controls.notes); as msg) {
+                        <mat-error>{{ msg }}</mat-error>
+                    } @else if (errorKey(editForm.controls.notes); as key) {
+                        <mat-error>{{
+                            t(key, {
+                                max: maxLength(editForm.controls.notes),
+                            })
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+            </div>
+            <div
+                class="ff-sched__actions flex flex-wrap justify-end gap-2 border-t px-5 py-4"
+            >
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="saving()"
+                    (click)="closeEdit()"
+                >
+                    {{ t('scheduledOrders.editCancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="saving()"
+                >
+                    @if (saving()) {
+                        <mat-icon
+                            class="animate-spin icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-path'"
+                        ></mat-icon>
+                    }
+                    <span>{{ t('scheduledOrders.create') }}</span>
+                </button>
+            </div>
+        </form>
+    }
+
+    @if (loading()) {
+        <div class="flex items-center justify-center py-16">
+            <mat-progress-spinner
+                [diameter]="36"
+                [mode]="'indeterminate'"
+            ></mat-progress-spinner>
+        </div>
+    } @else if (schedules().length === 0 && !loadError()) {
+        <div
+            class="ff-sched__empty flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
+        >
+            <span
+                class="ff-sched__empty-icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
+                aria-hidden="true"
+            >
+                <mat-icon
+                    class="icon-size-8"
+                    [svgIcon]="'heroicons_outline:calendar-days'"
+                ></mat-icon>
+            </span>
+            <p class="text-base font-semibold tracking-tight">
+                {{ t('scheduledOrders.empty.title') }}
+            </p>
+            <p class="text-secondary mt-1 max-w-sm text-sm leading-snug">
+                {{ t('scheduledOrders.empty.description') }}
+            </p>
+            @if (!isCreating()) {
+                <button
+                    mat-flat-button
+                    color="primary"
+                    class="mt-5"
+                    type="button"
+                    (click)="openCreate()"
+                >
+                    {{ t('scheduledOrders.create') }}
+                </button>
+            }
+        </div>
+    } @else {
+        <div class="flex flex-col gap-3">
+            @for (schedule of schedules(); track schedule.id) {
+                <article
+                    class="ff-sched__card overflow-hidden"
+                    [class.ff-sched__card--ended]="isCancelled(schedule)"
+                >
+                    <div
+                        class="flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-center sm:gap-4 sm:px-5"
+                    >
+                        <div class="flex min-w-0 flex-1 items-start gap-3">
+                            <span
+                                class="ff-sched__icon shrink-0"
+                                aria-hidden="true"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="'heroicons_outline:arrow-path'"
+                                ></mat-icon>
+                            </span>
+                            <div class="min-w-0 flex-1">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <h3 class="text-sm font-semibold">
+                                        {{ t(recurrenceKey(schedule)) }}
+                                    </h3>
+                                    @if (isCancelled(schedule)) {
+                                        <span
+                                            class="admin-pill admin-pill-neutral"
+                                        >
+                                            {{
+                                                t(
+                                                    'scheduledOrders.statusCancelled'
+                                                )
+                                            }}
+                                        </span>
+                                    } @else {
+                                        <span
+                                            class="admin-pill admin-pill-success"
+                                        >
+                                            {{
+                                                t(
+                                                    'scheduledOrders.statusActive'
+                                                )
+                                            }}
+                                        </span>
+                                    }
+                                </div>
+                                <p
+                                    class="text-secondary mt-1 text-sm leading-snug"
+                                >
+                                    @if (schedule.nextRunAt) {
+                                        {{ t('scheduledOrders.nextRun') }}:
+                                        {{
+                                            schedule.nextRunAt
+                                                | date: 'dd/MM/yyyy HH:mm'
+                                        }}
+                                    } @else if (schedule.firstRunAt) {
+                                        {{ t('scheduledOrders.firstRun') }}:
+                                        {{
+                                            schedule.firstRunAt
+                                                | date: 'dd/MM/yyyy HH:mm'
+                                        }}
+                                    } @else {
+                                        {{ t('scheduledOrders.schedule') }}
+                                    }
+                                </p>
+                                @if (schedule.notes) {
+                                    <p
+                                        class="text-hint mt-1 truncate text-xs leading-snug"
+                                    >
+                                        {{ schedule.notes }}
+                                    </p>
+                                }
+                            </div>
+                        </div>
+
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-2 sm:justify-end"
+                        >
+                            @if (
+                                schedule.totalAmount !== null &&
+                                schedule.totalAmount !== undefined
+                            ) {
+                                <p
+                                    class="font-mono text-sm font-bold tabular-nums sm:mr-1"
+                                >
+                                    {{ schedule.totalAmount | number: '1.0-0' }}
+                                    ₫
+                                </p>
+                            }
+
+                            <div class="flex items-center gap-1">
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="toggleInstances(schedule)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            expandedId() === schedule.id
+                                                ? 'heroicons_outline:chevron-up'
+                                                : 'heroicons_outline:chevron-down'
+                                        "
+                                    ></mat-icon>
+                                    <span class="ml-1">{{
+                                        t('scheduledOrders.viewRuns')
+                                    }}</span>
+                                </button>
+
+                                @if (!isCancelled(schedule)) {
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="saving()"
+                                        (click)="openEdit(schedule)"
+                                    >
+                                        {{ t('scheduledOrders.edit') }}
+                                    </button>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [disabled]="saving()"
+                                        [matTooltip]="
+                                            t('scheduledOrders.cancel')
+                                        "
+                                        (click)="cancel(schedule)"
+                                    >
+                                        <mat-icon
+                                            class="text-warn icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:x-circle'
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inline edit (visible without needing runs expanded) -->
+                    @if (editingId() === schedule.id) {
+                        <form
+                            class="ff-sched__inline border-t"
+                            [formGroup]="editForm"
+                            (ngSubmit)="saveEdit()"
+                        >
+                            <header class="ff-sched__panel-head">
+                                <div class="ff-sched__icon" aria-hidden="true">
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:pencil-square'
+                                        "
+                                    ></mat-icon>
+                                </div>
+                                <div class="min-w-0">
+                                    <h3
+                                        class="text-base font-bold tracking-tight"
+                                    >
+                                        {{ t('scheduledOrders.editTitle') }}
+                                    </h3>
+                                    <p
+                                        class="text-secondary mt-0.5 text-sm leading-snug"
+                                    >
+                                        {{
+                                            t('scheduledOrders.recurrenceHint')
+                                        }}
+                                    </p>
+                                </div>
+                            </header>
+                            <div
+                                class="ff-sched__panel-body flex flex-col gap-1"
+                            >
+                                <div
+                                    class="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-4"
+                                >
+                                    <mat-form-field
+                                        class="flex-1"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <mat-label>{{
+                                            t('scheduledOrders.firstRunAt')
+                                        }}</mat-label>
+                                        <input
+                                            matInput
+                                            type="datetime-local"
+                                            formControlName="firstRunAt"
+                                        />
+                                        @if (
+                                            serverMessage(
+                                                editForm.controls.firstRunAt
+                                            );
+                                            as msg
+                                        ) {
+                                            <mat-error>{{ msg }}</mat-error>
+                                        } @else if (
+                                            errorKey(
+                                                editForm.controls.firstRunAt
+                                            );
+                                            as key
+                                        ) {
+                                            <mat-error>{{ t(key) }}</mat-error>
+                                        }
+                                    </mat-form-field>
+                                    <mat-form-field
+                                        class="flex-1"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <mat-label>{{
+                                            t('scheduledOrders.recurrenceType')
+                                        }}</mat-label>
+                                        <mat-select
+                                            formControlName="recurrenceType"
+                                        >
+                                            @for (
+                                                type of recurrenceTypes;
+                                                track type
+                                            ) {
+                                                <mat-option [value]="type">{{
+                                                    t(
+                                                        'scheduledOrders.recurrence.' +
+                                                            type
+                                                    )
+                                                }}</mat-option>
+                                            }
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                                <mat-form-field
+                                    class="w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('scheduledOrders.notes')
+                                    }}</mat-label>
+                                    <textarea
+                                        matInput
+                                        rows="2"
+                                        formControlName="notes"
+                                    ></textarea>
+                                    @if (
+                                        serverMessage(editForm.controls.notes);
+                                        as msg
+                                    ) {
+                                        <mat-error>{{ msg }}</mat-error>
+                                    } @else if (
+                                        errorKey(editForm.controls.notes);
+                                        as key
+                                    ) {
+                                        <mat-error>{{
+                                            t(key, {
+                                                max: maxLength(
+                                                    editForm.controls.notes
+                                                ),
+                                            })
+                                        }}</mat-error>
+                                    }
+                                </mat-form-field>
+                            </div>
+                            <div
+                                class="ff-sched__actions flex flex-wrap justify-end gap-2 border-t px-5 py-4"
+                            >
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="saving()"
+                                    (click)="closeEdit()"
+                                >
+                                    {{ t('scheduledOrders.editCancel') }}
+                                </button>
+                                <button
+                                    mat-flat-button
+                                    color="primary"
+                                    type="submit"
+                                    [disabled]="saving()"
+                                >
+                                    @if (saving()) {
+                                        <mat-icon
+                                            class="animate-spin icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:arrow-path'
+                                            "
+                                        ></mat-icon>
+                                    }
+                                    <span>{{
+                                        t('scheduledOrders.editSave')
+                                    }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    }
+
+                    <!-- Generated runs -->
+                    @if (expandedId() === schedule.id) {
+                        <div class="ff-sched__runs border-t px-4 py-4 sm:px-5">
+                            <h4
+                                class="text-secondary mb-3 text-xs font-bold uppercase tracking-wide"
+                            >
+                                {{ t('scheduledOrders.viewRuns') }}
+                            </h4>
+                            @if (instancesLoading()) {
+                                <div class="flex justify-center py-6">
+                                    <mat-progress-spinner
+                                        [diameter]="24"
+                                        [mode]="'indeterminate'"
+                                    ></mat-progress-spinner>
+                                </div>
+                            } @else if (instances().length === 0) {
+                                <p
+                                    class="text-secondary py-4 text-center text-sm"
+                                >
+                                    {{ t('scheduledOrders.noRuns') }}
+                                </p>
+                            } @else {
+                                <div
+                                    class="ff-sched__runs-list overflow-hidden rounded-xl border"
+                                >
+                                    @for (
+                                        run of instances();
+                                        track run.id;
+                                        let last = $last
+                                    ) {
+                                        <div
+                                            class="flex items-center gap-3 px-3.5 py-3 sm:gap-4"
+                                            [class.border-b]="!last"
+                                        >
+                                            <span
+                                                class="text-secondary w-36 shrink-0 text-sm tabular-nums sm:w-40"
+                                            >
+                                                {{
+                                                    run.runAt
+                                                        | date
+                                                            : 'dd/MM/yyyy HH:mm'
+                                                }}
+                                            </span>
+                                            <span
+                                                class="min-w-0 flex-1 truncate text-sm"
+                                            >
+                                                {{ run.status }}
+                                            </span>
+                                            @if (
+                                                run.totalAmount !== null &&
+                                                run.totalAmount !== undefined
+                                            ) {
+                                                <span
+                                                    class="shrink-0 font-mono text-sm font-semibold tabular-nums"
+                                                >
+                                                    {{
+                                                        run.totalAmount
+                                                            | number: '1.0-0'
+                                                    }}
+                                                    ₫
+                                                </span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    }
+</div>

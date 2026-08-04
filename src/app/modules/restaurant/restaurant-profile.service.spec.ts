@@ -62,4 +62,29 @@ describe('RestaurantProfileService', () => {
             expect(service.profile()?.address).toBe('1 Main St');
         });
     });
+
+    describe('saveTaxProfile', () => {
+        it('sends an UpdateTaxProfileRequest', async () => {
+            const put = spyOn(
+                restaurantProfileApi,
+                'apiV1RestaurantsMeTaxProfilePut'
+            ).and.resolveTo(undefined as any);
+
+            await service.saveTaxProfile({
+                taxCode: '0312345678',
+                legalName: 'Green Garden Co., Ltd',
+                address: null,
+                email: null,
+            });
+
+            expect(put).toHaveBeenCalledWith({
+                updateTaxProfileRequest: {
+                    taxCode: '0312345678',
+                    legalName: 'Green Garden Co., Ltd',
+                    address: null,
+                    email: null,
+                },
+            });
+        });
+    });
 });

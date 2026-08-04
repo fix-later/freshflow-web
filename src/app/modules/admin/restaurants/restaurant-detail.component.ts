@@ -9,7 +9,12 @@ import {
     inject,
     signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+    FormBuilder,
+    FormGroup,
+    ReactiveFormsModule,
+    Validators,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import {
     MatDialog,
@@ -27,6 +32,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import {
+    applyApiErrorToForm,
+    clearServerErrors,
+    fieldErrorKey,
+    fieldMaxLength,
+    serverError,
+} from 'app/core/api/form-errors';
+import { trimmedMaxLengthValidator } from 'app/core/api/validators';
 import { AdminService } from '../admin.service';
 import {
     AdminCreditStatement,
@@ -36,6 +49,7 @@ import {
 } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 
+/** Actions this page can start against a restaurant. */
 type RestaurantAction =
     | 'approve'
     | 'suspend'
@@ -48,6 +62,19 @@ interface ProfileField {
     value: string;
 }
 
+/**
+ * What each lifecycle action leaves the row in, so the pills update the moment
+ * the call succeeds instead of waiting for a reload. Confirmed against the live
+ * API — none of these endpoints touch `isActive`.
+ */
+const LIFECYCLE_PATCH: Partial<
+    Record<RestaurantAction, Partial<AdminUserRow>>
+> = {
+    approve: { isApproved: true, restaurantStatus: 'active' },
+    suspend: { isApproved: false, restaurantStatus: 'suspended' },
+    reactivate: { isApproved: true, restaurantStatus: 'active' },
+};
+
 const RESTAURANT_ROLE = 'restaurant';
 const USER_LOOKUP_PAGE_SIZE = 100;
 const USER_LOOKUP_MAX_PAGES = 20;
@@ -55,10 +82,11 @@ const USER_LOOKUP_MAX_PAGES = 20;
 @Component({
     selector: 'admin-restaurant-detail',
     templateUrl: './restaurant-detail.component.html',
+    styleUrl: './restaurant-detail.component.scss',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    host: { class: 'flex flex-auto flex-col' },
+    host: { class: 'relative flex min-h-0 flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
         DecimalPipe,
@@ -100,18 +128,39 @@ export class RestaurantDetailComponent implements OnInit {
     readonly busyAction = signal<RestaurantAction | null>(null);
     readonly editingCreditLimit = signal(false);
 
-    readonly hasCreditLimit = computed(() => {
-        const limit = this.credit()?.creditLimit;
-        return limit != null && !Number.isNaN(Number(limit));
+    /**
+     * The limit currently in force. `GET /restaurants/{id}/credit` always
+     * answers with a record — a restaurant that has never been given a limit
+     * reads back `creditLimit: 0`, never `null` — so this is never blank.
+     */
+    readonly creditLimit = computed(() => {
+        const limit = Number(this.credit()?.creditLimit);
+        return Number.isFinite(limit) ? limit : 0;
     });
 
-    readonly needsCreditLimitSave = computed(
-        () => !this.hasCreditLimit() && this.editingCreditLimit()
-    );
+    /**
+     * What the restaurant owes. The live field is `outstandingBalance`;
+     * `currentBalance` is only a tolerated alias, so reading the alias alone
+     * left the tile showing "—" for every restaurant.
+     */
+    readonly outstandingBalance = computed(() => {
+        const snapshot = this.credit();
+        const raw = snapshot?.outstandingBalance ?? snapshot?.currentBalance;
+        return raw == null ? null : Number(raw);
+    });
 
+    readonly availableCredit = computed(() => {
+        const raw = this.credit()?.availableCredit;
+        return raw == null ? null : Number(raw);
+    });
+
+    /**
+     * `SetCreditLimitRequest`: `creditLimit` `minimum: 0` (inclusive — a limit
+     * of 0 freezes ordering rather than being invalid), `note` `maxLength: 500`.
+     */
     readonly creditLimitForm = this._formBuilder.nonNullable.group({
         creditLimit: [0, [Validators.required, Validators.min(0)]],
-        note: [''],
+        note: ['', [trimmedMaxLengthValidator(NOTE_MAX_LENGTH)]],
     });
 
     readonly settleForm = this._formBuilder.nonNullable.group({
@@ -133,6 +182,18 @@ export class RestaurantDetailComponent implements OnInit {
     });
 
     readonly months = Array.from({ length: 12 }, (_, i) => i + 1);
+
+    /** Template helpers for per-field messages. */
+    readonly errorKey = fieldErrorKey;
+    readonly maxLength = fieldMaxLength;
+    readonly serverMessage = serverError;
+
+    /**
+     * Localized reason the last credit action failed, when the rejection was
+     * not per-field. A snackbar alone disappears before an operator recording
+     * a payment has finished reading it.
+     */
+    readonly actionError = signal<string | null>(null);
 
     ngOnInit(): void {
         const userId = this._route.snapshot.paramMap.get('userId') ?? '';
@@ -167,10 +228,73 @@ export class RestaurantDetailComponent implements OnInit {
         );
     }
 
+    /**
+     * The approval lifecycle is the only status worth showing here: the live
+     * API reports `isActive: true` for every restaurant, so an account-active
+     * label would read "Đang hoạt động" next to "Chờ duyệt".
+     */
     statusLabel(): string {
-        return this.user()?.isActive
-            ? this._transloco.translate('admin.users.filters.active')
-            : this._transloco.translate('admin.users.filters.inactive');
+        const u = this.user();
+        return u ? this._transloco.translate(this.approvalKey(u)) : '—';
+    }
+
+    /** i18n key for the restaurant approval lifecycle pill (BR-AUTH-1). */
+    approvalKey(user: AdminUserRow): string {
+        const status = String(user.restaurantStatus ?? '')
+            .trim()
+            .toLowerCase();
+        if (status) {
+            return `admin.users.approval.${status}`;
+        }
+        return user.isApproved
+            ? 'admin.users.approval.active'
+            : 'admin.users.approval.pending';
+    }
+
+    /**
+     * Which lifecycle action this restaurant can take next.
+     *
+     * Driven by `restaurantStatus` — the field the approve/suspend/reactivate
+     * endpoints actually move. The menu used to key off `isActive`, which the
+     * live API reports as `true` for every restaurant including the ones still
+     * waiting for review: Duyệt and Kích hoạt lại could never appear, and Tạm
+     * ngưng always did.
+     */
+    private _status(): string {
+        const u = this.user();
+        const status = String(u?.restaurantStatus ?? '')
+            .trim()
+            .toLowerCase();
+        if (status) {
+            return status;
+        }
+        return u?.isApproved ? 'active' : 'pending';
+    }
+
+    /** A restaurant awaiting review can be approved (BR-AUTH-1). */
+    canApprove(): boolean {
+        return this._status() === 'pending';
+    }
+
+    /** An approved, running restaurant can be suspended. */
+    canSuspend(): boolean {
+        return this._status() === 'active';
+    }
+
+    /** Only a suspended restaurant can be put back into service. */
+    canReactivate(): boolean {
+        return this._status() === 'suspended';
+    }
+
+    approvalPillClass(user: AdminUserRow): string {
+        const key = this.approvalKey(user);
+        if (key.endsWith('.active')) {
+            return 'admin-pill admin-pill-success';
+        }
+        if (key.endsWith('.suspended')) {
+            return 'admin-pill admin-pill-danger';
+        }
+        return 'admin-pill admin-pill-warning';
     }
 
     profileFields(u: AdminUserRow): ProfileField[] {
@@ -214,11 +338,29 @@ export class RestaurantDetailComponent implements OnInit {
         ];
     }
 
+    /**
+     * `PUT /admin/restaurants/{id}/credit/limit` is idempotent and repeatable,
+     * so the limit stays editable for the life of the account — this is not a
+     * one-shot activation.
+     */
     startEditingCreditLimit(): void {
+        clearServerErrors(this.creditLimitForm);
+        this.actionError.set(null);
+        this.creditLimitForm.reset({
+            creditLimit: this.creditLimit(),
+            note: '',
+        });
         this.editingCreditLimit.set(true);
-        if (!this.creditLimitForm.controls.creditLimit.value) {
-            this.creditLimitForm.patchValue({ creditLimit: 0 });
-        }
+    }
+
+    cancelEditingCreditLimit(): void {
+        this.editingCreditLimit.set(false);
+        clearServerErrors(this.creditLimitForm);
+        this.actionError.set(null);
+        this.creditLimitForm.reset({
+            creditLimit: this.creditLimit(),
+            note: '',
+        });
     }
 
     saveCreditLimit(): void {
@@ -228,10 +370,9 @@ export class RestaurantDetailComponent implements OnInit {
             this.creditLimitForm.markAllAsTouched();
             return;
         }
-        if (this.hasCreditLimit()) {
-            return;
-        }
         const { creditLimit, note } = this.creditLimitForm.getRawValue();
+        clearServerErrors(this.creditLimitForm);
+        this.actionError.set(null);
         this.busyAction.set('creditLimit');
         this._admin
             .setCreditLimit(restaurantId, {
@@ -242,7 +383,14 @@ export class RestaurantDetailComponent implements OnInit {
                 this._notify('admin.restaurants.creditLimit.success');
                 this._loadCreditSnapshot(restaurantId);
             })
-            .catch((err) => void this._notifyError(err))
+            .catch(
+                (err) =>
+                    void this._reportFormError(
+                        err,
+                        this.creditLimitForm,
+                        'admin.restaurants.creditLimit.error'
+                    )
+            )
             .finally(() => this.busyAction.set(null));
     }
 
@@ -270,6 +418,10 @@ export class RestaurantDetailComponent implements OnInit {
         );
     }
 
+    closeActionDialog(): void {
+        this._dialogRef?.close();
+    }
+
     openSettleDialog(template: TemplateRef<unknown>): void {
         const current = this.user();
         if (!current?.restaurantId || this._dialogRef) {
@@ -288,10 +440,6 @@ export class RestaurantDetailComponent implements OnInit {
         this._dialogRef.afterClosed().subscribe(() => {
             this._dialogRef = null;
         });
-    }
-
-    closeActionDialog(): void {
-        this._dialogRef?.close();
     }
 
     settleCredit(): void {
@@ -448,13 +596,20 @@ export class RestaurantDetailComponent implements OnInit {
         action(restaurantId)
             .then(() => {
                 this._notify(successKey);
-                if (kind === 'suspend') {
-                    this.user.update((u) =>
-                        u ? { ...u, isActive: false } : u
-                    );
-                } else if (kind === 'reactivate') {
-                    this.user.update((u) => (u ? { ...u, isActive: true } : u));
+                // These endpoints move the *approval* lifecycle, not `isActive`
+                // — verified against the live API: approve → isApproved true /
+                // status active, suspend → status suspended + isApproved false,
+                // reactivate → back to active, and `isActive` never changes.
+                // Patching `isActive` flipped the wrong pill while the approval
+                // one stayed stale, which is why an approved restaurant kept
+                // reading "chờ duyệt" until a full reload.
+                const patch = LIFECYCLE_PATCH[kind];
+                if (patch) {
+                    this.user.update((u) => (u ? { ...u, ...patch } : u));
                 }
+                // The optimistic patch is for the eye; the re-read is the
+                // authority, in case the backend decided something else.
+                void this._refreshUser(current.id);
                 this._loadCreditSnapshot(restaurantId);
             })
             .catch((err) => void this._notifyError(err))
@@ -503,6 +658,27 @@ export class RestaurantDetailComponent implements OnInit {
         });
     }
 
+    /**
+     * Pins a rejection's field detail onto `form` and shows the rest inline
+     * plus as a toast — the banner stays put while the operator fixes it.
+     */
+    private async _reportFormError(
+        err: unknown,
+        form: FormGroup,
+        fallbackKey: string
+    ): Promise<void> {
+        const translate = (key: string): string =>
+            this._transloco.translate(key);
+        const { handled } = await applyApiErrorToForm(form, err, translate);
+        if (handled) {
+            this.actionError.set(translate('errors.api.validation'));
+            return;
+        }
+        const message = await describeApiError(err, translate, fallbackKey);
+        this.actionError.set(message);
+        this._snackBar.open(message, undefined, { duration: 6000 });
+    }
+
     private async _notifyError(err: unknown): Promise<void> {
         const message = await describeApiError(
             err,
@@ -512,3 +688,9 @@ export class RestaurantDetailComponent implements OnInit {
         this._snackBar.open(message, undefined, { duration: 5000 });
     }
 }
+
+/** `note` is `maxLength: 500` on both SetCreditLimitRequest and SettleCreditRequest. */
+const NOTE_MAX_LENGTH = 500;
+
+/** `SettleCreditRequest.reference` — `maxLength: 200`. */
+const REFERENCE_MAX_LENGTH = 200;

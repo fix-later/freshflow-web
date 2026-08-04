@@ -1,0 +1,81 @@
+<div class="flex w-full flex-col gap-4" *transloco="let t">
+    @if (loading()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    @if (loadError(); as message) {
+        <div
+            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+            role="alert"
+        >
+            <mat-icon
+                class="shrink-0 text-red-500 icon-size-5"
+                svgIcon="heroicons_outline:exclamation-triangle"
+            ></mat-icon>
+            <span class="min-w-0 flex-auto">{{ message }}</span>
+            <button mat-button type="button" (click)="load()">
+                {{ t('common.retry') }}
+            </button>
+        </div>
+    } @else if (!loading() && !rows().length) {
+        <div class="flex flex-col items-center justify-center py-16">
+            <mat-icon
+                class="text-hint icon-size-16"
+                svgIcon="heroicons_outline:document-text"
+            ></mat-icon>
+            <p class="text-secondary mt-4 text-lg font-medium">
+                {{ t('restaurantInvoices.empty') }}
+            </p>
+        </div>
+    } @else {
+        <div class="flex flex-col divide-y overflow-hidden rounded-xl border">
+            @for (row of rows(); track row.id) {
+                <button
+                    type="button"
+                    class="bg-card flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-hover"
+                    (click)="openInvoice(row)"
+                >
+                    <div class="flex min-w-0 flex-col gap-0.5">
+                        <span class="font-mono text-sm font-medium">{{
+                            row.id.slice(0, 8)
+                        }}</span>
+                        <span class="text-secondary text-sm"
+                            >{{ t('restaurantInvoices.issuedAt') }}:
+                            {{ formatDate(row.issuedAt) }}</span
+                        >
+                    </div>
+                    <span class="text-secondary text-sm"
+                        >{{ t('restaurantInvoices.dueAt') }}:
+                        {{ formatDate(row.dueAt) }}</span
+                    >
+                    <span class="font-mono font-semibold">{{
+                        formatAmount(row.totalAmount)
+                    }}</span>
+                    <span [class]="statusPillClass(row.status)">
+                        {{ row.status || '—' }}
+                    </span>
+                </button>
+            }
+        </div>
+
+        <div class="flex items-center justify-between pt-2">
+            <button
+                mat-stroked-button
+                [disabled]="page() <= 1"
+                (click)="previousPage()"
+            >
+                {{ t('orders.pagination.previous') }}
+            </button>
+            <span class="text-secondary text-sm">{{
+                t('orders.pagination.page', { page: page() })
+            }}</span>
+            <button
+                mat-stroked-button
+                [disabled]="!hasNextPage()"
+                (click)="nextPage()"
+            >
+                {{ t('orders.pagination.next') }}
+            </button>
+        </div>
+    }
+</div>

@@ -18,6 +18,7 @@ import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.ser
 @Component({
     selector: 'draft-order',
     templateUrl: './draft-order.component.html',
+    styleUrls: ['../header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'draftOrder',

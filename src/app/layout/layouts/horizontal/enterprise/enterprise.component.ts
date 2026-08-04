@@ -1,11 +1,11 @@
-import { NgClass } from '@angular/common';
+import { NgClass, NgTemplateOutlet } from '@angular/common';
 import {
-    AfterViewInit,
     ChangeDetectionStrategy,
     Component,
     computed,
     ElementRef,
     inject,
+    NgZone,
     OnDestroy,
     OnInit,
     Signal,
@@ -17,12 +17,12 @@ import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatMenuModule } from '@angular/material/menu';
-import { MatTabsModule } from '@angular/material/tabs';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import {
+    NavigationEnd,
     Router,
     RouterLink,
-    RouterLinkActive,
     RouterOutlet,
 } from '@angular/router';
 import { FuseLoadingBarComponent } from '@fuse/components/loading-bar';
@@ -32,22 +32,28 @@ import {
     FuseVerticalNavigationComponent,
 } from '@fuse/components/navigation';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
-import { TranslocoModule } from '@jsverse/transloco';
+import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
-import { BranchPickerComponent } from 'app/layout/common/branch-picker/branch-picker.component';
+import { ContactFabComponent } from 'app/layout/common/contact-fab/contact-fab.component';
 import { DraftOrderDrawerComponent } from 'app/layout/common/draft-order/draft-order-drawer.component';
 import { DraftOrderComponent } from 'app/layout/common/draft-order/draft-order.component';
 import { FavoritesDrawerComponent } from 'app/layout/common/favorites/favorites-drawer.component';
 import { FavoritesComponent } from 'app/layout/common/favorites/favorites.component';
-import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
+import { MarketPickerComponent } from 'app/layout/common/market-picker/market-picker.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { OrderTrackingComponent } from 'app/layout/common/order-tracking/order-tracking.component';
+import { QuickBuyComponent } from 'app/layout/common/quick-buy/quick-buy.component';
 import { QuickSignInComponent } from 'app/layout/common/quick-sign-in/quick-sign-in.component';
+import { StorefrontFooterSimpleComponent } from 'app/layout/common/storefront-footer/storefront-footer-simple.component';
+import { StorefrontFooterComponent } from 'app/layout/common/storefront-footer/storefront-footer.component';
+import { StorefrontNavRowComponent } from 'app/layout/common/storefront-header/storefront-nav-row.component';
+import { StorefrontTopStripComponent } from 'app/layout/common/storefront-header/storefront-top-strip.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
-import { fromEvent, Subject, takeUntil } from 'rxjs';
+import { CatalogService } from 'app/modules/catalog/catalog.service';
+import { filter, fromEvent, Subject, takeUntil } from 'rxjs';
 
 interface AiChatMessage {
     role: 'user' | 'assistant';
@@ -57,49 +63,74 @@ interface AiChatMessage {
 /** Show the scroll-top control after the user has scrolled this far. */
 const SCROLL_TOP_THRESHOLD_PX = 400;
 
+/** Marketing / browse routes that keep the detailed storefront footer. */
+const FULL_FOOTER_PREFIXES = [
+    '/home',
+    '/catalog',
+    '/about',
+    '/faq',
+    '/contact',
+    '/deals',
+] as const;
+
 @Component({
     selector: 'enterprise-layout',
     templateUrl: './enterprise.component.html',
+    styleUrls: ['../../../common/header-icon-motion.scss'],
     encapsulation: ViewEncapsulation.None,
     standalone: true,
     changeDetection: ChangeDetectionStrategy.Eager,
     imports: [
         FuseLoadingBarComponent,
         FuseVerticalNavigationComponent,
-        BranchPickerComponent,
+        MarketPickerComponent,
         DraftOrderComponent,
         DraftOrderDrawerComponent,
         FavoritesComponent,
         FavoritesDrawerComponent,
-        LanguagesComponent,
         NotificationsComponent,
         OrderTrackingComponent,
+        QuickBuyComponent,
         QuickSignInComponent,
+        ContactFabComponent,
+        StorefrontFooterComponent,
+        StorefrontFooterSimpleComponent,
+        StorefrontTopStripComponent,
+        StorefrontNavRowComponent,
         UserComponent,
         MatButtonModule,
         MatIconModule,
         MatMenuModule,
-        MatTabsModule,
+        MatProgressSpinnerModule,
         MatTooltipModule,
         FormsModule,
         NgClass,
+        NgTemplateOutlet,
         RouterLink,
-        RouterLinkActive,
         RouterOutlet,
         FuseRouteAnimationDirective,
         TranslocoModule,
     ],
 })
-export class EnterpriseLayoutComponent
-    implements OnInit, AfterViewInit, OnDestroy
-{
+export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
     @ViewChild('aiChatInput') aiChatInput: ElementRef<HTMLInputElement>;
+
+    /**
+     * Re-binds whenever the sentinel enters the view (it lives inside
+     * `@if (navigation)`, so a one-shot AfterViewInit often misses it).
+     */
     @ViewChild('stickySentinel')
-    private _stickySentinel: ElementRef<HTMLElement>;
+    set stickySentinel(ref: ElementRef<HTMLElement> | undefined) {
+        this._bindStickyObserver(ref?.nativeElement ?? null);
+    }
 
     private _permissionsService = inject(PermissionsService);
+    private _catalogService = inject(CatalogService);
+    private _translocoService = inject(TranslocoService);
     private _router = inject(Router);
+    private _ngZone = inject(NgZone);
     private _stickyObserver: IntersectionObserver | null = null;
+    private _stickySentinelEl: HTMLElement | null = null;
 
     isScreenSmall: boolean;
     navigation: Navigation;
@@ -118,97 +149,47 @@ export class EnterpriseLayoutComponent
     /** Floating control: jump back to the top of the page. */
     readonly showScrollTop = signal(false);
 
+    /** One-shot class pulse so the header logo animates on route change. */
+    readonly logoRouteAnim = signal(false);
+
+    /** Skip the initial NavigationEnd so the logo only animates on real navigations. */
+    private _logoRouteAnimReady = false;
+
+    /** Current URL — drives the catalog logo swap. */
+    private readonly _url = signal(this._router.url);
+
+    /**
+     * Catalog: logo-market while expanded; logo-primary once the main bar
+     * pins. Elsewhere: logo-primary.
+     */
+    readonly headerLogoSrc = computed(() => {
+        if (this._isCatalogRoute(this._url()) && !this.isMainBarStuck()) {
+            return 'images/logo/logo-market.svg';
+        }
+        return 'images/logo/logo-primary.svg';
+    });
+
+    readonly isCatalogRoute = computed(() => this._isCatalogRoute(this._url()));
+
+    /**
+     * Detailed marketing footer on browse pages; compact bar elsewhere
+     * (profile, orders, cart, onboarding, …).
+     */
+    readonly showFullFooter = computed(() =>
+        this._isFullFooterRoute(this._url())
+    );
+
     // Header state
     searchQuery = '';
     megaMenuOpen = false;
 
-    readonly megaCategories = [
-        {
-            name: 'Rau củ',
-            emoji: '🥦',
-            sub: [
-                'Rau ăn lá',
-                'Củ quả',
-                'Hành & hành tím',
-                'Cà chua',
-                'Nấm',
-                'Khoai tây & khoai lang',
-                'Dưa leo',
-                'Bí & bí ngòi',
-                'Bắp',
-            ],
-        },
-        {
-            name: 'Thịt & gia cầm',
-            emoji: '🥩',
-            sub: [
-                'Thịt bò',
-                'Gia cầm',
-                'Thịt heo',
-                'Thịt cừu',
-                'Thịt nguội',
-                'Đóng gói sẵn',
-                'Thịt đặc sản',
-            ],
-        },
-        {
-            name: 'Bánh mì & bánh ngọt',
-            emoji: '🍞',
-            sub: [
-                'Bánh ngọt',
-                'Bánh mặn',
-                'Bánh có nhân',
-                'Bánh mì nướng',
-                'Bánh quy & bánh kem',
-                'Bánh mì lát',
-                'Khác',
-            ],
-        },
-        {
-            name: 'Trái cây',
-            emoji: '🍓',
-            sub: [
-                'Quả hạch',
-                'Táo',
-                'Lê',
-                'Dưa',
-                'Nho',
-                'Quả mọng',
-                'Cam quýt',
-                'Hồng',
-                'Trái cây nhiệt đới',
-            ],
-        },
-        {
-            name: 'Đồ uống',
-            emoji: '🧃',
-            sub: [
-                'Trà',
-                'Nước ngọt',
-                'Nước trái cây',
-                'Sữa',
-                'Sữa gạo & đậu nành',
-                'Cà phê',
-                'Nước thể thao',
-                'Khác',
-            ],
-        },
-        {
-            name: 'Ăn vặt',
-            emoji: '🍿',
-            sub: [
-                'Kẹo',
-                'Snack khoai',
-                'Bánh quy giòn',
-                'Hạt & đậu',
-                'Rong biển',
-                'Tàu hũ ky',
-                'Đồ khô',
-                'Hải sản khô',
-                'Trái cây sấy',
-            ],
-        },
-    ];
+    /** Real categories for the "Danh mục" mega menu — same tree the catalog sidebar uses. */
+    readonly megaCategories = this._catalogService.categoryTree;
+    readonly megaCategoriesLoading = this._catalogService.categoriesLoading;
+
+    readonly isVi = computed(
+        () => this._translocoService.getActiveLang() === 'vi'
+    );
 
     /** Value props shown on the left of the top strip. */
     readonly topBenefits = [
@@ -255,6 +236,16 @@ export class EnterpriseLayoutComponent
     }
 
     ngOnInit(): void {
+        // Header is global (rendered on every storefront route), so the mega
+        // menu's category data can't wait for the catalog page's own route
+        // resolver — load it here instead. `getCategories()` caches, so this
+        // costs nothing extra once the catalog page (or another instance of
+        // this layout) has already fetched it.
+        this._catalogService
+            .getCategories()
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe();
+
         this._navigationService.navigation$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((navigation: Navigation) => {
@@ -271,6 +262,23 @@ export class EnterpriseLayoutComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe(() => this._updateScrollTopVisibility());
 
+        this._router.events
+            .pipe(
+                filter(
+                    (event): event is NavigationEnd =>
+                        event instanceof NavigationEnd
+                ),
+                takeUntil(this._unsubscribeAll)
+            )
+            .subscribe((event) => {
+                this._url.set(event.urlAfterRedirects);
+                if (this._logoRouteAnimReady) {
+                    this._pulseLogoRouteAnim();
+                } else {
+                    this._logoRouteAnimReady = true;
+                }
+            });
+
         this._updateScrollTopVisibility();
     }
 
@@ -278,25 +286,6 @@ export class EnterpriseLayoutComponent
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
         this._stickyObserver?.disconnect();
-    }
-
-    ngAfterViewInit(): void {
-        // Pin the main bar once the sentinel (sitting right above it)
-        // scrolls past the viewport top. IntersectionObserver instead of a
-        // scroll listener: no per-frame work, and the spacer keeps the
-        // sentinel's position stable while the bar is pinned.
-        const sentinel = this._stickySentinel?.nativeElement;
-        if (!sentinel) {
-            return;
-        }
-        this._stickyObserver = new IntersectionObserver(
-            ([entry]) =>
-                this.isMainBarStuck.set(
-                    !entry.isIntersecting && entry.boundingClientRect.top < 0
-                ),
-            { threshold: 0 }
-        );
-        this._stickyObserver.observe(sentinel);
     }
 
     /** True when any child link of a dropdown nav item is the active route. */
@@ -335,6 +324,59 @@ export class EnterpriseLayoutComponent
             document.body.scrollTop ||
             0;
         this.showScrollTop.set(y > SCROLL_TOP_THRESHOLD_PX);
+    }
+
+    private _isCatalogRoute(url: string): boolean {
+        const path = url.split('?')[0];
+        return path === '/catalog' || path.startsWith('/catalog/');
+    }
+
+    private _isFullFooterRoute(url: string): boolean {
+        const path = url.split('?')[0];
+        return FULL_FOOTER_PREFIXES.some(
+            (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+        );
+    }
+
+    /** Restart the logo enter animation (CSS needs class removed then re-added). */
+    private _pulseLogoRouteAnim(): void {
+        if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+            return;
+        }
+        this.logoRouteAnim.set(false);
+        requestAnimationFrame(() => {
+            this._ngZone.run(() => this.logoRouteAnim.set(true));
+        });
+    }
+
+    /**
+     * Pin the main bar once the sentinel scrolls past the viewport top.
+     * IntersectionObserver (no per-frame scroll work); the spacer keeps the
+     * sentinel's document position stable while the bar is `position: fixed`.
+     */
+    private _bindStickyObserver(sentinel: HTMLElement | null): void {
+        if (sentinel === this._stickySentinelEl) {
+            return;
+        }
+        this._stickyObserver?.disconnect();
+        this._stickyObserver = null;
+        this._stickySentinelEl = sentinel;
+        if (!sentinel) {
+            this.isMainBarStuck.set(false);
+            return;
+        }
+        this._stickyObserver = new IntersectionObserver(
+            ([entry]) => {
+                const stuck =
+                    !entry.isIntersecting && entry.boundingClientRect.top < 0;
+                if (stuck === this.isMainBarStuck()) {
+                    return;
+                }
+                this._ngZone.run(() => this.isMainBarStuck.set(stuck));
+            },
+            { threshold: 0, rootMargin: '-1px 0px 0px 0px' }
+        );
+        this._stickyObserver.observe(sentinel);
     }
 
     // AI chat
@@ -386,13 +428,9 @@ export class EnterpriseLayoutComponent
                 ...this.aiMessages,
                 {
                     role: 'assistant',
-                    text: this._buildMockReply(text),
+                    text: 'FreshFlow AI is not connected yet. Please browse the catalog or contact support.',
                 },
             ];
         }, 500);
-    }
-
-    private _buildMockReply(prompt: string): string {
-        return `Thanks for your question about "${prompt}". FreshFlow AI will connect to the backend soon — for now this is a preview of the chat overlay.`;
     }
 }

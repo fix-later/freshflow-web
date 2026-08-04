@@ -11,24 +11,8 @@ export class IconsService {
         const domSanitizer = inject(DomSanitizer);
         const matIconRegistry = inject(MatIconRegistry);
 
-        // Register icon sets
-        matIconRegistry.addSvgIconSet(
-            domSanitizer.bypassSecurityTrustResourceUrl(
-                'icons/material-twotone.svg'
-            )
-        );
-        matIconRegistry.addSvgIconSetInNamespace(
-            'mat_outline',
-            domSanitizer.bypassSecurityTrustResourceUrl(
-                'icons/material-outline.svg'
-            )
-        );
-        matIconRegistry.addSvgIconSetInNamespace(
-            'mat_solid',
-            domSanitizer.bypassSecurityTrustResourceUrl(
-                'icons/material-solid.svg'
-            )
-        );
+        // Register icon sets. The Material sprites (twotone/outline/solid) were
+        // dropped — the UI draws from Heroicons, plus Feather for social marks.
         matIconRegistry.addSvgIconSetInNamespace(
             'feather',
             domSanitizer.bypassSecurityTrustResourceUrl('icons/feather.svg')

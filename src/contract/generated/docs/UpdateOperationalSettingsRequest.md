@@ -9,6 +9,7 @@ Name | Type
 `dailyCutoffTime` | string
 `batchingEnabled` | boolean
 `defaultRouteType` | string
+`deliveryWindowDays` | number
 
 ## Example
 
@@ -20,6 +21,7 @@ const example = {
   "dailyCutoffTime": null,
   "batchingEnabled": null,
   "defaultRouteType": null,
+  "deliveryWindowDays": null,
 } satisfies UpdateOperationalSettingsRequest
 
 console.log(example)

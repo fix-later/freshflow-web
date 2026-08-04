@@ -4,7 +4,6 @@ import {
     withXhr,
 } from '@angular/common/http';
 import {
-    APP_INITIALIZER,
     EnvironmentProviders,
     Provider,
     importProvidersFrom,
@@ -13,10 +12,6 @@ import {
 } from '@angular/core';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
-import {
-    FUSE_MOCK_API_DEFAULT_DELAY,
-    mockApiInterceptor,
-} from '@fuse/lib/mock-api';
 import { FuseConfig } from '@fuse/services/config';
 import { FUSE_CONFIG } from '@fuse/services/config/config.constants';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -30,10 +25,6 @@ import { FuseSplashScreenService } from '@fuse/services/splash-screen';
 import { FuseUtilsService } from '@fuse/services/utils';
 
 export type FuseProviderConfig = {
-    mockApi?: {
-        delay?: number;
-        services?: any[];
-    };
     fuse?: FuseConfig;
 };
 
@@ -51,10 +42,6 @@ export const provideFuse = (
             useValue: {
                 appearance: 'fill',
             },
-        },
-        {
-            provide: FUSE_MOCK_API_DEFAULT_DELAY,
-            useValue: config?.mockApi?.delay ?? 0,
         },
         {
             provide: FUSE_CONFIG,
@@ -75,22 +62,6 @@ export const provideFuse = (
         provideEnvironmentInitializer(() => inject(FuseSplashScreenService)),
         provideEnvironmentInitializer(() => inject(FuseUtilsService)),
     ];
-
-    // Mock Api services
-    if (config?.mockApi?.services) {
-        providers.push(
-            provideHttpClient(
-                withXhr(),
-                withInterceptors([mockApiInterceptor])
-            ),
-            {
-                provide: APP_INITIALIZER,
-                deps: [...config.mockApi.services],
-                useFactory: () => (): any => null,
-                multi: true,
-            }
-        );
-    }
 
     // Return the providers
     return providers;

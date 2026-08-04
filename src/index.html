@@ -65,9 +65,24 @@
     </head>
 
     <body>
-        <!-- Splash screen: plain brand background until the bundle
-             executes; @fuse/services/splash-screen/animation then plays the logo reveal sequence. -->
-        <fuse-splash-screen></fuse-splash-screen>
+        <!-- Splash screen: white stage with primary logo + loader until the
+             app is ready; @fuse/services/splash-screen fades it out. -->
+        <fuse-splash-screen>
+            <img
+                class="ff-splash-logo"
+                src="images/logo/logo.svg"
+                alt="FreshFlow"
+                width="120"
+                height="120"
+            />
+            <section class="ff-splash-dots" aria-hidden="true">
+                <div class="ff-splash-dot"></div>
+                <div class="ff-splash-dot"></div>
+                <div class="ff-splash-dot"></div>
+                <div class="ff-splash-dot"></div>
+                <div class="ff-splash-dot"></div>
+            </section>
+        </fuse-splash-screen>
 
         <!-- App root -->
         <app-root></app-root>

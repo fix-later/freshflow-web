@@ -23,6 +23,7 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     EMAIL_ALREADY_EXISTS: 'errors.api.emailAlreadyExists',
     PHONE_ALREADY_EXISTS: 'errors.api.phoneAlreadyExists',
     WEAK_PASSWORD: 'errors.api.weakPassword',
+    ROLE_NOT_CONFIGURED: 'errors.api.serverError',
     REFRESH_TOKEN_INVALID: 'errors.api.sessionExpired',
     REFRESH_TOKEN_EXPIRED: 'errors.api.sessionExpired',
     REFRESH_TOKEN_REUSE: 'errors.api.sessionExpired',
@@ -49,6 +50,18 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     OPTIMISTIC_CONCURRENCY_CONFLICT: 'errors.api.concurrencyConflict',
     INVALID_PRICE: 'errors.api.invalidPrice',
     INVALID_QUANTITY: 'errors.api.invalidQuantity',
+
+    // Logistics — route planning / dispatch
+    DELIVERY_ROUTE_NOT_FOUND: 'errors.api.routeNotFound',
+    ROUTE_INVALID_TRANSITION: 'errors.api.routeInvalidTransition',
+    STOP_LIMIT_EXCEEDED: 'errors.api.stopLimitExceeded',
+    MISSING_COORDINATES: 'errors.api.missingCoordinates',
+    HUB_RELAY_NOT_SUPPORTED: 'errors.api.hubRelayNotSupported',
+    INVALID_STOP_ORDER: 'errors.api.invalidStopOrder',
+    VEHICLE_NOT_FOUND: 'errors.api.vehicleNotFound',
+    VEHICLE_NOT_AVAILABLE: 'errors.api.vehicleNotAvailable',
+    VEHICLE_NOT_ELIGIBLE: 'errors.api.vehicleNotEligible',
+    PENDING_HUB_DISCREPANCY: 'errors.api.pendingHubDiscrepancy',
 
     // Orders
     RESTAURANT_NOT_APPROVED: 'errors.api.restaurantNotApproved',
@@ -78,6 +91,7 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
  * code- or caller-level message (see {@link describeApiError}).
  */
 export const API_MESSAGE_TEXT_KEYS: Record<string, string> = {
+    // Doc §6 wording
     'Must be a valid email address': 'errors.field.emailInvalid',
     'Must not exceed 255 characters': 'errors.field.max255',
     'Must be at least 8 characters': 'errors.field.passwordMinLength',
@@ -93,6 +107,15 @@ export const API_MESSAGE_TEXT_KEYS: Record<string, string> = {
     'Must be a valid phone number (7–15 digits, optional leading +)':
         'errors.field.phoneInvalid',
     'Must not exceed 200 characters': 'errors.field.max200',
+    // FluentValidation messages actually emitted by RegisterRestaurantCommandValidator
+    'Password must contain at least one uppercase letter.':
+        'errors.field.passwordUppercase',
+    'Password must contain at least one digit.': 'errors.field.passwordDigit',
+    'Password must contain at least one special character.':
+        'errors.field.passwordSpecial',
+    'Phone must be a valid phone number (7–15 digits, optional leading +).':
+        'errors.field.phoneInvalid',
+    'One or more fields failed validation.': 'errors.api.validation',
     'Role must be one of the accepted values': 'errors.field.roleInvalid',
     'Must be greater than 0': 'errors.field.pricePositive',
     'Price must be greater than 0': 'errors.field.pricePositive',

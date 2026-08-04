@@ -1,0 +1,317 @@
+/*
+ * Catalog page shell — filter rail + product grid.
+ *
+ * Layout/spacing pattern extracted from the storefront references in
+ * `specs/references`; every color binds a theme token (`specs/design/TOKENS.md`).
+ * Written as component styles rather than utility soup because the rail's
+ * category rows and the grid skeletons each carry several states.
+ */
+.ff-catalog {
+    /* ---- Filter rail ------------------------------------------------ */
+
+    &__filters-toggle {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--fuse-border);
+        padding: 0.75rem 1rem;
+        @apply bg-card;
+
+        &:hover {
+            @apply bg-hover;
+        }
+    }
+
+    /* The rail scrolls independently once it is taller than the viewport. */
+    &__filters {
+        max-height: calc(100vh - 3rem);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+    }
+
+    &__search {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        border-radius: 9999px;
+        border: 1px solid var(--fuse-border);
+        padding: 0 0.875rem;
+        transition: border-color 150ms ease;
+        @apply bg-card;
+
+        &:focus-within {
+            @apply border-primary;
+        }
+
+        input {
+            min-width: 0;
+            flex: 1 1 auto;
+            border: 0;
+            background: transparent;
+            padding: 0.625rem 0;
+            font-size: theme('fontSize.sm');
+            outline: none;
+            @apply text-default;
+
+            &::placeholder {
+                @apply text-hint;
+            }
+
+            /* The type="search" clear cross duplicates our own button. */
+            &::-webkit-search-cancel-button {
+                display: none;
+            }
+        }
+    }
+
+    &__tree {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+
+    &__subtree {
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+        list-style: none;
+        margin: 0.125rem 0 0.375rem;
+        padding: 0 0 0 0.875rem;
+        border-left: 1px solid var(--fuse-border);
+    }
+
+    &__cat {
+        display: block;
+        width: 100%;
+        border-radius: 0.5rem;
+        padding: 0.4375rem 0.625rem;
+        text-align: start;
+        font-size: theme('fontSize.md');
+        line-height: 1.4;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+        @apply text-secondary;
+
+        &:hover {
+            @apply text-default bg-hover;
+        }
+
+        &--child {
+            font-size: theme('fontSize.sm');
+        }
+
+        /* An open branch whose *child* is selected: emphasised, not filled. */
+        &--branch {
+            @apply text-default font-semibold;
+        }
+
+        &--active {
+            @apply bg-primary font-semibold text-on-primary;
+
+            &:hover {
+                @apply bg-primary-600 text-on-primary;
+            }
+        }
+    }
+
+    &__cat-toggle {
+        display: flex;
+        height: 1.75rem;
+        width: 1.75rem;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.5rem;
+        /* The +/- affordance is the only cue a root has children — it has to
+           clear the 3:1 non-text floor, which `text-hint` (2.56:1) does not. */
+        @apply text-secondary;
+
+        &:hover {
+            @apply text-default bg-hover;
+        }
+    }
+
+    /* ---- Results ---------------------------------------------------- */
+
+    &__toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem 1rem;
+        border-radius: 0.75rem;
+        border: 1px solid var(--fuse-border);
+        padding: 0.625rem 1rem;
+        @apply bg-card;
+    }
+
+    &__chip-clear {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        border-radius: 9999px;
+        padding: 0.25rem 0.75rem;
+        font-size: theme('fontSize.sm');
+        font-weight: 500;
+        @apply text-secondary bg-hover;
+
+        &:hover {
+            @apply text-default;
+        }
+    }
+
+    /* Native select: one control, no overlay, arrow drawn beside it. */
+    &__sort {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+
+        select {
+            appearance: none;
+            border-radius: 9999px;
+            border: 1px solid var(--fuse-border);
+            padding: 0.375rem 2rem 0.375rem 0.875rem;
+            font-size: theme('fontSize.sm');
+            font-weight: 500;
+            outline: none;
+            @apply text-default bg-card;
+
+            &:focus-visible {
+                @apply border-primary;
+            }
+        }
+
+        /* Sits over the select's right padding; clicks fall through to it. */
+        mat-icon {
+            position: absolute;
+            inset-inline-end: 0.625rem;
+            pointer-events: none;
+        }
+    }
+
+    /*
+     * Flush product sheet: tiles share borders with no gap, matching the
+     * reference catalog board. Wishlist stays hidden until the tile is
+     * hovered / focused (favorited hearts stay visible).
+     */
+    &__grid {
+        margin-top: 1.5rem;
+        display: grid;
+        gap: 0;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        border-top: 1px solid var(--fuse-border);
+        border-left: 1px solid var(--fuse-border);
+
+        @screen md {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        @screen lg {
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+
+        @screen xl {
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+        }
+
+        .ff-product-card {
+            border-radius: 0;
+            border: none;
+            border-right: 1px solid var(--fuse-border);
+            border-bottom: 1px solid var(--fuse-border);
+            box-shadow: none;
+
+            &:hover,
+            &:focus-within {
+                z-index: 1;
+                transform: none;
+                box-shadow: none;
+            }
+        }
+
+        .ff-product-card__fav {
+            opacity: 0;
+            pointer-events: none;
+            transition:
+                opacity 150ms ease,
+                background-color 150ms ease,
+                color 150ms ease;
+        }
+
+        .ff-product-card:hover .ff-product-card__fav,
+        .ff-product-card:focus-within .ff-product-card__fav,
+        .ff-product-card__fav--on {
+            opacity: 1;
+            pointer-events: auto;
+        }
+    }
+
+    &__empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 1rem;
+    }
+
+    /* ---- Loading placeholders --------------------------------------- */
+
+    &__skeleton {
+        border-radius: 0;
+        border: none;
+        border-right: 1px solid var(--fuse-border);
+        border-bottom: 1px solid var(--fuse-border);
+        padding: 0 0 1rem;
+        overflow: hidden;
+        @apply bg-card;
+    }
+
+    &__skeleton-thumb {
+        aspect-ratio: 1 / 1;
+        @apply bg-hover;
+    }
+
+    &__skeleton-line {
+        height: 0.75rem;
+        margin: 1rem 1rem 0;
+        border-radius: 9999px;
+        @apply bg-hover;
+
+        &--short {
+            width: 50%;
+        }
+    }
+
+    &__skeleton-thumb,
+    &__skeleton-line {
+        animation: ff-catalog-pulse 1.6s ease-in-out infinite;
+    }
+}
+
+@keyframes ff-catalog-pulse {
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.45;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-catalog__skeleton-thumb,
+    .ff-catalog__skeleton-line {
+        animation: none;
+    }
+
+    .ff-catalog__grid .ff-product-card__fav {
+        transition: none;
+    }
+}

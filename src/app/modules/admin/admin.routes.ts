@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AdminDashboardComponent } from './analytics/analytics-dashboard.component';
+import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { CategoriesComponent } from './catalog/categories.component';
 import { MarketCreateComponent } from './catalog/market-create.component';
 import { MarketEditComponent } from './catalog/market-edit.component';
@@ -8,10 +9,12 @@ import { PackingCodesComponent } from './catalog/packing-codes.component';
 import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
 import { UnitsComponent } from './catalog/units.component';
+import { FinanceComponent } from './finance/finance.component';
 import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
-import { DeliveryZonesComponent } from './logistics/delivery-zones.component';
+import { HubEditComponent } from './logistics/hub-edit.component';
 import { HubsComponent } from './logistics/hubs.component';
+import { RouteCreateComponent } from './logistics/route-create.component';
 import { RouteDetailComponent } from './logistics/route-detail.component';
 import { RoutesListComponent } from './logistics/routes-list.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
@@ -96,8 +99,16 @@ export default [
         component: HubsComponent,
     },
     {
+        path: 'hubs/:hubId',
+        component: HubEditComponent,
+    },
+    {
         path: 'routes',
         component: RoutesListComponent,
+    },
+    {
+        path: 'routes/new',
+        component: RouteCreateComponent,
     },
     {
         path: 'routes/:routeId',
@@ -106,10 +117,6 @@ export default [
     {
         path: 'vehicles',
         component: VehiclesComponent,
-    },
-    {
-        path: 'delivery-zones',
-        component: DeliveryZonesComponent,
     },
     // Orders (M5)
     {
@@ -124,6 +131,10 @@ export default [
     {
         path: 'order-groups',
         component: OrderGroupsComponent,
+    },
+    {
+        path: 'finance',
+        component: FinanceComponent,
     },
     {
         path: 'order-groups/:batchId',
@@ -141,5 +152,10 @@ export default [
     {
         path: 'invoices/:invoiceId',
         component: InvoiceDetailComponent,
+    },
+    // Audit trail (M13)
+    {
+        path: 'audit-logs',
+        component: AuditLogsComponent,
     },
 ] as Routes;

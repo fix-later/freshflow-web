@@ -6,12 +6,10 @@
 
 Name | Type
 ------------ | -------------
-`sourceMarketIds` | Array&lt;string&gt;
-`hubIds` | Array&lt;string&gt;
+`hubId` | string
 `destinationRestaurantIds` | Array&lt;string&gt;
 `optimizationCriteria` | string
 `serviceDate` | Date
-`compareWithHub` | boolean
 
 ## Example
 
@@ -20,12 +18,10 @@ import type { CalculateRouteRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "sourceMarketIds": null,
-  "hubIds": null,
+  "hubId": null,
   "destinationRestaurantIds": null,
   "optimizationCriteria": null,
   "serviceDate": null,
-  "compareWithHub": null,
 } satisfies CalculateRouteRequest
 
 console.log(example)

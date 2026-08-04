@@ -8,11 +8,32 @@
  * unknown or renamed backend fields degrade gracefully instead of throwing.
  */
 
+/**
+ * Approval lifecycle of a restaurant account (BR-AUTH-1). Only the
+ * `restaurant` role has one — every other role answers `null`, which is why
+ * the column renders "—" rather than "chưa duyệt" for staff accounts.
+ *
+ * Values verified against the live API's `restaurantStatus` filter, which
+ * accepts `pending` / `active` / `suspended` and rejects anything else.
+ */
+export const RESTAURANT_APPROVAL_STATUSES = [
+    'pending',
+    'active',
+    'suspended',
+] as const;
+
+export type RestaurantApprovalStatusValue =
+    (typeof RESTAURANT_APPROVAL_STATUSES)[number];
+
 export interface AdminUserRow {
     id: string;
     email?: string;
     role?: string;
     isActive?: boolean;
+    /** `true` / `false` for restaurants, `null` for every other role. */
+    isApproved?: boolean | null;
+    /** `pending` | `active` | `suspended`, restaurants only. */
+    restaurantStatus?: string | null;
     phone?: string | null;
     restaurantId?: string | null;
     restaurantName?: string | null;
@@ -57,6 +78,8 @@ export interface AdminUserFilters {
     role?: string;
     isActive?: boolean;
     search?: string;
+    /** Restaurant approval lifecycle — see {@link RESTAURANT_APPROVAL_STATUSES}. */
+    restaurantStatus?: string;
     page?: number;
     pageSize?: number;
 }
@@ -91,12 +114,44 @@ export interface AdminOperationalSettings {
     dailyCutoffTime?: string;
     batchingEnabled?: boolean;
     defaultRouteType?: string | null;
+    /** Days ahead a delivery route may be scheduled (1–30). */
+    deliveryWindowDays?: number;
 }
 
 /** Pricing settings (`GET/PUT /admin/pricing-settings`). */
 export interface AdminPricingSettings {
     /** Percent (0.01–100) swing that triggers a price alert. */
     priceAlertThresholdPercent?: number;
+}
+
+/**
+ * `GET /admin/order-groups/progress` — how far the current batching run has
+ * got. Untyped in the spec; these names come from the live response, which
+ * counts **items** rather than batches:
+ *
+ * ```json
+ * { "summary": { "batchDate": "2026-08-04", "totalBatches": 1,
+ *                "statusCounts": { "Built": 1, "Manifested": 0, … },
+ *                "totalItems": 1, "itemsPurchased": 0, "itemsPending": 1,
+ *                "openExceptions": 0 },
+ *   "batches": [ { "batchId": …, "itemsTotal": 1, "itemsPurchased": 0, … } ] }
+ * ```
+ */
+export interface AdminOrderGroupProgressSummary {
+    batchDate?: string;
+    totalBatches?: number;
+    statusCounts?: Record<string, number>;
+    totalItems?: number;
+    itemsPurchased?: number;
+    itemsPending?: number;
+    openExceptions?: number;
+    [key: string]: unknown;
+}
+
+export interface AdminOrderGroupProgress {
+    summary?: AdminOrderGroupProgressSummary;
+    batches?: Record<string, unknown>[];
+    [key: string]: unknown;
 }
 
 export interface AdminAuditLogFilters {
@@ -232,40 +287,74 @@ export interface AdminAutoBatchPayload {
     force?: boolean | null;
 }
 
-/** One batch created (or, on a dry run, that would be created) by auto-batch. */
+/**
+ * `POST /admin/order-groups/reset` — undoes a day's batching so auto-batch can
+ * be re-run. `confirmation` is the backend's guard against an accidental
+ * reset; whatever the admin types is forwarded verbatim and the server decides
+ * whether it matches.
+ */
+export interface AdminResetOrderGroupsPayload {
+    /** ISO date (`yyyy-MM-dd`); omit to let the backend use its own default. */
+    targetDate?: string | null;
+    confirmation?: string | null;
+}
+
+/**
+ * One batch auto-batch would create. Live shape:
+ *
+ * ```json
+ * { "batchDate": "2026-08-05", "marketId": "…", "status": "Built",
+ *   "coveredOrderIds": ["…", "…"],
+ *   "items": [{ "marketProductId": "…", "productNameSnapshot": "Bơ",
+ *               "totalQuantity": 4 }] }
+ * ```
+ */
 export interface AdminAutoBatchBatch {
-    orderGroupId?: string | null;
-    deliveryZone?: string | null;
-    sourceMarketId?: string | null;
-    sourceMarketName?: string | null;
-    orderIds?: string[] | null;
+    batchDate?: string | null;
+    marketId?: string | null;
+    status?: string | null;
+    /** The orders this batch would absorb. */
+    coveredOrderIds?: string[] | null;
+    /** Product lines merged across those orders. */
+    items?: AdminBatchItem[] | null;
     [key: string]: unknown;
 }
 
-/** An order the run skipped, with the reason code (e.g. `ALREADY_BATCHED`). */
-export interface AdminAutoBatchSkipped {
-    orderId?: string | null;
-    reason?: string | null;
-    [key: string]: unknown;
-}
-
-/** Result of `POST /admin/order-groups/auto-batch` (see doc §4.2). */
+/**
+ * Result of `POST /admin/order-groups/auto-batch`. The live body is
+ *
+ * ```json
+ * { "batchesCreated": 0, "ordersBatched": 0, "itemsAggregated": 0,
+ *   "skipped": true, "reason": "no_eligible_orders", "preview": [] }
+ * ```
+ *
+ * The run answers `skipped` + `reason` when it does nothing — the one thing an
+ * operator staring at a zero result needs to know.
+ */
 export interface AdminAutoBatchResult {
+    /** Batches the run created (or, on a dry run, would create). */
+    batchesCreated?: number | null;
+    /** Orders folded into those batches. */
+    ordersBatched?: number | null;
+    /** Distinct product lines merged across those orders. */
+    itemsAggregated?: number | null;
+    /** True when the run did nothing; `reason` says why. */
+    skipped?: boolean | null;
+    /** Machine reason for a skipped run, e.g. `no_eligible_orders`. */
+    reason?: string | null;
+    /** The batches a dry run would create. */
+    preview?: AdminAutoBatchBatch[] | null;
+    /** Echoed back by the caller — the request's own arguments. */
     targetDate?: string | null;
     dryRun?: boolean | null;
-    createdBatchCount?: number | null;
-    batchedOrderCount?: number | null;
-    skippedOrderCount?: number | null;
-    batches?: AdminAutoBatchBatch[] | null;
-    skippedOrders?: AdminAutoBatchSkipped[] | null;
-    triggeredBy?: string | null;
-    triggeredAt?: string | null;
     [key: string]: unknown;
 }
 
 /** Flexible restaurant credit snapshot (`GET /restaurants/{id}/credit`, untyped). */
 export interface AdminRestaurantCredit {
     creditLimit?: number;
+    /** Live API field; `currentBalance` kept as a tolerated alias. */
+    outstandingBalance?: number;
     currentBalance?: number;
     availableCredit?: number;
     [key: string]: unknown;

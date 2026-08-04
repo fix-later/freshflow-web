@@ -451,6 +451,22 @@
               "format": "int32",
               "default": 20
             }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "marketId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -509,6 +525,37 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/RunAutoBatchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/order-groups/reset": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetOrderGroupsRequest"
               }
             }
           }
@@ -1307,6 +1354,12 @@
                 }
               }
             }
+          },
+          "502": {
+            "description": "Bad Gateway"
+          },
+          "504": {
+            "description": "Gateway Timeout"
           }
         }
       }
@@ -1603,24 +1656,6 @@
               "type": "boolean",
               "default": true
             }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 10
-            }
           }
         ],
         "responses": {
@@ -1722,6 +1757,18 @@
         }
       }
     },
+    "/api/v1/categories/image/upload-signature": {
+      "post": {
+        "tags": [
+          "Categories"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/categories/{id}/deactivate": {
       "patch": {
         "tags": [
@@ -1749,159 +1796,6 @@
       "patch": {
         "tags": [
           "Categories"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/logistics/delivery-zones": {
-      "post": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreateDeliveryZoneRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "get": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "active_only",
-            "in": "query",
-            "schema": {
-              "type": "boolean",
-              "default": true
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 10
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/logistics/delivery-zones/{id}": {
-      "get": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "DeliveryZones"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdateDeliveryZoneRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "DeliveryZones"
         ],
         "parameters": [
           {
@@ -1949,6 +1843,48 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/driver/routes/{routeId}/reorder": {
+      "post": {
+        "tags": [
+          "Driver"
+        ],
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderRouteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderRouteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReorderRouteRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -2260,6 +2196,29 @@
         }
       }
     },
+    "/api/v1/hubs/{hubId}/drivers/eligible": {
+      "get": {
+        "tags": [
+          "HubHandover"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/hubs/{hubId}/inbound": {
       "post": {
         "tags": [
@@ -2407,6 +2366,76 @@
               "type": "integer",
               "format": "int32",
               "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/hubs/{hubId}/procurement-plan": {
+      "get": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/hubs/{hubId}/orders-by-restaurant": {
+      "get": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "service_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "include_batched",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
@@ -2719,6 +2748,79 @@
         }
       }
     },
+    "/api/v1/hubs/{hubId}/sorting": {
+      "post": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLineSortedRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLineSortedRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkLineSortedRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/hubs/{hubId}/sorting-progress": {
+      "get": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "serviceDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/hubs": {
       "post": {
         "tags": [
@@ -2944,18 +3046,25 @@
         }
       }
     },
-    "/api/v1/markets": {
+    "/api/v1/invoices": {
       "get": {
         "tags": [
-          "Markets"
+          "Invoices"
         ],
         "parameters": [
           {
-            "name": "activeOnly",
+            "name": "restaurantId",
             "in": "query",
             "schema": {
-              "type": "boolean",
-              "default": true
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -2973,7 +3082,52 @@
             "schema": {
               "type": "integer",
               "format": "int32",
-              "default": 10
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{invoiceId}": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/markets": {
+      "get": {
+        "tags": [
+          "Markets"
+        ],
+        "parameters": [
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
             }
           }
         ],
@@ -3089,6 +3243,18 @@
               "format": "uuid"
             }
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/markets/image/upload-signature": {
+      "post": {
+        "tags": [
+          "Markets"
         ],
         "responses": {
           "200": {
@@ -3345,6 +3511,98 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/markets/{marketId}/products/{productId}": {
+      "delete": {
+        "tags": [
+          "Markets"
+        ],
+        "parameters": [
+          {
+            "name": "marketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "text/plain": {
                 "schema": {
@@ -4417,6 +4675,18 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/ordering-window": {
+      "get": {
+        "tags": [
+          "Orders"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -6159,6 +6429,161 @@
         }
       }
     },
+    "/api/v1/catalog/packing-codes": {
+      "post": {
+        "tags": [
+          "PackingCodes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackingCodeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackingCodeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePackingCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "PackingCodes"
+        ],
+        "parameters": [
+          {
+            "name": "activeOnly",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/packing-codes/{id}": {
+      "get": {
+        "tags": [
+          "PackingCodes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "PackingCodes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePackingCodeRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePackingCodeRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePackingCodeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/catalog/packing-codes/{id}/deactivate": {
+      "patch": {
+        "tags": [
+          "PackingCodes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/pricing/assigned-markets": {
       "get": {
         "tags": [
@@ -6324,25 +6749,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HandoverRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/HandoverRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/HandoverRequest"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK"
@@ -7151,11 +7557,106 @@
         }
       }
     },
+    "/api/v1/restaurants/me/favorites": {
+      "get": {
+        "tags": [
+          "RestaurantFavorites"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RestaurantFavorites"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddFavoriteRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddFavoriteRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddFavoriteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/restaurants/me/favorites/{marketProductId}": {
+      "delete": {
+        "tags": [
+          "RestaurantFavorites"
+        ],
+        "parameters": [
+          {
+            "name": "marketProductId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/restaurants/me/approval-status": {
       "get": {
         "tags": [
           "RestaurantProfile"
         ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/restaurants/me/tax-profile": {
+      "put": {
+        "tags": [
+          "RestaurantProfile"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaxProfileRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaxProfileRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTaxProfileRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -7340,6 +7841,37 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CalculateRouteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/logistics/routes/plan": {
+      "post": {
+        "tags": [
+          "Routes"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PlanRoutesRequest"
               }
             }
           }
@@ -7536,6 +8068,44 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "hub_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/logistics/routes/suggestions": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "parameters": [
+          {
+            "name": "service_date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "include_batched",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -7607,6 +8177,60 @@
         }
       }
     },
+    "/api/v1/logistics/routes/{id}/loading-manifest": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/logistics/shipping/orders/{orderId}/estimate": {
+      "get": {
+        "tags": [
+          "Shipping"
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "vehicle_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/units": {
       "get": {
         "tags": [
@@ -7619,24 +8243,6 @@
             "schema": {
               "type": "boolean",
               "default": true
-            }
-          },
-          {
-            "name": "page",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 1
-            }
-          },
-          {
-            "name": "pageSize",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 10
             }
           }
         ],
@@ -7924,6 +8530,20 @@
         },
         "additionalProperties": false
       },
+      "AddFavoriteRequest": {
+        "required": [
+          "marketProductId"
+        ],
+        "type": "object",
+        "properties": {
+          "marketProductId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "AddOrderItemRequest": {
         "required": [
           "marketProductId"
@@ -7983,6 +8603,7 @@
       },
       "AssignVehicleRequest": {
         "required": [
+          "driverUserId",
           "vehicleId"
         ],
         "type": "object",
@@ -7993,9 +8614,9 @@
             "format": "uuid"
           },
           "driverUserId": {
+            "minLength": 1,
             "type": "string",
-            "format": "uuid",
-            "nullable": true
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -8047,25 +8668,14 @@
       "CalculateRouteRequest": {
         "required": [
           "destinationRestaurantIds",
-          "sourceMarketIds"
+          "hubId"
         ],
         "type": "object",
         "properties": {
-          "sourceMarketIds": {
-            "minItems": 1,
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          "hubIds": {
-            "type": "array",
-            "items": {
-              "type": "string",
-              "format": "uuid"
-            },
-            "nullable": true
+          "hubId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
           },
           "destinationRestaurantIds": {
             "minItems": 1,
@@ -8082,10 +8692,6 @@
           "serviceDate": {
             "type": "string",
             "format": "date"
-          },
-          "compareWithHub": {
-            "type": "boolean",
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8178,6 +8784,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8201,32 +8811,6 @@
           },
           "notes": {
             "maxLength": 1000,
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "CreateDeliveryZoneRequest": {
-        "required": [
-          "code",
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "code": {
-            "maxLength": 50,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9_]+$",
-            "type": "string"
-          },
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "maxLength": 500,
             "type": "string",
             "nullable": true
           }
@@ -8290,10 +8874,16 @@
       },
       "CreateHubRequest": {
         "required": [
+          "marketId",
           "name"
         ],
         "type": "object",
         "properties": {
+          "marketId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
           "name": {
             "maxLength": 200,
             "minLength": 1,
@@ -8379,6 +8969,39 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreatePackingCodeRequest": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "capacityKg": {
+            "maximum": 25,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -8407,6 +9030,11 @@
           },
           "description": {
             "type": "string",
+            "nullable": true
+          },
+          "packingCodeId": {
+            "type": "string",
+            "format": "uuid",
             "nullable": true
           }
         },
@@ -8576,17 +9204,6 @@
         },
         "additionalProperties": false
       },
-      "HandoverRequest": {
-        "type": "object",
-        "properties": {
-          "hubId": {
-            "type": "string",
-            "format": "uuid",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "HubInboundItemCommand": {
         "required": [
           "marketProductId"
@@ -8608,6 +9225,10 @@
             "exclusiveMinimum": true,
             "type": "number",
             "format": "double"
+          },
+          "productName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8669,6 +9290,32 @@
         },
         "additionalProperties": false
       },
+      "MarkLineSortedRequest": {
+        "required": [
+          "orderItemId",
+          "serviceDate"
+        ],
+        "type": "object",
+        "properties": {
+          "serviceDate": {
+            "minLength": 1,
+            "type": "string",
+            "format": "date"
+          },
+          "orderItemId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
+          "sortedQuantityKg": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
       "OptimizeRouteRequest": {
         "required": [
           "optimizationCriteria"
@@ -8678,6 +9325,30 @@
           "optimizationCriteria": {
             "minLength": 1,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "PlanRoutesRequest": {
+        "required": [
+          "hubId",
+          "serviceDate"
+        ],
+        "type": "object",
+        "properties": {
+          "hubId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
+          "serviceDate": {
+            "minLength": 1,
+            "type": "string",
+            "format": "date"
+          },
+          "optimizationCriteria": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8975,6 +9646,20 @@
         },
         "additionalProperties": false
       },
+      "ReorderRouteRequest": {
+        "type": "object",
+        "properties": {
+          "stopOrder": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "ReplaceHubStaffAssignmentsRequest": {
         "required": [
           "staffUserIds"
@@ -9085,6 +9770,20 @@
           "channel": {
             "minLength": 1,
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResetOrderGroupsRequest": {
+        "type": "object",
+        "properties": {
+          "targetDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "confirmation": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9236,6 +9935,10 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9251,25 +9954,6 @@
             "type": "string"
           },
           "failureReason": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "UpdateDeliveryZoneRequest": {
-        "required": [
-          "name"
-        ],
-        "type": "object",
-        "properties": {
-          "name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "type": "string"
-          },
-          "description": {
-            "maxLength": 500,
             "type": "string",
             "nullable": true
           }
@@ -9312,6 +9996,11 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "marketId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9343,6 +10032,14 @@
           "longitude": {
             "type": "number",
             "format": "double",
+            "nullable": true
+          },
+          "imageUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "description": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -9379,6 +10076,12 @@
           "defaultRouteType": {
             "type": "string",
             "nullable": true
+          },
+          "deliveryWindowDays": {
+            "maximum": 30,
+            "minimum": 1,
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -9391,6 +10094,31 @@
             "exclusiveMinimum": true,
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdatePackingCodeRequest": {
+        "required": [
+          "code"
+        ],
+        "type": "object",
+        "properties": {
+          "code": {
+            "maxLength": 50,
+            "minLength": 1,
+            "type": "string"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "capacityKg": {
+            "maximum": 25,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "number",
+            "format": "double"
           }
         },
         "additionalProperties": false
@@ -9457,6 +10185,11 @@
           "imageUrl": {
             "type": "string",
             "nullable": true
+          },
+          "packingCodeId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9511,6 +10244,28 @@
           },
           "notes": {
             "maxLength": 500,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateTaxProfileRequest": {
+        "type": "object",
+        "properties": {
+          "taxCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "legalName": {
+            "type": "string",
+            "nullable": true
+          },
+          "address": {
+            "type": "string",
+            "nullable": true
+          },
+          "email": {
             "type": "string",
             "nullable": true
           }
@@ -9615,9 +10370,6 @@
       "name": "Categories"
     },
     {
-      "name": "DeliveryZones"
-    },
-    {
       "name": "Driver"
     },
     {
@@ -9633,6 +10385,9 @@
       "name": "HubStaffAssignments"
     },
     {
+      "name": "Invoices"
+    },
+    {
       "name": "Markets"
     },
     {
@@ -9643,6 +10398,9 @@
     },
     {
       "name": "Orders"
+    },
+    {
+      "name": "PackingCodes"
     },
     {
       "name": "Pricing"
@@ -9660,10 +10418,16 @@
       "name": "RestaurantCredit"
     },
     {
+      "name": "RestaurantFavorites"
+    },
+    {
       "name": "RestaurantProfile"
     },
     {
       "name": "Routes"
+    },
+    {
+      "name": "Shipping"
     },
     {
       "name": "Units"

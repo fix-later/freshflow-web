@@ -9,6 +9,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1DriverDeliveriesDeliveryIdProofOfDeliveryUploadSignaturePost**](DriverApi.md#apiv1driverdeliveriesdeliveryidproofofdeliveryuploadsignaturepost) | **POST** /api/v1/driver/deliveries/{deliveryId}/proof-of-delivery/upload-signature |  |
 | [**apiV1DriverDeliveriesDeliveryIdStatusPatch**](DriverApi.md#apiv1driverdeliveriesdeliveryidstatuspatch) | **PATCH** /api/v1/driver/deliveries/{deliveryId}/status |  |
 | [**apiV1DriverRoutesRouteIdConfirmPickupPost**](DriverApi.md#apiv1driverroutesrouteidconfirmpickuppost) | **POST** /api/v1/driver/routes/{routeId}/confirm-pickup |  |
+| [**apiV1DriverRoutesRouteIdReorderPost**](DriverApi.md#apiv1driverroutesrouteidreorderpost) | **POST** /api/v1/driver/routes/{routeId}/reorder |  |
 | [**apiV1DriverRoutesRouteIdStartPost**](DriverApi.md#apiv1driverroutesrouteidstartpost) | **POST** /api/v1/driver/routes/{routeId}/start |  |
 | [**apiV1DriverRoutesTodayGet**](DriverApi.md#apiv1driverroutestodayget) | **GET** /api/v1/driver/routes/today |  |
 
@@ -348,6 +349,78 @@ example().catch(console.error);
 |------------- | ------------- | ------------- | -------------|
 | **routeId** | `string` |  | [Defaults to `undefined`] |
 | **confirmPickupRequest** | [ConfirmPickupRequest](ConfirmPickupRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1DriverRoutesRouteIdReorderPost
+
+> apiV1DriverRoutesRouteIdReorderPost(routeId, reorderRouteRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  DriverApi,
+} from '';
+import type { ApiV1DriverRoutesRouteIdReorderPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new DriverApi(config);
+
+  const body = {
+    // string
+    routeId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // ReorderRouteRequest (optional)
+    reorderRouteRequest: ...,
+  } satisfies ApiV1DriverRoutesRouteIdReorderPostRequest;
+
+  try {
+    const data = await api.apiV1DriverRoutesRouteIdReorderPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **routeId** | `string` |  | [Defaults to `undefined`] |
+| **reorderRouteRequest** | [ReorderRouteRequest](ReorderRouteRequest.md) |  | [Optional] |
 
 ### Return type
 

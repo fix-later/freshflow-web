@@ -1,7 +1,8 @@
 <ng-container *transloco="let t">
     <!-- Favorites trigger (drawer panel lives at the layout root) -->
     <button
-        class="text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        class="ff-header-icon text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        [class.ff-header-icon--pop]="popping()"
         type="button"
         (click)="favoritesService.toggleDrawer()"
         [attr.aria-label]="t('header.favorites')"

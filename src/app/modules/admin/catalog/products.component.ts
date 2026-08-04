@@ -129,6 +129,7 @@ export class ProductsComponent implements OnInit {
     readonly flashMessage = signal<'success' | 'error' | null>(null);
     readonly sort = new TableSort<CrudRow>();
     readonly unitOptions = signal<CrudOption[]>([]);
+    readonly packingCodeOptions = signal<CrudOption[]>([]);
 
     /** All active categories (carry `parentId`) — feed the cascade selects. */
     readonly activeCategoryRows = signal<CrudRow[]>([]);
@@ -164,6 +165,7 @@ export class ProductsComponent implements OnInit {
         categoryId: new FormControl('', { nonNullable: true }),
         description: new FormControl('', { nonNullable: true }),
         imageUrl: new FormControl('', { nonNullable: true }),
+        packingCodeId: new FormControl('', { nonNullable: true }),
     });
 
     /**
@@ -303,6 +305,7 @@ export class ProductsComponent implements OnInit {
             categoryId: '',
             description: '',
             imageUrl: '',
+            packingCodeId: '',
         });
     }
 
@@ -543,15 +546,18 @@ export class ProductsComponent implements OnInit {
 
     private async _loadOptions(): Promise<void> {
         try {
-            const [units, activeCategories] = await Promise.all([
+            const [units, activeCategories, packingCodes] = await Promise.all([
                 this._catalog.unitOptions(),
                 this._catalog.listCategories(true),
+                this._catalog.packingCodeOptions(),
             ]);
             this.unitOptions.set(units);
             this.activeCategoryRows.set(activeCategories);
+            this.packingCodeOptions.set(packingCodes);
         } catch {
             this.unitOptions.set([]);
             this.activeCategoryRows.set([]);
+            this.packingCodeOptions.set([]);
         }
     }
 
@@ -609,6 +615,7 @@ export class ProductsComponent implements OnInit {
             categoryId: childId,
             description: String(row['description'] ?? ''),
             imageUrl: String(row['imageUrl'] ?? ''),
+            packingCodeId: String(row['packingCodeId'] ?? ''),
         });
     }
 

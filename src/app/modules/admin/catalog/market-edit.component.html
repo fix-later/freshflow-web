@@ -169,6 +169,73 @@
                                 </mat-form-field>
                             </div>
 
+                            <mat-form-field class="w-full">
+                                <mat-label>{{
+                                    t('admin.markets.description')
+                                }}</mat-label>
+                                <textarea
+                                    matInput
+                                    rows="3"
+                                    formControlName="description"
+                                ></textarea>
+                            </mat-form-field>
+
+                            <div class="flex flex-col gap-2">
+                                <span
+                                    class="text-secondary text-sm font-medium"
+                                    >{{ t('admin.markets.image') }}</span
+                                >
+                                <div class="flex items-center gap-4">
+                                    @if (form.controls.imageUrl.value) {
+                                        <img
+                                            class="h-24 w-24 rounded-lg border object-cover"
+                                            [src]="form.controls.imageUrl.value"
+                                            [alt]="t('admin.markets.image')"
+                                        />
+                                    }
+                                    <button
+                                        mat-stroked-button
+                                        type="button"
+                                        [disabled]="uploading()"
+                                        (click)="marketImageInput.click()"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:cloud-arrow-up"
+                                        ></mat-icon>
+                                        <span class="ml-2">{{
+                                            uploading()
+                                                ? t(
+                                                      'admin.crud.image.uploading'
+                                                  )
+                                                : t('admin.crud.image.upload')
+                                        }}</span>
+                                    </button>
+                                    @if (form.controls.imageUrl.value) {
+                                        <button
+                                            mat-icon-button
+                                            type="button"
+                                            [disabled]="uploading()"
+                                            [matTooltip]="
+                                                t('admin.crud.image.remove')
+                                            "
+                                            (click)="clearImage()"
+                                        >
+                                            <mat-icon
+                                                svgIcon="heroicons_outline:trash"
+                                            ></mat-icon>
+                                        </button>
+                                    }
+                                </div>
+                                <input
+                                    #marketImageInput
+                                    class="hidden"
+                                    type="file"
+                                    accept="image/*"
+                                    (change)="onImagePicked($event)"
+                                />
+                            </div>
+
                             <app-location-picker
                                 [latControl]="form.controls.latitude"
                                 [lngControl]="form.controls.longitude"
@@ -180,16 +247,30 @@
                             <div
                                 class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
                             >
-                                <button
-                                    class="-ml-2"
-                                    mat-button
-                                    color="warn"
-                                    type="button"
-                                    [disabled]="!isActive() || saving()"
-                                    (click)="deactivate()"
-                                >
-                                    {{ t('admin.crud.deactivate') }}
-                                </button>
+                                <div class="-ml-2 flex flex-wrap items-center">
+                                    <button
+                                        mat-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="!isActive() || saving()"
+                                        (click)="deactivate()"
+                                    >
+                                        {{ t('admin.crud.deactivate') }}
+                                    </button>
+                                    <!-- Deactivate retires the market and keeps
+                                         its price history; delete removes it.
+                                         The server refuses a market that is
+                                         still referenced and says why. -->
+                                    <button
+                                        mat-button
+                                        color="warn"
+                                        type="button"
+                                        [disabled]="saving()"
+                                        (click)="deleteMarket()"
+                                    >
+                                        {{ t('admin.markets.delete.action') }}
+                                    </button>
+                                </div>
                                 <div class="flex items-center gap-2">
                                     <button
                                         mat-stroked-button

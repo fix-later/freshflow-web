@@ -31,6 +31,9 @@ import { take } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'languages',
     standalone: true,
+    host: {
+        class: 'inline-flex items-center',
+    },
     imports: [
         MatButtonModule,
         MatIconModule,
