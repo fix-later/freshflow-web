@@ -26,12 +26,24 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import {
+    latitudeValidator,
+    longitudeValidator,
+    nonBlankValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudRow } from '../shared/resource-crud.types';
-import { CatalogAdminService } from './catalog-admin.service';
+import {
+    CatalogAdminService,
+    MARKET_ADDRESS_MAX_LENGTH,
+    MARKET_DESCRIPTION_MAX_LENGTH,
+    MARKET_LOCATION_MAX_LENGTH,
+    MARKET_NAME_MAX_LENGTH,
+} from './catalog-admin.service';
 import { MarketProductsComponent } from './market-products.component';
 
 /** Read-only MarketDto fields for the detail grid. */
@@ -125,18 +137,35 @@ export class MarketEditComponent implements OnInit {
         })).filter((e) => e.value !== '');
     });
 
+    // `UpdateMarketCommandValidator` shares its limits with the create one —
+    // see `market-create.component.ts`.
     readonly form = new FormGroup({
         name: new FormControl('', {
             nonNullable: true,
-            validators: [Validators.required],
+            validators: [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(MARKET_NAME_MAX_LENGTH),
+            ],
         }),
-        location: new FormControl('', { nonNullable: true }),
+        location: new FormControl('', {
+            nonNullable: true,
+            validators: [trimmedMaxLengthValidator(MARKET_LOCATION_MAX_LENGTH)],
+        }),
         agentUserId: new FormControl('', { nonNullable: true }),
-        description: new FormControl('', { nonNullable: true }),
+        description: new FormControl('', {
+            nonNullable: true,
+            validators: [
+                trimmedMaxLengthValidator(MARKET_DESCRIPTION_MAX_LENGTH),
+            ],
+        }),
         imageUrl: new FormControl('', { nonNullable: true }),
-        address: new FormControl('', { nonNullable: true }),
-        latitude: new FormControl<number | null>(null),
-        longitude: new FormControl<number | null>(null),
+        address: new FormControl('', {
+            nonNullable: true,
+            validators: [trimmedMaxLengthValidator(MARKET_ADDRESS_MAX_LENGTH)],
+        }),
+        latitude: new FormControl<number | null>(null, [latitudeValidator]),
+        longitude: new FormControl<number | null>(null, [longitudeValidator]),
     });
 
     readonly uploading = signal(false);

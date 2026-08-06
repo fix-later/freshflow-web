@@ -35,6 +35,12 @@ export interface CatalogProduct {
     marketSource: string;
     price: number | null;
     quantity: number | null;
+    /**
+     * `ProductDto.MinimumOrderQuantity` — the floor `OrderPricingCalculator`
+     * enforces when the order is confirmed (`MINIMUM_ORDER_QUANTITY_NOT_MET`).
+     * Defaults to 1 on the backend, so a listing that omits it is unrestricted.
+     */
+    minimumOrderQuantity: number;
     thumbnail: string;
     images: string[];
     active: boolean;

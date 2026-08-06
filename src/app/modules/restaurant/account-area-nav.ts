@@ -89,6 +89,15 @@ const ACCOUNT_GROUPS: readonly AccountNavGroup[] = [
                 labelKey: 'scheduledOrders.title',
                 icon: 'heroicons_outline:arrow-path',
             },
+            // Filed from the order they are about; listed here because a claim
+            // outlives the order screen — it is decided by admin/ops later, and
+            // the outcome has to be findable without hunting for the order.
+            {
+                id: 'claims',
+                link: '/profile/claims',
+                labelKey: 'claims.title',
+                icon: 'heroicons_outline:chat-bubble-left-right',
+            },
         ],
     },
     {

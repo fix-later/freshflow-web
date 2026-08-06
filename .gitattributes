@@ -1,0 +1,22 @@
+# Line endings.
+#
+# The repo stores text as LF; `core.autocrlf=true` on a Windows clone then
+# writes CRLF into the working copy, which is what made `prettier --check` fail
+# on ~200 untouched files during `npm run precheck`. `eol=lf` pins the checkout
+# so every platform sees the same bytes, and Prettier's `endOfLine: "auto"`
+# tolerates a working copy that predates this file.
+* text=auto eol=lf
+
+# Binaries git must never translate.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.xlsx binary

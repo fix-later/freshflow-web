@@ -389,6 +389,13 @@ export class CatalogService {
             marketSource: market.name,
             price: num(row, ['price', 'currentPrice']),
             quantity: num(row, ['availableQuantity', 'quantity']),
+            // Lives on the product, not the market listing, so it is read from
+            // `base`. A missing or nonsensical value means "no minimum", which
+            // is what the backend's own default of 1 amounts to.
+            minimumOrderQuantity: Math.max(
+                1,
+                num(base, ['minimumOrderQuantity']) ?? 1
+            ),
             thumbnail,
             images,
             active: base['active'] !== false,

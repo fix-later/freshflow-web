@@ -43,15 +43,20 @@ export class UnitsComponent {
         ],
         fields: [
             {
+                // `CreateUnitCommandValidator`: `NotEmpty().MaximumLength(100)`
+                // — 100, not the 200 the other catalog names use.
                 name: 'name',
                 label: 'admin.units.name',
                 type: 'text',
                 required: true,
+                maxLength: 100,
             },
             {
+                // `MaximumLength(20)` when present.
                 name: 'abbreviation',
                 label: 'admin.units.abbreviation',
                 type: 'text',
+                maxLength: 20,
             },
         ],
         list: () => this._catalog.listUnits(),

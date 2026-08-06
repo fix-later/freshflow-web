@@ -2,10 +2,13 @@
  * Reactive-form validators that mirror the backend's server-side rules so the
  * UI can block invalid input before a request is ever sent.
  *
- * These reproduce the FluentValidation rules documented in
- * `docs/04-api-design.md` §6 ("mirror them client-side so the front end can
- * block invalid input before submitting"). Keeping them in one place means
- * every password/phone field enforces the same policy the API does.
+ * **Every limit here is read off the FluentValidation validator that actually
+ * runs**, not off `docs/04-api-design.md` — the backend's own guide says the
+ * design docs predate the code and the code wins. Each constant names its
+ * validator so the pair can be re-checked when either side moves; several of
+ * these differ from the doc (tax code has a format, `legalName` is 300 not 255,
+ * `recipientName` is 200 not 255), and every one of those differences was a
+ * request the user could send and the server would reject.
  */
 import { AbstractControl, ValidationErrors } from '@angular/forms';
 
@@ -21,20 +24,60 @@ export interface PasswordStrengthErrors {
     special: boolean;
 }
 
-/** Longest email the backend accepts (`email` max 255, §6). */
+/** `RegisterRestaurantCommandValidator.Email` — `MaximumLength(255)`. */
 export const EMAIL_MAX_LENGTH = 255;
 
-/** Longest free-text name the backend accepts (§6 "Must not exceed 255"). */
+/** `UpdateMyProfileCommandValidator.FullName` — `MaximumLength(255)`. */
 export const NAME_MAX_LENGTH = 255;
 
-/** `UpdateRestaurantProfileRequest.name` — `minLength 1, maxLength 200`. */
+/** `UpdateRestaurantProfileCommandValidator.Name` — `NotEmpty().MaximumLength(200)`. */
 export const RESTAURANT_NAME_MAX_LENGTH = 200;
 
-/** `DeliveryAddressRequest.addressLine` — `minLength 1, maxLength 500`. */
+/** `UpdateRestaurantProfileCommandValidator.Address` — `MaximumLength(500)`. */
+export const RESTAURANT_ADDRESS_MAX_LENGTH = 500;
+
+/** `UpdateRestaurantProfileCommandValidator.ContactPerson` — `MaximumLength(200)`. */
+export const CONTACT_PERSON_MAX_LENGTH = 200;
+
+/** `AddDeliveryAddressCommandValidator.AddressLine` — `NotEmpty().MaximumLength(500)`. */
 export const ADDRESS_LINE_MAX_LENGTH = 500;
 
-/** Phone: 7–15 digits, optional leading `+` (§6). */
+/**
+ * `AddDeliveryAddressCommandValidator.RecipientName` — `MaximumLength(200)`.
+ * Not the 255 the doc implies: a 201-character recipient answered 400.
+ */
+export const RECIPIENT_NAME_MAX_LENGTH = 200;
+
+/** Every `Phone` rule pairs its format check with `MaximumLength(20)`. */
+export const PHONE_MAX_LENGTH = 20;
+
+/**
+ * `AvatarUrl` / `BusinessLicenseUrl` — `MaximumLength(512)` plus an absolute
+ * http(s) check. Both are filled from a Cloudinary upload, so the length is the
+ * one a hand-edited value can breach.
+ */
+export const URL_MAX_LENGTH = 512;
+
+/** `UpdateMyTaxProfileCommandValidator.TaxCode` — `MaximumLength(20)`. */
+export const TAX_CODE_MAX_LENGTH = 20;
+
+/** `UpdateMyTaxProfileCommandValidator.LegalName` — `NotEmpty().MaximumLength(300)`. */
+export const LEGAL_NAME_MAX_LENGTH = 300;
+
+/** `UpdateMyTaxProfileCommandValidator.Address` — `NotEmpty().MaximumLength(256)`. */
+export const TAX_ADDRESS_MAX_LENGTH = 256;
+
+/** `UpdateMyTaxProfileCommandValidator.Email` — `EmailAddress().MaximumLength(256)`. */
+export const TAX_EMAIL_MAX_LENGTH = 256;
+
+/** Phone: 7–15 digits, optional leading `+` (`PhoneRegex`, shared by 4 validators). */
 const PHONE_PATTERN = /^\+?[0-9]{7,15}$/;
+
+/**
+ * Vietnamese tax code — 10 digits, optionally followed by a 3-digit branch
+ * suffix (`UpdateMyTaxProfileCommandValidator`: `^\d{10}(-\d{3})?$`).
+ */
+const TAX_CODE_PATTERN = /^\d{10}(-\d{3})?$/;
 
 /** `AddFavoriteRequest.marketProductId` — `format: uuid`. */
 const UUID_PATTERN =
@@ -90,6 +133,47 @@ export function phoneNumberValidator(
         return null;
     }
     return PHONE_PATTERN.test(value) ? null : { phoneNumber: true };
+}
+
+/**
+ * Vietnamese tax code — `1234567890` or `1234567890-001`.
+ *
+ * The backend rejects anything else with a 400 that names the regex, which is
+ * not a thing to hand a user; blocking it here lets the field say what shape is
+ * expected. Empty is left to `Validators.required`, since the rule is
+ * `NotEmpty().Matches(…)` and the two failures deserve different wording.
+ */
+export function taxCodeValidator(
+    control: AbstractControl
+): ValidationErrors | null {
+    const value = typeof control.value === 'string' ? control.value.trim() : '';
+    if (!value) {
+        return null;
+    }
+    return TAX_CODE_PATTERN.test(value) ? null : { taxCode: true };
+}
+
+/**
+ * Absolute `http(s)` URL — the `Uri.TryCreate(…, UriKind.Absolute)` check the
+ * backend applies to `avatarUrl` and `businessLicenseUrl`. A relative path or a
+ * `data:` blob is rejected server-side, so a hand-typed value is caught here.
+ */
+export function absoluteHttpUrlValidator(
+    control: AbstractControl
+): ValidationErrors | null {
+    const value = typeof control.value === 'string' ? control.value.trim() : '';
+    if (!value) {
+        return null;
+    }
+    let url: URL;
+    try {
+        url = new URL(value);
+    } catch {
+        return { absoluteUrl: true };
+    }
+    return url.protocol === 'https:' || url.protocol === 'http:'
+        ? null
+        : { absoluteUrl: true };
 }
 
 /**

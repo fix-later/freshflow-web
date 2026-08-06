@@ -249,6 +249,15 @@
         color: var(--fuse-text-secondary);
     }
 
+    /* A line the confirm would refuse — same size as the meta line it follows,
+       in the warn colour so it reads as a blocker and not as more detail. */
+    &__issue {
+        margin-top: 0.15rem;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: rgb(185 28 28);
+    }
+
     &__price,
     &__subtotal {
         font-weight: 600;
@@ -352,5 +361,34 @@
         margin: 0 0 0.5rem;
         max-width: 28rem;
         color: var(--fuse-text-secondary);
+    }
+}
+
+/**
+ * Draft status strip. Sits under the title as a quiet line of fact — the cart
+ * is a saved draft order, and this says which one and whether the last change
+ * landed. Turns warn-coloured only when a write failed, where it also carries
+ * the retry.
+ */
+.cart-draft {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--fuse-text-secondary);
+
+    button {
+        font-weight: 600;
+        color: var(--fuse-primary);
+        text-decoration: underline;
+    }
+
+    &--error {
+        color: rgb(185 28 28);
+
+        button {
+            color: inherit;
+        }
     }
 }

@@ -73,6 +73,11 @@ function build(previewResult: OrderConfirmPreview): {
                     lines: () => [],
                     subtotal: () => 0,
                     clear: () => undefined,
+                    // The cart is a server draft now; these two are what
+                    // checkout reads and writes on it. `null` here is the
+                    // "cart has no draft yet" path these cases exercise.
+                    orderId: () => null,
+                    adopt: () => undefined,
                 },
             },
             {
@@ -129,7 +134,10 @@ const cart = [{ marketProductId: 'p1', quantity: 2 }];
 describe('Checkout draft reuse', () => {
     it('reuses the same draft when a blocked attempt is retried', async () => {
         const { component, calls } = build(
-            preview({ canConfirm: false, blockers: ['CREDIT_LIMIT_EXCEEDED'] })
+            preview({
+                canConfirm: false,
+                blockers: [{ code: 'CREDIT_LIMIT_EXCEEDED', message: null }],
+            })
         );
 
         await attempt(component, cart);
@@ -139,12 +147,19 @@ describe('Checkout draft reuse', () => {
         expect(calls.created).toBe(1);
         expect(calls.confirmed).toEqual([]);
         expect(calls.cancelled).toEqual([]);
-        expect(component.blockers()).toEqual(['CREDIT_LIMIT_EXCEEDED']);
+        // Localized through the shared code map, not echoed verbatim. The stub
+        // loader has no translations, so Transloco answers with the key.
+        expect(component.blockers()).toEqual([
+            'errors.api.creditLimitExceeded',
+        ]);
     });
 
     it('confirms the draft it already created once the block clears', async () => {
         const { component, calls, setPreview } = build(
-            preview({ canConfirm: false, blockers: ['CREDIT_LIMIT_EXCEEDED'] })
+            preview({
+                canConfirm: false,
+                blockers: [{ code: 'CREDIT_LIMIT_EXCEEDED', message: null }],
+            })
         );
 
         await attempt(component, cart);

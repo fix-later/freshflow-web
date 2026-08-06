@@ -30,6 +30,7 @@ export type ProfileSection =
     | 'credit'
     | 'scheduled'
     | 'invoices'
+    | 'claims'
     | 'account';
 
 const PROFILE_SECTIONS: readonly ProfileSection[] = [
@@ -40,6 +41,7 @@ const PROFILE_SECTIONS: readonly ProfileSection[] = [
     'credit',
     'scheduled',
     'invoices',
+    'claims',
     'account',
 ] as const;
 
@@ -56,6 +58,7 @@ const SECTION_LABEL_KEYS: Readonly<Record<ProfileSection, string>> = {
     credit: 'restaurantCredit.title',
     scheduled: 'scheduledOrders.title',
     invoices: 'restaurantProfile.tabs.invoices',
+    claims: 'claims.title',
     account: 'accountInfo.title',
 };
 

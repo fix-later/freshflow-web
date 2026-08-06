@@ -1,3 +1,20 @@
+/**
+ * A closed rail is still in the box. Material parks it by translating it a
+ * full width past the container's edge, and the drawer below keeps itself
+ * `visible` while parked, so it sits outside the page column and drags a
+ * horizontal scrollbar across the app — the rail is reachable by scrolling
+ * right, on every page in the area.
+ *
+ * `clip`, not `hidden`: `hidden` would turn this into a scroll container in
+ * both axes, and the rail's sticky header — and the shell's whole "page scroll
+ * only" arrangement below — resolve against the page, not against a scrollport
+ * introduced here. `clip` on one axis pairs with `visible` on the other and
+ * scrolls nothing.
+ */
+.account-shell {
+    overflow-x: clip;
+}
+
 /* Page scroll only — no nested scrollport (Fuse demo pattern). */
 .account-shell__drawer-container {
     height: auto !important;
@@ -29,6 +46,25 @@
         overflow: visible !important;
         background-color: #fff !important;
     }
+
+    /**
+     * An open rail closes the column on the side it sits on, so the content
+     * drops its own gutter there and runs straight up to the rail's border —
+     * page and rail read as one surface split by a rule, not two panels
+     * floating apart. Keyed exactly like `.ff-drawer-gutter`, down to
+     * `opened`, so the two can never disagree about which side the drawer is
+     * on or whether it is there at all: with the rail closed, or `over` and
+     * overlaying, the content is on its own and keeps both gutters.
+     */
+    &:has(> .mat-drawer.mat-drawer-side.mat-drawer-end.mat-drawer-opened)
+        > .account-shell__content {
+        padding-inline-end: 0;
+    }
+
+    &:has(> .mat-drawer.mat-drawer-side.mat-drawer-opened:not(.mat-drawer-end))
+        > .account-shell__content {
+        padding-inline-start: 0;
+    }
 }
 
 .account-shell__drawer.mat-drawer {
@@ -51,17 +87,20 @@
  * "Địa chỉ giao hàng" sits on one line instead of truncating.
  */
 .account-shell__rail {
-    padding: 0 0.75rem 2rem;
+    /* No inset on the drawer's outer side — the rows and the header rule run
+       out to its border; the rail's own edge is what ends them. */
+    padding: 0 0 2rem 0.75rem;
     box-sizing: border-box;
 }
 
 .account-shell__header {
+    overflow: hidden;
     position: sticky;
     top: 0;
     z-index: 1;
-    padding: 1.25rem 0.75rem 1rem;
+    padding: 2rem 0rem 1.25rem;
     margin-bottom: 0.25rem;
-    background: inherit;
+    background: white;
     border-bottom: 1px solid var(--fuse-border);
     box-sizing: border-box;
 }
@@ -120,6 +159,7 @@
 .account-shell__nav-item {
     position: relative;
     min-height: 2.5rem;
+    margin-bottom: 0.5rem;
     padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
     box-sizing: border-box;

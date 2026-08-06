@@ -118,6 +118,8 @@ export class HubsComponent {
                 name: 'location',
                 label: 'admin.hubs.address',
                 type: 'location',
+                // `CreateHubCommandValidator.Address` — `MaximumLength(500)`.
+                maxLength: 500,
                 latField: 'latitude',
                 lngField: 'longitude',
                 addressField: 'address',

@@ -27,6 +27,7 @@ import {
 } from 'app/core/api/form-errors';
 import {
     NAME_MAX_LENGTH,
+    PHONE_MAX_LENGTH,
     phoneNumberValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
@@ -85,7 +86,13 @@ export class AccountInfoComponent implements OnInit {
         }),
         phone: this._fb.control('', {
             nonNullable: true,
-            validators: [phoneNumberValidator],
+            // `UpdateMyProfileCommandValidator` pairs the format regex with
+            // `MaximumLength(20)`; the regex alone tops out at 16 characters,
+            // but the cap is what the server enforces, so it is what we mirror.
+            validators: [
+                phoneNumberValidator,
+                trimmedMaxLengthValidator(PHONE_MAX_LENGTH),
+            ],
         }),
     });
 

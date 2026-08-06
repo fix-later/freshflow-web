@@ -24,16 +24,26 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { DateTime } from 'luxon';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import { CrudOption } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 import {
+    HubOption,
     OPTIMIZATION_CRITERIA,
     OptimizationCriterion,
     RouteSuggestionItem,
 } from './logistics-admin.types';
 
-/** Backend guard: a route may not contain more than 20 stops (BR — LOG). */
-const MAX_STOPS = 20;
+/**
+ * Most restaurants one route may serve.
+ *
+ * `CalculateRouteCommandHandler` refuses when
+ * `DestinationRestaurantIds.Count + 1 > 20` — **the hub is itself a stop**, so
+ * the 20-stop route holds 19 destinations. Counting 20 restaurants here let the
+ * 20th through the gate and answered `STOP_LIMIT_EXCEEDED` (422) instead.
+ */
+const MAX_STOPS = 19;
+
+/** What the backend counts, hub included — used in the "x / 20 stops" copy. */
+const MAX_ROUTE_STOPS = MAX_STOPS + 1;
 
 /**
  * Admin ▸ Logistics ▸ Routes ▸ New — builds a delivery route for a service
@@ -82,6 +92,8 @@ export class RouteCreateComponent implements OnInit {
 
     readonly criteriaOptions = OPTIMIZATION_CRITERIA;
     readonly maxStops = MAX_STOPS;
+    /** The hub-inclusive figure, so the warning can explain where 19 comes from. */
+    readonly maxRouteStops = MAX_ROUTE_STOPS;
 
     readonly serviceDate = new FormControl<DateTime | null>(DateTime.now());
     readonly criteria = new FormControl<OptimizationCriterion>('cost', {
@@ -90,10 +102,12 @@ export class RouteCreateComponent implements OnInit {
     readonly includeBatched = new FormControl(false, { nonNullable: true });
     readonly hubId = new FormControl('', { nonNullable: true });
 
-    readonly hubs = signal<CrudOption[]>([]);
+    readonly hubs = signal<HubOption[]>([]);
     /** False until `hubOptions()` has answered, so "no hubs" ≠ "still loading". */
     readonly hubsLoaded = signal(false);
     readonly restaurants = signal<RouteSuggestionItem[]>([]);
+    /** Hubs the day suggests, with their waiting-order counts. */
+    readonly suggestedHubs = signal<RouteSuggestionItem[]>([]);
     readonly selectedRestaurants = signal<Set<string>>(new Set());
 
     /**
@@ -121,11 +135,17 @@ export class RouteCreateComponent implements OnInit {
     readonly canCalculate = computed(
         () =>
             !!this.selectedHubId() &&
+            this.selectedHubHasCoordinates() &&
             this.selectedRestaurants().size > 0 &&
             !this.tooManyStops() &&
             !this.busy()
     );
-    readonly canPlan = computed(() => !!this.selectedHubId() && !this.busy());
+    readonly canPlan = computed(
+        () =>
+            !!this.selectedHubId() &&
+            this.selectedHubHasCoordinates() &&
+            !this.busy()
+    );
 
     /**
      * Why the actions are unavailable, as an i18n key — a disabled pair of
@@ -139,7 +159,23 @@ export class RouteCreateComponent implements OnInit {
         if (!this.selectedHubId()) {
             return 'admin.routes.create.blocked.noHubSelected';
         }
+        // The hub is the route's first stop, so one without coordinates is
+        // refused by `CalculateRouteCommandHandler` before anything else is
+        // read. Saying so here points at the fix — edit the hub's address —
+        // instead of spending a request to be told "missing coordinates".
+        if (!this.selectedHubHasCoordinates()) {
+            return 'admin.routes.create.blocked.hubNoCoordinates';
+        }
         return null;
+    });
+
+    /** False only when the chosen hub is known to have no coordinates. */
+    readonly selectedHubHasCoordinates = computed(() => {
+        const id = this.selectedHubId();
+        const hub = this.hubs().find((option) => option.value === id);
+        // Unknown hub (list still loading) is not a refusal — the other gates
+        // already cover "nothing selected".
+        return !hub || hub.hasCoordinates;
     });
 
     /** Same, for the calculate button only — planning needs no stops picked. */
@@ -167,9 +203,7 @@ export class RouteCreateComponent implements OnInit {
             .hubOptions()
             .then((options) => {
                 this.hubs.set(options);
-                if (!this.hubId.value && options.length) {
-                    this.hubId.setValue(options[0].value);
-                }
+                this._applyHubSuggestions();
             })
             .finally(() => this.hubsLoaded.set(true));
         this._loadSuggestions();
@@ -298,13 +332,54 @@ export class RouteCreateComponent implements OnInit {
             .getRouteSuggestions(isoDate, this.includeBatched.value)
             .then((suggestions) => {
                 this.restaurants.set(suggestions.restaurants);
+                this.suggestedHubs.set(suggestions.hubs);
+                this._applyHubSuggestions();
                 this._preselect(suggestions.restaurants);
             })
             .catch(() => {
                 this.restaurants.set([]);
+                this.suggestedHubs.set([]);
                 this.selectedRestaurants.set(new Set());
             })
             .finally(() => this.loading.set(false));
+    }
+
+    /**
+     * Orders the hub picker by what the day actually needs and selects one that
+     * has goods waiting.
+     *
+     * The suggestions name the hubs with orders on this service date; the hub
+     * list names every active hub. Both are wanted — Admin may deliberately
+     * route from a quiet hub — so nothing is removed, but the ones with work
+     * lead the list and carry their order count, and the default selection is
+     * one of them instead of whichever hub happened to be created first.
+     *
+     * Runs after either source resolves, since their order is not guaranteed.
+     */
+    private _applyHubSuggestions(): void {
+        const counts = new Map(
+            this.suggestedHubs().map((hub) => [hub.id, hub.orderCount])
+        );
+        const ranked = [...this.hubs()]
+            .map((hub) => ({ ...hub, orderCount: counts.get(hub.value) ?? 0 }))
+            .sort(
+                (a, b) =>
+                    b.orderCount - a.orderCount ||
+                    a.label.localeCompare(b.label)
+            );
+        this.hubs.set(ranked);
+
+        const current = this.hubId.value;
+        const currentHasWork = (counts.get(current) ?? 0) > 0;
+        if (current && currentHasWork) {
+            return;
+        }
+        // Prefer a hub with goods; fall back to the first one so the picker is
+        // never left empty when nothing is waiting anywhere.
+        const preferred = ranked.find((hub) => hub.orderCount > 0) ?? ranked[0];
+        if (preferred && preferred.value !== current) {
+            this.hubId.setValue(preferred.value);
+        }
     }
 
     /**

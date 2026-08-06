@@ -31,10 +31,42 @@ export interface RouteSuggestionItem {
     orderCount: number;
 }
 
-/** `GET /logistics/routes/suggestions` — what to route on a given day. */
+/**
+ * A hub in the route-origin picker.
+ *
+ * `hasCoordinates` is the one thing the calculate call needs that the option
+ * label cannot show: a hub with no latitude/longitude is refused
+ * (`MISSING_COORDINATES`) because it is the route's first stop.
+ *
+ * The equivalent flag for restaurants is *not* available — `SuggestionItemDto`
+ * carries only id, name and order count — so that half of the rule stays the
+ * server's to enforce, and is answered by the message it sends back.
+ */
+export interface HubOption {
+    value: string;
+    label: string;
+    hasCoordinates: boolean;
+    /**
+     * Orders waiting at this hub on the chosen service date, from
+     * `/routes/suggestions`. Absent until the suggestions land; `0` means the
+     * day suggests nothing for this hub, which is a reason to rank it lower —
+     * not to hide it, since routing from a quiet hub stays Admin's call.
+     */
+    orderCount?: number;
+}
+
+/**
+ * `GET /logistics/routes/suggestions` — what to route on a given day.
+ *
+ * Both halves matter and they are the point of the endpoint: `hubs` are the
+ * hubs with goods waiting *that date* (each with its order count, resolved from
+ * the routable markets), and `restaurants` the destinations waiting on them.
+ * Reading only the restaurants and picking the origin from the general hub list
+ * means routing from a hub that may have nothing to send.
+ */
 export interface RouteSuggestions {
     serviceDate: string;
-    markets: RouteSuggestionItem[];
+    hubs: RouteSuggestionItem[];
     restaurants: RouteSuggestionItem[];
 }
 

@@ -31,9 +31,13 @@ import {
     serverError,
 } from 'app/core/api/form-errors';
 import {
+    absoluteHttpUrlValidator,
+    CONTACT_PERSON_MAX_LENGTH,
     nonBlankValidator,
+    RESTAURANT_ADDRESS_MAX_LENGTH,
     RESTAURANT_NAME_MAX_LENGTH,
     trimmedMaxLengthValidator,
+    URL_MAX_LENGTH,
 } from 'app/core/api/validators';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
 import { restaurantProfileApi, UpdateRestaurantProfileRequest } from 'contract';
@@ -110,8 +114,15 @@ export class BusinessProfileFormComponent implements OnInit {
             ],
             nonNullable: true,
         }),
-        address: this._fb.control<string | null>(null),
-        contactPerson: this._fb.control<string | null>(null),
+        // `MaximumLength(500)` / `MaximumLength(200)` on the same validator —
+        // unbounded here until now, so an over-long address was only rejected
+        // by the server, after the save button had already been pressed.
+        address: this._fb.control<string | null>(null, [
+            trimmedMaxLengthValidator(RESTAURANT_ADDRESS_MAX_LENGTH),
+        ]),
+        contactPerson: this._fb.control<string | null>(null, [
+            trimmedMaxLengthValidator(CONTACT_PERSON_MAX_LENGTH),
+        ]),
         /**
          * One of {@link DELIVERY_WINDOWS} (or `null` for "not set"), split
          * back into `pickupStart`/`pickupEnd` on save. Picking a window
@@ -120,7 +131,17 @@ export class BusinessProfileFormComponent implements OnInit {
          * orderable slot.
          */
         pickupWindow: this._fb.control<string | null>(null),
-        businessLicenseUrl: this._fb.control<string | null>(null),
+        /**
+         * Filled by the Cloudinary upload below, so the format rule
+         * (`Uri.TryCreate(…, Absolute)` + `MaximumLength(512)`) only bites on a
+         * value that arrived some other way — a legacy row, or a hand-edited
+         * one. Validating it anyway keeps the save button honest: the server
+         * would reject it, and the field can say why.
+         */
+        businessLicenseUrl: this._fb.control<string | null>(null, [
+            absoluteHttpUrlValidator,
+            trimmedMaxLengthValidator(URL_MAX_LENGTH),
+        ]),
     });
 
     /**

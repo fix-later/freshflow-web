@@ -123,10 +123,12 @@ export class CategoriesComponent {
         ],
         fields: [
             {
+                // `CreateCategoryCommandValidator`: `NotEmpty().MaximumLength(200)`.
                 name: 'name',
                 label: 'admin.categories.name',
                 type: 'text',
                 required: true,
+                maxLength: 200,
             },
             {
                 name: 'parentId',

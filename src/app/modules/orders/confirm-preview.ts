@@ -1,4 +1,4 @@
-import { OrderConfirmPreview } from './orders.types';
+import { OrderConfirmPreview, PreviewIssue } from './orders.types';
 
 /**
  * Parses `GET /orders/{orderId}/confirm-preview`. The live body is
@@ -31,7 +31,7 @@ export function parseConfirmPreview(
     ]);
     return {
         canConfirm: verdict !== false,
-        blockers: stringList(data, [
+        blockers: issueList(data, [
             'issues',
             'blockers',
             'errors',
@@ -86,22 +86,42 @@ function firstNumber(
     return value != null && Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Entries may be plain strings or `{ code, message }` objects. */
-function stringList(data: Record<string, unknown>, keys: string[]): string[] {
+/**
+ * The live shape is `PreviewIssueDto(Code, Message)` — an object, and the
+ * message is the backend's English. Keeping **both** halves is what lets the
+ * caller localize: the code resolves through the same map as any rejection, and
+ * the message is only the last resort. Plain strings are still accepted, since
+ * older bodies sent bare codes.
+ */
+function issueList(
+    data: Record<string, unknown>,
+    keys: string[]
+): PreviewIssue[] {
     for (const key of keys) {
         const value = data[key];
         if (Array.isArray(value) && value.length) {
             return value
-                .map((entry) => {
+                .map((entry): PreviewIssue => {
                     if (typeof entry === 'string') {
-                        return entry;
+                        // A bare string is a code when it looks like one, and a
+                        // message otherwise.
+                        return /^[A-Z][A-Z0-9_]*$/.test(entry)
+                            ? { code: entry, message: null }
+                            : { code: null, message: entry };
                     }
-                    const record = entry as Record<string, unknown>;
-                    return String(
-                        record?.['message'] ?? record?.['code'] ?? ''
-                    );
+                    const record = (entry ?? {}) as Record<string, unknown>;
+                    return {
+                        code:
+                            typeof record['code'] === 'string'
+                                ? record['code']
+                                : null,
+                        message:
+                            typeof record['message'] === 'string'
+                                ? record['message']
+                                : null,
+                    };
                 })
-                .filter(Boolean);
+                .filter((issue) => !!(issue.code || issue.message));
         }
     }
     return [];

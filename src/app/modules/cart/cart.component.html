@@ -11,6 +11,49 @@
 
     <h1 class="cart-title">{{ t('cart.title') }}</h1>
 
+    <!--
+      The cart is an `OrderStatus.Draft` order on the server, so it says which
+      one and whether the last change is safely there. Without this the buyer
+      cannot tell a saved cart from one that will be gone on reload.
+    -->
+    @if (lines().length) {
+        <div
+            class="cart-draft"
+            [class.cart-draft--error]="syncState() === 'error'"
+        >
+            <mat-icon
+                class="icon-size-4"
+                [svgIcon]="
+                    syncState() === 'error'
+                        ? 'heroicons_outline:exclamation-triangle'
+                        : 'heroicons_outline:document-text'
+                "
+            ></mat-icon>
+            @switch (syncState()) {
+                @case ('saving') {
+                    <span>{{ t('cart.draft.saving') }}</span>
+                }
+                @case ('loading') {
+                    <span>{{ t('cart.draft.loading') }}</span>
+                }
+                @case ('error') {
+                    <span>{{ syncError() || t('cart.draft.error') }}</span>
+                    <button type="button" (click)="retrySync()">
+                        {{ t('common.retry') }}
+                    </button>
+                }
+                @case ('local') {
+                    <span>{{ t('cart.draft.local') }}</span>
+                }
+                @default {
+                    <span>{{
+                        t('cart.draft.saved', { id: draftLabel() })
+                    }}</span>
+                }
+            }
+        </div>
+    }
+
     <!-- Stepper -->
     <ol class="cart-stepper w-full">
         <li class="cart-step cart-step--active">
@@ -91,6 +134,24 @@
                                         {{ line.product.marketSource }} ·
                                         {{ productUnit(line.product) }}
                                     </div>
+                                    <!--
+                                      A line the confirm would refuse. The
+                                      stepper cannot produce one, but a cart
+                                      restored from storage can hold one, and
+                                      it must say so here rather than at the
+                                      last step.
+                                    -->
+                                    @for (
+                                        issue of lineIssues(line);
+                                        track issue
+                                    ) {
+                                        <div
+                                            class="cart-row__issue"
+                                            role="alert"
+                                        >
+                                            {{ issue }}
+                                        </div>
+                                    }
                                 </div>
                             </div>
                             <div class="cart-row__price">
@@ -100,6 +161,7 @@
                                 <button
                                     type="button"
                                     (click)="decrement(line)"
+                                    [disabled]="!canDecrease(line)"
                                     [attr.aria-label]="t('cart.decrease')"
                                 >
                                     −
@@ -108,6 +170,7 @@
                                 <button
                                     type="button"
                                     (click)="increment(line)"
+                                    [disabled]="!canIncrease(line)"
                                     [attr.aria-label]="t('cart.increase')"
                                 >
                                     +
@@ -140,11 +203,16 @@
                 mat-flat-button
                 color="primary"
                 type="button"
-                [disabled]="!lines().length"
+                [disabled]="!lines().length || hasBlockedLine()"
                 (click)="proceedToCheckout()"
             >
                 {{ t('cart.totals.proceed') }}
             </button>
+            @if (hasBlockedLine()) {
+                <p class="cart-totals__note" role="alert">
+                    {{ t('cart.totals.blockedLines') }}
+                </p>
+            }
         </aside>
     </div>
 </div>

@@ -27,14 +27,15 @@ import {
 import {
     CalculateRouteInput,
     DiscrepancyStatus,
+    HubOption,
     LoadingManifest,
     LoadingManifestStop,
     OptimizationCriterion,
     PlanRoutesInput,
     RouteEligibility,
-    RouteSuggestionItem,
     RouteSuggestions,
 } from './logistics-admin.types';
+import { parseRouteSuggestions } from './route-suggestions';
 
 /** Role whose users may manage a hub (see ROLE_MATRIX — Hub Staff). */
 const HUB_MANAGER_ROLE = 'hub_staff';
@@ -47,6 +48,14 @@ const RESTAURANT_ROLE = 'restaurant';
 
 function str(value: unknown): string {
     return value == null ? '' : String(value);
+}
+
+/** A real coordinate — present, numeric and finite. `0` is a valid one. */
+function isCoordinate(value: unknown): boolean {
+    if (value == null || value === '') {
+        return false;
+    }
+    return Number.isFinite(Number(value));
 }
 
 function optStr(value: unknown): string | null {
@@ -121,7 +130,7 @@ export class LogisticsAdminService {
      * Active hubs as `{ value: hubId, label: name }` — a route starts at
      * exactly one hub, so the route form picks from these.
      */
-    async hubOptions(): Promise<CrudOption[]> {
+    async hubOptions(): Promise<HubOption[]> {
         try {
             const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
                 hubsApi
@@ -133,6 +142,13 @@ export class LogisticsAdminService {
                 .map((row) => ({
                     value: row.id,
                     label: str(row['name']) || row.id,
+                    // `CalculateRouteCommandHandler` refuses a hub with no
+                    // coordinates (`MISSING_COORDINATES`) — it is the route's
+                    // first stop, so there is nothing to route from. Carried
+                    // here so the picker can say so before the request.
+                    hasCoordinates:
+                        isCoordinate(row['latitude']) &&
+                        isCoordinate(row['longitude']),
                 }));
         } catch {
             return [];
@@ -563,11 +579,7 @@ export class LogisticsAdminService {
         });
         const data =
             unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
-        return {
-            serviceDate: str(data['serviceDate']) || serviceDate,
-            markets: this._suggestionItems(data['markets']),
-            restaurants: this._suggestionItems(data['restaurants']),
-        };
+        return parseRouteSuggestions(data, serviceDate);
     }
 
     /**
@@ -773,23 +785,6 @@ export class LogisticsAdminService {
         }
         const [row] = withId([data as CrudRow], 'routeId');
         return row?.id ? row : null;
-    }
-
-    private _suggestionItems(value: unknown): RouteSuggestionItem[] {
-        if (!Array.isArray(value)) {
-            return [];
-        }
-        return value
-            .filter(
-                (entry): entry is Record<string, unknown> =>
-                    !!entry && typeof entry === 'object'
-            )
-            .map((entry) => ({
-                id: str(entry['id']),
-                name: str(entry['name']),
-                orderCount: optNum(entry['orderCount']) ?? 0,
-            }))
-            .filter((item) => !!item.id);
     }
 
     private _manifestStops(value: unknown): LoadingManifestStop[] {

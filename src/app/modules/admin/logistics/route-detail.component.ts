@@ -31,6 +31,24 @@ import {
 } from './logistics-admin.types';
 import { routeStatusPillClass } from './route-status';
 
+/**
+ * Statuses a route passes through *before* it can take a vehicle and driver.
+ * `reviewed` is the one that opens the assign panel; everything here still has
+ * a step to go.
+ */
+const PRE_REVIEW_STATUSES = ['draft', 'planned', 'calculated', 'selected'];
+
+/** Statuses where the truck is already assigned — or the route is over. */
+const POST_ASSIGN_STATUSES = [
+    'assigned',
+    'dispatched',
+    'in_progress',
+    'completed',
+    'delivered',
+    'cancelled',
+    'failed',
+];
+
 /** Statuses whose route already has a truck load worth listing. */
 const MANIFEST_STATUSES = new Set([
     'reviewed',
@@ -136,6 +154,37 @@ export class RouteDetailComponent implements OnInit {
         () => this.status() === 'selected' && this.isOptimized()
     );
     readonly canAssign = computed(() => this.status() === 'reviewed');
+
+    /**
+     * Why the assign panel is not on screen, when it is not.
+     *
+     * Each action section is a bare `@if` on the route's status, so a stage the
+     * route has not reached renders *nothing* — the vehicle/driver form simply
+     * is not there, with no indication that it exists at all or what brings it
+     * up. `reviewed` is the only status that opens it, and the path to
+     * `reviewed` (select → optimize → review) is three screens' worth of
+     * knowledge to expect from someone looking for a dropdown.
+     *
+     * `null` when the panel is showing, or when the route is in a state where
+     * assignment is genuinely over.
+     */
+    readonly assignBlockedReason = computed(() => {
+        if (this.canAssign()) {
+            return null;
+        }
+        const status = this.status();
+        if (!status) {
+            return null;
+        }
+        if (PRE_REVIEW_STATUSES.includes(status)) {
+            return this.isOptimized()
+                ? 'admin.routes.actions.assignAfterReview'
+                : 'admin.routes.actions.assignAfterOptimize';
+        }
+        return POST_ASSIGN_STATUSES.includes(status)
+            ? 'admin.routes.actions.assignAlreadyDone'
+            : null;
+    });
 
     /** Summary tiles rendered above the stops (typed `RouteDto` fields). */
     readonly summary = computed(() => {
@@ -286,8 +335,52 @@ export class RouteDetailComponent implements OnInit {
             .finally(() => this.checkingEligibility.set(false));
     }
 
+    /**
+     * Pickup stops — the hub the goods leave from — must stay ahead of every
+     * dropoff. `DeliveryRoute.BuildReorderedStops` throws
+     * "Pickup stops must precede restaurant (dropoff) stops", which the handler
+     * turns into `INVALID_STOP_ORDER` (422); the arrows used to allow exactly
+     * that ordering and only `$first` / `$last` were disabled, so the refusal
+     * arrived after the review had been submitted.
+     */
+    private _isPickup(stop: RouteStop): boolean {
+        return stop.entityType !== 'restaurant';
+    }
+
+    /** True when this row may move one place up without breaking that rule. */
+    canMoveUp(index: number): boolean {
+        const stops = this.stops();
+        const stop = stops[index];
+        if (!stop || index === 0) {
+            return false;
+        }
+        // A pickup never needs to move: they are already the leading block, and
+        // swapping two of them changes nothing the backend cares about.
+        if (this._isPickup(stop)) {
+            return false;
+        }
+        // A dropoff may not climb above the last pickup.
+        return !this._isPickup(stops[index - 1]);
+    }
+
+    /** True when this row may move one place down. */
+    canMoveDown(index: number): boolean {
+        const stops = this.stops();
+        const stop = stops[index];
+        if (!stop || index >= stops.length - 1) {
+            return false;
+        }
+        // Moving a pickup down would push it past a dropoff.
+        return !this._isPickup(stop);
+    }
+
     /** Moves a stop within the local order; persisted by {@link review}. */
     moveStop(index: number, delta: number): void {
+        const allowed =
+            delta < 0 ? this.canMoveUp(index) : this.canMoveDown(index);
+        if (!allowed) {
+            return;
+        }
         const next = [...this.stops()];
         const target = index + delta;
         if (target < 0 || target >= next.length) {
