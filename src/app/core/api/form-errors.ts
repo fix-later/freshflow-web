@@ -12,13 +12,15 @@
  */
 import { AbstractControl, FormGroup, ValidationErrors } from '@angular/forms';
 import { ApiErrorInfo, readApiError } from './envelope';
-import { API_MESSAGE_TEXT_KEYS } from './error-codes';
+import { interpolate, localizeApiMessage } from './error-codes';
 
 /** Angular/`validators.ts` error key → i18n key, in order of specificity. */
 const FIELD_ERROR_KEYS: Record<string, string> = {
     required: 'errors.field.required',
     email: 'errors.field.emailInvalid',
     phoneNumber: 'errors.field.phoneInvalid',
+    taxCode: 'errors.field.taxCodeInvalid',
+    absoluteUrl: 'errors.field.absoluteUrlInvalid',
     uuid: 'errors.field.uuidInvalid',
     latitude: 'errors.field.latitudeRange',
     longitude: 'errors.field.longitudeRange',
@@ -87,9 +89,10 @@ export function serverError(
  * camelCase. A message with no matching control is left for the caller to show
  * as a summary — returning `false` is the signal to do that.
  *
- * `translate` localizes the documented backend strings (`API_MESSAGE_TEXT_KEYS`);
- * anything unrecognised is shown as sent, since a specific unknown reason still
- * beats a generic one.
+ * `translate` localizes the backend's own strings — both the messages a
+ * validator spells out and FluentValidation's defaults, which carry the limit
+ * that was breached (see {@link localizeApiMessage}). Anything unrecognised is
+ * shown as sent, since a specific unknown reason still beats a generic one.
  */
 export function applyServerFieldErrors(
     form: FormGroup,
@@ -111,10 +114,17 @@ export function applyServerFieldErrors(
         if (!control) {
             continue;
         }
-        const known = API_MESSAGE_TEXT_KEYS[message.trim()];
         control.setErrors({
             ...(control.errors ?? {}),
-            serverError: known ? translate(known) : message,
+            // An unmapped rule still has to read as Vietnamese. The backend's
+            // own words are kept as a parenthetical rather than shown as the
+            // sentence: they identify the rule for whoever is asked about it,
+            // without handing the user an English sentence as the explanation.
+            serverError:
+                localizeApiMessage(message, translate) ??
+                interpolate(translate('errors.field.invalidWithDetail'), {
+                    detail: message,
+                }),
         });
         control.markAsTouched();
         applied = true;

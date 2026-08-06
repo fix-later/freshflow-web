@@ -83,11 +83,21 @@ export interface OrderingWindow {
  * This is the only endpoint that prices delivery, and only when the address is
  * supplied — the fee depends on the distance to it.
  */
+/**
+ * One reason the confirm would be refused, as the preview reports it:
+ * `PreviewIssueDto(Code, Message)`. The message is the backend's English, so
+ * the code is what a screen should localize from — see `describeApiCode`.
+ */
+export interface PreviewIssue {
+    code: string | null;
+    message: string | null;
+}
+
 export interface OrderConfirmPreview {
     /** False only when the server explicitly says the order cannot confirm. */
     canConfirm: boolean;
-    /** Machine codes or human reasons explaining a refusal (`issues`). */
-    blockers: string[];
+    /** Every reason for a refusal (`issues`), code and message kept apart. */
+    blockers: PreviewIssue[];
     /** Priced total the restaurant is about to commit to. */
     totalAmount: number | null;
     /** Credit left after this order (`remainingCreditAfter`), when reported. */

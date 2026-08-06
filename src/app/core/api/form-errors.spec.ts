@@ -50,14 +50,24 @@ describe('applyServerFieldErrors', () => {
         );
     });
 
-    it('shows an unmapped backend message verbatim', () => {
+    /**
+     * An unmapped rule still reaches the field, but framed as a localized
+     * sentence with the backend's words as the detail — handing a Vietnamese
+     * user an English sentence as *the* explanation is not an explanation.
+     */
+    it('frames an unmapped backend message instead of showing it raw', () => {
         const group = form();
         applyServerFieldErrors(
             group,
             { fieldErrors: { phone: 'Some new rule' } },
             (key) => key
         );
-        expect(serverError(group.controls.phone)).toBe('Some new rule');
+        // The stub translator echoes keys, so the template has no placeholders
+        // to fill — what matters is that the raw string is not the whole
+        // message any more.
+        expect(serverError(group.controls.phone)).toBe(
+            'errors.field.invalidWithDetail'
+        );
     });
 
     it('reports false when nothing matched, so the caller shows a summary', () => {

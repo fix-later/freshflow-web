@@ -24,8 +24,12 @@ import {
     serverError,
 } from 'app/core/api/form-errors';
 import {
-    EMAIL_MAX_LENGTH,
-    NAME_MAX_LENGTH,
+    LEGAL_NAME_MAX_LENGTH,
+    nonBlankValidator,
+    TAX_ADDRESS_MAX_LENGTH,
+    TAX_CODE_MAX_LENGTH,
+    TAX_EMAIL_MAX_LENGTH,
+    taxCodeValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { UpdateTaxProfileRequest } from 'contract';
@@ -78,22 +82,35 @@ export class TaxProfileFormComponent implements OnInit {
     readonly maxLength = fieldMaxLength;
     readonly serverMessage = serverError;
 
-    // Every field is a nullable string on the request model; the length and
-    // format limits are the documented §6 rules (name/text ≤255, valid email),
-    // mirrored here so a rejection shows before the request is sent.
+    /**
+     * Mirrors `UpdateMyTaxProfileCommandValidator` rule for rule.
+     *
+     * Tax code, legal name and address are `NotEmpty()` there — the request
+     * model's nullable strings say otherwise, and sending a blank one answered
+     * 400 with "'Tax Code' must not be empty." Only the billing email is
+     * genuinely optional (`When(x => x.Email is not null)`).
+     */
     readonly form = this._fb.group({
         taxCode: this._fb.control<string | null>(null, [
-            trimmedMaxLengthValidator(NAME_MAX_LENGTH),
+            Validators.required,
+            nonBlankValidator,
+            // `Matches(@"^\d{10}(-\d{3})?$")` — the rule the doc omits entirely.
+            taxCodeValidator,
+            trimmedMaxLengthValidator(TAX_CODE_MAX_LENGTH),
         ]),
         legalName: this._fb.control<string | null>(null, [
-            trimmedMaxLengthValidator(NAME_MAX_LENGTH),
+            Validators.required,
+            nonBlankValidator,
+            trimmedMaxLengthValidator(LEGAL_NAME_MAX_LENGTH),
         ]),
         address: this._fb.control<string | null>(null, [
-            trimmedMaxLengthValidator(ADDRESS_MAX_LENGTH),
+            Validators.required,
+            nonBlankValidator,
+            trimmedMaxLengthValidator(TAX_ADDRESS_MAX_LENGTH),
         ]),
         email: this._fb.control<string | null>(null, [
             Validators.email,
-            trimmedMaxLengthValidator(EMAIL_MAX_LENGTH),
+            trimmedMaxLengthValidator(TAX_EMAIL_MAX_LENGTH),
         ]),
     });
 
@@ -177,9 +194,6 @@ export class TaxProfileFormComponent implements OnInit {
         });
     }
 }
-
-/** Billing address is free text; §6 caps free-text fields at 255 characters. */
-const ADDRESS_MAX_LENGTH = 255;
 
 /** Blank strings become null so unset fields are cleared, not stored empty. */
 function emptyToNull(value: string | null): string | null {

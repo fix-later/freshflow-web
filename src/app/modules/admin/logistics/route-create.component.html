@@ -55,9 +55,29 @@
                 <mat-label>{{ t('admin.routes.create.hub') }}</mat-label>
                 <mat-select [formControl]="hubId">
                     @for (hub of hubs(); track hub.value) {
-                        <mat-option [value]="hub.value">{{
-                            hub.label
-                        }}</mat-option>
+                        <!--
+                          A hub with no coordinates cannot start a route. It
+                          stays selectable — picking it is how the buyer learns
+                          why, and the reason line below names the fix — but it
+                          is marked so the choice is informed.
+                        -->
+                        <mat-option [value]="hub.value">
+                            {{ hub.label }}
+                            <!-- What the day actually has waiting here — the
+                                 whole reason /routes/suggestions returns hubs. -->
+                            @if (hub.orderCount) {
+                                <span class="text-secondary">{{
+                                    t('admin.routes.create.hubOrderCount', {
+                                        count: hub.orderCount,
+                                    })
+                                }}</span>
+                            }
+                            @if (!hub.hasCoordinates) {
+                                <span class="text-warn-600">{{
+                                    t('admin.routes.create.hubNoCoordinatesTag')
+                                }}</span>
+                            }
+                        </mat-option>
                     }
                 </mat-select>
             </mat-form-field>
@@ -226,7 +246,12 @@
             </div>
             @if (tooManyStops()) {
                 <div class="text-sm text-warn-600">
-                    {{ t('admin.routes.create.stopLimit', { max: maxStops }) }}
+                    {{
+                        t('admin.routes.create.stopLimit', {
+                            max: maxStops,
+                            routeMax: maxRouteStops,
+                        })
+                    }}
                 </div>
             }
             <!-- A disabled pair of buttons with no reason reads as a broken

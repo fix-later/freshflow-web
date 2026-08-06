@@ -59,6 +59,85 @@ input[type='password']::-ms-clear {
 }
 
 /**
+ * Layout gutter.
+ *
+ * The standoff a layout keeps between anything it renders and its own outer
+ * edge. Published by each layout as a variable so a surface that would
+ * otherwise run into that edge can clear it by the right amount in whichever
+ * layout it happens to render in, instead of hard-coding one layout's numbers.
+ * Anything that reads it must tolerate a layout that never sets it, hence the
+ * `0px` fallback at every use site.
+ *
+ * Enterprise: the storefront column's gutters — keep in sync with `.ff-page`
+ * and the header/footer wrappers.
+ */
+enterprise-layout {
+    --ff-layout-gutter: 1rem; /* px-4 */
+
+    @media (min-width: 768px) {
+        --ff-layout-gutter: 2rem; /* md:px-8 */
+    }
+
+    @media (min-width: 1024px) {
+        --ff-layout-gutter: 3.5rem; /* lg:px-14 */
+    }
+}
+
+/**
+ * Dense and empty keep no standoff of their own — their content slot runs the
+ * full width — so nothing inside them owes the layout any clearance either.
+ * Stated rather than left to the fallback, so it reads as a decision instead
+ * of an omission.
+ */
+dense-layout,
+empty-layout {
+    --ff-layout-gutter: 0px;
+}
+
+/**
+ * A drawer pinned to the edge of its container runs straight into the edge of
+ * the layout around it. This gives it the standoff that layout expects — the
+ * same clearance the layout keeps for everything else it renders — on the side
+ * the drawer is actually on. Where the layout keeps none, the drawer stays
+ * flush. `mat-drawer-container` opts in.
+ *
+ * Margin on the container, not padding: an absolutely positioned drawer
+ * resolves `inset-inline-end: 0` against the container's *padding* edge, so
+ * padding leaves it exactly where it was and only narrows the content beside
+ * it — the standoff would open up on the wrong side of the drawer. Pulling the
+ * container in moves the edge the drawer is pinned to, and the content follows
+ * on its own.
+ *
+ * Keyed off Material's own state classes so the rule follows the drawer rather
+ * than one template's choices: `end`/`start` picks the side (logical, so RTL
+ * flips with it), `side` limits it to the mode where the drawer occupies layout
+ * space — an `over` drawer is an overlay over everything, so the layout edge is
+ * not its to respect — and `opened` because a closed drawer occupies nothing:
+ * the standoff would be charged to the content, which would then sit a gutter
+ * short of the chrome it lines up with, for a rail that isn't on screen.
+ *
+ * Material toggles `mat-drawer-opened` as it starts animating the content
+ * margins, so the inset moves with them; `mat-drawer-transition` is its "the
+ * container is past first paint" flag, which keeps the standoff from animating
+ * on load.
+ */
+.ff-drawer-gutter {
+    &.mat-drawer-transition {
+        transition: margin 400ms cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    &:has(> .mat-drawer.mat-drawer-side.mat-drawer-end.mat-drawer-opened) {
+        margin-inline-end: var(--ff-layout-gutter, 0px);
+    }
+
+    &:has(
+            > .mat-drawer.mat-drawer-side.mat-drawer-opened:not(.mat-drawer-end)
+        ) {
+        margin-inline-start: var(--ff-layout-gutter, 0px);
+    }
+}
+
+/**
  * Scroll without a visible scrollbar. Used by dialogs that grow past the
  * viewport: the body still scrolls, but the track/thumb stay hidden across
  * Firefox, IE/Edge and WebKit.

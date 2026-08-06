@@ -35,6 +35,10 @@ import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import {
+    nonBlankValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { includesFolded } from 'app/core/util/text-search';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
@@ -44,7 +48,11 @@ import {
 } from '../shared/admin-pagination';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
-import { CatalogAdminService } from './catalog-admin.service';
+import {
+    CatalogAdminService,
+    PRODUCT_DESCRIPTION_MAX_LENGTH,
+    PRODUCT_NAME_MAX_LENGTH,
+} from './catalog-admin.service';
 
 /**
  * Admin ▸ Catalog ▸ Products — inventory-style list with inline detail editor
@@ -153,17 +161,29 @@ export class ProductsComponent implements OnInit {
         this._childOptions(this.filterParentId())
     );
 
+    // Mirrors `UpdateProductCommandValidator`, which shares its rules with the
+    // create one: name `NotEmpty().MaximumLength(200)`, description ≤ 1000,
+    // unit required.
     readonly selectedForm = new FormGroup({
         name: new FormControl('', {
             nonNullable: true,
-            validators: [Validators.required],
+            validators: [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(PRODUCT_NAME_MAX_LENGTH),
+            ],
         }),
         unitId: new FormControl('', {
             nonNullable: true,
             validators: [Validators.required],
         }),
         categoryId: new FormControl('', { nonNullable: true }),
-        description: new FormControl('', { nonNullable: true }),
+        description: new FormControl('', {
+            nonNullable: true,
+            validators: [
+                trimmedMaxLengthValidator(PRODUCT_DESCRIPTION_MAX_LENGTH),
+            ],
+        }),
         imageUrl: new FormControl('', { nonNullable: true }),
         packingCodeId: new FormControl('', { nonNullable: true }),
     });

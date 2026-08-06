@@ -83,6 +83,16 @@
                             {{ t('orders.detail.reportIssue') }}
                         </button>
                     }
+                    @if (canFileClaim()) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="acting()"
+                            (click)="openClaim()"
+                        >
+                            {{ t('claims.file') }}
+                        </button>
+                    }
                     @if (canCancel()) {
                         <button
                             mat-stroked-button
@@ -283,6 +293,100 @@
                             [disabled]="acting()"
                         >
                             {{ t('orders.detail.issueSubmit') }}
+                        </button>
+                    </div>
+                </form>
+            }
+
+            <!--
+              Claim (UC-ORD-21): money back on this order. The amount is capped
+              at what the order was charged — the same rule the handler applies
+              — so the ceiling is stated in the hint rather than discovered
+              through a 422.
+            -->
+            @if (claimOpen()) {
+                <form
+                    class="flex flex-col gap-4 rounded-xl border p-4"
+                    [formGroup]="claimForm"
+                    (ngSubmit)="submitClaim()"
+                >
+                    <div class="text-lg font-semibold">
+                        {{ t('claims.file') }}
+                    </div>
+                    <p class="text-secondary -mt-2 text-sm">
+                        {{ t('claims.fileHint') }}
+                    </p>
+
+                    <mat-form-field subscriptSizing="dynamic">
+                        <mat-label>{{ t('claims.amount') }}</mat-label>
+                        <input
+                            matInput
+                            type="number"
+                            min="0"
+                            step="1000"
+                            formControlName="amount"
+                        />
+                        <mat-hint>{{
+                            t('claims.amountHint', {
+                                max: order.totalAmount ?? 0,
+                            })
+                        }}</mat-hint>
+                        @if (serverMessage(claimForm.controls.amount); as msg) {
+                            <mat-error>{{ msg }}</mat-error>
+                        } @else if (
+                            errorKey(claimForm.controls.amount);
+                            as key
+                        ) {
+                            <mat-error>{{
+                                t(key, {
+                                    max: claimForm.controls.amount.errors?.[
+                                        'maxValue'
+                                    ]?.max,
+                                })
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    <mat-form-field subscriptSizing="dynamic">
+                        <mat-label>{{ t('claims.reason') }}</mat-label>
+                        <textarea
+                            matInput
+                            rows="3"
+                            formControlName="reason"
+                        ></textarea>
+                        @if (serverMessage(claimForm.controls.reason); as msg) {
+                            <mat-error>{{ msg }}</mat-error>
+                        } @else if (
+                            errorKey(claimForm.controls.reason);
+                            as key
+                        ) {
+                            <mat-error>{{
+                                t(key, {
+                                    max: maxLength(claimForm.controls.reason),
+                                })
+                            }}</mat-error>
+                        }
+                    </mat-form-field>
+
+                    @if (claimError(); as error) {
+                        <div class="text-sm text-red-600">{{ error }}</div>
+                    }
+
+                    <div class="flex justify-end gap-3">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="closeClaim()"
+                        >
+                            {{ t('orders.detail.issueCancel') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="submit"
+                            [disabled]="acting()"
+                        >
+                            {{ t('claims.submit') }}
                         </button>
                     </div>
                 </form>

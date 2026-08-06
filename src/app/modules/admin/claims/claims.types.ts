@@ -11,13 +11,20 @@
  */
 
 /**
- * Claim lifecycle. The wire format is lowercase (`OrderClaimStatus` is
- * `ToString().ToLowerInvariant()`-ed by `OrderClaimDtoMapper`), and the list
- * endpoint parses the `status` filter case-insensitively.
+ * The lifecycle, the row shape and the page size are the same on both sides of
+ * the desk, so they live with the module that owns claims on the backend
+ * (Orders) and are re-exported here — a second copy of the status vocabulary is
+ * how the two screens end up disagreeing about what "submitted" is called.
  */
-export const CLAIM_STATUSES = ['submitted', 'approved', 'rejected'] as const;
+export {
+    CLAIM_PAGE_SIZE,
+    CLAIM_STATUSES,
+    type ClaimStatus,
+} from 'app/modules/orders/claims.types';
+import type { ClaimRow, ClaimStatus } from 'app/modules/orders/claims.types';
 
-export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
+/** The reviewer's view of a claim. Identical to the filer's, so far. */
+export type AdminClaimRow = ClaimRow;
 
 /**
  * The only status a decision may be made from. `OrderClaim.Approve` / `Reject`
@@ -33,30 +40,6 @@ export const CLAIM_DECIDABLE_STATUS: ClaimStatus = 'submitted';
  * `INVALID_CLAIM_DECISION_NOTE`).
  */
 export const CLAIM_DECISION_NOTE_MAX_LENGTH = 1000;
-
-/** Largest `pageSize` `ListClaimsQueryValidator` accepts (`InclusiveBetween(1, 100)`). */
-export const CLAIM_PAGE_SIZE = 50;
-
-/** One claim as `GET /claims` / `GET /claims/{claimId}` returns it. */
-export interface AdminClaimRow {
-    /** Normalized by `withId(rows, 'claimId')`, so always present. */
-    id: string;
-    claimId?: string | null;
-    orderId?: string | null;
-    restaurantId?: string | null;
-    amount?: number | null;
-    reason?: string | null;
-    status?: string | null;
-    createdBy?: string | null;
-    createdAt?: string | null;
-    reviewedBy?: string | null;
-    reviewedAt?: string | null;
-    decisionNote?: string | null;
-    /** Set once an approval has actually moved the credit. */
-    refundTransactionId?: string | null;
-    updatedAt?: string | null;
-    [key: string]: unknown;
-}
 
 /** One cursor page of claims. */
 export interface AdminClaimsPage {

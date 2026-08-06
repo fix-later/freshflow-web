@@ -1,11 +1,13 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
     inject,
     OnInit,
     signal,
     ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
     FormBuilder,
     FormGroup,
@@ -29,7 +31,15 @@ import {
     fieldMaxLength,
     serverError,
 } from 'app/core/api/form-errors';
-import { trimmedMaxLengthValidator } from 'app/core/api/validators';
+import {
+    nonBlankValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
+import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
+import {
+    CLAIM_ELIGIBLE_ORDER_STATUSES,
+    CLAIM_REASON_MAX_LENGTH,
+} from '../../claims.types';
 import { OrdersService } from '../../orders.service';
 import {
     canCancelOrder,
@@ -40,6 +50,10 @@ import {
 } from '../../orders.types';
 import {
     affectedQuantityValidator,
+    claimAmountValidator,
+    maxAffectedQuantityValidator,
+    maxClaimAmountValidator,
+    ORDER_ISSUE_DESCRIPTION_MAX_LENGTH,
     ORDER_TEXT_MAX_LENGTH,
     orderQuantityValidator,
 } from '../../orders.validation';
@@ -71,6 +85,8 @@ export class OrderDetailComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     private readonly _fb = inject(FormBuilder);
+    private readonly _destroyRef = inject(DestroyRef);
+    private readonly _claims = inject(RestaurantClaimsService);
 
     readonly order = signal<OrderRow | null>(null);
     readonly loading = signal(false);
@@ -114,12 +130,52 @@ export class OrderDetailComponent implements OnInit {
         }),
         orderItemId: this._fb.nonNullable.control(''),
         affectedQuantity: this._fb.control<number | null>(null, {
-            validators: [affectedQuantityValidator],
-        }),
-        description: this._fb.nonNullable.control('', {
+            // The handler rejects `<= 0`, and — once a line is named — anything
+            // above what was ordered. The second rule is checkable here because
+            // the order is already on screen, so "you only ordered 3" is said
+            // at the field instead of coming back as a 422.
             validators: [
                 Validators.required,
-                trimmedMaxLengthValidator(ORDER_TEXT_MAX_LENGTH),
+                affectedQuantityValidator,
+                maxAffectedQuantityValidator(() => this.selectedLineQuantity()),
+            ],
+        }),
+        description: this._fb.nonNullable.control('', {
+            // `OrderIssue.MaxDescriptionLength` is 1000 — this field is the one
+            // order text that is *not* capped at 500.
+            validators: [
+                Validators.required,
+                trimmedMaxLengthValidator(ORDER_ISSUE_DESCRIPTION_MAX_LENGTH),
+            ],
+        }),
+    });
+
+    /**
+     * Filing a claim (UC-ORD-21) — money back on an order that arrived short or
+     * damaged, decided later by admin/ops against the restaurant's credit.
+     * Separate from an issue report: an issue is a record, a claim is a request
+     * for a refund, and only the claim needs an amount.
+     */
+    readonly claimOpen = signal(false);
+    readonly claimError = signal<string | null>(null);
+    readonly claimForm = this._fb.group({
+        amount: this._fb.control<number | null>(null, {
+            // `GreaterThan(0m)` in the validator; the handler adds "not more
+            // than the order was charged", which is checkable from the order
+            // already on screen.
+            validators: [
+                Validators.required,
+                claimAmountValidator,
+                maxClaimAmountValidator(
+                    () => this.order()?.totalAmount ?? null
+                ),
+            ],
+        }),
+        reason: this._fb.nonNullable.control('', {
+            validators: [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(CLAIM_REASON_MAX_LENGTH),
             ],
         }),
     });
@@ -128,7 +184,83 @@ export class OrderDetailComponent implements OnInit {
     readonly statusKey = (status: string | null | undefined): string =>
         `orders.status.${normalizeOrderStatus(status) || 'unknown'}`;
 
+    /**
+     * A claim may be filed once the goods are with the buyer or at the hub
+     * (`FileClaimCommandHandler`: `AtHub or Delivered`, else
+     * `CLAIM_ORDER_NOT_CLAIMABLE`). Wider than the issue report, which is
+     * delivered-only.
+     */
+    canFileClaim(): boolean {
+        const status = normalizeOrderStatus(this.order()?.status);
+        return (
+            !!status &&
+            (CLAIM_ELIGIBLE_ORDER_STATUSES as readonly string[]).includes(
+                status
+            )
+        );
+    }
+
+    openClaim(): void {
+        this.claimError.set(null);
+        this.claimForm.reset({ amount: null, reason: '' });
+        this.claimOpen.set(true);
+    }
+
+    closeClaim(): void {
+        this.claimOpen.set(false);
+        this.claimForm.reset({ amount: null, reason: '' });
+    }
+
+    submitClaim(): void {
+        const order = this.order();
+        if (!order?.id || this.acting()) {
+            return;
+        }
+        if (this.claimForm.invalid) {
+            this.claimForm.markAllAsTouched();
+            return;
+        }
+        clearServerErrors(this.claimForm);
+        const value = this.claimForm.getRawValue();
+        this.acting.set(true);
+        this.claimError.set(null);
+        this._claims
+            .fileClaim(order.id, value.amount ?? 0, value.reason.trim())
+            .then(() => {
+                this._notify('claims.filed');
+                this.closeClaim();
+            })
+            .catch(async (err) => {
+                const translate = (key: string): string =>
+                    this._transloco.translate(key);
+                const { handled } = await applyApiErrorToForm(
+                    this.claimForm,
+                    err,
+                    translate
+                );
+                this.claimError.set(
+                    handled
+                        ? translate('errors.api.validation')
+                        : await describeApiError(
+                              err,
+                              translate,
+                              'claims.fileError'
+                          )
+                );
+            })
+            .finally(() => this.acting.set(false));
+    }
+
     ngOnInit(): void {
+        // Switching the line the issue is about changes the ceiling on
+        // `affectedQuantity`, so the already-typed number is re-judged against
+        // the new line instead of keeping a verdict from the previous one.
+        this.issueForm.controls.orderItemId.valueChanges
+            .pipe(takeUntilDestroyed(this._destroyRef))
+            .subscribe(() =>
+                this.issueForm.controls.affectedQuantity.updateValueAndValidity()
+            );
+
         const orderId = this._route.snapshot.paramMap.get('orderId') ?? '';
         if (!orderId) {
             this.notFound.set(true);
@@ -245,7 +377,7 @@ export class OrderDetailComponent implements OnInit {
     }
 
     /** Line options for the issue form — an issue may name one order line. */
-    issueLines(): { id: string; label: string }[] {
+    issueLines(): { id: string; label: string; quantity: number | null }[] {
         const items = this.order()?.items;
         if (!Array.isArray(items)) {
             return [];
@@ -256,8 +388,25 @@ export class OrderDetailComponent implements OnInit {
                 label: String(
                     item.productNameSnapshot ?? item.orderItemId ?? ''
                 ),
+                quantity:
+                    typeof item.quantity === 'number' ? item.quantity : null,
             }))
             .filter((line) => !!line.id);
+    }
+
+    /**
+     * How much of the selected line was ordered — the ceiling the handler puts
+     * on `affectedQuantity`. `null` when the report covers the whole order (no
+     * line named), which the handler leaves unbounded.
+     */
+    selectedLineQuantity(): number | null {
+        const id = this.issueForm?.controls.orderItemId.value;
+        if (!id) {
+            return null;
+        }
+        return (
+            this.issueLines().find((line) => line.id === id)?.quantity ?? null
+        );
     }
 
     openCancel(): void {

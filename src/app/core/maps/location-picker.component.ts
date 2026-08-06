@@ -112,6 +112,20 @@ const DEFAULT_CENTER: [number, number] = [106.7009, 10.7769];
                         </p>
                     }
                 </div>
+            } @else {
+                <!--
+                  No Maptiles key in this build. The map is a progressive
+                  enhancement, so the form still works — but vanishing without a
+                  word is indistinguishable from the feature not existing, and
+                  it is what a deployment built without a GOONG_MAPS_KEY looks
+                  like from the outside. Say the map is unavailable and point at
+                  the input that still does the job.
+                -->
+                <p
+                    class="text-secondary rounded-xl border border-dashed p-3 text-xs"
+                >
+                    {{ t('maps.unavailable') }}
+                </p>
             }
 
             <!-- Manual entry (optional — hidden when address search owns the coords) -->

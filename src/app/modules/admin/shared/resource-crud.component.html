@@ -790,8 +790,18 @@
 </ng-template>
 
 <!-- Shared field controls for create dialog + inline detail (markets layout) -->
+<!--
+  The fields are one template used from three places (create page, create/edit
+  dialog, inline detail panel), each of which wraps it in its own
+  `<form [formGroup]>`. That wrapper is *not* enough: `ngTemplateOutlet` builds
+  the view against the template's **declaration** context, so the `formGroup`
+  living in the insertion view is invisible to the `formControlName`s here —
+  Angular answered `NG01050` and the fields rendered unbound, some of them only
+  half-built. Binding the group inside the template puts the container in the
+  same view as the controls, which is the only place they can find it.
+-->
 <ng-template #crudFields>
-    <ng-container *transloco="let t">
+    <ng-container *transloco="let t" [formGroup]="form!">
         @if (scalarFields.length) {
             <div class="flex flex-col gap-0 sm:flex-row sm:gap-4">
                 @for (field of scalarFields; track field.name) {
@@ -871,7 +881,13 @@
                             }
                         }
 
-                        @if (controlOf(field.name)?.hasError('required')) {
+                        <!-- The server's own rejection wins: it knows rules
+                             this form does not mirror. -->
+                        @if (serverMessage(controlOf(field.name)); as message) {
+                            <mat-error>{{ message }}</mat-error>
+                        } @else if (
+                            controlOf(field.name)?.hasError('required')
+                        ) {
                             <mat-error>{{
                                 t('admin.crud.errors.required')
                             }}</mat-error>
@@ -887,6 +903,13 @@
                             <mat-error>{{
                                 t('admin.crud.errors.min', {
                                     min: field.min,
+                                })
+                            }}</mat-error>
+                        }
+                        @if (controlOf(field.name)?.hasError('max')) {
+                            <mat-error>{{
+                                t('admin.crud.errors.max', {
+                                    max: field.max,
                                 })
                             }}</mat-error>
                         }
@@ -1011,7 +1034,9 @@
                         rows="3"
                         [formControlName]="field.name"
                     ></textarea>
-                    @if (controlOf(field.name)?.hasError('required')) {
+                    @if (serverMessage(controlOf(field.name)); as message) {
+                        <mat-error>{{ message }}</mat-error>
+                    } @else if (controlOf(field.name)?.hasError('required')) {
                         <mat-error>{{
                             t('admin.crud.errors.required')
                         }}</mat-error>

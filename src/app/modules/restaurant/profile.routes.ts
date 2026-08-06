@@ -4,6 +4,7 @@ import { AuthGuard } from 'app/core/auth/guards/auth.guard';
 import { UserService } from 'app/core/user/user.service';
 import { AccountInfoComponent } from './account-info/account-info.component';
 import { BusinessProfileFormComponent } from './business-profile/business-profile-form.component';
+import { ClaimsListComponent } from './claims/claims-list.component';
 import { CreditComponent } from './credit/credit.component';
 import { RestaurantDashboardComponent } from './dashboard/restaurant-dashboard.component';
 import { DeliveryAddressesComponent } from './delivery-addresses/delivery-addresses.component';
@@ -79,6 +80,11 @@ export default [
                 path: 'invoices',
                 canActivate: [restaurantSectionGuard],
                 component: InvoicesListComponent,
+            },
+            {
+                path: 'claims',
+                canActivate: [restaurantSectionGuard],
+                component: ClaimsListComponent,
             },
             {
                 path: 'account',

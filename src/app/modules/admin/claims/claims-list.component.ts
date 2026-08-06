@@ -24,6 +24,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { claimStatusPillClass } from 'app/modules/orders/claims.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ClaimsService } from './claims.service';
 import {
@@ -37,21 +38,12 @@ import {
 /** Which way a review dialog is about to go. */
 type ClaimDecision = 'approve' | 'reject';
 
-/** Pill class for a claim status — same lifecycle-coloring idiom used elsewhere. */
-export function claimStatusPillClass(
-    status: string | null | undefined
-): string {
-    switch (String(status ?? '').toLowerCase()) {
-        case 'approved':
-            return 'admin-pill admin-pill-success';
-        case 'rejected':
-            return 'admin-pill admin-pill-danger';
-        case 'submitted':
-            return 'admin-pill admin-pill-warning';
-        default:
-            return 'admin-pill admin-pill-neutral';
-    }
-}
+/**
+ * Re-exported so this file's existing importers keep working; the colours are
+ * the shared ones, since the restaurant reads its claim's status from the same
+ * lifecycle and a claim that is amber here must not be grey there.
+ */
+export { claimStatusPillClass };
 
 /**
  * Admin ▸ Finance ▸ Claims — the review queue for restaurants' shortage /

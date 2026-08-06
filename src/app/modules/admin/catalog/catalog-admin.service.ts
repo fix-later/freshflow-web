@@ -23,6 +23,23 @@ import {
     CrudRow,
 } from '../shared/resource-crud.types';
 
+/**
+ * Field limits the catalog's own validators enforce. Named after the rule they
+ * mirror so the pair can be re-checked when either side moves — the names are
+ * not all the same size (`CreateUnitCommandValidator` caps at 100 where the
+ * rest cap at 200), and a form that guesses one number for all of them rejects
+ * valid input on one screen and lets a 400 through on another.
+ */
+export const PRODUCT_NAME_MAX_LENGTH = 200;
+export const PRODUCT_DESCRIPTION_MAX_LENGTH = 1000;
+export const CATEGORY_NAME_MAX_LENGTH = 200;
+export const UNIT_NAME_MAX_LENGTH = 100;
+export const UNIT_ABBREVIATION_MAX_LENGTH = 20;
+export const MARKET_NAME_MAX_LENGTH = 200;
+export const MARKET_LOCATION_MAX_LENGTH = 200;
+export const MARKET_ADDRESS_MAX_LENGTH = 500;
+export const MARKET_DESCRIPTION_MAX_LENGTH = 2000;
+
 /** Server-side page of products (one page loaded at a time). */
 export interface ProductsPage {
     rows: CrudRow[];
@@ -209,12 +226,21 @@ export class CatalogAdminService {
         return withId<CrudRow>(extractList(body), 'packingCodeId');
     }
 
+    /**
+     * `capacityKg` is sent even when blank.
+     *
+     * It is a non-nullable `decimal` on the request record, so omitting it does
+     * not mean "leave it out" — model binding fills in `0`, which the validator
+     * then rejects with a 400. Sending `0` explicitly produces the same refusal
+     * from the server but keeps the payload honest about what was submitted;
+     * the form's own `required` rule is what stops it getting this far.
+     */
     async createPackingCode(value: CrudFormValue): Promise<void> {
         await packingCodesApi.apiV1CatalogPackingCodesPost({
             createPackingCodeRequest: {
                 code: str(value['code']),
                 description: optStr(value['description']),
-                capacityKg: optNum(value['capacityKg']) ?? undefined,
+                capacityKg: optNum(value['capacityKg']) ?? 0,
             },
         });
     }
@@ -225,7 +251,7 @@ export class CatalogAdminService {
             updatePackingCodeRequest: {
                 code: str(value['code']),
                 description: optStr(value['description']),
-                capacityKg: optNum(value['capacityKg']) ?? undefined,
+                capacityKg: optNum(value['capacityKg']) ?? 0,
             },
         });
     }

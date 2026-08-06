@@ -9,6 +9,21 @@ import { CrudResource } from '../shared/resource-crud.types';
 import { CatalogAdminService } from './catalog-admin.service';
 
 /**
+ * Smallest capacity the server accepts — `GreaterThan(0)`. Expressed as a
+ * positive step rather than `0` because `Validators.min(0)` would still admit
+ * the zero the backend refuses.
+ */
+const PACKING_CAPACITY_MIN = 0.1;
+
+/**
+ * `Logistics:Box:MaxLoadKg` — 25 in `appsettings.json`, and the validator's
+ * fallback when the key is absent. A box heavier than one person can carry is
+ * not a packing code, so the ceiling is the same on both sides; if the config
+ * is ever raised, this is the constant to follow it.
+ */
+const PACKING_CAPACITY_MAX_KG = 25;
+
+/**
  * Admin ▸ Catalog ▸ Packing codes — box/crate size codes used to pack
  * procurement items for hand-off (M3, admin = Full).
  */
@@ -60,14 +75,26 @@ export class PackingCodesComponent {
                 maxLength: 50,
             },
             {
+                /**
+                 * `CreatePackingCodeRequest.CapacityKg` is a non-nullable
+                 * `decimal` with `GreaterThan(0).LessThanOrEqualTo(maxLoadKg)`.
+                 * Left optional here, a blank was sent as `undefined`, bound
+                 * server-side to `0`, and rejected — so every create without a
+                 * capacity failed while the form said the field was optional.
+                 */
                 name: 'capacityKg',
                 label: 'admin.packingCodes.capacityKg',
                 type: 'number',
+                required: true,
+                min: PACKING_CAPACITY_MIN,
+                max: PACKING_CAPACITY_MAX_KG,
             },
             {
                 name: 'description',
                 label: 'admin.packingCodes.description',
                 type: 'textarea',
+                // `MaximumLength(500)` on both the create and update validator.
+                maxLength: 500,
             },
         ],
         list: () => this._catalog.listPackingCodes(),

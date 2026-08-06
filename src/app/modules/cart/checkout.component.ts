@@ -20,12 +20,12 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { describeApiError } from 'app/core/api/error-codes';
+import { describeApiCode, describeApiError } from 'app/core/api/error-codes';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { OrdersService } from 'app/modules/orders/orders.service';
-import { OrderConfirmPreview } from 'app/modules/orders/orders.types';
+import { OrderConfirmPreview, OrderRow } from 'app/modules/orders/orders.types';
 import { DeliveryAddressesComponent } from 'app/modules/restaurant/delivery-addresses/delivery-addresses.component';
 import {
     DELIVERY_WINDOWS,
@@ -35,6 +35,7 @@ import {
 } from 'app/modules/restaurant/delivery-windows';
 import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { DateTime } from 'luxon';
+import { cartLineIssues } from './cart-line-rules';
 
 /** Daily order cutoff (BR-ORD-2): 22:00 — after this, earliest delivery +1 extra day. */
 const CUTOFF_HOUR = 22;
@@ -109,7 +110,11 @@ export class CheckoutComponent implements OnInit {
     /** The draft this checkout created, and the order it was created for. */
     private _draftId: string | null = null;
     private _draftKey: string | null = null;
-    /** Reasons the server refused to confirm, from `confirm-preview`. */
+    /**
+     * Reasons the server refused to confirm, already localized — the preview
+     * reports them as `{ code, message }` with an English message, so each one
+     * is resolved through the shared code map before it reaches the list.
+     */
     readonly blockers = signal<string[]>([]);
     readonly freshQualityNote = signal(true);
     readonly extraNote = signal('');
@@ -351,6 +356,20 @@ export class CheckoutComponent implements OnInit {
             });
     }
 
+    /**
+     * Lines the server would refuse, each phrased with its product name and the
+     * figure that was breached. Stock is only checked when the listing reported
+     * one — `quantity` is null for a listing that does not track it, and a
+     * missing figure is not a limit of zero.
+     */
+    private _lineIssues(): string[] {
+        return this.lines().flatMap((line) =>
+            cartLineIssues(line, this.productName(line.product)).map((issue) =>
+                this._transloco.translate(issue.key, issue.params)
+            )
+        );
+    }
+
     productName(product: CatalogProduct): string {
         return this.isVi() ? product.name : product.nameEn;
     }
@@ -391,6 +410,16 @@ export class CheckoutComponent implements OnInit {
                 undefined,
                 { duration: 3000 }
             );
+            return;
+        }
+        // Per-line rules the server applies while pricing the confirm
+        // (`MINIMUM_ORDER_QUANTITY_NOT_MET`, `INSUFFICIENT_STOCK`). Both are
+        // decidable from what is already on screen, and both would otherwise
+        // cost a draft creation and a round-trip to learn — named per product,
+        // since "one of your lines" is not something a buyer can act on.
+        const lineIssues = this._lineIssues();
+        if (lineIssues.length) {
+            this.blockers.set(lineIssues);
             return;
         }
         // The confirm ships to this address and the fee is priced from it, so
@@ -441,10 +470,19 @@ export class CheckoutComponent implements OnInit {
                 this.quote.set(preview);
             }
             if (preview && !preview.canConfirm) {
+                const translate = (key: string): string =>
+                    this._transloco.translate(key);
                 this.blockers.set(
                     preview.blockers.length
-                        ? preview.blockers
-                        : [this._transloco.translate('checkout.blockedGeneric')]
+                        ? preview.blockers.map((issue) =>
+                              describeApiCode(
+                                  issue.code,
+                                  issue.message,
+                                  translate,
+                                  'checkout.blockedGeneric'
+                              )
+                          )
+                        : [translate('checkout.blockedGeneric')]
                 );
                 return;
             }
@@ -519,9 +557,26 @@ export class CheckoutComponent implements OnInit {
         if (this._draftId && this._draftKey === key) {
             return this._draftId;
         }
-        if (this._draftId) {
-            const stale = this._draftId;
-            this._draftId = null;
+
+        // The cart is itself a draft order now, so the first attempt reuses it
+        // rather than opening a second one beside it. Only its delivery date
+        // and notes can disqualify it: the items are the cart's, and a draft's
+        // `scheduledFor` cannot be changed after creation.
+        const cartDraftId = this._draftOrder.orderId();
+        if (!this._draftId && cartDraftId) {
+            const draft = await this._orders
+                .getOrder(cartDraftId)
+                .catch(() => null);
+            if (draft && this._draftMatches(draft, scheduledFor, notes)) {
+                this._draftId = cartDraftId;
+                this._draftKey = key;
+                return cartDraftId;
+            }
+        }
+
+        const stale = this._draftId ?? cartDraftId;
+        this._draftId = null;
+        if (stale) {
             // Best-effort: a draft we can't cancel is not worth failing on.
             void this._orders
                 .cancelOrder(
@@ -537,7 +592,24 @@ export class CheckoutComponent implements OnInit {
         );
         this._draftId = orderId;
         this._draftKey = key;
+        // The cart follows the draft it is backed by, so a reload after this
+        // point restores the order that is actually open.
+        this._draftOrder.adopt(orderId);
         return orderId;
+    }
+
+    /** True when this draft already carries the chosen slot and note. */
+    private _draftMatches(
+        draft: OrderRow,
+        scheduledFor: Date,
+        notes: string | undefined
+    ): boolean {
+        const draftSchedule = draft['scheduledFor'];
+        const scheduleMatches =
+            typeof draftSchedule === 'string' &&
+            new Date(draftSchedule).getTime() === scheduledFor.getTime();
+        const draftNotes = (draft['notes'] as string | null) ?? '';
+        return scheduleMatches && draftNotes === (notes ?? '');
     }
 
     /** Combines the selected delivery day with the chosen slot's start time. */

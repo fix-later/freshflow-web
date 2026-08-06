@@ -28,9 +28,10 @@ import {
     ADDRESS_LINE_MAX_LENGTH,
     latitudeValidator,
     longitudeValidator,
-    NAME_MAX_LENGTH,
     nonBlankValidator,
+    PHONE_MAX_LENGTH,
     phoneNumberValidator,
+    RECIPIENT_NAME_MAX_LENGTH,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
@@ -88,10 +89,11 @@ export class DeliveryAddressesComponent implements OnInit {
     /** `null` while adding; the address id while editing an existing one. */
     readonly editingId = signal<string | null>(null);
 
+    // Mirrors `AddDeliveryAddressCommandValidator` /
+    // `UpdateDeliveryAddressCommandValidator` (identical rule sets): the
+    // address line is `NotEmpty().MaximumLength(500)`, the rest optional with
+    // their own caps. `recipientName` is 200 there, not the 255 the doc implies.
     readonly form = this._fb.group({
-        // `addressLine` is `minLength 1, maxLength 500` on
-        // DeliveryAddressRequest; the rest are nullable, bound by the
-        // documented §6 rules (name ≤255, phone 7–15 digits, real coordinates).
         addressLine: this._fb.control('', {
             validators: [
                 Validators.required,
@@ -101,9 +103,12 @@ export class DeliveryAddressesComponent implements OnInit {
             nonNullable: true,
         }),
         recipientName: this._fb.control<string | null>(null, [
-            trimmedMaxLengthValidator(NAME_MAX_LENGTH),
+            trimmedMaxLengthValidator(RECIPIENT_NAME_MAX_LENGTH),
         ]),
-        phone: this._fb.control<string | null>(null, [phoneNumberValidator]),
+        phone: this._fb.control<string | null>(null, [
+            phoneNumberValidator,
+            trimmedMaxLengthValidator(PHONE_MAX_LENGTH),
+        ]),
         latitude: this._fb.control<number | null>(null, [latitudeValidator]),
         longitude: this._fb.control<number | null>(null, [longitudeValidator]),
         isDefault: this._fb.control(false, { nonNullable: true }),

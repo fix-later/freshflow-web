@@ -223,6 +223,14 @@ export class FavoritesService {
             marketSource: str(row, ['marketName', 'marketSource']),
             price: num(row, ['price', 'currentPrice']),
             quantity: num(row, ['availableQuantity', 'quantity']),
+            // The favourites row does not carry it (see the note above about
+            // base-product fields); 1 is the backend's own default, so a line
+            // added from here is bounded by the cart's stock rule alone until
+            // the catalog fills the real figure in.
+            minimumOrderQuantity: Math.max(
+                1,
+                num(row, ['minimumOrderQuantity']) ?? 1
+            ),
             thumbnail,
             images: thumbnail ? [thumbnail] : [],
             active: row['active'] !== false,

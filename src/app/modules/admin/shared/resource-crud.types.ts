@@ -90,6 +90,8 @@ export interface CrudField {
     maxLength?: number;
     /** Minimum numeric value (`number`) — enforced client-side. */
     min?: number;
+    /** Maximum numeric value (`number`) — enforced client-side. */
+    max?: number;
     /** Shown only when creating (e.g. an immutable code). */
     createOnly?: boolean;
     /** Shown only when editing (e.g. an image the create endpoint ignores). */

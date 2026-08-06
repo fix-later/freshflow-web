@@ -1,5 +1,5 @@
 import { ResponseError } from 'contract';
-import { describeApiError } from './error-codes';
+import { describeApiError, resolveApiError } from './error-codes';
 
 /**
  * The user must see the backend's *specific* reason in their own language, so
@@ -91,9 +91,56 @@ describe('describeApiError', () => {
             ),
             'failed'
         );
-        // Unmapped code + unmapped message, but the 403 still says *why*.
+        // Unmapped code + unmapped message: the 403 says *why* by category,
+        // and the code rides along so the failure stays identifiable — without
+        // it, two different unmapped 403s read as the same sentence and there
+        // is nothing to report.
         expect(await describeApiError(err, translate, 'my.fallback')).toBe(
-            't:errors.api.forbidden'
+            't:errors.api.unrecognized'
+        );
+        const view = await resolveApiError(err, translate, 'my.fallback');
+        expect(view.code).toBe('SOME_UNMAPPED_CODE');
+        expect(view.status).toBe(403);
+        expect(view.recognized).toBeFalse();
+    });
+
+    it('marks a mapped failure as recognized, and keeps its code', async () => {
+        const err = new ResponseError(
+            response(
+                { success: false, error: { code: 'ORDER_NOT_FOUND' } },
+                404
+            ),
+            'failed'
+        );
+
+        const view = await resolveApiError(err, translate, 'my.fallback');
+        expect(view.message).toBe('t:errors.api.orderNotFound');
+        expect(view.recognized).toBeTrue();
+        expect(view.code).toBe('ORDER_NOT_FOUND');
+    });
+
+    /**
+     * The stub above echoes keys, so it cannot show whether the code actually
+     * reaches the sentence. This one uses the real templates.
+     */
+    it('puts the code into the sentence the user reads', async () => {
+        const templates: Record<string, string> = {
+            'errors.api.forbidden': 'Bạn không có quyền thực hiện thao tác này',
+            'errors.api.unrecognized': '{{category}} (mã lỗi: {{code}})',
+        };
+        const err = new ResponseError(
+            response({ success: false, error: { code: 'SOME_NEW_CODE' } }, 403),
+            'failed'
+        );
+
+        const message = await describeApiError(
+            err,
+            (key) => templates[key] ?? key,
+            'my.fallback'
+        );
+
+        expect(message).toBe(
+            'Bạn không có quyền thực hiện thao tác này (mã lỗi: SOME_NEW_CODE)'
         );
     });
 

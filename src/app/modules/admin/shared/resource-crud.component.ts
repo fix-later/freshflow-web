@@ -38,6 +38,16 @@ import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import {
+    applyApiErrorToForm,
+    clearServerErrors,
+    serverError,
+} from 'app/core/api/form-errors';
+import {
+    latitudeValidator,
+    longitudeValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { includesFolded } from 'app/core/util/text-search';
 import { AdminLoadingStateComponent } from './admin-loading-state.component';
@@ -572,6 +582,16 @@ export class ResourceCrudComponent implements OnInit {
         if (this.pageMode === 'create' || this._dialogRef) {
             return;
         }
+        // The dialog body is `@if (form)`, so opening without building one
+        // renders the header and nothing else — an empty blue bar with no
+        // fields and no save button. `openEdit` builds it; this did not.
+        this.closeDetails();
+        this.editing.set(false);
+        this.editingId.set(null);
+        this.flashMessage.set(null);
+        this.form = this._buildForm(null);
+        this.optionSearch.set({});
+        void this._loadSelectOptions();
         this._open();
     }
 
@@ -717,11 +737,22 @@ export class ResourceCrudComponent implements OnInit {
                 }
                 this.load();
             })
-            .catch((err) => {
+            .catch(async (err) => {
                 if (inline) {
                     this.showFlashMessage('error');
                 }
-                void this._notifyError(err, 'admin.crud.saveError');
+                // A 400 names the field it rejected (`details: [{field,message}]`).
+                // Pinning those onto the controls is what turns "check the
+                // highlighted fields" into an actually highlighted field —
+                // without it the toast pointed at nothing.
+                const form = this.form;
+                if (form) {
+                    clearServerErrors(form);
+                    await applyApiErrorToForm(form, err, (key) =>
+                        this._transloco.translate(key)
+                    );
+                }
+                await this._notifyError(err, 'admin.crud.saveError');
             })
             .finally(() => this.saving.set(false));
     }
@@ -844,6 +875,9 @@ export class ResourceCrudComponent implements OnInit {
     controlOf(name: string): FormControl {
         return this.form?.get(name) as FormControl;
     }
+
+    /** The server's own rejection for this field, already localized. */
+    readonly serverMessage = serverError;
 
     /**
      * Moves focus into a searchable select's filter box once its panel opens.
@@ -981,16 +1015,30 @@ export class ResourceCrudComponent implements OnInit {
         const controls: Record<string, FormControl> = {};
         for (const field of this.resource.fields) {
             if (field.type === 'location') {
-                for (const coord of [field.latField, field.lngField]) {
-                    if (coord) {
-                        controls[coord] = new FormControl(
-                            row ? this._coordValue(row, coord) : null
-                        );
-                    }
+                // Coordinates are written by the picker, but a saved row can
+                // still hold a value from elsewhere, and the server rejects one
+                // outside ±90/±180 — so they are bounded here too.
+                if (field.latField) {
+                    controls[field.latField] = new FormControl(
+                        row ? this._coordValue(row, field.latField) : null,
+                        [latitudeValidator]
+                    );
+                }
+                if (field.lngField) {
+                    controls[field.lngField] = new FormControl(
+                        row ? this._coordValue(row, field.lngField) : null,
+                        [longitudeValidator]
+                    );
                 }
                 if (field.addressField) {
+                    // The address the picker writes is a normal string field on
+                    // the request, with its own `MaximumLength`; the location
+                    // field carries that limit for it.
                     controls[field.addressField] = new FormControl(
-                        row ? String(row[field.addressField] ?? '') : ''
+                        row ? String(row[field.addressField] ?? '') : '',
+                        field.maxLength != null
+                            ? [trimmedMaxLengthValidator(field.maxLength)]
+                            : []
                     );
                 }
                 continue;
@@ -1018,6 +1066,9 @@ export class ResourceCrudComponent implements OnInit {
         }
         if (field.min != null) {
             validators.push(Validators.min(field.min));
+        }
+        if (field.max != null) {
+            validators.push(Validators.max(field.max));
         }
         return validators;
     }

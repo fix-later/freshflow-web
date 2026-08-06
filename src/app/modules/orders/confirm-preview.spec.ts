@@ -25,13 +25,27 @@ describe('parseConfirmPreview', () => {
     it('blocks and surfaces the reasons when wouldSucceed is false', () => {
         const preview = parseConfirmPreview({
             wouldSucceed: false,
-            issues: ['CREDIT_LIMIT_EXCEEDED', { message: 'Past cutoff' }],
+            issues: [
+                // The live shape: code *and* the backend's English message.
+                {
+                    code: 'CREDIT_LIMIT_EXCEEDED',
+                    message: 'Requested amount 120 exceeds available credit 80',
+                },
+                { message: 'Past cutoff' },
+                'DELIVERY_DATE_OUT_OF_WINDOW',
+            ],
         });
 
         expect(preview.canConfirm).toBeFalse();
         expect(preview.blockers).toEqual([
-            'CREDIT_LIMIT_EXCEEDED',
-            'Past cutoff',
+            {
+                code: 'CREDIT_LIMIT_EXCEEDED',
+                message: 'Requested amount 120 exceeds available credit 80',
+            },
+            { code: null, message: 'Past cutoff' },
+            // A bare string that looks like a code is kept as one, so it can
+            // still be localized rather than shown verbatim.
+            { code: 'DELIVERY_DATE_OUT_OF_WINDOW', message: null },
         ]);
     });
 
@@ -53,7 +67,7 @@ describe('parseConfirmPreview', () => {
         ).toEqual(
             jasmine.objectContaining({
                 canConfirm: false,
-                blockers: ['nope'],
+                blockers: [{ code: null, message: 'nope' }],
             })
         );
     });

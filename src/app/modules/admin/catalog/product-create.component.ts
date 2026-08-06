@@ -25,9 +25,17 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import {
+    nonBlankValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { includesFolded } from 'app/core/util/text-search';
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
-import { CatalogAdminService } from './catalog-admin.service';
+import {
+    CatalogAdminService,
+    PRODUCT_DESCRIPTION_MAX_LENGTH,
+    PRODUCT_NAME_MAX_LENGTH,
+} from './catalog-admin.service';
 
 /** Admin ▸ Catalog ▸ Products ▸ New — full-page create form. */
 @Component({
@@ -85,17 +93,29 @@ export class ProductCreateComponent implements OnInit {
         this._childOptions(this.createParentId())
     );
 
+    // Mirrors `CreateProductCommandValidator` — name ≤ 200, description ≤ 1000,
+    // unit required. `NotEmpty` rejects a blank string, which `required` alone
+    // accepts.
     readonly createForm = new FormGroup({
         name: new FormControl('', {
             nonNullable: true,
-            validators: [Validators.required],
+            validators: [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(PRODUCT_NAME_MAX_LENGTH),
+            ],
         }),
         unitId: new FormControl('', {
             nonNullable: true,
             validators: [Validators.required],
         }),
         categoryId: new FormControl('', { nonNullable: true }),
-        description: new FormControl('', { nonNullable: true }),
+        description: new FormControl('', {
+            nonNullable: true,
+            validators: [
+                trimmedMaxLengthValidator(PRODUCT_DESCRIPTION_MAX_LENGTH),
+            ],
+        }),
         packingCodeId: new FormControl('', { nonNullable: true }),
     });
 
