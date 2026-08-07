@@ -2,12 +2,10 @@ import {
     ChangeDetectionStrategy,
     Component,
     OnInit,
-    ViewChild,
     ViewEncapsulation,
 } from '@angular/core';
 import {
     FormsModule,
-    NgForm,
     ReactiveFormsModule,
     UntypedFormBuilder,
     UntypedFormGroup,
@@ -22,6 +20,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { AuthService } from 'app/core/auth/auth.service';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { UserService } from 'app/core/user/user.service';
@@ -50,8 +49,6 @@ import { SetupCompletionService } from 'app/modules/restaurant/setup/setup-compl
     ],
 })
 export class AuthSignInComponent implements OnInit {
-    @ViewChild('signInNgForm') signInNgForm: NgForm;
-
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
         message: '',
@@ -109,32 +106,38 @@ export class AuthSignInComponent implements OnInit {
         this.showAlert = false;
 
         // Sign in
-        this._authService.signIn(this.signInForm.value).subscribe(
-            () => {
+        this._authService.signIn(this.signInForm.value).subscribe({
+            next: () => {
                 // The profile (and role) is loaded by the time signIn resolves,
                 // so resolve the landing page here and navigate directly — a
                 // synchronous `redirectTo` can't reliably read the async role.
                 void this._navigateAfterSignIn();
             },
-            (response) => {
-                // Re-enable the form
-                this.signInForm.enable();
+            error: (err: unknown) => void this._handleSignInFailure(err),
+        });
+    }
 
-                // Reset the form
-                this.signInNgForm.resetForm();
+    /**
+     * Distinguishes wrong credentials from an account lock, a network drop, or
+     * a 5xx — `describeApiError` already maps every one of those codes, so
+     * showing a bare "wrong credentials" for all of them was hiding the real
+     * reason (and telling a locked-out or offline user to just try again).
+     * Only the password is cleared: wiping `identifier` too made a single typo
+     * in the password force retyping the email/phone as well.
+     */
+    private async _handleSignInFailure(err: unknown): Promise<void> {
+        this.signInForm.enable();
+        this.signInForm.controls['password'].reset();
 
-                // Set the alert
-                this.alert = {
-                    type: 'error',
-                    message: this._translocoService.translate(
-                        'auth.errors.wrongCredentials'
-                    ),
-                };
-
-                // Show the alert
-                this.showAlert = true;
-            }
-        );
+        this.alert = {
+            type: 'error',
+            message: await describeApiError(
+                err,
+                (key) => this._translocoService.translate(key),
+                'auth.errors.wrongCredentials'
+            ),
+        };
+        this.showAlert = true;
     }
 
     // -----------------------------------------------------------------------------------------------------

@@ -60,7 +60,7 @@
                 [formGroup]="signUpForm"
                 (ngSubmit)="signUp()"
             >
-                <!-- Business -->
+                <!-- Restaurant -->
                 <section
                     class="ff-signup__section"
                     aria-labelledby="ff-signup-business"
@@ -133,7 +133,11 @@
                             [attr.maxlength]="phoneMaxLength"
                             [placeholder]="t('auth.signUp.phoneHint')"
                         />
-                        @if (
+                        @if (signUpForm.controls.phone.hasError('required')) {
+                            <mat-error>
+                                {{ t('auth.signUp.phoneRequired') }}
+                            </mat-error>
+                        } @else if (
                             signUpForm.controls.phone.hasError('phoneNumber')
                         ) {
                             <mat-error>
@@ -154,20 +158,7 @@
                                 }}
                             </mat-error>
                         }
-                        <mat-hint>{{
-                            t('auth.signUp.phoneOptional')
-                        }}</mat-hint>
                     </mat-form-field>
-                </section>
-
-                <!-- Account -->
-                <section
-                    class="ff-signup__section"
-                    aria-labelledby="ff-signup-account"
-                >
-                    <h2 id="ff-signup-account" class="ff-signup__section-title">
-                        {{ t('auth.signUp.section.account') }}
-                    </h2>
 
                     <mat-form-field
                         class="w-full"
@@ -209,6 +200,118 @@
                             </mat-error>
                         }
                     </mat-form-field>
+                </section>
+
+                <!-- Tax -->
+                <section
+                    class="ff-signup__section"
+                    aria-labelledby="ff-signup-tax"
+                >
+                    <h2 id="ff-signup-tax" class="ff-signup__section-title">
+                        {{ t('auth.signUp.section.tax') }}
+                    </h2>
+
+                    <mat-form-field
+                        class="w-full"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{ t('auth.signUp.taxCode') }}</mat-label>
+                        <input
+                            id="taxCode"
+                            matInput
+                            formControlName="taxCode"
+                            [placeholder]="t('auth.signUp.taxCodeHint')"
+                            [attr.maxlength]="taxCodeMaxLength"
+                        />
+                        @if (taxLookupLoading()) {
+                            <mat-progress-spinner
+                                matSuffix
+                                [diameter]="18"
+                                mode="indeterminate"
+                            ></mat-progress-spinner>
+                        } @else if (taxVerified()) {
+                            <mat-icon
+                                matSuffix
+                                class="text-green-600 icon-size-5"
+                                [svgIcon]="'heroicons_solid:check-circle'"
+                            ></mat-icon>
+                        }
+                        @if (signUpForm.controls.taxCode.hasError('taxCode')) {
+                            <mat-error>
+                                {{ t('auth.signUp.taxCodeInvalid') }}
+                            </mat-error>
+                        } @else if (
+                            signUpForm.controls.taxCode.hasError('maxlength')
+                        ) {
+                            <mat-error>
+                                {{ t('auth.signUp.taxCodeMax') }}
+                            </mat-error>
+                        } @else if (
+                            signUpForm.controls.taxCode.hasError('server')
+                        ) {
+                            <mat-error>
+                                {{
+                                    signUpForm.controls.taxCode.getError(
+                                        'server'
+                                    )
+                                }}
+                            </mat-error>
+                        } @else if (taxLookupError()) {
+                            <mat-hint>{{ taxLookupError() }}</mat-hint>
+                        } @else if (taxVerified()) {
+                            <mat-hint>{{
+                                t('auth.signUp.taxCodeVerified')
+                            }}</mat-hint>
+                        } @else {
+                            <mat-hint>{{
+                                t('auth.signUp.taxCodeOptional')
+                            }}</mat-hint>
+                        }
+                    </mat-form-field>
+
+                    @if (taxVerified()) {
+                        <!-- Read-only: filled straight from the MST lookup, not editable. -->
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('auth.signUp.taxLegalName')
+                            }}</mat-label>
+                            <input
+                                matInput
+                                readonly
+                                [value]="taxLookupLegalName()"
+                            />
+                        </mat-form-field>
+
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('auth.signUp.taxAddress')
+                            }}</mat-label>
+                            <input
+                                matInput
+                                readonly
+                                [value]="taxLookupAddress()"
+                            />
+                        </mat-form-field>
+                    }
+                </section>
+
+                <!-- Security -->
+                <section
+                    class="ff-signup__section"
+                    aria-labelledby="ff-signup-account"
+                >
+                    <h2 id="ff-signup-account" class="ff-signup__section-title">
+                        {{ t('auth.signUp.section.account') }}
+                    </h2>
 
                     <mat-form-field
                         class="w-full"
@@ -228,6 +331,11 @@
                             mat-icon-button
                             type="button"
                             matSuffix
+                            [attr.aria-label]="
+                                passwordField.type === 'password'
+                                    ? t('auth.password.show')
+                                    : t('auth.password.hide')
+                            "
                             (click)="
                                 passwordField.type === 'password'
                                     ? (passwordField.type = 'text')
@@ -275,8 +383,11 @@
                     </mat-form-field>
 
                     @if (
-                        signUpForm.controls.password.value ||
-                        signUpForm.controls.password.touched
+                        signUpForm.controls.password.hasError(
+                            'passwordStrength'
+                        ) ||
+                        (signUpForm.controls.password.touched &&
+                            !signUpForm.controls.password.value)
                     ) {
                         <div
                             class="ff-signup__rules"
@@ -312,6 +423,69 @@
                             </ul>
                         </div>
                     }
+
+                    <mat-form-field
+                        class="w-full"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('auth.signUp.confirmPassword')
+                        }}</mat-label>
+                        <input
+                            id="confirmPassword"
+                            matInput
+                            type="password"
+                            formControlName="confirmPassword"
+                            #confirmPasswordField
+                            autocomplete="new-password"
+                        />
+                        <button
+                            mat-icon-button
+                            type="button"
+                            matSuffix
+                            [attr.aria-label]="
+                                confirmPasswordField.type === 'password'
+                                    ? t('auth.password.show')
+                                    : t('auth.password.hide')
+                            "
+                            (click)="
+                                confirmPasswordField.type === 'password'
+                                    ? (confirmPasswordField.type = 'text')
+                                    : (confirmPasswordField.type = 'password')
+                            "
+                        >
+                            @if (confirmPasswordField.type === 'password') {
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="'heroicons_solid:eye'"
+                                ></mat-icon>
+                            }
+                            @if (confirmPasswordField.type === 'text') {
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="'heroicons_solid:eye-slash'"
+                                ></mat-icon>
+                            }
+                        </button>
+                        @if (
+                            signUpForm.controls.confirmPassword.hasError(
+                                'required'
+                            )
+                        ) {
+                            <mat-error>
+                                {{ t('auth.signUp.confirmPasswordRequired') }}
+                            </mat-error>
+                        } @else if (
+                            signUpForm.controls.confirmPassword.hasError(
+                                'mustMatch'
+                            )
+                        ) {
+                            <mat-error>
+                                {{ t('auth.signUp.confirmPasswordMismatch') }}
+                            </mat-error>
+                        }
+                    </mat-form-field>
                 </section>
 
                 <div class="ff-signup__legal flex flex-col items-start gap-1">
@@ -345,6 +519,8 @@
                     color="primary"
                     type="submit"
                     [disabled]="submitting()"
+                    [attr.aria-label]="t('auth.signUp.submit')"
+                    [attr.aria-busy]="submitting()"
                 >
                     @if (!submitting()) {
                         <span>{{ t('auth.signUp.submit') }}</span>

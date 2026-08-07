@@ -61,12 +61,31 @@
                         t('restaurantProfile.taxProfile.taxCode')
                     }}</mat-label>
                     <input matInput formControlName="taxCode" />
+                    @if (taxLookupLoading()) {
+                        <mat-progress-spinner
+                            matSuffix
+                            [diameter]="18"
+                            mode="indeterminate"
+                        ></mat-progress-spinner>
+                    } @else if (taxVerified()) {
+                        <mat-icon
+                            matSuffix
+                            class="text-green-600 icon-size-5"
+                            [svgIcon]="'heroicons_solid:check-circle'"
+                        ></mat-icon>
+                    }
                     @if (serverMessage(form.controls.taxCode); as message) {
                         <mat-error>{{ message }}</mat-error>
                     } @else if (errorKey(form.controls.taxCode); as key) {
                         <mat-error>{{
                             t(key, { max: maxLength(form.controls.taxCode) })
                         }}</mat-error>
+                    } @else if (taxLookupError(); as message) {
+                        <mat-hint>{{ message }}</mat-hint>
+                    } @else if (taxVerified()) {
+                        <mat-hint>{{
+                            t('restaurantProfile.taxProfile.taxCodeVerified')
+                        }}</mat-hint>
                     }
                 </mat-form-field>
 
