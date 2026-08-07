@@ -56,6 +56,13 @@
                     >
                         {{ t('orders.detail.reorder') }}
                     </button>
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="goToRecurring()"
+                    >
+                        {{ t('orders.detail.makeRecurring') }}
+                    </button>
                     @if (canConfirmReceipt()) {
                         <button
                             mat-flat-button

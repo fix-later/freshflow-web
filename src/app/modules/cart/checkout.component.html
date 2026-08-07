@@ -226,6 +226,19 @@
                     }
                 </div>
 
+                <button
+                    class="checkout-order__recurring-link"
+                    mat-button
+                    type="button"
+                    (click)="goToRecurring()"
+                >
+                    <mat-icon
+                        class="icon-size-4"
+                        [svgIcon]="'heroicons_outline:arrow-path'"
+                    ></mat-icon>
+                    {{ t('checkout.order.recurringLink') }}
+                </button>
+
                 <div class="checkout-card checkout-card--row">
                     <span>{{ t('checkout.payment.label') }}</span>
                     <strong>{{ t('checkout.payment.credit') }}</strong>

@@ -294,6 +294,19 @@ export class CheckoutComponent implements OnInit {
     }
 
     /**
+     * "Đặt định kỳ với các sản phẩm này" — hands the current cart lines to the
+     * recurring-order page's create form instead of placing a one-off order.
+     * Router `state` (not query params) since this is a one-shot handoff, same
+     * pattern already used for admin detail pages (`history.state?.order` etc.).
+     * The cart itself is untouched — same non-destructive convention as reorder.
+     */
+    goToRecurring(): void {
+        void this._router.navigate(['/profile/scheduled'], {
+            state: { prefillItems: this._items() },
+        });
+    }
+
+    /**
      * Narrows the slot list to the restaurant's declared receiving hours, then
      * preselects the window its last order used — repeat buyers order into the
      * same slot, so re-picking it every time is friction. Falls back to the
