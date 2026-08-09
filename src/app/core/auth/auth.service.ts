@@ -68,14 +68,15 @@ export class AuthService {
      * it does not send the code — without the second call the user only gets
      * mail after manually pressing "resend" on the confirmation screen.
      *
-     * Account is usable after verify + Admin approval (BR-AUTH-1). `phone` is
-     * optional per the contract.
+     * Account is usable after verify + Admin approval (BR-AUTH-1). `phone` and
+     * `taxCode` are optional per the contract.
      */
     async signUp(user: {
         email: string;
         password: string;
         restaurantName: string;
         phone?: string;
+        taxCode?: string;
     }): Promise<void> {
         await authApi.apiV1AuthRegisterPost({
             registerRestaurantRequest: {
@@ -83,6 +84,7 @@ export class AuthService {
                 password: user.password,
                 restaurantName: user.restaurantName,
                 phone: user.phone,
+                taxCode: user.taxCode?.trim() || undefined,
             },
         });
 

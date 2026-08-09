@@ -221,6 +221,12 @@
                             type="button"
                             [color]="'primary'"
                             [disabled]="advancing() || !canContinue()"
+                            [attr.aria-label]="
+                                isReviewStep()
+                                    ? t('restaurantOnboarding.actions.finish')
+                                    : t('restaurantOnboarding.actions.continue')
+                            "
+                            [attr.aria-busy]="advancing()"
                             (click)="continue()"
                         >
                             @if (advancing()) {

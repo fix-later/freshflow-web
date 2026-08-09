@@ -88,20 +88,28 @@
                 >
                     <mat-form-field class="flex-1" subscriptSizing="dynamic">
                         <mat-label>{{
-                            t('scheduledOrders.firstRunAt')
+                            t('scheduledOrders.firstRunDate')
                         }}</mat-label>
                         <input
                             matInput
-                            type="datetime-local"
-                            formControlName="firstRunAt"
+                            [matDatepicker]="firstRunDatePicker"
+                            [min]="minFirstRunDate"
+                            formControlName="firstRunAtDate"
+                            readonly
+                            (click)="firstRunDatePicker.open()"
                         />
+                        <mat-datepicker-toggle
+                            matIconSuffix
+                            [for]="firstRunDatePicker"
+                        ></mat-datepicker-toggle>
+                        <mat-datepicker #firstRunDatePicker></mat-datepicker>
                         @if (
-                            serverMessage(editForm.controls.firstRunAt);
+                            serverMessage(editForm.controls.firstRunAtDate);
                             as msg
                         ) {
                             <mat-error>{{ msg }}</mat-error>
                         } @else if (
-                            errorKey(editForm.controls.firstRunAt);
+                            errorKey(editForm.controls.firstRunAtDate);
                             as key
                         ) {
                             <mat-error>{{ t(key) }}</mat-error>
@@ -109,31 +117,52 @@
                     </mat-form-field>
                     <mat-form-field class="flex-1" subscriptSizing="dynamic">
                         <mat-label>{{
-                            t('scheduledOrders.recurrenceType')
+                            t('scheduledOrders.firstRunTime')
                         }}</mat-label>
-                        <mat-select formControlName="recurrenceType">
-                            @for (type of recurrenceTypes; track type) {
-                                <mat-option [value]="type">{{
-                                    t('scheduledOrders.recurrence.' + type)
-                                }}</mat-option>
-                            }
-                        </mat-select>
-                        <mat-hint>{{
-                            t('scheduledOrders.recurrenceHint')
-                        }}</mat-hint>
+                        <input
+                            matInput
+                            type="time"
+                            formControlName="firstRunAtTime"
+                        />
                         @if (
-                            serverMessage(editForm.controls.recurrenceType);
+                            serverMessage(editForm.controls.firstRunAtTime);
                             as msg
                         ) {
                             <mat-error>{{ msg }}</mat-error>
                         } @else if (
-                            errorKey(editForm.controls.recurrenceType);
+                            errorKey(editForm.controls.firstRunAtTime);
                             as key
                         ) {
                             <mat-error>{{ t(key) }}</mat-error>
                         }
                     </mat-form-field>
                 </div>
+                <mat-form-field class="w-full" subscriptSizing="dynamic">
+                    <mat-label>{{
+                        t('scheduledOrders.recurrenceType')
+                    }}</mat-label>
+                    <mat-select formControlName="recurrenceType">
+                        @for (type of recurrenceTypes; track type) {
+                            <mat-option [value]="type">{{
+                                t('scheduledOrders.recurrence.' + type)
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                    <mat-hint>{{
+                        t('scheduledOrders.recurrenceHint')
+                    }}</mat-hint>
+                    @if (
+                        serverMessage(editForm.controls.recurrenceType);
+                        as msg
+                    ) {
+                        <mat-error>{{ msg }}</mat-error>
+                    } @else if (
+                        errorKey(editForm.controls.recurrenceType);
+                        as key
+                    ) {
+                        <mat-error>{{ t(key) }}</mat-error>
+                    }
+                </mat-form-field>
                 <mat-form-field class="w-full" subscriptSizing="dynamic">
                     <mat-label>{{ t('scheduledOrders.notes') }}</mat-label>
                     <textarea
@@ -151,6 +180,7 @@
                         }}</mat-error>
                     }
                 </mat-form-field>
+                <ng-container *ngTemplateOutlet="itemPicker"></ng-container>
             </div>
             <div
                 class="ff-sched__actions flex flex-wrap justify-end gap-2 border-t px-5 py-4"
@@ -167,7 +197,7 @@
                     mat-flat-button
                     color="primary"
                     type="submit"
-                    [disabled]="saving()"
+                    [disabled]="saving() || resolvingItems()"
                 >
                     @if (saving()) {
                         <mat-icon
@@ -396,28 +426,52 @@
                                 <div
                                     class="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-4"
                                 >
+                                    <!--
+                                      No [min] here (unlike the create panel above) — MatDatepicker's
+                                      min binds a real Validator that checks the control's CURRENT
+                                      value, not just what can be picked going forward. An
+                                      already-run schedule seeds this field from its (now-past)
+                                      firstRunAt, so a min of "today" would mark the form invalid
+                                      the moment edit opens — before the user touches anything —
+                                      blocking notes/recurrence-only edits on any schedule that has
+                                      ever run. The "must be future" rule still applies once the
+                                      user actually changes the date/time (see saveEdit()).
+                                    -->
                                     <mat-form-field
                                         class="flex-1"
                                         subscriptSizing="dynamic"
                                     >
                                         <mat-label>{{
-                                            t('scheduledOrders.firstRunAt')
+                                            t('scheduledOrders.firstRunDate')
                                         }}</mat-label>
                                         <input
                                             matInput
-                                            type="datetime-local"
-                                            formControlName="firstRunAt"
+                                            [matDatepicker]="
+                                                firstRunDatePickerEdit
+                                            "
+                                            formControlName="firstRunAtDate"
+                                            readonly
+                                            (click)="
+                                                firstRunDatePickerEdit.open()
+                                            "
                                         />
+                                        <mat-datepicker-toggle
+                                            matIconSuffix
+                                            [for]="firstRunDatePickerEdit"
+                                        ></mat-datepicker-toggle>
+                                        <mat-datepicker
+                                            #firstRunDatePickerEdit
+                                        ></mat-datepicker>
                                         @if (
                                             serverMessage(
-                                                editForm.controls.firstRunAt
+                                                editForm.controls.firstRunAtDate
                                             );
                                             as msg
                                         ) {
                                             <mat-error>{{ msg }}</mat-error>
                                         } @else if (
                                             errorKey(
-                                                editForm.controls.firstRunAt
+                                                editForm.controls.firstRunAtDate
                                             );
                                             as key
                                         ) {
@@ -429,25 +483,53 @@
                                         subscriptSizing="dynamic"
                                     >
                                         <mat-label>{{
-                                            t('scheduledOrders.recurrenceType')
+                                            t('scheduledOrders.firstRunTime')
                                         }}</mat-label>
-                                        <mat-select
-                                            formControlName="recurrenceType"
-                                        >
-                                            @for (
-                                                type of recurrenceTypes;
-                                                track type
-                                            ) {
-                                                <mat-option [value]="type">{{
-                                                    t(
-                                                        'scheduledOrders.recurrence.' +
-                                                            type
-                                                    )
-                                                }}</mat-option>
-                                            }
-                                        </mat-select>
+                                        <input
+                                            matInput
+                                            type="time"
+                                            formControlName="firstRunAtTime"
+                                        />
+                                        @if (
+                                            serverMessage(
+                                                editForm.controls.firstRunAtTime
+                                            );
+                                            as msg
+                                        ) {
+                                            <mat-error>{{ msg }}</mat-error>
+                                        } @else if (
+                                            errorKey(
+                                                editForm.controls.firstRunAtTime
+                                            );
+                                            as key
+                                        ) {
+                                            <mat-error>{{ t(key) }}</mat-error>
+                                        }
                                     </mat-form-field>
                                 </div>
+                                <mat-form-field
+                                    class="w-full"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('scheduledOrders.recurrenceType')
+                                    }}</mat-label>
+                                    <mat-select
+                                        formControlName="recurrenceType"
+                                    >
+                                        @for (
+                                            type of recurrenceTypes;
+                                            track type
+                                        ) {
+                                            <mat-option [value]="type">{{
+                                                t(
+                                                    'scheduledOrders.recurrence.' +
+                                                        type
+                                                )
+                                            }}</mat-option>
+                                        }
+                                    </mat-select>
+                                </mat-form-field>
                                 <mat-form-field
                                     class="w-full"
                                     subscriptSizing="dynamic"
@@ -478,6 +560,9 @@
                                         }}</mat-error>
                                     }
                                 </mat-form-field>
+                                <ng-container
+                                    *ngTemplateOutlet="itemPicker"
+                                ></ng-container>
                             </div>
                             <div
                                 class="ff-sched__actions flex flex-wrap justify-end gap-2 border-t px-5 py-4"
@@ -584,4 +669,186 @@
             }
         </div>
     }
+
+    <!--
+      Item template + delivery address picker (SCRUM-386). Shared between the
+      "create" panel and each card's inline "edit" panel via ngTemplateOutlet —
+      only one of those two panels is ever open at once, same as `editForm`.
+    -->
+    <ng-template #itemPicker>
+        <div class="ff-sched__items flex flex-col gap-2 pt-2">
+            <h3 class="text-sm font-semibold">
+                {{
+                    t(
+                        isEditingExisting()
+                            ? 'scheduledOrders.currentItems'
+                            : 'scheduledOrders.items'
+                    )
+                }}
+            </h3>
+            <p class="text-secondary text-xs leading-snug">
+                {{
+                    t(
+                        isEditingExisting()
+                            ? 'scheduledOrders.itemsEditUnsupported'
+                            : 'scheduledOrders.itemsHint'
+                    )
+                }}
+            </p>
+
+            @if (!isEditingExisting() && !marketSelected()) {
+                <p class="text-hint text-sm">
+                    {{ t('scheduledOrders.pickMarketFirst') }}
+                </p>
+            } @else if (!isEditingExisting() && resolvingItems()) {
+                <!--
+                  Browsing/adding stays locked until resolvingItems clears — see the comment on
+                  the signal itself for why (hydration overwrites pickedItems wholesale).
+                -->
+                <div class="flex flex-col items-center gap-2 py-4">
+                    <mat-progress-spinner
+                        [diameter]="24"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
+                    <p class="text-secondary text-xs">
+                        {{ t('scheduledOrders.itemsResolvingHint') }}
+                    </p>
+                </div>
+            } @else if (!isEditingExisting()) {
+                <input
+                    type="text"
+                    class="ff-sched__item-search"
+                    [placeholder]="t('scheduledOrders.searchProducts')"
+                    [value]="itemSearchTerm()"
+                    (input)="itemSearchTerm.set($any($event.target).value)"
+                />
+
+                @if (
+                    catalogLoading() && filteredPickerProducts().length === 0
+                ) {
+                    <div class="flex justify-center py-4">
+                        <mat-progress-spinner
+                            [diameter]="24"
+                            [mode]="'indeterminate'"
+                        ></mat-progress-spinner>
+                    </div>
+                } @else {
+                    <div
+                        class="ff-sched__item-grid grid grid-cols-2 gap-2 sm:grid-cols-3"
+                    >
+                        @for (
+                            product of filteredPickerProducts();
+                            track product.marketProductId
+                        ) {
+                            <ff-product-card
+                                [product]="productVm(product)"
+                                [showFavorite]="false"
+                                (addedToCart)="addPickedItem(product)"
+                            ></ff-product-card>
+                        }
+                    </div>
+                    @if (catalogHasMore()) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            class="self-start"
+                            (click)="loadMorePickerProducts()"
+                        >
+                            {{ t('scheduledOrders.loadMore') }}
+                        </button>
+                    }
+                }
+            }
+
+            @if (pickedItems().length > 0) {
+                <div
+                    class="ff-sched__picked flex flex-col overflow-hidden rounded-xl border"
+                >
+                    @for (
+                        item of pickedItems();
+                        track item.marketProductId;
+                        let last = $last
+                    ) {
+                        <div
+                            class="flex items-center gap-3 px-3 py-2"
+                            [class.border-b]="!last"
+                        >
+                            <span class="min-w-0 flex-1 truncate text-sm">
+                                {{ item.product?.name ?? item.marketProductId }}
+                                @if (!item.product) {
+                                    <span class="text-xs text-warn">
+                                        ·
+                                        {{
+                                            t('scheduledOrders.unknownProduct')
+                                        }}
+                                    </span>
+                                }
+                            </span>
+                            @if (isEditingExisting()) {
+                                <span class="text-secondary text-sm">
+                                    × {{ item.quantity }}
+                                </span>
+                            } @else {
+                                <div
+                                    class="ff-sched__picked-qty flex items-center gap-2"
+                                >
+                                    <button
+                                        type="button"
+                                        [attr.aria-label]="t('cart.decrease')"
+                                        (click)="
+                                            decrementPicked(
+                                                item.marketProductId
+                                            )
+                                        "
+                                    >
+                                        −
+                                    </button>
+                                    <span>{{ item.quantity }}</span>
+                                    <button
+                                        type="button"
+                                        [attr.aria-label]="t('cart.increase')"
+                                        (click)="
+                                            incrementPicked(
+                                                item.marketProductId
+                                            )
+                                        "
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    (click)="removePicked(item.marketProductId)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="'heroicons_outline:x-mark'"
+                                    ></mat-icon>
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            } @else if (!isEditingExisting()) {
+                <p class="text-xs text-warn">
+                    {{ t('scheduledOrders.itemsRequired') }}
+                </p>
+            }
+
+            @if (defaultAddress(); as addr) {
+                <p class="text-secondary text-xs">
+                    {{ t('scheduledOrders.deliveryAddress') }}:
+                    {{ addr.addressLine }}
+                </p>
+            } @else {
+                <p class="text-xs text-warn">
+                    {{ t('scheduledOrders.noAddress') }}
+                    <a routerLink="/profile/addresses">{{
+                        t('scheduledOrders.manageAddresses')
+                    }}</a>
+                </p>
+            }
+        </div>
+    </ng-template>
 </div>

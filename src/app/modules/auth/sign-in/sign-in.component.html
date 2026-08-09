@@ -71,6 +71,11 @@
                     <button
                         mat-icon-button
                         type="button"
+                        [attr.aria-label]="
+                            passwordField.type === 'password'
+                                ? t('auth.password.show')
+                                : t('auth.password.hide')
+                        "
                         (click)="
                             passwordField.type === 'password'
                                 ? (passwordField.type = 'text')
@@ -116,6 +121,8 @@
                     mat-flat-button
                     [color]="'primary'"
                     [disabled]="signInForm.disabled"
+                    [attr.aria-label]="t('auth.signIn.submit')"
+                    [attr.aria-busy]="signInForm.disabled"
                     (click)="signIn()"
                 >
                     @if (!signInForm.disabled) {
