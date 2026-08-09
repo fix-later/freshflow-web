@@ -188,6 +188,24 @@
                             >Liên hệ</a
                         >
                     </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            href="files/FreshFlow_Chinh_sach_van_hanh_nha_hang.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >Chính sách vận hành</a
+                        >
+                    </li>
+                    <li>
+                        <a
+                            class="text-secondary hover:text-primary"
+                            href="files/FreshFlow_Chinh_sach_bao_mat.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >Chính sách bảo mật</a
+                        >
+                    </li>
                 </ul>
             </div>
 
@@ -211,7 +229,8 @@
                     <li>
                         <a
                             class="text-secondary hover:text-primary"
-                            routerLink="/deals"
+                            routerLink="/catalog"
+                            [queryParams]="{ featured: '1' }"
                             >Hot Deals</a
                         >
                     </li>

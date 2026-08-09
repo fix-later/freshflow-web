@@ -17,6 +17,18 @@ export class PermissionsService {
     /** The signed-in user's role, or `null` when signed out. */
     readonly role = computed<UserRole | null>(() => this._user()?.role ?? null);
 
+    /**
+     * False for a guest — someone browsing the storefront without an account.
+     *
+     * The storefront is deliberately open (`OptionalAuthGuard`), so "no role"
+     * is an ordinary state to design for, not an error: prices, markets and the
+     * catalogue are all readable, while anything that acts on an account is
+     * gated behind {@link GuestGateService}. Derived from the role rather than
+     * from token presence, because a token that has not resolved to a profile
+     * yet is not somebody we can act as.
+     */
+    readonly isSignedIn = computed<boolean>(() => this.role() !== null);
+
     /** Restaurants must be approved to act; other roles are always "approved". */
     readonly isApproved = computed<boolean>(() => {
         const user = this._user();

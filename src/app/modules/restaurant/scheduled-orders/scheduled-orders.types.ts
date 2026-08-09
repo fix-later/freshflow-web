@@ -5,6 +5,12 @@
  * types.
  */
 
+/** One line of a schedule's item template (`GET /orders/scheduled`, `GET .../{id}`). */
+export interface ScheduledOrderItem {
+    marketProductId: string;
+    quantity: number;
+}
+
 /** A recurring order template (`GET /orders/scheduled`). */
 export interface ScheduledOrder {
     id: string;
@@ -17,6 +23,12 @@ export interface ScheduledOrder {
     itemCount?: number;
     totalAmount?: number;
     cancelledAt?: string | null;
+    /**
+     * SCRUM-386 — the item template the background job auto-confirms from. `null`/absent on
+     * legacy schedules created before this field existed (those still generate an empty draft).
+     */
+    deliveryAddressId?: string | null;
+    items?: ScheduledOrderItem[];
     [key: string]: unknown;
 }
 

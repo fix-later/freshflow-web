@@ -474,18 +474,29 @@ export class DraftOrderService {
             description: '',
             descriptionEn: '',
             categoryId: '',
+            categoryLabel: '',
             unit: '',
             unitEn: '',
+            unitShort: '',
             marketId: '',
             marketSource: '',
             price: Number.isFinite(unitPrice) ? unitPrice : null,
             // Stock and the minimum are the listing's, not the order line's.
             // Unknown here, and an unknown limit must not bound the stepper.
             quantity: null,
+            totalQuantity: null,
+            // Packing and the last price update likewise live on the listing;
+            // an order line carries neither.
+            packWeightKg: null,
+            updatedAt: '',
             minimumOrderQuantity: 1,
             thumbnail,
             images: thumbnail ? [thumbnail] : [],
             active: true,
+            // The order line does not report the listing's tags, and nothing on
+            // this surface reads them.
+            tags: [],
+            featured: false,
         };
     }
 

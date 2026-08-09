@@ -13,6 +13,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -32,6 +33,7 @@ import {
     taxCodeValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { fetchTaxInfo, taxCodeDigitCount } from 'app/core/auth/tax-lookup';
 import { UpdateTaxProfileRequest } from 'contract';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 
@@ -55,6 +57,7 @@ import { RestaurantProfileService } from '../restaurant-profile.service';
         MatButtonModule,
         MatIconModule,
         MatSnackBarModule,
+        MatProgressSpinnerModule,
         TranslocoModule,
     ],
 })
@@ -81,6 +84,18 @@ export class TaxProfileFormComponent implements OnInit {
     readonly errorKey = fieldErrorKey;
     readonly maxLength = fieldMaxLength;
     readonly serverMessage = serverError;
+
+    // ─── Tax lookup (vietqr.io) — mirrors freshflow-app's RestaurantProfileScreen ──
+    readonly taxLookupLoading = signal(false);
+    readonly taxVerified = signal(false);
+    readonly taxLookupError = signal<string | null>(null);
+    /**
+     * Guards against a race where the user keeps editing the MST after a lookup
+     * request is already in flight — without this a slow/stale response could
+     * land after a newer edit and silently overwrite legalName/address for a
+     * tax code that's no longer current.
+     */
+    private _taxCodeRequestToken = '';
 
     /**
      * Mirrors `UpdateMyTaxProfileCommandValidator` rule for rule.
@@ -116,6 +131,51 @@ export class TaxProfileFormComponent implements OnInit {
 
     async ngOnInit(): Promise<void> {
         await this.reload();
+        this.form.controls.taxCode.valueChanges.subscribe((raw) => {
+            void this._handleTaxCodeChange(raw ?? '');
+        });
+    }
+
+    /**
+     * Looks the MST up once it reaches a plausible length (10 digits = personal,
+     * 13 = branch) and auto-fills `legalName` + `address` from the public
+     * registry — same trigger and behavior as the sign-up form. Best-effort
+     * only: a miss or network failure never blocks manual entry.
+     */
+    private async _handleTaxCodeChange(raw: string): Promise<void> {
+        this.taxVerified.set(false);
+        this.taxLookupError.set(null);
+        this._taxCodeRequestToken = raw;
+
+        const digitCount = taxCodeDigitCount(raw);
+        if (digitCount !== 10 && digitCount !== 13) {
+            return;
+        }
+
+        this.taxLookupLoading.set(true);
+        const info = await fetchTaxInfo(raw);
+        this.taxLookupLoading.set(false);
+
+        // Superseded by a newer edit while the request was in flight — discard.
+        if (this._taxCodeRequestToken !== raw) {
+            return;
+        }
+
+        if (info) {
+            if (info.name) {
+                this.form.controls.legalName.setValue(info.name);
+            }
+            if (info.address) {
+                this.form.controls.address.setValue(info.address);
+            }
+            this.taxVerified.set(true);
+        } else {
+            this.taxLookupError.set(
+                this._transloco.translate(
+                    'restaurantProfile.taxProfile.taxCodeNotFound'
+                )
+            );
+        }
     }
 
     /** Loads the saved values into the form; also the retry action. */

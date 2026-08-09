@@ -7,6 +7,15 @@ export interface Market {
     id: string;
     name: string;
     address?: string;
+    /** `MarketDto.ImageUrl` — market artwork, absent until an admin uploads one. */
+    imageUrl?: string;
+    /**
+     * `MarketDto.Description` — free text the admin wrote about this market. The
+     * storefront landing shows it as the market's speciality; there is no
+     * dedicated speciality field, and inventing one would be inventing business
+     * logic, so an empty description simply means no speciality line.
+     */
+    description?: string;
 }
 
 const STORAGE_KEY = 'freshflow.selectedMarket';
@@ -69,6 +78,8 @@ export class MarketSelectionService {
                     id: str(row, ['id', 'marketId']),
                     name: str(row, ['name', 'marketName']),
                     address: str(row, ['address', 'location']) || undefined,
+                    imageUrl: str(row, ['imageUrl', 'image']) || undefined,
+                    description: str(row, ['description']) || undefined,
                 }))
                 .filter((market) => !!market.id);
             this._markets.set(markets);
@@ -118,7 +129,12 @@ export class MarketSelectionService {
             }
             return;
         }
-        if (live.name !== current.name || live.address !== current.address) {
+        if (
+            live.name !== current.name ||
+            live.address !== current.address ||
+            live.imageUrl !== current.imageUrl ||
+            live.description !== current.description
+        ) {
             this.select(live);
         }
     }

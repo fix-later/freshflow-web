@@ -81,7 +81,7 @@ export { claimStatusPillClass };
             .claims-grid {
                 grid-template-columns:
                     minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 0.7fr)
-                    minmax(0, 1.2fr) minmax(0, 0.9fr) 10rem;
+                    minmax(0, 1.2fr) minmax(0, 0.9fr) 13.5rem;
             }
         `,
     ],
@@ -93,6 +93,8 @@ export class ClaimsListComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
 
     private _dialogRef: MatDialogRef<unknown> | null = null;
+    /** Kept apart from `_dialogRef`: the detail can open the review on top. */
+    private _detailRef: MatDialogRef<unknown> | null = null;
 
     readonly statusPillClass = claimStatusPillClass;
     readonly statusOptions = CLAIM_STATUSES;
@@ -108,6 +110,20 @@ export class ClaimsListComponent implements OnInit {
     readonly status = new FormControl<ClaimStatus | ''>('', {
         nonNullable: true,
     });
+
+    /**
+     * Claim id to open directly. `GET /claims` is cursor-paged with no id
+     * filter, so a claim referenced from elsewhere (an audit-log entry, a
+     * notification, a restaurant's email) is otherwise only reachable by paging
+     * until it appears. This looks it up with `GET /claims/{claimId}` instead.
+     */
+    readonly claimIdLookup = new FormControl('', { nonNullable: true });
+
+    /** The claim being inspected, re-read from the server. */
+    readonly viewing = signal<AdminClaimRow | null>(null);
+    readonly viewingId = signal<string | null>(null);
+    readonly viewLoading = signal(false);
+    readonly viewError = signal<string | null>(null);
 
     /** The claim under review, and which way. */
     readonly reviewing = signal<AdminClaimRow | null>(null);
@@ -161,6 +177,102 @@ export class ClaimsListComponent implements OnInit {
         );
     }
 
+    /**
+     * Opens the detail for a claim and re-reads it by id.
+     *
+     * The row is shown immediately (so the panel is never blank) and replaced by
+     * the server's copy when it arrives — a claim another operator decided in
+     * the meantime therefore loses its decision buttons here rather than
+     * failing with `CLAIM_INVALID_TRANSITION` after the operator commits.
+     */
+    openDetail(
+        row: AdminClaimRow | null,
+        claimId: string,
+        template: TemplateRef<unknown>
+    ): void {
+        const id = claimId.trim();
+        if (!id || this._detailRef) {
+            return;
+        }
+        this.viewing.set(row);
+        this.viewingId.set(id);
+        this.viewError.set(null);
+        this._detailRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._detailRef.afterClosed().subscribe(() => {
+            this._detailRef = null;
+            this.viewing.set(null);
+            this.viewingId.set(null);
+        });
+        this._refreshDetail(id);
+    }
+
+    closeDetail(): void {
+        this._detailRef?.close();
+    }
+
+    /** Opens the detail straight from the "open by id" box. */
+    lookupClaim(template: TemplateRef<unknown>): void {
+        const id = this.claimIdLookup.value.trim();
+        if (!id) {
+            return;
+        }
+        // No row to seed from — the id may name a claim outside the current
+        // page, which is the whole point of the lookup.
+        this.openDetail(
+            this.claims().find((row) => row.id === id) ?? null,
+            id,
+            template
+        );
+    }
+
+    /** Re-reads the open claim; also the retry for a failed detail read. */
+    reloadDetail(): void {
+        const id = this.viewingId();
+        if (id) {
+            this._refreshDetail(id);
+        }
+    }
+
+    private _refreshDetail(claimId: string): void {
+        this.viewLoading.set(true);
+        this.viewError.set(null);
+        this._claims
+            .getClaim(claimId)
+            .then((claim) => {
+                if (this.viewingId() !== claimId) {
+                    return; // The dialog moved on (or closed) while in flight.
+                }
+                this.viewing.set(claim);
+                if (!claim) {
+                    this.viewError.set(
+                        this._transloco.translate('admin.claims.detail.missing')
+                    );
+                    return;
+                }
+                // The queue row is a snapshot; the fresh copy wins where both
+                // exist, so a decision made elsewhere shows up in the list too.
+                this.claims.update((rows) =>
+                    rows.map((row) => (row.id === claim.id ? claim : row))
+                );
+            })
+            .catch(async (err) => {
+                if (this.viewingId() !== claimId) {
+                    return;
+                }
+                this.viewError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.claims.detail.loadError'
+                    )
+                );
+            })
+            .finally(() => this.viewLoading.set(false));
+    }
+
     openReview(
         row: AdminClaimRow,
         decision: ClaimDecision,
@@ -209,6 +321,9 @@ export class ClaimsListComponent implements OnInit {
                     : 'admin.claims.review.rejectSuccess'
             );
             this.closeReview();
+            // A decision is terminal, so the detail behind the review dialog is
+            // now stale in the one way that matters (its buttons).
+            this.closeDetail();
             // Patch the decided row in place from the response when the server
             // sent one, so the queue reflects the decision without a refetch;
             // otherwise reload rather than guess the new state.

@@ -15,7 +15,7 @@ import { PermissionsService } from 'app/core/auth/permissions/permissions.servic
     template: `
         @if (permissions.isPendingApproval()) {
             <div
-                class="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800"
+                class="block flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 py-2 text-amber-800"
                 *transloco="let t"
             >
                 <mat-icon

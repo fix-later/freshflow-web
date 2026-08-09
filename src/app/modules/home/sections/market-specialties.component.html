@@ -1,0 +1,83 @@
+<section class="ff-section" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">{{ t('home.markets.title') }}</h2>
+                <p class="ff-section__lead">{{ t('home.markets.lead') }}</p>
+            </div>
+        </div>
+
+        @if (strengths().length) {
+            <ul class="ff-markets">
+                @for (market of strengths(); track market.id) {
+                    <li
+                        class="ff-markets__row"
+                        [class.ff-markets__row--current]="market.isSelected"
+                    >
+                        <div class="ff-markets__art">
+                            @if (market.imageUrl) {
+                                <img
+                                    [src]="market.imageUrl"
+                                    [alt]="market.name"
+                                    loading="lazy"
+                                    decoding="async"
+                                />
+                            } @else {
+                                <span aria-hidden="true">🏪</span>
+                            }
+                        </div>
+
+                        <div class="ff-markets__body">
+                            <h3 class="ff-markets__name">
+                                {{ market.name }}
+                                @if (market.isSelected) {
+                                    <span class="ff-markets__current">{{
+                                        t('home.markets.current')
+                                    }}</span>
+                                }
+                            </h3>
+
+                            <!-- Only shown when the market record actually
+                                 carries a description. Never invented. -->
+                            @if (market.specialty) {
+                                <p class="ff-markets__specialty">
+                                    {{ market.specialty }}
+                                </p>
+                            }
+
+                            @if (market.address) {
+                                <p class="ff-markets__where">
+                                    <mat-icon
+                                        class="text-current icon-size-4"
+                                        [svgIcon]="'heroicons_outline:map-pin'"
+                                    ></mat-icon>
+                                    <span>{{ market.address }}</span>
+                                </p>
+                            }
+
+                            <button
+                                class="ff-markets__action"
+                                type="button"
+                                (click)="explore(market.market)"
+                            >
+                                <span>{{ t('home.markets.explore') }}</span>
+                                <mat-icon
+                                    class="text-current icon-size-4"
+                                    [svgIcon]="'heroicons_outline:arrow-right'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    </li>
+                }
+            </ul>
+        } @else if (!loading()) {
+            <div class="ff-section__state">
+                <mat-icon
+                    class="text-hint icon-size-10"
+                    [svgIcon]="'heroicons_outline:building-storefront'"
+                ></mat-icon>
+                <p class="text-secondary">{{ t('home.markets.empty') }}</p>
+            </div>
+        }
+    </div>
+</section>

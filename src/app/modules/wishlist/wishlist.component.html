@@ -18,95 +18,113 @@
     </div>
 
     <!--
+      A guest has no favorites *because they have no account* — the ordinary
+      empty state would report that as "you haven't saved anything yet", which
+      is not the reason and offers no way forward.
+    -->
+    @if (!isSignedIn()) {
+        <sign-in-required
+            icon="heroicons_outline:heart"
+            titleKey="guest.wishlist.title"
+            descriptionKey="guest.wishlist.description"
+        />
+    } @else {
+        <!--
       A failed read must not read as "you have no favorites" (Urban Outfitters
       shows the count next to the title; an error state has to say so instead).
     -->
-    @if (error(); as message) {
-        <div
-            class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-            role="alert"
-        >
-            <mat-icon
-                class="shrink-0 text-red-500 icon-size-5"
-                [svgIcon]="'heroicons_outline:exclamation-triangle'"
-            ></mat-icon>
-            <span class="min-w-0 flex-auto">{{ message }}</span>
-            <button mat-button type="button" (click)="reload()">
-                {{ t('common.retry') }}
-            </button>
-        </div>
-    }
-
-    @if (!loaded()) {
-        <div class="wishlist-empty">
-            <mat-icon
-                class="text-hint animate-spin icon-size-8"
-                [svgIcon]="'heroicons_outline:arrow-path'"
-            ></mat-icon>
-            <p>{{ t('favorites.loading') }}</p>
-        </div>
-    } @else if (!items().length) {
-        <div class="wishlist-empty">
-            <div class="wishlist-empty__icon">
-                <mat-icon [svgIcon]="'heroicons_outline:heart'"></mat-icon>
+        @if (error(); as message) {
+            <div
+                class="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-red-500 icon-size-5"
+                    [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                ></mat-icon>
+                <span class="min-w-0 flex-auto">{{ message }}</span>
+                <button mat-button type="button" (click)="reload()">
+                    {{ t('common.retry') }}
+                </button>
             </div>
-            <h2>{{ t('favorites.empty.title') }}</h2>
-            <p>{{ t('favorites.empty.description') }}</p>
-            <a mat-flat-button color="primary" routerLink="/catalog">{{
-                t('favorites.viewCatalog')
-            }}</a>
-        </div>
-    } @else {
-        <div class="wishlist-panel">
-            <div class="wishlist-list">
-                @for (product of items(); track trackById($index, product)) {
-                    <div class="wishlist-row">
-                        <img
-                            [src]="product.thumbnail"
-                            [alt]="productName(product)"
-                        />
-                        <div class="wishlist-row__info">
-                            <div class="wishlist-row__name">
-                                {{ productName(product) }}
-                            </div>
-                            <div class="wishlist-row__meta">
-                                {{ product.marketSource }} ·
-                                {{ productUnit(product) }}
-                            </div>
-                        </div>
-                        <button
-                            type="button"
-                            mat-icon-button
-                            (click)="addToDraftOrder(product)"
-                            [matTooltip]="t('favorites.addToDraft')"
-                            [attr.aria-label]="t('favorites.addToDraft')"
-                        >
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="'heroicons_outline:shopping-cart'"
-                            ></mat-icon>
-                        </button>
-                        <button
-                            type="button"
-                            mat-icon-button
-                            (click)="remove(product.marketProductId)"
-                            [matTooltip]="t('favorites.remove')"
-                            [attr.aria-label]="t('favorites.remove')"
-                        >
-                            <mat-icon
-                                class="text-hint icon-size-5"
-                                [svgIcon]="'heroicons_outline:x-mark'"
-                            ></mat-icon>
-                        </button>
-                    </div>
-                }
-            </div>
+        }
 
-            <div class="wishlist-footer">
-                <a class="wishlist-footer__cta" routerLink="/catalog">{{
+        @if (!loaded()) {
+            <div class="wishlist-empty">
+                <mat-icon
+                    class="text-hint animate-spin icon-size-8"
+                    [svgIcon]="'heroicons_outline:arrow-path'"
+                ></mat-icon>
+                <p>{{ t('favorites.loading') }}</p>
+            </div>
+        } @else if (!items().length) {
+            <div class="wishlist-empty">
+                <div class="wishlist-empty__icon">
+                    <mat-icon [svgIcon]="'heroicons_outline:heart'"></mat-icon>
+                </div>
+                <h2>{{ t('favorites.empty.title') }}</h2>
+                <p>{{ t('favorites.empty.description') }}</p>
+                <a mat-flat-button color="primary" routerLink="/catalog">{{
                     t('favorites.viewCatalog')
                 }}</a>
             </div>
-        </div>
+        } @else {
+            <div class="wishlist-panel">
+                <div class="wishlist-list">
+                    @for (
+                        product of items();
+                        track trackById($index, product)
+                    ) {
+                        <div class="wishlist-row">
+                            <img
+                                [src]="product.thumbnail"
+                                [alt]="productName(product)"
+                            />
+                            <div class="wishlist-row__info">
+                                <div class="wishlist-row__name">
+                                    {{ productName(product) }}
+                                </div>
+                                <div class="wishlist-row__meta">
+                                    {{ product.marketSource }} ·
+                                    {{ productUnit(product) }}
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                mat-icon-button
+                                (click)="addToDraftOrder(product)"
+                                [matTooltip]="t('favorites.addToDraft')"
+                                [attr.aria-label]="t('favorites.addToDraft')"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:shopping-cart'
+                                    "
+                                ></mat-icon>
+                            </button>
+                            <button
+                                type="button"
+                                mat-icon-button
+                                (click)="remove(product.marketProductId)"
+                                [matTooltip]="t('favorites.remove')"
+                                [attr.aria-label]="t('favorites.remove')"
+                            >
+                                <mat-icon
+                                    class="text-hint icon-size-5"
+                                    [svgIcon]="'heroicons_outline:x-mark'"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    }
+                </div>
+
+                <div class="wishlist-footer">
+                    <a class="wishlist-footer__cta" routerLink="/catalog">{{
+                        t('favorites.viewCatalog')
+                    }}</a>
+                </div>
+            </div>
+        }
     }
 </div>

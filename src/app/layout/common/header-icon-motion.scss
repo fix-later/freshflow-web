@@ -13,6 +13,28 @@
     &:focus-visible mat-icon {
         transform: scale(1.08);
     }
+
+    /*
+     * Avatar + overlay badge (verified tick): scale the wrapper so the tick
+     * stays locked to the avatar. Scaling the icon alone leaves the absolute
+     * badge behind and looks like a jump.
+     */
+    &--stack {
+        > span {
+            transform-origin: center;
+            transition: transform 120ms cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        &:hover > span,
+        &:focus-visible > span {
+            transform: scale(1.08);
+        }
+
+        &:hover mat-icon,
+        &:focus-visible mat-icon {
+            transform: none;
+        }
+    }
 }
 
 .ff-header-icon--nudge mat-icon {
@@ -140,6 +162,15 @@
 
         &:hover mat-icon,
         &:focus-visible mat-icon {
+            transform: none;
+        }
+
+        &--stack > span {
+            transition: none;
+        }
+
+        &--stack:hover > span,
+        &--stack:focus-visible > span {
             transform: none;
         }
     }

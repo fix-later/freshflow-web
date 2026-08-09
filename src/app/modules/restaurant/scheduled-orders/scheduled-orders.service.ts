@@ -13,6 +13,7 @@ import {
     RestaurantApprovalStatus,
     ScheduledOrder,
     ScheduledOrderInstance,
+    ScheduledOrderItem,
 } from './scheduled-orders.types';
 
 /** Rows per request for the paged lists below. */
@@ -27,10 +28,12 @@ export const SCHEDULED_PAGE_SIZE = 20;
  * the signed-in user's id, which is a different id and answers 403 here.
  *
  * Recurrence is daily or weekly (BR-ORD-5, UC-ORD-09/FR-ORD-009) — see
- * `SCHEDULE_RECURRENCE_TYPES`. `CreateScheduledOrderRequest` carries no items:
- * per UC-ORD-11/FR-ORD-011 the *system* generates each concrete order from the
- * schedule, so the lines are the backend's to resolve and this client sends
- * only the three fields the request model declares.
+ * `SCHEDULE_RECURRENCE_TYPES`.
+ *
+ * SCRUM-386: `CreateScheduledOrderRequest`/`UpdateScheduledOrderRequest` now also carry an item
+ * template (`items`) and `deliveryAddressId` — the background job auto-confirms a real order
+ * from these at each due occurrence instead of leaving an empty draft. `deliveryAddressId` and
+ * `items` are required on create; both optional (omit to keep unchanged) on update.
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantScheduledOrdersService {
@@ -59,20 +62,24 @@ export class RestaurantScheduledOrdersService {
     }
 
     /**
-     * Creates a recurring schedule (UC-ORD-09). `recurrenceType` and
-     * `firstRunAt` are both required by `CreateScheduledOrderRequest`;
-     * `notes` is optional and capped at 500.
+     * Creates a recurring schedule (UC-ORD-09). `recurrenceType`, `firstRunAt`,
+     * `deliveryAddressId` and `items` are all required by
+     * `CreateScheduledOrderRequest`; `notes` is optional and capped at 500.
      */
     async createScheduled(input: {
         recurrenceType: string;
         firstRunAt: Date;
         notes?: string | null;
+        deliveryAddressId: string;
+        items: ScheduledOrderItem[];
     }): Promise<void> {
         await ordersApi.apiV1OrdersScheduledPostRaw({
             createScheduledOrderRequest: {
                 recurrenceType: input.recurrenceType,
                 firstRunAt: input.firstRunAt,
                 notes: input.notes || undefined,
+                deliveryAddressId: input.deliveryAddressId,
+                items: input.items,
             },
         });
     }
@@ -109,6 +116,7 @@ export class RestaurantScheduledOrdersService {
     /**
      * Edits a schedule in place (`PATCH /orders/scheduled/{id}`). Every field
      * is optional on `UpdateScheduledOrderRequest` — send only what changed.
+     * When `items` is sent it wholesale-replaces the existing template.
      */
     async updateScheduled(
         scheduledOrderId: string,
@@ -116,6 +124,8 @@ export class RestaurantScheduledOrdersService {
             recurrenceType?: string | null;
             firstRunAt?: Date | null;
             notes?: string | null;
+            deliveryAddressId?: string | null;
+            items?: ScheduledOrderItem[] | null;
         }
     ): Promise<void> {
         await ordersApi.apiV1OrdersScheduledScheduledOrderIdPatchRaw({
@@ -124,6 +134,8 @@ export class RestaurantScheduledOrdersService {
                 recurrenceType: changes.recurrenceType ?? undefined,
                 firstRunAt: changes.firstRunAt ?? undefined,
                 notes: changes.notes ?? undefined,
+                deliveryAddressId: changes.deliveryAddressId ?? undefined,
+                items: changes.items ?? undefined,
             },
         });
     }

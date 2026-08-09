@@ -17,6 +17,7 @@ import {
     rawApi,
     restaurantCreditApi,
 } from 'contract';
+import { DateTime } from 'luxon';
 import {
     AdminAuditLogFilters,
     AdminAuditLogRow,
@@ -25,6 +26,8 @@ import {
     AdminAutoBatchResult,
     AdminCreateUserPayload,
     AdminCreditStatement,
+    AdminCreditStatementDetail,
+    AdminCreditStatementLine,
     AdminCreditTransaction,
     AdminGenerateStatementPayload,
     AdminInvoiceFilters,
@@ -56,6 +59,13 @@ import {
 
 /** Role eligible to be assigned a procurement batch (see ROLE_MATRIX). */
 const MARKET_AGENT_ROLE = 'market_agent';
+
+/**
+ * The zone statement period boundaries are computed in server-side
+ * (`CreditStatementPeriodCalculator.VietnamTimeZone`, DEC-CRE-03). Reading a
+ * period's calendar month in any other zone lands on the wrong month.
+ */
+const STATEMENT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
 /**
  * Admin console data access — backed by the generated OpenAPI client.
@@ -371,10 +381,55 @@ export class AdminService {
                         })
                         .then((res) => res.raw)
             );
-            return withId<AdminCreditStatement>(rows, 'statementId');
+            return withId<AdminCreditStatement>(rows, 'statementId').map(
+                (row) => normalizeCreditStatement(row)
+            );
         } catch {
             return [];
         }
+    }
+
+    /**
+     * One statement with its line items
+     * (`GET /restaurants/{id}/credit/statements/{statementId}`).
+     *
+     * The list endpoint returns `CreditStatementSummaryDto` — headers only — so
+     * the movements behind a closing balance, and the soft due date, are only
+     * reachable here. This is the same body the PDF is rendered from, which is
+     * why the two always agree.
+     *
+     * Answers 403 for a statement belonging to another restaurant and 404
+     * `CREDIT_STATEMENT_NOT_FOUND` for an unknown id; both are left to the
+     * caller rather than swallowed, since an operator opened this deliberately.
+     */
+    async getCreditStatement(
+        restaurantId: string,
+        statementId: string
+    ): Promise<AdminCreditStatementDetail | null> {
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsStatementIdGetRaw(
+                { restaurantId, statementId }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [header] = withId<AdminCreditStatement>(
+            [data as AdminCreditStatement],
+            'statementId'
+        );
+        return {
+            ...normalizeCreditStatement(header),
+            dueDate: (data['dueDate'] as string | undefined) ?? undefined,
+            lines: withId<AdminCreditStatementLine>(
+                Array.isArray(data['lines'])
+                    ? (data['lines'] as AdminCreditStatementLine[])
+                    : [],
+                'transactionId'
+            ),
+        };
     }
 
     /** Generates (or regenerates) the statement for a given year/month. */
@@ -642,6 +697,8 @@ export class AdminService {
             status: filters.status || undefined,
             from: filters.from ? new Date(filters.from) : undefined,
             to: filters.to ? new Date(filters.to) : undefined,
+            // Only `createdAt:asc|desc` is accepted; see ORDER_SORT_OPTIONS.
+            sort: filters.sort || undefined,
             page: filters.page,
             pageSize: filters.pageSize,
         });
@@ -833,6 +890,85 @@ export class AdminService {
         );
         return row?.id ? row : null;
     }
+
+    /**
+     * Downloads an issued invoice's persisted structured XML document
+     * (`GET /invoices/{invoiceId}/export`).
+     *
+     * Uses `rawApi` because the checked-in client predates this endpoint, and
+     * reads the body as a blob rather than JSON: the server answers
+     * `application/xml` with a `Content-Disposition` filename, which the
+     * envelope helpers would mangle into `undefined`.
+     *
+     * Returns the filename the server chose, falling back to the invoice id so
+     * a response without the header still saves as something identifiable.
+     */
+    async exportInvoice(
+        invoiceId: string
+    ): Promise<{ blob: Blob; fileName: string }> {
+        const res = await rawApi.send(
+            `/api/v1/invoices/${invoiceId}/export`,
+            'GET'
+        );
+        return {
+            blob: await res.blob(),
+            fileName:
+                fileNameFromContentDisposition(
+                    res.headers.get('content-disposition')
+                ) ?? `invoice-${invoiceId}.xml`,
+        };
+    }
+}
+
+/**
+ * Fills in the statement fields the wire shape does not carry.
+ *
+ * `CreditStatementSummaryDto` names its period by UTC boundaries and its
+ * settlements by `totalSettlements`; the screens ask for `year` / `month` /
+ * `totalPayments`. Reading the month off `periodStart` has to happen in
+ * **Asia/Ho_Chi_Minh**, because that is the zone the boundary was computed in
+ * (`CreditStatementPeriodCalculator`) — `periodStart` for January is
+ * `2026-12-31T17:00:00Z`, which is December in every zone west of UTC+7.
+ *
+ * Existing values win, so a server that later sends these directly is untouched.
+ */
+function normalizeCreditStatement<T extends AdminCreditStatement>(row: T): T {
+    const period = row.periodStart
+        ? DateTime.fromISO(String(row.periodStart), { zone: 'utc' }).setZone(
+              STATEMENT_TIME_ZONE
+          )
+        : null;
+    return {
+        ...row,
+        year: row.year ?? (period?.isValid ? period.year : undefined),
+        month: row.month ?? (period?.isValid ? period.month : undefined),
+        totalPayments: row.totalPayments ?? row.totalSettlements,
+    };
+}
+
+/**
+ * Reads the filename out of a `Content-Disposition` header.
+ *
+ * Prefers RFC 5987 `filename*=UTF-8''…` when present — invoice names can carry
+ * Vietnamese diacritics, and the plain `filename=` fallback is where servers
+ * put an ASCII-mangled version of the same name.
+ */
+function fileNameFromContentDisposition(
+    header: string | null
+): string | undefined {
+    if (!header) {
+        return undefined;
+    }
+    const extended = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (extended) {
+        try {
+            return decodeURIComponent(extended[1].trim());
+        } catch {
+            // Malformed percent-encoding — fall through to the plain form.
+        }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(header);
+    return plain ? plain[1].trim() : undefined;
 }
 
 /**

@@ -254,6 +254,50 @@ empty-layout {
 }
 
 /**
+ * Catalog tag chips.
+ *
+ * A separate family from `admin-pill-*` on purpose: those carry status meaning
+ * (red = danger, green = success), and a tag is a label, not a verdict. The
+ * variant is chosen by hashing the tag's name — see `shared/tag-visual.ts`, the
+ * only place that decides which one a tag gets.
+ *
+ * Each variant is a tinted surface plus a matching border, so a chip reads as
+ * one object at any size and holds its edge on both the card and the tinted
+ * section surfaces. Text steps are the 800/100 pair the pills already use, and
+ * `check-contrast` covers them.
+ */
+.ff-tag {
+    @apply inline-flex max-w-full items-center truncate rounded-full border px-2 py-0.5 text-xs font-medium;
+}
+
+/* Quoted throughout: `cyan` and `fuchsia` are CSS colour keywords, so Sass
+   reads a bare one as a colour value and warns that interpolating it may emit
+   invalid CSS. Strings interpolate to the same class name without the risk. */
+@each $hue
+    in (
+        'lime',
+        'teal',
+        'sky',
+        'indigo',
+        'violet',
+        'fuchsia',
+        'rose',
+        'orange',
+        'amber',
+        'emerald',
+        'cyan'
+    )
+{
+    .ff-tag--#{$hue} {
+        @apply bg-#{$hue}-50 border-#{$hue}-200 text-#{$hue}-800;
+    }
+
+    .dark .ff-tag--#{$hue} {
+        @apply bg-#{$hue}-900 border-#{$hue}-700 text-#{$hue}-100;
+    }
+}
+
+/**
  * Sortable table header. Renders as the header text it replaces (inheriting the
  * thead's uppercase/tracking treatment) plus a trailing direction indicator,
  * so a sortable column reads no louder than a fixed one until it is active.

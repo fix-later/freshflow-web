@@ -44,6 +44,7 @@ import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
     AdminCreditStatement,
+    AdminCreditStatementDetail,
     AdminCreditTransaction,
     AdminRestaurantCredit,
     AdminRestaurantProfile,
@@ -123,6 +124,8 @@ export class RestaurantDetailComponent implements OnInit {
     private readonly _formBuilder = inject(FormBuilder);
 
     private _dialogRef: MatDialogRef<unknown> | null = null;
+    /** Kept apart from `_dialogRef`, which the lifecycle actions own. */
+    private _statementRef: MatDialogRef<unknown> | null = null;
 
     readonly loading = signal(false);
     readonly notFound = signal(false);
@@ -134,6 +137,16 @@ export class RestaurantDetailComponent implements OnInit {
     readonly loadingCreditHistory = signal(false);
     readonly generatingStatement = signal(false);
     readonly downloadingStatementId = signal<string | null>(null);
+
+    /**
+     * The statement opened from the list, re-read by id. The list returns
+     * headers only (`CreditStatementSummaryDto`), so the movements that add up
+     * to a closing balance — and the due date — exist nowhere else in the UI.
+     */
+    readonly openStatement = signal<AdminCreditStatementDetail | null>(null);
+    readonly openStatementId = signal<string | null>(null);
+    readonly loadingStatement = signal(false);
+    readonly statementError = signal<string | null>(null);
     readonly busyAction = signal<RestaurantAction | null>(null);
     readonly editingCreditLimit = signal(false);
 
@@ -636,6 +649,92 @@ export class RestaurantDetailComponent implements OnInit {
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.generatingStatement.set(false));
+    }
+
+    /**
+     * Opens a statement's line items (`GET .../statements/{statementId}`).
+     *
+     * The header from the list row is shown straight away so the panel is never
+     * blank, and is replaced by the by-id read once the lines arrive.
+     */
+    openStatementDetail(
+        statement: AdminCreditStatement,
+        template: TemplateRef<unknown>
+    ): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (!restaurantId || !statement.id || this._statementRef) {
+            return;
+        }
+        this.openStatement.set({ ...statement, lines: [] });
+        this.openStatementId.set(statement.id);
+        this.statementError.set(null);
+        this._statementRef = this._dialog.open(template, {
+            autoFocus: 'first-tabbable',
+            maxWidth: '95vw',
+        });
+        this._statementRef.afterClosed().subscribe(() => {
+            this._statementRef = null;
+            this.openStatement.set(null);
+            this.openStatementId.set(null);
+        });
+
+        this.loadingStatement.set(true);
+        this._admin
+            .getCreditStatement(String(restaurantId), statement.id)
+            .then((detail) => {
+                if (this.openStatementId() !== statement.id) {
+                    return; // Dialog closed (or moved on) while in flight.
+                }
+                if (detail) {
+                    this.openStatement.set(detail);
+                }
+            })
+            .catch(async (err) => {
+                if (this.openStatementId() !== statement.id) {
+                    return;
+                }
+                // The header stays on screen — only the lines are missing, and
+                // saying so beats an empty table that reads as "no movements".
+                this.statementError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.statements.detailError'
+                    )
+                );
+            })
+            .finally(() => this.loadingStatement.set(false));
+    }
+
+    closeStatementDetail(): void {
+        this._statementRef?.close();
+    }
+
+    /** `MM/yyyy` for a statement, or `—` when the period could not be read. */
+    statementPeriodLabel(statement: AdminCreditStatement): string {
+        const { year, month } = statement;
+        return year && month
+            ? `${String(month).padStart(2, '0')}/${year}`
+            : '—';
+    }
+
+    /** Absolute timestamps, rendered in the reader's locale. */
+    formatDateTime(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '—';
+        }
+        const parsed = DateTime.fromISO(String(value));
+        return parsed.isValid
+            ? parsed.toLocaleString(DateTime.DATETIME_SHORT)
+            : '—';
+    }
+
+    /** Sum of the line amounts, as a cross-check against the closing balance. */
+    statementLineTotal(): number {
+        return (this.openStatement()?.lines ?? []).reduce(
+            (sum, line) => sum + (Number(line.amount) || 0),
+            0
+        );
     }
 
     downloadStatementPdf(statement: AdminCreditStatement): void {

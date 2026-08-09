@@ -1,0 +1,26 @@
+<section class="ff-section ff-section--tint" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">{{ t('home.process.title') }}</h2>
+                <p class="ff-section__lead">{{ t('home.process.lead') }}</p>
+            </div>
+        </div>
+
+        <ol class="ff-process">
+            @for (step of steps; track step.key) {
+                <li class="ff-process__step">
+                    <span class="ff-process__icon">
+                        <mat-icon
+                            class="text-current icon-size-6"
+                            [svgIcon]="step.icon"
+                        ></mat-icon>
+                    </span>
+                    <span class="ff-process__label">{{
+                        t('home.process.' + step.key)
+                    }}</span>
+                </li>
+            }
+        </ol>
+    </div>
+</section>

@@ -1,0 +1,100 @@
+<form
+    class="ff-search relative flex min-w-0 flex-auto items-center"
+    *transloco="let t"
+    (ngSubmit)="submit()"
+>
+    <input
+        class="ff-search__input text-default bg-card h-12 w-full rounded-full border px-5 pr-12 text-base outline-none focus:border-primary"
+        type="search"
+        name="query"
+        autocomplete="off"
+        [formControl]="searchControl"
+        [matAutocomplete]="matAutocomplete"
+        [placeholder]="t('header.searchPlaceholder')"
+        [attr.aria-label]="t('header.searchAria')"
+        (keydown)="onKeydown($event)"
+    />
+    <button
+        class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
+        type="submit"
+        [attr.aria-label]="t('header.searchAria')"
+    >
+        <mat-icon
+            class="icon-size-5"
+            [svgIcon]="'heroicons_outline:magnifying-glass'"
+        ></mat-icon>
+    </button>
+
+    <!-- Fuse's panel shape: one optgroup per result set, an explicit empty row,
+         and every option a navigation rather than a value to submit. -->
+    <mat-autocomplete
+        class="ff-search__panel max-h-128 rounded-b"
+        [autoSelectActiveOption]="true"
+        [disableRipple]="true"
+        #matAutocomplete="matAutocomplete"
+    >
+        @if (noResults()) {
+            <mat-option
+                class="text-secondary pointer-events-none bg-transparent px-6 py-0 text-md"
+            >
+                {{ t('search.noResults') }}
+            </mat-option>
+        }
+
+        @if (products()?.length) {
+            <mat-optgroup class="mt-2 flex items-center px-2">
+                <span
+                    class="text-secondary text-sm font-semibold tracking-wider"
+                    >{{ t('search.groups.products').toUpperCase() }}</span
+                >
+            </mat-optgroup>
+            @for (item of products(); track item.id) {
+                <mat-option
+                    class="ff-search__option group relative mb-1 rounded-md px-6 py-0 text-md dark:hover:bg-hover hover:bg-gray-100"
+                    [value]="item.label"
+                    (onSelectionChange)="
+                        $event.isUserInput && onSuggestionPicked(item)
+                    "
+                >
+                    <div class="flex flex-col">
+                        <span class="truncate leading-normal">{{
+                            item.label
+                        }}</span>
+                        <span
+                            class="text-secondary truncate text-sm leading-normal"
+                            >{{ item.detail }}</span
+                        >
+                    </div>
+                </mat-option>
+            }
+        }
+
+        @if (categories()?.length) {
+            <mat-optgroup class="mt-2 flex items-center px-2">
+                <span
+                    class="text-secondary text-sm font-semibold tracking-wider"
+                    >{{ t('search.groups.categories').toUpperCase() }}</span
+                >
+            </mat-optgroup>
+            @for (item of categories(); track item.id) {
+                <mat-option
+                    class="ff-search__option group relative mb-1 rounded-md px-6 py-0 text-md dark:hover:bg-hover hover:bg-gray-100"
+                    [value]="item.label"
+                    (onSelectionChange)="
+                        $event.isUserInput && onSuggestionPicked(item)
+                    "
+                >
+                    <div class="flex items-center gap-2">
+                        <mat-icon
+                            class="text-hint icon-size-5"
+                            [svgIcon]="'heroicons_outline:squares-2x2'"
+                        ></mat-icon>
+                        <span class="truncate leading-normal">{{
+                            item.label
+                        }}</span>
+                    </div>
+                </mat-option>
+            }
+        }
+    </mat-autocomplete>
+</form>

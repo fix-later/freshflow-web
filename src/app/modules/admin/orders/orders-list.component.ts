@@ -31,6 +31,9 @@ import { AdminService } from '../admin.service';
 import {
     AdminOrderDetail,
     ORDER_NOT_CANCELLABLE_STATUSES,
+    ORDER_SORT_DEFAULT,
+    ORDER_SORT_OPTIONS,
+    OrderSortOption,
 } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
@@ -177,6 +180,16 @@ export class OrdersListComponent implements OnInit {
     readonly status = new FormControl('', { nonNullable: true });
     readonly from = new FormControl<DateTime | null>(null);
     readonly to = new FormControl<DateTime | null>(null);
+    /**
+     * Server-side ordering. Not a table-header sort like the other admin
+     * grids: `GET /orders` is paged server-side, so sorting the current page
+     * client-side would reorder 20 rows out of hundreds and read as wrong.
+     * Created-date is also the only field the API will sort by at all.
+     */
+    readonly sort = new FormControl<OrderSortOption>(ORDER_SORT_DEFAULT, {
+        nonNullable: true,
+    });
+    readonly sortOptions = ORDER_SORT_OPTIONS;
 
     readonly cancelTarget = signal<AdminOrderDetail | null>(null);
     readonly cancelReason = new FormControl('', { nonNullable: true });
@@ -207,6 +220,16 @@ export class OrdersListComponent implements OnInit {
         this.status.valueChanges.subscribe(onFilterChange);
         this.from.valueChanges.subscribe(onFilterChange);
         this.to.valueChanges.subscribe(onFilterChange);
+        this.sort.valueChanges.subscribe(onFilterChange);
+    }
+
+    /** Localized label for a sort value (`createdAt:desc` → "Newest first"). */
+    sortLabel(option: OrderSortOption): string {
+        return this._transloco.translate(
+            option === 'createdAt:asc'
+                ? 'admin.orders.sort.oldest'
+                : 'admin.orders.sort.newest'
+        );
     }
 
     onPageChange(event: PageEvent): void {
@@ -343,6 +366,7 @@ export class OrdersListComponent implements OnInit {
                 status: this.status.value || undefined,
                 from: this._isoDate(this.from),
                 to: this._isoDate(this.to),
+                sort: this.sort.value,
                 page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });

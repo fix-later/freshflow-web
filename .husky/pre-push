@@ -1,2 +1,11 @@
 #!/usr/bin/env sh
-npm run test:ci && npm run build -- --configuration production
+npm run test:ci && npm run build -- --configuration production || exit 1
+
+# Uploads LFS objects for the refs being pushed.
+#
+# Git LFS normally installs its own `.git/hooks/pre-push`, but husky points
+# `core.hooksPath` at `.husky/_`, so that file is never run. Without this line
+# a push succeeds and writes pointers the server has no objects for — the
+# working copy looks fine locally and the file is broken for everyone else.
+# Last, so a failing check aborts before 40 MB goes over the wire.
+git lfs pre-push "$@"

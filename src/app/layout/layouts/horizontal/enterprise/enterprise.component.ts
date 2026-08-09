@@ -51,6 +51,7 @@ import { StorefrontFooterSimpleComponent } from 'app/layout/common/storefront-fo
 import { StorefrontFooterComponent } from 'app/layout/common/storefront-footer/storefront-footer.component';
 import { StorefrontNavRowComponent } from 'app/layout/common/storefront-header/storefront-nav-row.component';
 import { StorefrontTopStripComponent } from 'app/layout/common/storefront-header/storefront-top-strip.component';
+import { StorefrontSearchComponent } from 'app/layout/common/storefront-search/storefront-search.component';
 import { UserComponent } from 'app/layout/common/user/user.component';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
 import { filter, fromEvent, Subject, takeUntil } from 'rxjs';
@@ -70,7 +71,6 @@ const FULL_FOOTER_PREFIXES = [
     '/about',
     '/faq',
     '/contact',
-    '/deals',
 ] as const;
 
 @Component({
@@ -97,6 +97,7 @@ const FULL_FOOTER_PREFIXES = [
         StorefrontFooterSimpleComponent,
         StorefrontTopStripComponent,
         StorefrontNavRowComponent,
+        StorefrontSearchComponent,
         UserComponent,
         MatButtonModule,
         MatIconModule,
@@ -179,8 +180,7 @@ export class EnterpriseLayoutComponent implements OnInit, OnDestroy {
         this._isFullFooterRoute(this._url())
     );
 
-    // Header state
-    searchQuery = '';
+    // Header state. The search box owns its own term — see `storefront-search`.
     megaMenuOpen = false;
 
     /** Real categories for the "Danh mục" mega menu — same tree the catalog sidebar uses. */

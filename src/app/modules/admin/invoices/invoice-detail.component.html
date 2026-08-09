@@ -31,6 +31,32 @@
                 </div>
             </div>
         </div>
+
+        <!--
+          Structured XML export. Only issued invoices have a persisted document,
+          so the server may still refuse — its reason is shown beneath rather
+          than the click appearing to do nothing.
+        -->
+        @if (invoice()) {
+            <div class="flex min-w-0 shrink-0 flex-col items-end gap-1">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="exporting()"
+                    (click)="exportInvoice()"
+                >
+                    <mat-icon
+                        svgIcon="heroicons_outline:arrow-down-tray"
+                    ></mat-icon>
+                    <span class="ml-2">{{ t('admin.invoices.export') }}</span>
+                </button>
+                @if (exportError(); as message) {
+                    <span class="max-w-xs text-right text-xs text-warn">{{
+                        message
+                    }}</span>
+                }
+            </div>
+        }
     </div>
 
     <!-- Body -->

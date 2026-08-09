@@ -52,6 +52,25 @@ export class ClaimsService {
     }
 
     /**
+     * One claim, read fresh by id (`GET /claims/{claimId}`).
+     *
+     * The queue is a shared desk: by the time an operator opens a row, another
+     * reviewer may already have decided it. Re-reading before showing the detail
+     * is what keeps the decision buttons honest — the list row is a snapshot
+     * from whenever the page was last loaded, this is the current state.
+     *
+     * Answers 404 `CLAIM_NOT_FOUND` for an unknown id (which is also what an id
+     * typed into the lookup box gets when it belongs to nothing).
+     */
+    async getClaim(claimId: string): Promise<AdminClaimRow | null> {
+        const res = await rawApi.send(
+            `/api/v1/claims/${encodeURIComponent(claimId)}`,
+            'GET'
+        );
+        return this._claimOf(await parseJson(res));
+    }
+
+    /**
      * Approves a claim and refunds its amount against the restaurant's credit.
      *
      * `decisionNote` is optional (max 1000 chars). Beyond the claim's own

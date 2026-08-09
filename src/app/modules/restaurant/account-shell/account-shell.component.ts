@@ -1,3 +1,4 @@
+import { Location } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -12,7 +13,7 @@ import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDrawer, MatSidenavModule } from '@angular/material/sidenav';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { TranslocoModule } from '@jsverse/transloco';
 import { UserService } from 'app/core/user/user.service';
@@ -45,6 +46,8 @@ import { map } from 'rxjs';
 export class AccountShellComponent {
     private readonly _fuseMediaWatcher = inject(FuseMediaWatcherService);
     private readonly _userService = inject(UserService);
+    private readonly _router = inject(Router);
+    private readonly _location = inject(Location);
 
     @ViewChild('drawer') drawer!: MatDrawer;
 
@@ -52,6 +55,21 @@ export class AccountShellComponent {
     readonly breadcrumbKey = input.required<string>();
     /** Breadcrumb root — the account area, not any one page inside it. */
     readonly breadcrumbRootKey = input('accountShell.group');
+
+    /**
+     * Set by a **detail** page to swap the breadcrumb for a back control.
+     *
+     * A detail page is reached from exactly one place at a time, and the thing
+     * its reader wants is the way back to that place — not a trail restating
+     * where they already know they are. The value is the *fallback* route: the
+     * button prefers real history (see {@link goBack}), so arriving at an order
+     * from the claims list returns to the claims list, not to the order list.
+     */
+    readonly backLink = input<string | null>(null);
+    readonly backLabelKey = input('accountShell.back');
+
+    /** True when this page renders a back control instead of a breadcrumb. */
+    readonly isDetail = computed(() => !!this.backLink());
 
     private readonly _user = toSignal(this._userService.user$, {
         initialValue: this._userService.current,
@@ -127,6 +145,29 @@ export class AccountShellComponent {
             .subscribe((isMdUp) => {
                 this.drawerOpened.set(isMdUp);
             });
+    }
+
+    /**
+     * Back to wherever the reader came from.
+     *
+     * `location.back()` only when this page was reached by an in-app
+     * navigation. Angular numbers navigations from 1, so an id of 1 means the
+     * detail page *is* the entry point — a deep link, a refresh, a pasted URL —
+     * and there is nothing behind it to go back to; stepping back there would
+     * leave the site entirely. Those fall through to the declared route.
+     */
+    goBack(): void {
+        const link = this.backLink();
+        // A signal in Angular 22, not a plain property.
+        const arrivedInApp =
+            (this._router.lastSuccessfulNavigation()?.id ?? 1) > 1;
+        if (arrivedInApp) {
+            this._location.back();
+            return;
+        }
+        if (link) {
+            void this._router.navigateByUrl(link);
+        }
     }
 
     toggleDrawer(): void {

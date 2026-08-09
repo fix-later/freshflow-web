@@ -10,6 +10,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { SignInRequiredComponent } from 'app/core/auth/components/sign-in-required.component';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
@@ -23,6 +25,7 @@ import { canDecrease, canIncrease, cartLineIssues } from './cart-line-rules';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        SignInRequiredComponent,
         DecimalPipe,
         MatButtonModule,
         MatIconModule,
@@ -33,6 +36,10 @@ import { canDecrease, canIncrease, cartLineIssues } from './cart-line-rules';
 export class CartComponent {
     private readonly _router = inject(Router);
     private readonly _draftOrder = inject(DraftOrderService);
+    private readonly _permissions = inject(PermissionsService);
+
+    /** Guests see the sign-in panel instead of an empty-cart state. */
+    readonly isSignedIn = this._permissions.isSignedIn;
     private readonly _transloco = inject(TranslocoService);
 
     readonly lines = this._draftOrder.lines;

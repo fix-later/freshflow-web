@@ -1,0 +1,357 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
+    *transloco="let t"
+>
+    <!-- Header -->
+    <div class="relative flex flex-0 flex-col border-b px-6 py-6 md:px-8">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <button
+            class="-ml-3 self-start"
+            mat-button
+            type="button"
+            (click)="goBack()"
+        >
+            <mat-icon
+                class="icon-size-5"
+                svgIcon="heroicons_outline:arrow-long-left"
+            ></mat-icon>
+            <span class="ml-2">{{ t('admin.scheduledOrders.title') }}</span>
+        </button>
+
+        @if (schedule(); as sc) {
+            <div class="mt-2 flex flex-wrap items-center gap-3">
+                <div class="text-3xl font-extrabold tracking-tight">
+                    {{ recurrenceLabel(sc.recurrenceType) }}
+                </div>
+                <span [class]="statusPillClass(sc)">{{ statusLabel() }}</span>
+            </div>
+            <div class="text-secondary mt-1 break-all font-mono text-xs">
+                {{ sc.id }}
+            </div>
+        }
+    </div>
+
+    @if (notFound()) {
+        <div
+            class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
+        >
+            {{ t('admin.scheduledOrders.detail.notFound') }}
+        </div>
+    } @else if (schedule(); as sc) {
+        <div class="flex flex-col gap-6 p-6 md:p-8">
+            @if (actionError(); as message) {
+                <div
+                    class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    role="alert"
+                >
+                    <mat-icon
+                        class="shrink-0 text-red-500 icon-size-5"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    <span class="min-w-0">{{ message }}</span>
+                </div>
+            }
+
+            <!-- Facts the schedule carries but the form does not edit -->
+            <section class="rounded-xl border p-6">
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.scheduledOrders.table.restaurant') }}
+                        </div>
+                        <div class="mt-1 break-all font-mono text-sm">
+                            {{ sc.restaurantId || '—' }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.scheduledOrders.table.lastRun') }}
+                        </div>
+                        <!-- Empty until the generator has produced a run — the
+                             tell for a schedule that has never fired. -->
+                        <div class="mt-1 text-sm">
+                            {{ formatDate(sc.lastExecutedAt) }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.scheduledOrders.table.created') }}
+                        </div>
+                        <div class="mt-1 text-sm">
+                            {{ formatDate(sc.createdAt) }}
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Edit (PATCH /orders/scheduled/{id}) -->
+            <section class="rounded-xl border p-6">
+                <h2 class="text-base font-bold tracking-tight">
+                    {{ t('admin.scheduledOrders.edit.title') }}
+                </h2>
+                @if (cancelled()) {
+                    <!-- Cancelled is terminal server-side, so the form is
+                         disabled rather than left to fail on submit. -->
+                    <p class="text-secondary mt-1 text-sm">
+                        {{ t('admin.scheduledOrders.edit.cancelledHint') }}
+                    </p>
+                }
+
+                <form
+                    class="mt-4 flex flex-col gap-4"
+                    [formGroup]="form"
+                    (ngSubmit)="save()"
+                >
+                    <div class="flex flex-wrap gap-4">
+                        <mat-form-field class="w-48" subscriptSizing="dynamic">
+                            <mat-label>{{
+                                t('admin.scheduledOrders.table.recurrence')
+                            }}</mat-label>
+                            <mat-select formControlName="recurrenceType">
+                                @for (opt of recurrenceTypes; track opt) {
+                                    <mat-option [value]="opt">{{
+                                        recurrenceLabel(opt)
+                                    }}</mat-option>
+                                }
+                            </mat-select>
+                        </mat-form-field>
+
+                        <mat-form-field class="w-56" subscriptSizing="dynamic">
+                            <mat-label>{{
+                                t('admin.scheduledOrders.table.firstRun')
+                            }}</mat-label>
+                            <input
+                                matInput
+                                formControlName="firstRunAt"
+                                [matDatepicker]="firstRunPicker"
+                            />
+                            <mat-datepicker-toggle
+                                matIconSuffix
+                                [for]="firstRunPicker"
+                            ></mat-datepicker-toggle>
+                            <mat-datepicker #firstRunPicker></mat-datepicker>
+                        </mat-form-field>
+                    </div>
+
+                    <mat-form-field class="w-full" subscriptSizing="dynamic">
+                        <mat-label>{{
+                            t('admin.scheduledOrders.table.notes')
+                        }}</mat-label>
+                        <textarea
+                            matInput
+                            rows="3"
+                            formControlName="notes"
+                        ></textarea>
+                        <mat-hint
+                            >{{ form.controls.notes.value.trim().length }} /
+                            {{ notesMaxLength }}</mat-hint
+                        >
+                    </mat-form-field>
+                    @if (serverMessage(form.controls.notes); as message) {
+                        <span class="text-xs text-warn">{{ message }}</span>
+                    } @else if (errorKey(form.controls.notes); as key) {
+                        <span class="text-xs text-warn">{{
+                            t(key, { max: maxLength(form.controls.notes) })
+                        }}</span>
+                    }
+
+                    <div class="flex flex-wrap justify-end gap-3">
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="saving() || cancelled()"
+                            (click)="resetForm()"
+                        >
+                            {{ t('admin.crud.cancel') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="submit"
+                            [disabled]="saving() || cancelled() || form.invalid"
+                        >
+                            {{ t('admin.crud.save') }}
+                        </button>
+                    </div>
+                </form>
+            </section>
+
+            <!-- Stop future runs (PATCH /orders/scheduled/{id}/cancel) -->
+            @if (!cancelled()) {
+                <section
+                    class="flex flex-wrap items-center gap-4 rounded-xl border border-red-200 p-6"
+                >
+                    <div class="min-w-0 flex-auto">
+                        <h2 class="text-base font-bold tracking-tight">
+                            {{ t('admin.scheduledOrders.cancel.title') }}
+                        </h2>
+                        <p class="text-secondary mt-1 text-sm">
+                            {{ t('admin.scheduledOrders.cancel.hint') }}
+                        </p>
+                    </div>
+                    <button
+                        mat-stroked-button
+                        color="warn"
+                        type="button"
+                        (click)="openCancel(cancelDialog)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            svgIcon="heroicons_outline:x-circle"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            t('admin.scheduledOrders.cancel.action')
+                        }}</span>
+                    </button>
+                </section>
+            }
+
+            <!-- Generated runs (GET /orders/scheduled/{id}/instances) -->
+            <section class="rounded-xl border">
+                <header
+                    class="flex flex-wrap items-center gap-3 border-b px-6 py-4"
+                >
+                    <h2 class="text-base font-bold tracking-tight">
+                        {{ t('admin.scheduledOrders.instances.title') }}
+                    </h2>
+                    <span class="text-secondary text-sm">
+                        {{ instancesTotal() }}
+                    </span>
+                </header>
+
+                @if (loadingInstances()) {
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                } @else if (instancesError(); as message) {
+                    <div
+                        class="m-6 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                        role="alert"
+                    >
+                        <mat-icon
+                            class="shrink-0 text-red-500 icon-size-5"
+                            svgIcon="heroicons_outline:exclamation-triangle"
+                        ></mat-icon>
+                        <span class="min-w-0">{{ message }}</span>
+                    </div>
+                } @else if (instances().length) {
+                    <div class="divide-y">
+                        @for (
+                            row of instances();
+                            track trackById($index, row)
+                        ) {
+                            <div
+                                class="flex flex-wrap items-center gap-x-4 gap-y-2 px-6 py-3"
+                            >
+                                <span
+                                    class="min-w-0 flex-1 truncate font-mono text-xs"
+                                >
+                                    {{ row.id }}
+                                </span>
+                                <span [class]="orderPillClass(row.status)">{{
+                                    orderStatusLabel(row.status)
+                                }}</span>
+                                <span
+                                    class="text-secondary w-40 shrink-0 text-sm tabular-nums"
+                                >
+                                    {{ formatDate(row.createdAt) }}
+                                </span>
+                                <span
+                                    class="w-28 shrink-0 text-right font-medium tabular-nums"
+                                >
+                                    {{ money(row.totalAmount) }}
+                                </span>
+                                <!-- A generated run is an ordinary order, so it
+                                     is managed on the order screen, not here. -->
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="
+                                        t(
+                                            'admin.scheduledOrders.instances.openOrder'
+                                        )
+                                    "
+                                    (click)="openOrder(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:chevron-right"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+                    <mat-paginator
+                        [length]="instancesTotal()"
+                        [pageIndex]="instancesPageIndex()"
+                        [pageSize]="instancesPageSize()"
+                        [pageSizeOptions]="[10, 20, 50]"
+                        (page)="onInstancesPageChange($event)"
+                    ></mat-paginator>
+                } @else {
+                    <p class="text-secondary p-6 text-sm">
+                        {{ t('admin.scheduledOrders.instances.empty') }}
+                    </p>
+                }
+            </section>
+        </div>
+    } @else if (loading()) {
+        <admin-loading-state />
+    }
+</div>
+
+<!-- Stop future runs -->
+<ng-template #cancelDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.scheduledOrders.cancel.title') }}
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeCancel()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            <p class="text-secondary text-sm">
+                {{ t('admin.scheduledOrders.cancel.confirm') }}
+            </p>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="cancelSaving()"
+                    (click)="closeCancel()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    mat-flat-button
+                    color="warn"
+                    type="button"
+                    [disabled]="cancelSaving()"
+                    (click)="confirmCancel()"
+                >
+                    {{ t('admin.scheduledOrders.cancel.action') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>

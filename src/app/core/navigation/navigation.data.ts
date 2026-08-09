@@ -120,6 +120,12 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/orders',
             },
             {
+                id: 'admin-scheduled-orders',
+                title: 'nav.admin.scheduledOrders',
+                type: 'basic',
+                link: '/admin/scheduled-orders',
+            },
+            {
                 id: 'admin-routes',
                 title: 'nav.admin.routes',
                 type: 'basic',
@@ -208,6 +214,12 @@ const NAVIGATION: AreaNavItem[] = [
                 title: 'nav.admin.packingCodes',
                 type: 'basic',
                 link: '/admin/packing-codes',
+            },
+            {
+                id: 'admin-tags',
+                title: 'nav.admin.tags',
+                type: 'basic',
+                link: '/admin/tags',
             },
         ],
     },

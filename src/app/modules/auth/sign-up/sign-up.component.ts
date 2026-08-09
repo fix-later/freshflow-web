@@ -2,6 +2,7 @@ import {
     ChangeDetectionStrategy,
     Component,
     inject,
+    OnInit,
     signal,
     ViewEncapsulation,
 } from '@angular/core';
@@ -19,6 +20,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
 import { FuseAlertComponent, FuseAlertType } from '@fuse/components/alert';
+import { FuseValidators } from '@fuse/validators';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import {
@@ -29,14 +31,15 @@ import {
     EMAIL_MAX_LENGTH,
     nonBlankValidator,
     passwordStrengthValidator,
+    PHONE_MAX_LENGTH,
     phoneNumberValidator,
+    RESTAURANT_NAME_MAX_LENGTH,
+    TAX_CODE_MAX_LENGTH,
+    taxCodeValidator,
 } from 'app/core/api/validators';
 import { AuthService } from 'app/core/auth/auth.service';
+import { fetchTaxInfo, taxCodeDigitCount } from 'app/core/auth/tax-lookup';
 import { AuthBrandPanelComponent } from 'app/modules/auth/brand-panel/auth-brand-panel.component';
-
-/** `restaurantName` max 200, `phone` max 20 — `docs/04-api-design.md` §6. */
-const RESTAURANT_NAME_MAX_LENGTH = 200;
-const PHONE_MAX_LENGTH = 20;
 
 /** The password rules shown as a live checklist, in policy order. */
 const PASSWORD_RULES = ['minLength', 'uppercase', 'digit', 'special'] as const;
@@ -47,6 +50,7 @@ const FIELD_TO_CONTROL: Readonly<Record<string, string>> = {
     password: 'password',
     restaurantname: 'restaurantName',
     phone: 'phone',
+    taxcode: 'taxCode',
 };
 
 /**
@@ -60,7 +64,8 @@ const FIELD_TO_CONTROL: Readonly<Record<string, string>> = {
  * | `email`          | required (non-blank), valid format, ≤ 255 chars         |
  * | `password`       | required, ≥ 8 chars, ≥1 uppercase, ≥1 digit, ≥1 special |
  * | `restaurantName` | required (non-blank), ≤ 200 chars                       |
- * | `phone`          | **optional**; `^\+?[0-9]{7,15}$`, ≤ 20 chars            |
+ * | `phone`          | required by this form (optional in the BE contract); `^\+?[0-9]{7,15}$`, ≤ 20 chars |
+ * | `taxCode`        | **optional**; `^\d{10}(-\d{3})?$`, ≤ 20 chars           |
  *
  * Documented + implemented failure codes surfaced in the UI:
  * - `EMAIL_ALREADY_EXISTS` (409) — field error + sign-in CTA
@@ -91,7 +96,7 @@ const FIELD_TO_CONTROL: Readonly<Record<string, string>> = {
         AuthBrandPanelComponent,
     ],
 })
-export class AuthSignUpComponent {
+export class AuthSignUpComponent implements OnInit {
     private readonly _authService = inject(AuthService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _router = inject(Router);
@@ -101,6 +106,7 @@ export class AuthSignUpComponent {
     readonly emailMaxLength = EMAIL_MAX_LENGTH;
     readonly restaurantNameMaxLength = RESTAURANT_NAME_MAX_LENGTH;
     readonly phoneMaxLength = PHONE_MAX_LENGTH;
+    readonly taxCodeMaxLength = TAX_CODE_MAX_LENGTH;
 
     readonly submitting = signal(false);
     readonly alert = signal<{ type: FuseAlertType; message: string } | null>(
@@ -109,30 +115,78 @@ export class AuthSignUpComponent {
     /** Set when the backend says the email is taken, so the UI can offer sign-in. */
     readonly emailTaken = signal(false);
 
-    readonly signUpForm = this._formBuilder.nonNullable.group({
-        restaurantName: [
-            '',
-            [
-                nonBlankValidator,
-                Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH),
+    // ─── Tax lookup (vietqr.io) — mirrors freshflow-app's RegisterScreen ──────
+    readonly taxLookupLoading = signal(false);
+    readonly taxVerified = signal(false);
+    readonly taxLookupError = signal<string | null>(null);
+    /**
+     * Legal name + address returned by the lookup — rendered as their own
+     * read-only fields once verified (not editable: they come straight from
+     * the MST, same as freshflow-app's confirmation display). Display-only:
+     * `/auth/register` has no `address` field to send it to (unlike the tax
+     * profile's `PUT /restaurants/me/tax-profile`, which does — see that form
+     * for where this same lookup actually persists the address), and
+     * `legalName` here is shown only, never wired to `restaurantName`.
+     */
+    readonly taxLookupLegalName = signal<string | null>(null);
+    readonly taxLookupAddress = signal<string | null>(null);
+    /**
+     * Guards against a slow/stale lookup response landing after the user has
+     * already changed the MST again — without this it could silently overwrite
+     * the read-only fields above with data for a tax code that's no longer in
+     * the field.
+     */
+    private _taxCodeRequestToken = '';
+
+    // Field order/grouping mirrors freshflow-app's RegisterScreen.tsx: restaurant
+    // info (name, phone, email) → tax info (MST) → security (password, confirm).
+    readonly signUpForm = this._formBuilder.nonNullable.group(
+        {
+            restaurantName: [
+                '',
+                [
+                    nonBlankValidator,
+                    Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH),
+                ],
             ],
-        ],
-        email: [
-            '',
-            [
-                nonBlankValidator,
-                Validators.email,
-                Validators.maxLength(EMAIL_MAX_LENGTH),
+            // Optional per the BE contract, but required in this form's own UX
+            // (matches freshflow-app's RegisterScreen, which also requires it).
+            phone: [
+                '',
+                [
+                    nonBlankValidator,
+                    phoneNumberValidator,
+                    Validators.maxLength(PHONE_MAX_LENGTH),
+                ],
             ],
-        ],
-        // Optional per the contract — omit empty rather than send "".
-        phone: [
-            '',
-            [phoneNumberValidator, Validators.maxLength(PHONE_MAX_LENGTH)],
-        ],
-        password: ['', [nonBlankValidator, passwordStrengthValidator]],
-        agreements: [false, Validators.requiredTrue],
-    });
+            email: [
+                '',
+                [
+                    nonBlankValidator,
+                    Validators.email,
+                    Validators.maxLength(EMAIL_MAX_LENGTH),
+                ],
+            ],
+            // Optional per the contract — when present, must match BE's
+            // `^\d{10}(-\d{3})?$` (personal MST, or branch MST with the `-xxx`
+            // suffix typed explicitly; see taxCodeValidator's doc for why this
+            // isn't auto-formatted for the user).
+            taxCode: [
+                '',
+                [taxCodeValidator, Validators.maxLength(TAX_CODE_MAX_LENGTH)],
+            ],
+            password: ['', [nonBlankValidator, passwordStrengthValidator]],
+            confirmPassword: ['', [nonBlankValidator]],
+            agreements: [false, Validators.requiredTrue],
+        },
+        { validators: FuseValidators.mustMatch('password', 'confirmPassword') }
+    );
+
+    ngOnInit(): void {
+        this.signUpForm.controls.taxCode.valueChanges.subscribe((raw) => {
+            void this._handleTaxCodeChange(raw);
+        });
+    }
 
     /** True while `rule` is not yet satisfied, for the live checklist. */
     passwordRuleFailing(rule: string): boolean {
@@ -144,6 +198,46 @@ export class AuthSignUpComponent {
             | Record<string, boolean>
             | undefined;
         return strength ? !!strength[rule] : false;
+    }
+
+    /**
+     * Looks the MST up once it reaches a plausible length (10 digits = personal,
+     * 13 = branch) purely to show the matched business name/address as a
+     * confirmation the user typed the right code — it does NOT touch
+     * `restaurantName`, which stays a manual field here (unlike the mobile
+     * app's sign-up, which auto-fills it; this form deliberately does not).
+     * A miss or network failure never blocks the form.
+     */
+    private async _handleTaxCodeChange(raw: string): Promise<void> {
+        this.taxVerified.set(false);
+        this.taxLookupError.set(null);
+        this.taxLookupLegalName.set(null);
+        this.taxLookupAddress.set(null);
+        this._taxCodeRequestToken = raw;
+
+        const digitCount = taxCodeDigitCount(raw);
+        if (digitCount !== 10 && digitCount !== 13) {
+            return;
+        }
+
+        this.taxLookupLoading.set(true);
+        const info = await fetchTaxInfo(raw);
+        this.taxLookupLoading.set(false);
+
+        // Superseded by a newer edit while the request was in flight — discard.
+        if (this._taxCodeRequestToken !== raw) {
+            return;
+        }
+
+        if (info) {
+            this.taxLookupLegalName.set(info.name || null);
+            this.taxLookupAddress.set(info.address || null);
+            this.taxVerified.set(true);
+        } else {
+            this.taxLookupError.set(
+                this._transloco.translate('auth.signUp.taxCodeNotFound')
+            );
+        }
     }
 
     async signUp(): Promise<void> {
@@ -168,7 +262,7 @@ export class AuthSignUpComponent {
         this.submitting.set(true);
         this.signUpForm.disable();
 
-        const { restaurantName, email, phone, password } =
+        const { restaurantName, email, phone, taxCode, password } =
             this.signUpForm.getRawValue();
         const trimmedEmail = email.trim();
 
@@ -179,6 +273,7 @@ export class AuthSignUpComponent {
                 password,
                 // Omit rather than send "" — empty string fails the BE pattern.
                 phone: phone.trim() || undefined,
+                taxCode: taxCode.trim() || undefined,
             });
 
             // Carry the address forward so the verification screen can submit

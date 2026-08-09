@@ -1,0 +1,246 @@
+<div
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    *transloco="let t"
+>
+    <!-- Header: what listing, and over what window -->
+    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+        @if (loading()) {
+            <div class="absolute inset-x-0 bottom-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
+        <div
+            class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+            <div class="flex min-w-0 items-center gap-3">
+                <button
+                    mat-icon-button
+                    type="button"
+                    [matTooltip]="t('admin.markets.priceHistory.back')"
+                    (click)="goBack()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+                </button>
+                <div class="min-w-0">
+                    <div class="text-secondary text-xs uppercase tracking-wide">
+                        {{ t('admin.markets.priceHistory.title') }}
+                    </div>
+                    <div
+                        class="truncate text-2xl font-extrabold tracking-tight"
+                    >
+                        {{
+                            productName() ||
+                                t('admin.markets.priceHistory.title')
+                        }}
+                    </div>
+                    @if (marketName()) {
+                        <div class="text-secondary truncate text-sm">
+                            {{ marketName() }}
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Time range: one row of controls above the chart -->
+            <mat-button-toggle-group
+                class="shrink-0"
+                [value]="range()"
+                [attr.aria-label]="t('admin.markets.priceHistory.range')"
+                (change)="setRange($event.value)"
+            >
+                @for (days of ranges; track days) {
+                    <mat-button-toggle [value]="days">
+                        {{
+                            t('admin.markets.priceHistory.days', {
+                                count: days,
+                            })
+                        }}
+                    </mat-button-toggle>
+                }
+            </mat-button-toggle-group>
+        </div>
+    </div>
+
+    <div class="flex min-h-0 flex-auto flex-col overflow-y-auto p-6 md:p-8">
+        @if (loading() && !entries().length) {
+            <admin-loading-state />
+        } @else if (failed()) {
+            <!--
+              A failed read is not "no changes yet" — saying so would report a
+              steady price for a listing whose history we could not read.
+            -->
+            <div class="flex flex-col items-center gap-3 py-16 text-center">
+                <mat-icon
+                    class="text-hint icon-size-12"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <p class="text-secondary">
+                    {{ t('admin.crud.loadError') }}
+                </p>
+                <button mat-stroked-button type="button" (click)="load()">
+                    {{ t('admin.markets.priceHistory.retry') }}
+                </button>
+            </div>
+        } @else if (!entries().length) {
+            <div class="flex flex-col items-center gap-2 py-16 text-center">
+                <mat-icon
+                    class="text-hint icon-size-12"
+                    svgIcon="heroicons_outline:chart-bar"
+                ></mat-icon>
+                <p class="text-secondary">
+                    {{ t('admin.markets.priceHistory.empty') }}
+                </p>
+            </div>
+        } @else {
+            <!-- Headline figures over the window -->
+            @if (stats(); as s) {
+                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <div class="rounded-xl border p-4">
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.markets.priceHistory.latest') }}
+                        </div>
+                        <div
+                            class="mt-1 font-mono text-2xl font-bold tabular-nums"
+                        >
+                            {{ formatPrice(s.latest) }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.markets.priceHistory.low') }}
+                        </div>
+                        <div
+                            class="mt-1 font-mono text-2xl font-bold tabular-nums"
+                        >
+                            {{ formatPrice(s.low) }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.markets.priceHistory.high') }}
+                        </div>
+                        <div
+                            class="mt-1 font-mono text-2xl font-bold tabular-nums"
+                        >
+                            {{ formatPrice(s.high) }}
+                        </div>
+                    </div>
+                    <!--
+                      Direction carries an arrow and a signed number as well as
+                      colour, so it reads without relying on hue alone.
+                    -->
+                    <div class="rounded-xl border p-4">
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.markets.priceHistory.change') }}
+                        </div>
+                        <div
+                            class="mt-1 flex items-center gap-1 font-mono text-2xl font-bold tabular-nums"
+                            [class.text-sale-700]="s.changePct > 0"
+                            [class.text-accent-900]="s.changePct < 0"
+                        >
+                            @if (s.changePct !== 0) {
+                                <mat-icon
+                                    class="text-current icon-size-5"
+                                    [svgIcon]="
+                                        s.changePct > 0
+                                            ? 'heroicons_outline:arrow-trending-up'
+                                            : 'heroicons_outline:arrow-trending-down'
+                                    "
+                                ></mat-icon>
+                            }
+                            <span>
+                                {{ s.changePct > 0 ? '+' : ''
+                                }}{{ s.changePct.toFixed(1) }}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Price over time. One series — the heading names it. -->
+            <div class="mt-6 rounded-xl border p-4">
+                <div class="text-lg font-semibold tracking-tight">
+                    {{ t('admin.markets.priceHistory.chartTitle') }}
+                </div>
+                <p class="text-secondary mt-1 text-sm">
+                    {{ t('admin.markets.priceHistory.chartHint') }}
+                </p>
+                <div class="mt-4 h-64 w-full">
+                    <apx-chart
+                        class="h-full w-full"
+                        [chart]="$any(chart().chart)"
+                        [colors]="$any(chart().colors)"
+                        [dataLabels]="$any(chart().dataLabels)"
+                        [fill]="$any(chart().fill)"
+                        [grid]="$any(chart().grid)"
+                        [markers]="$any(chart().markers)"
+                        [series]="$any(chart().series)"
+                        [stroke]="$any(chart().stroke)"
+                        [tooltip]="$any(chart().tooltip)"
+                        [xaxis]="$any(chart().xaxis)"
+                        [yaxis]="$any(chart().yaxis)"
+                    ></apx-chart>
+                </div>
+            </div>
+
+            <!--
+              The change log — also the chart's table view, and the only place
+              quantity appears: it is a different measure on a different scale,
+              so it does not belong on the price axis.
+            -->
+            <div class="mt-6 overflow-hidden rounded-xl border">
+                <div
+                    class="price-history-grid text-secondary grid items-center gap-x-6 border-b bg-gray-50 px-4 py-3 text-sm font-semibold dark:bg-black dark:bg-opacity-5"
+                >
+                    <div>{{ t('admin.markets.priceHistory.recordedAt') }}</div>
+                    <div>{{ t('admin.markets.priceHistory.price') }}</div>
+                    <div>{{ t('admin.markets.priceHistory.quantity') }}</div>
+                    <div class="text-right">
+                        {{ t('admin.markets.priceHistory.step') }}
+                    </div>
+                </div>
+                @for (row of rows(); track row.recordedAt) {
+                    <div
+                        class="price-history-grid grid items-center gap-x-6 border-b px-4 py-3 last:border-b-0"
+                    >
+                        <div class="min-w-0 truncate">
+                            {{ formatDate(row.recordedAt) }}
+                        </div>
+                        <div class="font-mono tabular-nums">
+                            {{ formatPrice(row.price) }}
+                        </div>
+                        <div class="tabular-nums">
+                            @if (row.quantity === null) {
+                                —
+                            } @else {
+                                {{ row.quantity }} {{ unit() }}
+                            }
+                        </div>
+                        <div
+                            class="flex items-center justify-end gap-1 font-mono tabular-nums"
+                            [class.text-sale-700]="(row.delta ?? 0) > 0"
+                            [class.text-accent-900]="(row.delta ?? 0) < 0"
+                        >
+                            @if (row.delta === null || row.delta === 0) {
+                                <span class="text-hint">—</span>
+                            } @else {
+                                <mat-icon
+                                    class="text-current icon-size-4"
+                                    [svgIcon]="
+                                        row.delta > 0
+                                            ? 'heroicons_outline:arrow-up'
+                                            : 'heroicons_outline:arrow-down'
+                                    "
+                                ></mat-icon>
+                                <span>
+                                    {{ row.delta > 0 ? '+' : ''
+                                    }}{{ formatPrice(row.delta) }}
+                                </span>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>

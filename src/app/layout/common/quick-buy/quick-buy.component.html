@@ -1,73 +1,409 @@
-<!-- Trigger -->
 <ng-container *transloco="let t">
-    <button
-        class="ff-header-icon text-default flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
-        type="button"
-        [attr.aria-label]="t('header.quickBuy')"
-        [matTooltip]="t('header.quickBuy')"
-        (click)="open()"
-    >
-        <mat-icon
-            class="icon-size-6"
-            [svgIcon]="'heroicons_outline:sparkles'"
-        ></mat-icon>
-    </button>
-</ng-container>
-
-@if (opened) {
-    <div
-        class="bg-card fixed inset-0 z-9999 flex flex-col"
-        animate.enter="fuse-animate-slide-in-top"
-        animate.leave="fuse-animate-slide-out-top"
-    >
-        <div class="bg-card flex h-14 shrink-0 items-center border-b pr-2">
-            <mat-icon
-                class="ml-5 mr-3 shrink-0 text-primary icon-size-5"
-                [svgIcon]="'heroicons_outline:sparkles'"
-            ></mat-icon>
-            <input
-                #chatInput
-                class="text-default h-full min-w-0 flex-1 border-none bg-transparent text-[0.9375rem] outline-none"
-                type="text"
-                name="query"
-                [(ngModel)]="query"
-                placeholder="Ask FreshFlow AI..."
-                aria-label="Ask FreshFlow AI"
-                (keydown)="onKeydown($event)"
-            />
-            <button
-                class="text-default shrink-0"
-                mat-icon-button
-                type="button"
-                aria-label="Close AI chat"
-                (click)="close()"
-            >
-                <mat-icon [svgIcon]="'heroicons_outline:x-mark'"></mat-icon>
-            </button>
-        </div>
-
-        <div
-            class="bg-default flex flex-auto flex-col gap-3 overflow-y-auto p-4"
+    @if (available()) {
+        <!--
+          Trigger stays in the header toolbar, beside the other tools. It keeps
+          `ff-header-icon` so it inherits the same hover/focus motion as its
+          siblings, and adds an open state — a tinted, filled circle — because
+          this one toggles a surface that stays up, unlike the icons around it.
+        -->
+        <button
+            class="ff-header-icon ff-qb-trigger text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+            type="button"
+            [class.ff-qb-trigger--active]="opened()"
+            [attr.aria-expanded]="opened()"
+            [attr.aria-label]="t('header.quickBuy')"
+            [matTooltip]="
+                opened() ? t('assistant.close') : t('header.quickBuy')
+            "
+            (click)="toggle()"
         >
-            @for (message of messages; track $index) {
-                <div
-                    class="flex max-w-[90%] items-start gap-2 rounded-lg px-3.5 py-2.5 text-sm leading-relaxed"
-                    [ngClass]="{
-                        'ml-auto self-end bg-gray-900 text-white':
-                            message.role === 'user',
-                        'text-default bg-card self-start border':
-                            message.role === 'assistant',
-                    }"
-                >
-                    @if (message.role === 'assistant') {
+            <mat-icon
+                class="icon-size-6"
+                [svgIcon]="
+                    opened()
+                        ? 'heroicons_solid:sparkles'
+                        : 'heroicons_outline:sparkles'
+                "
+            ></mat-icon>
+        </button>
+    }
+
+    <!--
+      Hoisted into the CDK overlay container at the document root. Left inline
+      it renders inside the mobile bottom bar, which is `fixed; z-index: 50` and
+      therefore a stacking context — the panel's own z-index would be trapped
+      under it and `contact-fab` would paint over the composer.
+    -->
+    <ng-template #panelTemplate>
+        <!--
+          Full-screen, dropping in from the top edge. `aria-modal` is true now
+          that it covers the page: nothing behind it is reachable, and telling
+          assistive tech otherwise would invite a user to go looking.
+        -->
+        <section
+            class="ff-qb-panel"
+            role="dialog"
+            aria-modal="true"
+            [attr.aria-label]="t('assistant.title')"
+        >
+            <!--
+              Each band spans the viewport so the surface reads as full-screen,
+              while its contents sit in a centred column — a conversation set in
+              1440px-wide lines is unreadable.
+            -->
+            <header class="ff-qb-head">
+                <!-- Full-bleed, unlike the bands below it: on a full-screen
+                     surface the close control belongs at the screen's own
+                     corner, not floating in from it. -->
+                <div class="ff-qb-head__inner">
+                    <span class="ff-qb-head__mark" aria-hidden="true">
                         <mat-icon
-                            class="mt-0.5 shrink-0 text-primary icon-size-4"
-                            [svgIcon]="'heroicons_outline:sparkles'"
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_solid:sparkles'"
                         ></mat-icon>
-                    }
-                    <p class="m-0">{{ message.text }}</p>
+                    </span>
+                    <div class="ff-qb-head__copy">
+                        <p class="ff-qb-head__title">
+                            {{ t('assistant.title') }}
+                        </p>
+                        <p class="ff-qb-head__subtitle">
+                            {{ t('assistant.subtitle') }}
+                        </p>
+                    </div>
+                    <button
+                        class="ff-qb-icon-btn"
+                        type="button"
+                        [disabled]="sending()"
+                        [matTooltip]="t('assistant.startOver')"
+                        [attr.aria-label]="t('assistant.startOver')"
+                        (click)="startOver()"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-path'"
+                        ></mat-icon>
+                    </button>
+                    <button
+                        class="ff-qb-icon-btn"
+                        type="button"
+                        [matTooltip]="t('assistant.close')"
+                        [attr.aria-label]="t('assistant.close')"
+                        (click)="close()"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:x-mark'"
+                        ></mat-icon>
+                    </button>
                 </div>
-            }
-        </div>
-    </div>
-}
+            </header>
+
+            <div class="ff-qb-thread" #messageScroller aria-live="polite">
+                <div class="ff-qb-col ff-qb-thread__inner">
+                    @if (isEmpty()) {
+                        <!-- Starter prompts, so the first turn does not start from
+                         a blank box. Bodies come from the bundles. -->
+                        <div class="ff-qb-empty">
+                            <span class="ff-qb-empty__mark" aria-hidden="true">
+                                <mat-icon
+                                    class="icon-size-7"
+                                    [svgIcon]="'heroicons_outline:sparkles'"
+                                ></mat-icon>
+                            </span>
+                            <p class="ff-qb-empty__title">
+                                {{ t('assistant.greeting') }}
+                            </p>
+                            <p class="ff-qb-empty__lead">
+                                {{ t('assistant.greetingLead') }}
+                            </p>
+                            <ul class="ff-qb-chips">
+                                @for (key of suggestionKeys; track key) {
+                                    <li>
+                                        <button
+                                            class="ff-qb-chip"
+                                            type="button"
+                                            [disabled]="sending()"
+                                            (click)="sendSuggestion(key)"
+                                        >
+                                            {{ t(key) }}
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+
+                    @for (message of messages(); track $index) {
+                        <div
+                            class="ff-qb-row"
+                            [class.ff-qb-row--user]="message.role === 'user'"
+                        >
+                            <div
+                                class="ff-qb-bubble"
+                                [class.ff-qb-bubble--user]="
+                                    message.role === 'user'
+                                "
+                                [class.ff-qb-bubble--failed]="message.failed"
+                            >
+                                @if (message.failed) {
+                                    <mat-icon
+                                        class="ff-qb-bubble__icon icon-size-4"
+                                        [svgIcon]="
+                                            'heroicons_outline:exclamation-triangle'
+                                        "
+                                    ></mat-icon>
+                                }
+                                <p class="ff-qb-bubble__text">
+                                    {{ message.text }}
+                                </p>
+                            </div>
+
+                            @if (message.failed && !sending()) {
+                                <button
+                                    class="ff-qb-retry"
+                                    type="button"
+                                    (click)="retry()"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="
+                                            'heroicons_outline:arrow-path'
+                                        "
+                                    ></mat-icon>
+                                    <span>{{ t('assistant.retry') }}</span>
+                                </button>
+                            }
+                        </div>
+                    }
+
+                    @if (sending()) {
+                        <div class="ff-qb-row">
+                            <div class="ff-qb-bubble ff-qb-typing">
+                                <span class="sr-only">{{
+                                    t('assistant.thinking')
+                                }}</span>
+                                <span class="ff-qb-typing__dot"></span>
+                                <span class="ff-qb-typing__dot"></span>
+                                <span class="ff-qb-typing__dot"></span>
+                            </div>
+                        </div>
+                    }
+
+                    <!--
+                  The confirmation gate, rendered as a receipt. The assistant
+                  prepared this order and stopped; only the button below sends
+                  `confirmOrderId`, so nothing in the reply text can talk its
+                  way into placing an order.
+                -->
+                    @if (pending()) {
+                        <div class="ff-qb-receipt">
+                            <header class="ff-qb-receipt__head">
+                                <mat-icon
+                                    class="text-primary icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:receipt-percent'
+                                    "
+                                ></mat-icon>
+                                <div>
+                                    <p class="ff-qb-receipt__title">
+                                        {{ t('assistant.confirm.title') }}
+                                    </p>
+                                    <p class="ff-qb-receipt__lead">
+                                        {{ t('assistant.confirm.lead') }}
+                                    </p>
+                                </div>
+                            </header>
+
+                            @if (preview(); as p) {
+                                @if (p.error) {
+                                    <!-- The preview itself failed: no figures to
+                                     show, so say that instead of an empty bill. -->
+                                    <p class="ff-qb-receipt__alert">
+                                        {{
+                                            p.error.message ||
+                                                t(
+                                                    'assistant.confirm.previewFailed'
+                                                )
+                                        }}
+                                    </p>
+                                }
+
+                                @if (p.issues.length) {
+                                    <ul class="ff-qb-receipt__issues">
+                                        @for (issue of p.issues; track $index) {
+                                            <li>
+                                                <mat-icon
+                                                    class="icon-size-4"
+                                                    [svgIcon]="
+                                                        'heroicons_outline:exclamation-triangle'
+                                                    "
+                                                ></mat-icon>
+                                                <span>{{
+                                                    issue.message || issue.code
+                                                }}</span>
+                                            </li>
+                                        }
+                                    </ul>
+                                }
+
+                                <dl class="ff-qb-lines">
+                                    @if (p.subtotal !== null) {
+                                        <div class="ff-qb-line">
+                                            <dt>
+                                                {{
+                                                    t(
+                                                        'assistant.confirm.subtotal'
+                                                    )
+                                                }}
+                                            </dt>
+                                            <dd>{{ money(p.subtotal) }}</dd>
+                                        </div>
+                                    }
+                                    @if (p.vat !== null) {
+                                        <div class="ff-qb-line">
+                                            <dt>
+                                                {{ t('assistant.confirm.vat') }}
+                                            </dt>
+                                            <dd>{{ money(p.vat) }}</dd>
+                                        </div>
+                                    }
+                                    @if (p.deliveryFee !== null) {
+                                        <div class="ff-qb-line">
+                                            <dt>
+                                                {{
+                                                    t(
+                                                        'assistant.confirm.delivery'
+                                                    )
+                                                }}
+                                                @if (p.distanceKm !== null) {
+                                                    <span
+                                                        class="ff-qb-line__note"
+                                                        >{{
+                                                            distance(
+                                                                p.distanceKm
+                                                            )
+                                                        }}</span
+                                                    >
+                                                }
+                                            </dt>
+                                            <dd>{{ money(p.deliveryFee) }}</dd>
+                                        </div>
+                                    }
+                                    @if (p.scheduledFor) {
+                                        <div class="ff-qb-line">
+                                            <dt>
+                                                {{
+                                                    t(
+                                                        'assistant.confirm.scheduled'
+                                                    )
+                                                }}
+                                            </dt>
+                                            <dd>
+                                                {{ dateTime(p.scheduledFor) }}
+                                            </dd>
+                                        </div>
+                                    }
+
+                                    <!-- Anything the payload carried that this
+                                     screen has no label for. Shown raw rather
+                                     than dropped. -->
+                                    @for (extra of p.extras; track extra.key) {
+                                        <div class="ff-qb-line">
+                                            <dt>{{ extra.key }}</dt>
+                                            <dd>{{ extra.value }}</dd>
+                                        </div>
+                                    }
+                                </dl>
+
+                                @if (p.total !== null) {
+                                    <div class="ff-qb-total">
+                                        <span>{{
+                                            t('assistant.confirm.total')
+                                        }}</span>
+                                        <span class="ff-qb-total__value">{{
+                                            money(p.total)
+                                        }}</span>
+                                    </div>
+                                }
+
+                                @if (p.remainingCredit !== null) {
+                                    <div class="ff-qb-credit">
+                                        <span>{{
+                                            t('assistant.confirm.creditAfter')
+                                        }}</span>
+                                        <span class="ff-qb-credit__value">{{
+                                            money(p.remainingCredit)
+                                        }}</span>
+                                    </div>
+                                }
+                            }
+
+                            <div class="ff-qb-receipt__actions">
+                                <button
+                                    class="ff-qb-btn-text"
+                                    type="button"
+                                    [disabled]="sending()"
+                                    (click)="dismissConfirmation()"
+                                >
+                                    {{ t('assistant.confirm.dismiss') }}
+                                </button>
+                                <button
+                                    class="ff-qb-btn-filled"
+                                    type="button"
+                                    [disabled]="sending()"
+                                    (click)="confirmOrder()"
+                                >
+                                    @if (sending()) {
+                                        <span
+                                            class="ff-qb-btn-spinner"
+                                            aria-hidden="true"
+                                        ></span>
+                                    }
+                                    <span>{{
+                                        t('assistant.confirm.action')
+                                    }}</span>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <footer class="ff-qb-composer">
+                <div class="ff-qb-col ff-qb-composer__inner">
+                    <textarea
+                        #chatInput
+                        class="ff-qb-composer__input"
+                        rows="1"
+                        name="query"
+                        [maxlength]="maxLength"
+                        [disabled]="sending()"
+                        [value]="query()"
+                        [placeholder]="t('assistant.placeholder')"
+                        [attr.aria-label]="t('assistant.placeholder')"
+                        (input)="onComposerInput($event)"
+                        (keydown)="onKeydown($event)"
+                    ></textarea>
+                    <button
+                        class="ff-qb-send"
+                        type="button"
+                        [disabled]="!canSend()"
+                        [matTooltip]="t('assistant.send')"
+                        [attr.aria-label]="t('assistant.send')"
+                        (click)="send()"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:paper-airplane'"
+                        ></mat-icon>
+                    </button>
+                </div>
+                @if (nearLimit()) {
+                    <p class="ff-qb-col ff-qb-counter">
+                        {{ t('assistant.remaining', { count: remaining() }) }}
+                    </p>
+                }
+            </footer>
+        </section>
+    </ng-template>
+</ng-container>

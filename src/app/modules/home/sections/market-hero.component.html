@@ -1,0 +1,240 @@
+<section class="ff-hero" *transloco="let t">
+    <!--
+      The market is the canvas. Everything below floats over it — there is no
+      content column, no panel and no seam, because the moment the page draws a
+      surface for the text it stops being a market and becomes a banner.
+    -->
+    <div class="ff-hero__stage" aria-hidden="true">
+        <!--
+          Backdrop. Holds the frame until the footage paints — which with a
+          37MB, non-faststart file is not instant — so the hero is never a black
+          rectangle. Built silhouettes, not a photograph of a market nobody shot.
+        -->
+        <svg
+            class="ff-hero__art"
+            viewBox="0 0 720 560"
+            preserveAspectRatio="xMidYMax slice"
+            focusable="false"
+        >
+            <defs>
+                <linearGradient id="ffHeroMorning" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#FFE9C2" />
+                    <stop offset="52%" stop-color="#F6DCC0" />
+                    <stop offset="100%" stop-color="#E4D6C6" />
+                </linearGradient>
+            </defs>
+
+            <rect width="720" height="560" fill="url(#ffHeroMorning)" />
+
+            <g class="ff-hero__art-roof">
+                <rect x="0" y="0" width="720" height="34" />
+                <rect x="52" y="34" width="9" height="58" />
+                <rect x="228" y="34" width="9" height="58" />
+                <rect x="404" y="34" width="9" height="58" />
+                <rect x="580" y="34" width="9" height="58" />
+                <rect x="0" y="86" width="720" height="11" />
+            </g>
+
+            <g class="ff-hero__art-lamps">
+                <rect x="139" y="97" width="3" height="26" />
+                <path d="M126 137 q14 -18 28 0 Z" />
+                <rect x="359" y="97" width="3" height="32" />
+                <path d="M344 145 q16 -20 32 0 Z" />
+                <rect x="579" y="97" width="3" height="26" />
+                <path d="M566 137 q14 -18 28 0 Z" />
+            </g>
+
+            <rect
+                class="ff-hero__art-far"
+                x="0"
+                y="176"
+                width="720"
+                height="128"
+            />
+
+            <g class="ff-hero__art-awning">
+                <path d="M10 196 L176 188 L176 226 L10 236 Z" />
+                <path d="M188 190 L354 184 L354 222 L188 228 Z" />
+                <path d="M366 186 L532 184 L532 222 L366 224 Z" />
+                <path d="M544 186 L710 190 L710 228 L544 224 Z" />
+            </g>
+
+            <g class="ff-hero__art-stall">
+                <rect x="26" y="236" width="134" height="112" />
+                <rect x="204" y="228" width="134" height="120" />
+                <rect x="382" y="224" width="134" height="124" />
+                <rect x="560" y="228" width="134" height="120" />
+            </g>
+
+            <g class="ff-hero__art-counter">
+                <rect x="14" y="348" width="158" height="54" rx="3" />
+                <rect x="192" y="348" width="158" height="54" rx="3" />
+                <rect x="370" y="348" width="158" height="54" rx="3" />
+                <rect x="548" y="348" width="158" height="54" rx="3" />
+            </g>
+
+            <g class="ff-hero__art-produce-green">
+                <ellipse cx="52" cy="344" rx="30" ry="15" />
+                <ellipse cx="238" cy="344" rx="26" ry="13" />
+                <ellipse cx="470" cy="344" rx="32" ry="15" />
+                <ellipse cx="656" cy="344" rx="28" ry="14" />
+            </g>
+
+            <g class="ff-hero__art-produce-warm">
+                <ellipse cx="118" cy="345" rx="26" ry="13" />
+                <ellipse cx="300" cy="345" rx="30" ry="15" />
+                <ellipse cx="404" cy="346" rx="24" ry="12" />
+                <ellipse cx="592" cy="345" rx="26" ry="13" />
+            </g>
+
+            <g class="ff-hero__art-people">
+                <circle cx="112" cy="368" r="17" />
+                <path d="M84 460 q6 -60 28 -60 q22 0 28 60 Z" />
+                <rect x="128" y="398" width="34" height="10" rx="5" />
+
+                <circle cx="286" cy="382" r="15" />
+                <path d="M262 462 q5 -54 24 -54 q19 0 24 54 Z" />
+
+                <circle cx="612" cy="376" r="16" />
+                <path d="M586 462 q5 -58 26 -58 q21 0 26 58 Z" />
+                <rect x="560" y="404" width="30" height="9" rx="4" />
+            </g>
+
+            <g class="ff-hero__art-crates">
+                <rect x="20" y="470" width="112" height="40" rx="4" />
+                <rect x="40" y="436" width="76" height="34" rx="4" />
+                <rect x="150" y="480" width="96" height="32" rx="4" />
+                <rect x="470" y="474" width="118" height="40" rx="4" />
+                <rect x="494" y="438" width="80" height="36" rx="4" />
+                <rect x="606" y="482" width="92" height="30" rx="4" />
+            </g>
+
+            <g class="ff-hero__art-cart">
+                <rect x="0" y="452" width="118" height="48" rx="5" />
+                <rect x="14" y="424" width="80" height="30" rx="4" />
+                <circle cx="28" cy="512" r="14" />
+                <circle cx="92" cy="512" r="14" />
+            </g>
+
+            <rect
+                class="ff-hero__art-floor"
+                x="0"
+                y="516"
+                width="720"
+                height="44"
+            />
+        </svg>
+
+        <!--
+          The footage. `[muted]` is BOUND, not a bare attribute: Angular sets
+          static attributes with `setAttribute`, and the content attribute only
+          reflects to `defaultMuted` — `video.muted` stayed false, which is the
+          flag browsers test before allowing autoplay. As a plain attribute this
+          hero either played with sound or, in real Chrome, refused to start.
+        -->
+        @if (showVideo()) {
+            <video
+                class="ff-hero__video"
+                [class.ff-hero__video--ready]="videoReady()"
+                data-testid="hero-market-video"
+                autoplay
+                loop
+                playsinline
+                disablepictureinpicture
+                preload="metadata"
+                [muted]="true"
+                tabindex="-1"
+                (loadeddata)="onVideoReady()"
+                (error)="onVideoUnavailable()"
+            >
+                @for (source of sceneSources; track source.src) {
+                    <source [src]="source.src" [type]="source.type" />
+                }
+            </video>
+        }
+
+        <!--
+          The grade. Photographic, not a UI panel: a heavy pool of shadow on the
+          left where the type sits, thinning to almost nothing on the right so
+          the market is still visibly a market. Plus a floor gradient carrying
+          the bottom edge into the section below, so the hero ends by handing
+          over rather than by stopping.
+        -->
+        <div class="ff-hero__grade"></div>
+    </div>
+
+    <!--
+      The page's content column, not a column of the hero's own.
+
+      The header bar, the nav row and every section below all sit on
+      `max-w-[95rem]` centred with `px-4 / md:px-8 / lg:px-14`. This used to be
+      inset by `5.5vw` instead, which happens to look close at 1440 and then
+      diverges: at 1920 the hero's type sat 150px left of the logo above it, and
+      at 2560 it was 435px out. A viewport-derived inset cannot track a centred
+      max-width column — it has to be the same column.
+    -->
+    <div class="ff-hero__col">
+        <div class="ff-hero__content">
+            <!-- Two lines on purpose: the break is the composition, not a wrap. -->
+            <h1 class="ff-hero__title">
+                <span class="ff-hero__title-line">{{
+                    t('home.hero.titleTop')
+                }}</span>
+                <span class="ff-hero__title-line">{{
+                    t('home.hero.titleMain')
+                }}</span>
+            </h1>
+
+            <p class="ff-hero__lead">{{ t('home.hero.lead') }}</p>
+
+            <form class="ff-hero__search" (ngSubmit)="onSearch()">
+                <mat-icon
+                    class="ff-hero__search-icon icon-size-5"
+                    [svgIcon]="'heroicons_outline:magnifying-glass'"
+                ></mat-icon>
+                <input
+                    data-testid="landing-search"
+                    type="search"
+                    name="q"
+                    [(ngModel)]="searchQuery"
+                    [placeholder]="t('home.hero.searchPlaceholder')"
+                    [attr.aria-label]="t('home.hero.searchAria')"
+                />
+                <button type="submit" class="ff-hero__search-go">
+                    {{ t('home.hero.searchAction') }}
+                </button>
+            </form>
+
+            <!-- Secondary navigation, not a row of buttons arguing with the search. -->
+            @if (quickCategories().length) {
+                <ul class="ff-hero__chips">
+                    @for (cat of quickCategories(); track cat.id) {
+                        <li>
+                            <a
+                                class="ff-hero__chip"
+                                routerLink="/catalog"
+                                [queryParams]="{ category: cat.id }"
+                                >{{ categoryLabel(cat) }}</a
+                            >
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+
+        <!--
+          Editorial footer on the same column: a documentary plate on the right,
+          the way down on the left. Laid out in flow rather than pinned to the
+          section, so both keep the page column instead of the viewport edge.
+        -->
+        <div class="ff-hero__foot">
+            <a class="ff-hero__explore" routerLink="/catalog">
+                <mat-icon
+                    class="text-current icon-size-4"
+                    [svgIcon]="'heroicons_outline:arrow-down'"
+                ></mat-icon>
+                <span>{{ t('home.hero.explore') }}</span>
+            </a>
+        </div>
+    </div>
+</section>

@@ -20,13 +20,15 @@
             <div
                 class="ff-product-card__thumb"
                 [style.background]="
-                    product.thumbnail ? null : product.thumbTint
+                    product.imageUrl || product.thumbnail
+                        ? null
+                        : product.thumbTint
                 "
             >
-                @if (product.thumbnail) {
+                @if (product.imageUrl || product.thumbnail; as imgSrc) {
                     <img
                         class="ff-product-card__img"
-                        [src]="product.thumbnail"
+                        [src]="imgSrc"
                         alt=""
                         loading="lazy"
                         decoding="async"
@@ -96,6 +98,15 @@
 
     <!-- Body -->
     <div class="ff-product-card__body">
+        <!--
+          Category, above the name. It used to share a slot with `meta` further
+          down (`eyebrow || meta`), which meant a tile that had both showed only
+          the category and silently dropped the market it came from.
+        -->
+        @if (product.eyebrow) {
+            <p class="ff-product-card__eyebrow">{{ product.eyebrow }}</p>
+        }
+
         <h3 class="ff-product-card__name">
             <a
                 class="ff-product-card__name-link"
@@ -130,9 +141,34 @@
         <!-- Spacer keeps the foot flush across tiles of unequal text length -->
         <div class="ff-product-card__spacer"></div>
 
-        @if (product.eyebrow || product.meta) {
-            <p class="ff-product-card__meta">
-                {{ product.eyebrow || product.meta }}
+        <!--
+          Trade facts, in the order a buyer weighs them: where it comes from,
+          how it is packed, how much is left, how fresh the price is. Each is
+          omitted rather than rendered blank, so a sparse listing does not leave
+          the tile full of dashes.
+        -->
+        @if (product.meta) {
+            <p class="ff-product-card__meta">{{ product.meta }}</p>
+        }
+
+        @if (product.tags?.length) {
+            <ul class="ff-product-card__tags">
+                @for (tag of product.tags; track tag) {
+                    <li [class]="'ff-product-card__tag ' + tagClass(tag)">
+                        {{ tag }}
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (product.packNote) {
+            <p class="ff-product-card__pack">
+                <mat-icon
+                    class="ff-product-card__pack-icon"
+                    svgIcon="heroicons_outline:cube"
+                    aria-hidden="true"
+                ></mat-icon>
+                {{ product.packNote }}
             </p>
         }
 
@@ -145,6 +181,17 @@
             </p>
         }
 
+        @if (product.updatedNote) {
+            <p class="ff-product-card__updated">
+                <mat-icon
+                    class="ff-product-card__updated-icon"
+                    svgIcon="heroicons_outline:clock"
+                    aria-hidden="true"
+                ></mat-icon>
+                {{ t('productCard.updated', { when: product.updatedNote }) }}
+            </p>
+        }
+
         <!-- Foot: price left, cart action right (always reachable, not on hover) -->
         <div class="ff-product-card__foot">
             <span class="ff-product-card__price">
@@ -153,13 +200,20 @@
                         product.oldPrice
                     }}</span>
                 }
-                <span
-                    class="ff-product-card__price-now"
-                    [class.ff-product-card__price-now--sale]="
-                        !!product.oldPrice
-                    "
-                    >{{ product.price }}</span
-                >
+                <span class="ff-product-card__price-line">
+                    <span
+                        class="ff-product-card__price-now"
+                        [class.ff-product-card__price-now--sale]="
+                            !!product.oldPrice
+                        "
+                        >{{ product.price }}</span
+                    >
+                    @if (product.priceUnit) {
+                        <span class="ff-product-card__price-unit"
+                            >/{{ product.priceUnit }}</span
+                        >
+                    }
+                </span>
             </span>
 
             @if (showAddToCart) {

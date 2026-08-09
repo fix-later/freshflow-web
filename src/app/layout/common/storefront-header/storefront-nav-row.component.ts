@@ -18,6 +18,7 @@ import { TranslocoModule } from '@jsverse/transloco';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
 import { Subject, takeUntil } from 'rxjs';
+import { HotDealsMenuComponent } from './hot-deals-menu.component';
 
 /**
  * The storefront's primary navigation row: horizontal nav on the left, support
@@ -28,6 +29,10 @@ import { Subject, takeUntil } from 'rxjs';
  *
  * `embedded` — render only the inner row (no full-bleed chrome) so a parent
  * grid can place it beside a logo that spans this row and the main bar.
+ *
+ * The Hot Deals entry is its own component ({@link HotDealsMenuComponent}) —
+ * it opens a panel of the market's featured listings rather than being a plain
+ * link.
  */
 @Component({
     selector: 'storefront-nav-row',
@@ -45,6 +50,7 @@ import { Subject, takeUntil } from 'rxjs';
     standalone: true,
     imports: [
         NgTemplateOutlet,
+        HotDealsMenuComponent,
         MatIconModule,
         MatMenuModule,
         RouterLink,

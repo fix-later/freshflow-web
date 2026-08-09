@@ -210,6 +210,15 @@
         font-size: 0.75rem;
         color: #94a3b8;
     }
+
+    &__recurring-link {
+        align-self: flex-start;
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+        font-size: 0.8125rem;
+        font-weight: 700;
+    }
 }
 
 .checkout-card {

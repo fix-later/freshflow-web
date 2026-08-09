@@ -35,6 +35,7 @@ import {
     nonBlankValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
 import {
     CLAIM_ELIGIBLE_ORDER_STATUSES,
@@ -65,6 +66,7 @@ import {
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        AccountShellComponent,
         MatButtonModule,
         MatFormFieldModule,
         MatIconModule,
@@ -516,6 +518,44 @@ export class OrderDetailComponent implements OnInit {
             })
             .catch((err) => void this._reportAction(err))
             .finally(() => this.acting.set(false));
+    }
+
+    /**
+     * "Đặt định kỳ từ đơn này" — hands this order's items to the recurring-order
+     * page's create form. Works for any order (including past/delivered ones,
+     * same reach as reorder), and this order is left completely untouched —
+     * same non-destructive convention as reorder.
+     */
+    goToRecurring(): void {
+        const order = this.order();
+        if (!order) {
+            return;
+        }
+        // Merge by marketProductId — an order can carry more than one line for
+        // the same product (repeat adds sum quantity rather than being
+        // rejected), and the schedule's item picker treats marketProductId as
+        // a unique key everywhere else.
+        const merged = new Map<string, number>();
+        for (const item of order.items ?? []) {
+            if (!item.marketProductId || !item.quantity) {
+                continue;
+            }
+            merged.set(
+                item.marketProductId,
+                (merged.get(item.marketProductId) ?? 0) + item.quantity
+            );
+        }
+        void this._router.navigate(['/profile/scheduled'], {
+            state: {
+                prefillItems: Array.from(
+                    merged,
+                    ([marketProductId, quantity]) => ({
+                        marketProductId,
+                        quantity,
+                    })
+                ),
+            },
+        });
     }
 
     formatDate(value: string | null | undefined): string {

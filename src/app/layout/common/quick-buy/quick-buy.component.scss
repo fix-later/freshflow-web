@@ -1,0 +1,720 @@
+/*
+ * AI shopping assistant — launcher + panel.
+ *
+ * Colour, type and elevation come from theme tokens only (`specs/design/TOKENS.md`);
+ * this file carries layout, the two surface shapes (desktop card / mobile
+ * sheet) and the motion those need. Durations and easing follow
+ * `specs/design/MOTION.md`: short (100–150ms) for controls, medium (200–300ms)
+ * for the surface, standard easing `cubic-bezier(0.25, 0.8, 0.25, 1)`,
+ * decelerate in / accelerate out, no overshoot.
+ *
+ * Styles are global (`ViewEncapsulation.None`), so everything is namespaced
+ * `ff-qb-*`.
+ */
+
+$ff-qb-ease-standard: cubic-bezier(0.25, 0.8, 0.25, 1);
+$ff-qb-ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+$ff-qb-ease-accelerate: cubic-bezier(0.4, 0, 1, 1);
+
+quick-buy {
+    display: contents;
+}
+
+/* ── Trigger ───────────────────────────────────────────────────────────── */
+
+/*
+ * Lives in the header toolbar with the other tools, and inherits their
+ * hover/focus motion from `ff-header-icon`. Only the open state is added here:
+ * this control toggles a surface that stays up, so unlike its siblings it needs
+ * to look pressed while that surface is on screen.
+ */
+.ff-qb-trigger {
+    transition: background-color 150ms $ff-qb-ease-standard;
+
+    &--active {
+        @apply bg-primary text-on-primary;
+
+        &:hover {
+            @apply bg-primary-600;
+        }
+    }
+}
+
+/* On the dark header surface navy reads as a hole; mint is the token for the
+   dark case (TOKENS.md § Color usage). */
+.dark .ff-qb-trigger--active {
+    @apply bg-accent text-on-accent;
+
+    &:hover {
+        @apply bg-accent-400;
+    }
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────── */
+
+/*
+ * Full-screen, one shape at every width, rolling down from the top edge.
+ *
+ * `100dvh` rather than `100vh`: on mobile browsers the toolbar collapses as the
+ * page scrolls, and a `vh`-sized surface is measured against the *expanded*
+ * viewport — the composer would sit below the fold until the user scrolled a
+ * page that no longer scrolls. `vh` stays as the fallback for engines without
+ * dynamic viewport units.
+ */
+.ff-qb-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 96;
+    display: flex;
+    height: 100vh;
+    height: 100dvh;
+    flex-direction: column;
+    overflow: hidden;
+    animation: ff-qb-drop-in 250ms $ff-qb-ease-decelerate;
+    @apply bg-card;
+}
+
+/*
+ * The centred column inside each full-width band. A conversation set in
+ * 1440px-wide lines is unreadable, and a composer that wide is a target the
+ * eye has to travel to.
+ */
+.ff-qb-col {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 48rem;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+
+.ff-qb-head {
+    flex: none;
+    border-bottom: 1px solid var(--fuse-border);
+    padding: 0.875rem 1rem;
+
+    @media (min-width: 600px) {
+        padding-inline: 1.5rem;
+    }
+
+    &__inner {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    &__mark {
+        display: flex;
+        height: 2.25rem;
+        width: 2.25rem;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        @apply bg-primary-50 text-primary;
+    }
+
+    &__copy {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    &__title {
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: theme('fontSize.lg');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__subtitle {
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: theme('fontSize.sm');
+        @apply text-secondary;
+    }
+}
+
+.dark .ff-qb-head__mark {
+    /* Navy is unreadable on the dark card; mint is the token for that case. */
+    @apply bg-accent-900 text-accent-100;
+}
+
+.ff-qb-icon-btn {
+    display: inline-flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    transition: background-color 150ms $ff-qb-ease-standard;
+    @apply text-secondary;
+
+    &:hover:not(:disabled) {
+        @apply text-default bg-hover;
+    }
+
+    &:disabled {
+        @apply text-disabled;
+    }
+}
+
+/* ── Thread ────────────────────────────────────────────────────────────── */
+
+.ff-qb-thread {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 1.5rem 1rem;
+    @apply bg-default;
+
+    /* The scroller is the full-width band; the column inside it is what holds
+       the messages, so it has to be the flex context and to fill the height —
+       otherwise the empty state has nothing to centre itself in. */
+    &__inner {
+        display: flex;
+        min-height: 100%;
+        flex-direction: column;
+        gap: 0.625rem;
+    }
+}
+
+.ff-qb-row {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    /* Stagger is per-message and tiny: it explains "this one is new", it does
+       not perform. */
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+
+    &--user {
+        align-items: flex-end;
+    }
+}
+
+/*
+ * User vs assistant is carried by **shape and surface**, not colour alone:
+ * the user's bubble is filled and notched at the bottom-right, the
+ * assistant's is a bordered card notched at the bottom-left. That reads the
+ * same in light and dark, and for anyone who cannot separate the two hues.
+ */
+.ff-qb-bubble {
+    display: flex;
+    max-width: 85%;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-radius: 1rem 1rem 1rem 0.25rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.625rem 0.875rem;
+    font-size: theme('fontSize.base');
+    line-height: 1.55;
+    @apply text-default bg-card;
+
+    &--user {
+        border-color: transparent;
+        border-radius: 1rem 1rem 0.25rem 1rem;
+        @apply bg-primary text-on-primary;
+    }
+
+    &--failed {
+        @apply border-warn bg-red-50 text-warn;
+    }
+
+    &__icon {
+        margin-top: 0.1875rem;
+        flex: none;
+    }
+
+    /* Replies are plain text — no markdown renderer — so newlines the model
+       sent are honoured here rather than collapsing into one paragraph. */
+    &__text {
+        margin: 0;
+        min-width: 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+}
+
+.dark .ff-qb-bubble--failed {
+    @apply border-red-700 bg-red-900 text-red-100;
+}
+
+.ff-qb-retry {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    padding: 0.125rem 0.5rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 600;
+    @apply text-primary;
+
+    &:hover {
+        @apply bg-hover;
+    }
+}
+
+/* Three dots, staggered. Replaces a centred spinner: the wait belongs in the
+   thread, where the answer will appear, not over the whole panel. */
+.ff-qb-typing {
+    gap: 0.25rem;
+    padding: 0.75rem 0.875rem;
+    @apply text-secondary;
+
+    /* `currentColor` on the bubble's own secondary ink: there is no
+       `bg-secondary` token — the theme publishes secondary as text only. */
+    &__dot {
+        height: 0.4375rem;
+        width: 0.4375rem;
+        border-radius: 9999px;
+        background-color: currentcolor;
+        animation: ff-qb-typing 1200ms $ff-qb-ease-standard infinite;
+
+        &:nth-child(3) {
+            animation-delay: 160ms;
+        }
+
+        &:nth-child(4) {
+            animation-delay: 320ms;
+        }
+    }
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+
+.ff-qb-empty {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem 0.5rem;
+    text-align: center;
+
+    &__mark {
+        display: flex;
+        height: 3.5rem;
+        width: 3.5rem;
+        align-items: center;
+        justify-content: center;
+        border-radius: 9999px;
+        @apply bg-primary-50 text-primary;
+    }
+
+    &__title {
+        margin: 0.875rem 0 0;
+        font-size: theme('fontSize.lg');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__lead {
+        margin: 0.375rem 0 0;
+        max-width: 30ch;
+        font-size: theme('fontSize.base');
+        @apply text-secondary;
+    }
+}
+
+.dark .ff-qb-empty__mark {
+    @apply bg-accent-900 text-accent-100;
+}
+
+.ff-qb-chips {
+    display: flex;
+    margin: 1.25rem 0 0;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0;
+    list-style: none;
+}
+
+.ff-qb-chip {
+    border-radius: 9999px;
+    border: 1px solid var(--fuse-border);
+    padding: 0.375rem 0.75rem;
+    text-align: left;
+    font-size: theme('fontSize.sm');
+    transition:
+        border-color 150ms $ff-qb-ease-standard,
+        background-color 150ms $ff-qb-ease-standard;
+    @apply text-default bg-card;
+
+    &:hover:not(:disabled) {
+        @apply border-primary text-primary;
+    }
+
+    &:disabled {
+        @apply text-disabled;
+    }
+}
+
+/* ── Confirmation receipt ──────────────────────────────────────────────── */
+
+.ff-qb-receipt {
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    padding: 1rem;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+    @apply bg-card;
+
+    &__head {
+        display: flex;
+        align-items: flex-start;
+        gap: 0.625rem;
+        border-bottom: 1px dashed var(--fuse-border);
+        padding-bottom: 0.75rem;
+    }
+
+    &__title {
+        margin: 0;
+        font-size: theme('fontSize.base');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__lead {
+        margin: 0.125rem 0 0;
+        font-size: theme('fontSize.sm');
+        @apply text-secondary;
+    }
+
+    &__alert {
+        margin: 0.75rem 0 0;
+        border-radius: 0.625rem;
+        padding: 0.5rem 0.625rem;
+        font-size: theme('fontSize.sm');
+        @apply bg-red-50 text-warn;
+    }
+
+    &__issues {
+        display: flex;
+        margin: 0.75rem 0 0;
+        flex-direction: column;
+        gap: 0.375rem;
+        padding: 0;
+        list-style: none;
+
+        li {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.375rem;
+            font-size: theme('fontSize.sm');
+            @apply text-warn;
+        }
+    }
+
+    &__actions {
+        display: flex;
+        margin-top: 1rem;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+    }
+}
+
+.dark .ff-qb-receipt__alert {
+    @apply bg-red-900 text-red-100;
+}
+
+/* Bill lines: label left, figure right, monospaced so the column aligns. */
+.ff-qb-lines {
+    display: flex;
+    margin: 0.75rem 0 0;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.ff-qb-line {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: theme('fontSize.base');
+
+    dt {
+        min-width: 0;
+        @apply text-secondary;
+    }
+
+    dd {
+        margin: 0;
+        text-align: right;
+        font-variant-numeric: tabular-nums;
+        @apply text-default font-mono;
+    }
+
+    &__note {
+        margin-left: 0.375rem;
+        font-size: theme('fontSize.xs');
+        @apply text-hint;
+    }
+}
+
+/* The figure the decision turns on. */
+.ff-qb-total {
+    display: flex;
+    margin-top: 0.75rem;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid var(--fuse-border);
+    padding-top: 0.75rem;
+    font-size: theme('fontSize.base');
+    font-weight: 700;
+    @apply text-default;
+
+    &__value {
+        font-size: theme('fontSize.xl');
+        font-variant-numeric: tabular-nums;
+        @apply font-mono text-primary;
+    }
+}
+
+.dark .ff-qb-total__value {
+    @apply text-accent-300;
+}
+
+/* What is left on the credit line after this order — the second number a
+   restaurant checks before agreeing to spend. */
+.ff-qb-credit {
+    display: flex;
+    margin-top: 0.5rem;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    border-radius: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    font-size: theme('fontSize.sm');
+    @apply text-secondary bg-default;
+
+    &__value {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        @apply text-default font-mono;
+    }
+}
+
+/* ── Buttons ───────────────────────────────────────────────────────────── */
+
+.ff-qb-btn-filled {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.5rem 1.125rem;
+    font-size: theme('fontSize.base');
+    font-weight: 600;
+    transition: background-color 150ms $ff-qb-ease-standard;
+    @apply bg-primary text-on-primary;
+
+    &:hover:not(:disabled) {
+        @apply bg-primary-600;
+    }
+
+    &:disabled {
+        opacity: 0.6;
+    }
+}
+
+.ff-qb-btn-text {
+    border-radius: 9999px;
+    padding: 0.5rem 0.875rem;
+    font-size: theme('fontSize.base');
+    font-weight: 600;
+    transition: background-color 150ms $ff-qb-ease-standard;
+    @apply text-secondary;
+
+    &:hover:not(:disabled) {
+        @apply text-default bg-hover;
+    }
+
+    &:disabled {
+        @apply text-disabled;
+    }
+}
+
+/* Inline spinner for the confirm button's loading state — a ring on the
+   button's own ink, so it works on the filled surface in both themes. */
+.ff-qb-btn-spinner {
+    height: 0.875rem;
+    width: 0.875rem;
+    flex: none;
+    border-radius: 9999px;
+    border: 2px solid currentcolor;
+    border-top-color: transparent;
+    animation: ff-qb-spin 700ms linear infinite;
+}
+
+/* ── Composer ──────────────────────────────────────────────────────────── */
+
+.ff-qb-composer {
+    flex: none;
+    border-top: 1px solid var(--fuse-border);
+    padding: 0.75rem 1rem 1rem;
+    @apply bg-card;
+
+    &__inner {
+        display: flex;
+        align-items: flex-end;
+        gap: 0.5rem;
+    }
+
+    &__input {
+        min-height: 2.5rem;
+        max-height: 7.5rem;
+        min-width: 0;
+        flex: 1 1 auto;
+        resize: none;
+        border-radius: 1.25rem;
+        border: 1px solid var(--fuse-border);
+        padding: 0.5rem 0.875rem;
+        font-family: inherit;
+        font-size: theme('fontSize.base');
+        line-height: 1.5;
+        outline: none;
+        transition: border-color 150ms $ff-qb-ease-standard;
+        @apply text-default bg-default;
+
+        &:focus {
+            @apply border-primary;
+        }
+
+        &:disabled {
+            @apply text-disabled;
+        }
+    }
+}
+
+.ff-qb-send {
+    display: inline-flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    transition:
+        background-color 150ms $ff-qb-ease-standard,
+        opacity 150ms $ff-qb-ease-standard;
+    @apply bg-primary text-on-primary;
+
+    &:hover:not(:disabled) {
+        @apply bg-primary-600;
+    }
+
+    &:disabled {
+        opacity: 0.45;
+    }
+}
+
+.ff-qb-counter {
+    margin: 0;
+    flex: none;
+    padding: 0 1rem 0.625rem;
+    text-align: right;
+    font-size: theme('fontSize.xs');
+    @apply text-hint bg-card;
+}
+
+/* ── Motion ────────────────────────────────────────────────────────────── */
+
+/*
+ * The surface rolls down from the top edge — the direction the trigger sits in,
+ * so the panel reads as coming from the control that opened it. Opacity rides
+ * along so the last few pixels do not snap.
+ */
+@keyframes ff-qb-drop-in {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -100%, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes ff-qb-message-in {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 0.375rem, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes ff-qb-typing {
+    0%,
+    60%,
+    100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+
+    30% {
+        opacity: 1;
+        transform: translateY(-0.1875rem);
+    }
+}
+
+@keyframes ff-qb-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/*
+ * Reduced motion: the surfaces still appear and the dots still mark "working",
+ * but nothing travels. Per MOTION.md, non-essential motion is disabled
+ * entirely rather than merely shortened — the typing dots keep a pulse because
+ * that pulse *is* the status, and losing it would leave a silent wait.
+ */
+@media (prefers-reduced-motion: reduce) {
+    .ff-qb-panel,
+    .ff-qb-row,
+    .ff-qb-receipt {
+        animation: none;
+    }
+
+    .ff-qb-trigger,
+    .ff-qb-chip,
+    .ff-qb-icon-btn,
+    .ff-qb-btn-filled,
+    .ff-qb-btn-text,
+    .ff-qb-send,
+    .ff-qb-composer__input {
+        transition: none;
+    }
+
+    .ff-qb-typing__dot {
+        animation: ff-qb-fade-pulse 1600ms steps(2, end) infinite;
+    }
+
+    .ff-qb-btn-spinner {
+        animation-duration: 2s;
+    }
+}
+
+@keyframes ff-qb-fade-pulse {
+    0%,
+    100% {
+        opacity: 0.3;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}

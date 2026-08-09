@@ -51,6 +51,35 @@
                     }
                 </mat-select>
             </mat-form-field>
+
+            <!-- The queue is cursor-paged with no id filter, so a claim quoted
+                 elsewhere (audit log, notification) is otherwise only reachable
+                 by paging until it shows up. -->
+            <mat-form-field
+                class="fuse-mat-dense fuse-mat-rounded w-72 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:hashtag"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    [formControl]="claimIdLookup"
+                    [placeholder]="t('admin.claims.filter.claimId')"
+                    (keyup.enter)="lookupClaim(detailDialog)"
+                />
+            </mat-form-field>
+            <button
+                mat-stroked-button
+                type="button"
+                [disabled]="!claimIdLookup.value.trim()"
+                (click)="lookupClaim(detailDialog)"
+            >
+                {{ t('admin.claims.filter.open') }}
+            </button>
         </div>
     </div>
 
@@ -142,6 +171,22 @@
                                 }
                             </div>
                             <div class="flex justify-end gap-2">
+                                <!-- Re-reads the claim by id, so the panel
+                                     shows the current state and the full
+                                     record the row has to truncate. -->
+                                <button
+                                    mat-icon-button
+                                    type="button"
+                                    [matTooltip]="t('admin.claims.detail.open')"
+                                    (click)="
+                                        openDetail(row, row.id, detailDialog)
+                                    "
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:eye"
+                                    ></mat-icon>
+                                </button>
                                 <!-- Only a `submitted` claim can be decided;
                                      anything else is already terminal. -->
                                 @if (canDecide(row)) {
@@ -221,6 +266,195 @@
         </div>
     </div>
 </div>
+
+<!-- One claim, re-read by id (`GET /claims/{claimId}`) -->
+<ng-template #detailDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-140 md:min-w-140"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="min-w-0">
+                <div class="text-lg font-medium">
+                    {{ t('admin.claims.detail.title') }}
+                </div>
+                <div class="text-secondary truncate font-mono text-xs">
+                    {{ viewingId() }}
+                </div>
+            </div>
+            <div class="flex flex-0 items-center">
+                <button
+                    mat-icon-button
+                    type="button"
+                    [disabled]="viewLoading()"
+                    [matTooltip]="t('common.retry')"
+                    (click)="reloadDetail()"
+                >
+                    <mat-icon
+                        class="text-current icon-size-5"
+                        svgIcon="heroicons_outline:arrow-path"
+                    ></mat-icon>
+                </button>
+                <button
+                    mat-icon-button
+                    type="button"
+                    [tabIndex]="-1"
+                    (click)="closeDetail()"
+                >
+                    <mat-icon
+                        class="text-current"
+                        svgIcon="heroicons_outline:x-mark"
+                    ></mat-icon>
+                </button>
+            </div>
+        </div>
+
+        @if (viewLoading()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            @if (viewError(); as message) {
+                <div
+                    class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    role="alert"
+                >
+                    <mat-icon
+                        class="shrink-0 text-red-500 icon-size-5"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    <span class="min-w-0 flex-auto">{{ message }}</span>
+                </div>
+            }
+
+            @if (viewing(); as claim) {
+                <div class="flex items-center gap-3">
+                    <span [class]="statusPillClass(claim.status)">{{
+                        statusLabel(claim.status)
+                    }}</span>
+                    <span class="ml-auto text-2xl font-bold tabular-nums">{{
+                        money(claim.amount)
+                    }}</span>
+                </div>
+
+                <div class="mt-4 rounded-xl border p-4 text-sm">
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.table.order')
+                        }}</span>
+                        <span class="break-all font-mono text-xs">{{
+                            claim.orderId || '—'
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.table.restaurant')
+                        }}</span>
+                        <span class="break-all font-mono text-xs">{{
+                            claim.restaurantId || '—'
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.detail.filedBy')
+                        }}</span>
+                        <span class="break-all font-mono text-xs">{{
+                            claim.createdBy || '—'
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.detail.filedAt')
+                        }}</span>
+                        <span>{{ formatDate(claim.createdAt) }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <div class="text-secondary text-xs uppercase">
+                        {{ t('admin.claims.table.reason') }}
+                    </div>
+                    <div class="mt-1 break-words text-sm">
+                        {{ claim.reason || '—' }}
+                    </div>
+                </div>
+
+                <!-- The decision half: only meaningful once one has been made,
+                     and the refund id is the proof the money actually moved. -->
+                @if (claim.reviewedAt || claim.decisionNote) {
+                    <div class="mt-4 rounded-xl border p-4 text-sm">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.claims.detail.decision') }}
+                        </div>
+                        <div class="mt-2 flex justify-between gap-4 py-1">
+                            <span class="text-secondary">{{
+                                t('admin.claims.detail.reviewedBy')
+                            }}</span>
+                            <span class="break-all font-mono text-xs">{{
+                                claim.reviewedBy || '—'
+                            }}</span>
+                        </div>
+                        <div class="flex justify-between gap-4 py-1">
+                            <span class="text-secondary">{{
+                                t('admin.claims.detail.reviewedAt')
+                            }}</span>
+                            <span>{{ formatDate(claim.reviewedAt) }}</span>
+                        </div>
+                        @if (claim.refundTransactionId) {
+                            <div class="flex justify-between gap-4 py-1">
+                                <span class="text-secondary">{{
+                                    t('admin.claims.detail.refundTransaction')
+                                }}</span>
+                                <span class="break-all font-mono text-xs">{{
+                                    claim.refundTransactionId
+                                }}</span>
+                            </div>
+                        }
+                        @if (claim.decisionNote) {
+                            <div class="mt-2 border-t pt-2">
+                                <div class="text-secondary text-xs uppercase">
+                                    {{ t('admin.claims.detail.note') }}
+                                </div>
+                                <div class="mt-1 break-words">
+                                    {{ claim.decisionNote }}
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <!-- Decidable is judged on the copy just re-read, not on the
+                         list row that opened this. -->
+                    @if (canDecide(claim)) {
+                        <button
+                            mat-stroked-button
+                            color="warn"
+                            type="button"
+                            (click)="openReview(claim, 'reject', reviewDialog)"
+                        >
+                            {{ t('admin.claims.review.reject') }}
+                        </button>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            (click)="openReview(claim, 'approve', reviewDialog)"
+                        >
+                            {{ t('admin.claims.review.approve') }}
+                        </button>
+                    } @else {
+                        <span class="text-secondary self-center text-xs">{{
+                            t('admin.claims.review.decided')
+                        }}</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</ng-template>
 
 <!-- Approve / reject a claim -->
 <ng-template #reviewDialog>
