@@ -1,17 +1,12 @@
-import { CatalogProduct } from 'app/modules/catalog/catalog.types';
-
 /**
  * Models for the storefront landing (`/home`).
  *
- * Split deliberately into two groups: what the backend can answer today, and
- * what it cannot. Records in the second group carry `source: 'stub'`, which is
- * a literal type rather than a comment so the marker cannot be dropped silently
- * when a real endpoint arrives, and so every placeholder is greppable.
+ * Everything here is backed by a real endpoint. The file used to carry a second
+ * group of stubbed records marked `source: 'stub'`; those went with the two
+ * sections that consumed them (see the note at the end).
  *
  * See the Gap Register in `specs/004-storefront-landing/plan.md`.
  */
-
-// ── Real data ────────────────────────────────────────────────────────────────
 
 /**
  * A product category presented as an area of the market. The buyer is picking
@@ -23,8 +18,6 @@ export interface MarketZone {
     nameEn: string;
     /** `CategoryDto.ImageUrl`; empty when the category has no artwork yet. */
     imageUrl: string;
-    /** Zone marker shown when there is no artwork, and beside the name. */
-    marker: string;
     /**
      * Products in this category across the catalogue. Not market-scoped: the
      * listing endpoint reports no total. See `CatalogService.categoryCounts`.
@@ -62,54 +55,7 @@ export interface OrderCutoffView {
     deliveryWindowDays: number;
 }
 
-// ── Stubbed data (no backend exists) ─────────────────────────────────────────
-
-/** Marks a record whose data is a front-end placeholder, not a system fact. */
-export type StubSource = 'stub';
-
-/**
- * A kind of F&B operation. **Stub** — nothing in either repository models a
- * restaurant's cuisine or business type.
- */
-export interface BusinessKind {
-    id: string;
-    name: string;
-    nameEn: string;
-    marker: string;
-    /** A property of the placeholder, not a measurement of anything. */
-    ingredientCount: number;
-    source: StubSource;
-}
-
-/**
- * A set of products one kind of kitchen buys together. **Stub.**
- *
- * Members are held as **product names**, not ids: a hardcoded id is meaningless
- * outside one database, whereas a name can be resolved against whatever catalogue
- * is actually present. Unresolvable members render as unavailable rather than
- * disappearing, so the basket degrades honestly instead of lying.
- */
-export interface RecommendedBasket {
-    id: string;
-    businessKindId: string;
-    name: string;
-    nameEn: string;
-    memberNames: readonly string[];
-    source: StubSource;
-}
-
-/**
- * One basket member resolved against the selected market. Runtime only — this
- * is never stored or fetched.
- */
-export interface BasketLine {
-    /** The requested name, shown even when nothing matched it. */
-    label: string;
-    /** `null` when this market does not list the product. */
-    product: CatalogProduct | null;
-    quantity: number;
-    /** The buyer can drop a line before adding the basket. */
-    included: boolean;
-    /** Only available lines can enter an order. */
-    available: boolean;
-}
+// The stubbed `BusinessKind` / `RecommendedBasket` / `BasketLine` types lived
+// here, along with `StorefrontStubService` that supplied their placeholder
+// data. Both went with the recommended-basket and "Mai bán gì?" sections —
+// every remaining section resolves its data from a real endpoint.

@@ -9,8 +9,9 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantInvoicesService } from '../../restaurant-invoices.service';
 import { invoiceStatusPillClass } from '../../restaurant-invoices.status';
 import { InvoiceRow } from '../../restaurant-invoices.types';
@@ -29,10 +30,10 @@ const DERIVED_ROW_KEYS = new Set(['id', 'items']);
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        AccountShellComponent,
         MatButtonModule,
         MatIconModule,
         MatProgressBarModule,
-        RouterLink,
         TranslocoModule,
     ],
 })

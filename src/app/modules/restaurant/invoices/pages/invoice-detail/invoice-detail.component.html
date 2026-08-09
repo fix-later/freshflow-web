@@ -1,24 +1,18 @@
-<div class="ff-page flex flex-col" *transloco="let t">
-    <div class="px-6 pt-6 md:px-8">
-        <nav
-            class="text-hint flex items-center gap-1 text-sm"
-            aria-label="Breadcrumb"
-        >
-            <a
-                routerLink="/profile"
-                [queryParams]="{ tab: 'invoices' }"
-                class="font-medium text-primary hover:underline"
-            >
-                {{ t('restaurantInvoices.title') }}
-            </a>
-            <mat-icon
-                class="text-hint icon-size-4"
-                svgIcon="heroicons_mini:chevron-right"
-            ></mat-icon>
-            <span>{{ invoice()?.id?.slice(0, 8) }}</span>
-        </nav>
-    </div>
+<!--
+  Inside the account shell, like the list it was opened from — see the note in
+  `order-detail.component.html`.
 
+  This also retires a back-link that no longer went anywhere: it pointed at
+  `/profile` with `?tab=invoices`, from when the area was one tabbed page. The
+  list has been its own route (`/profile/invoices`) since, and `/profile`
+  redirects to the dashboard, dropping the query param on the way.
+-->
+<account-shell
+    [titleKey]="'restaurantProfile.tabs.invoices'"
+    [breadcrumbKey]="'restaurantProfile.tabs.invoices'"
+    [backLink]="'/profile/invoices'"
+    *transloco="let t"
+>
     @if (loading()) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
@@ -30,7 +24,8 @@
             {{ t('restaurantInvoices.notFound') }}
         </div>
     } @else if (invoice(); as invoice) {
-        <div class="flex flex-col gap-6 px-6 py-6 md:px-8">
+        <!-- No page gutters: the shell's content slot already pads. -->
+        <div class="flex flex-col gap-6">
             <div class="flex items-center gap-3">
                 <h1 class="text-2xl font-semibold tracking-tight">
                     {{ invoice.id.slice(0, 8) }}
@@ -87,4 +82,4 @@
             }
         </div>
     }
-</div>
+</account-shell>

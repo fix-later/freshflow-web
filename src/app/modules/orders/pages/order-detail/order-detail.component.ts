@@ -35,6 +35,7 @@ import {
     nonBlankValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
 import {
     CLAIM_ELIGIBLE_ORDER_STATUSES,
@@ -65,6 +66,7 @@ import {
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        AccountShellComponent,
         MatButtonModule,
         MatFormFieldModule,
         MatIconModule,

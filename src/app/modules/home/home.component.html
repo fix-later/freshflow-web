@@ -11,28 +11,13 @@
     <!-- 4. Mỗi chợ một thế mạnh -->
     <market-specialties data-testid="landing-markets"></market-specialties>
 
-    <!-- 5. Mọi người thường mua. Anchored so section 6 can bring the buyer
-         back up to it after they pick a kitchen type. -->
-    <div #basketSection>
-        <recommended-basket
-            data-testid="landing-basket"
-            [businessKindId]="selectedKindId()"
-        ></recommended-basket>
-    </div>
-
-    <!-- 6. Mai bán gì? -->
-    <tomorrow-menu
-        data-testid="landing-tomorrow"
-        (kindSelected)="onKindSelected($event)"
-    ></tomorrow-menu>
-
-    <!-- 7. Đơn hàng ngày mai -->
+    <!-- 5. Đơn hàng ngày mai -->
     <order-cutoff data-testid="landing-cutoff"></order-cutoff>
 
-    <!-- 8. Freshflow đi chợ thế nào? -->
+    <!-- 6. Freshflow đi chợ thế nào? -->
     <freshflow-process data-testid="landing-process"></freshflow-process>
 
-    <!-- 9. Final CTA. Inline: a headline and one button. -->
+    <!-- 7. Final CTA. Inline: a headline and one button. -->
     <section class="ff-landing-cta" data-testid="landing-final-cta">
         <div class="ff-landing-cta__inner">
             <div class="ff-landing-cta__copy">

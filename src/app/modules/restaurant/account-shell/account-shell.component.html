@@ -20,18 +20,35 @@
                 *transloco="let t"
             >
                 <div class="min-w-0">
-                    <div
-                        class="text-secondary flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5"
-                    >
-                        <span>{{ t(breadcrumbRootKey()) }}</span>
-                        <mat-icon
-                            class="text-hint icon-size-3"
-                            [svgIcon]="'heroicons_mini:chevron-right'"
-                        ></mat-icon>
-                        <span class="text-default font-medium">{{
-                            t(breadcrumbKey())
-                        }}</span>
-                    </div>
+                    @if (isDetail()) {
+                        <!-- A detail page gets the way *back*, not a trail: it
+                             is reached from one place at a time, and that place
+                             is what its reader wants next. -->
+                        <button
+                            class="account-shell__back"
+                            type="button"
+                            (click)="goBack()"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="'heroicons_mini:arrow-left'"
+                            ></mat-icon>
+                            <span>{{ t(backLabelKey()) }}</span>
+                        </button>
+                    } @else {
+                        <div
+                            class="text-secondary flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm leading-5"
+                        >
+                            <span>{{ t(breadcrumbRootKey()) }}</span>
+                            <mat-icon
+                                class="text-hint icon-size-3"
+                                [svgIcon]="'heroicons_mini:chevron-right'"
+                            ></mat-icon>
+                            <span class="text-default font-medium">{{
+                                t(breadcrumbKey())
+                            }}</span>
+                        </div>
+                    }
                     <h1
                         class="text-default mt-1 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl"
                     >

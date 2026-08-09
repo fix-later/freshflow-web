@@ -1,23 +1,16 @@
-<div class="ff-page flex flex-col" *transloco="let t">
-    <div class="px-6 pt-6 md:px-8">
-        <nav
-            class="text-hint flex items-center gap-1 text-sm"
-            aria-label="Breadcrumb"
-        >
-            <a
-                routerLink="/orders"
-                class="font-medium text-primary hover:underline"
-            >
-                {{ t('orders.title') }}
-            </a>
-            <mat-icon
-                class="text-hint icon-size-4"
-                svgIcon="heroicons_mini:chevron-right"
-            ></mat-icon>
-            <span>{{ order()?.id?.slice(0, 8) }}</span>
-        </nav>
-    </div>
-
+<!--
+  Inside the account shell, like the list it was opened from: the rail lists
+  every account destination on every page in the area, and dropping it here
+  stranded the buyer on a page with no way back except the browser's Back.
+  The shell supplies the column, padding, breadcrumb and section heading, so
+  this page keeps only what is about the order itself.
+-->
+<account-shell
+    [titleKey]="'restaurantProfile.tabs.orders'"
+    [breadcrumbKey]="'restaurantProfile.tabs.orders'"
+    [backLink]="'/orders'"
+    *transloco="let t"
+>
     @if (notFound()) {
         <div
             class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
@@ -37,7 +30,8 @@
             }}</a>
         </div>
     } @else if (order(); as order) {
-        <div class="flex flex-col gap-6 px-6 py-6 md:px-8">
+        <!-- No page gutters: the shell's content slot already pads. -->
+        <div class="flex flex-col gap-6">
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div class="flex items-center gap-3">
                     <h1 class="text-2xl font-semibold tracking-tight">
@@ -563,4 +557,4 @@
             </div>
         </div>
     }
-</div>
+</account-shell>

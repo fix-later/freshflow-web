@@ -223,3 +223,31 @@
     font-size: 0.875rem;
     line-height: 1.25rem;
 }
+
+/*
+ * Detail-page back control, in place of the breadcrumb. A pill rather than a
+ * bare link: it is the one navigation on the page, and it sits where the trail
+ * used to, so it needs enough weight to read as a control.
+ */
+.account-shell__back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-left: -0.625rem;
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition: background-color 150ms cubic-bezier(0.25, 0.8, 0.25, 1);
+    @apply text-primary;
+
+    &:hover {
+        @apply bg-hover;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .account-shell__back {
+        transition: none;
+    }
+}
