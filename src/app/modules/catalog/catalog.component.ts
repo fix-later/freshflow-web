@@ -35,6 +35,7 @@ import { FavoritesService } from 'app/layout/common/favorites/favorites.service'
 import { categoryVisual } from 'app/shared/product-card/category-visual';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
+import { tagClass } from 'app/shared/tag-visual';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import {
     CATALOG_PAGE_SIZE,
@@ -100,8 +101,6 @@ export class CatalogComponent implements OnInit {
         this._route.snapshot.queryParamMap.get('q') ?? '',
         { nonNullable: true }
     );
-    readonly priceMinControl = new FormControl<number | null>(null);
-    readonly priceMaxControl = new FormControl<number | null>(null);
     /**
      * Seeded from `?category=` so a link into the catalog (the header's mega
      * menu) lands already filtered, not on the unfiltered "all products" view.
@@ -112,8 +111,6 @@ export class CatalogComponent implements OnInit {
     readonly searchTerm = signal<string>(
         this._route.snapshot.queryParamMap.get('q') ?? ''
     );
-    readonly priceMin = signal<number | null>(null);
-    readonly priceMax = signal<number | null>(null);
     readonly sortOption = signal<SortOption>('');
 
     /**
@@ -143,15 +140,17 @@ export class CatalogComponent implements OnInit {
 
     /** Root categories the user has opened in the sidebar. */
     readonly expandedCategories = signal<ReadonlySet<string>>(new Set());
-    /** Material accordion panels — categories + price + offers start open. */
+    /** Material accordion panels — categories + offers + tags start open. */
     categoriesExpanded = true;
-    priceExpanded = true;
     offersExpanded = true;
     tagsExpanded = true;
     /** Sidebar is a drawer below `lg`, where it would otherwise eat the fold. */
     readonly filtersOpen = signal(false);
 
     readonly skeletons = Array.from({ length: SKELETON_TILES }, (_, i) => i);
+
+    /** Chip colour for a tag, keyed on its name so it is the same everywhere. */
+    readonly tagClass = tagClass;
 
     readonly categories = this._catalogService.categories;
     readonly products = this._catalogService.products;
@@ -239,8 +238,6 @@ export class CatalogComponent implements OnInit {
         const search = this.searchTerm().trim().toLowerCase();
         const sort = this.sortOption();
         const scope = this.categoryScopeIds();
-        const min = this.priceMin();
-        const max = this.priceMax();
         let items = this.products();
         if (scope.size > 0) {
             items = items.filter((product) => scope.has(product.categoryId));
@@ -263,20 +260,6 @@ export class CatalogComponent implements OnInit {
                     product.name.toLowerCase().includes(search) ||
                     product.nameEn.toLowerCase().includes(search)
             );
-        }
-        if (min !== null || max !== null) {
-            items = items.filter((product) => {
-                if (product.price === null) {
-                    return false;
-                }
-                if (min !== null && product.price < min) {
-                    return false;
-                }
-                if (max !== null && product.price > max) {
-                    return false;
-                }
-                return true;
-            });
         }
         if (sort === 'name-asc' || sort === 'name-desc') {
             const direction = sort === 'name-asc' ? 1 : -1;
@@ -341,9 +324,7 @@ export class CatalogComponent implements OnInit {
             !!this.selectedCategory() ||
             !!this.searchTerm() ||
             this.featuredOnly() ||
-            this.selectedTags().size > 0 ||
-            this.priceMin() !== null ||
-            this.priceMax() !== null
+            this.selectedTags().size > 0
     );
 
     /** True only before the first page has produced anything to show. */
@@ -376,8 +357,6 @@ export class CatalogComponent implements OnInit {
         effect(() => {
             this.searchTerm();
             this.selectedCategory();
-            this.priceMin();
-            this.priceMax();
             this.featuredOnly();
             this.selectedTags();
             this.sortOption();
@@ -435,26 +414,6 @@ export class CatalogComponent implements OnInit {
                 takeUntilDestroyed(this._destroyRef)
             )
             .subscribe((search) => this.searchTerm.set(search));
-
-        this.priceMinControl.valueChanges
-            .pipe(
-                debounceTime(200),
-                distinctUntilChanged(),
-                takeUntilDestroyed(this._destroyRef)
-            )
-            .subscribe((value) =>
-                this.priceMin.set(this._normalizePriceBound(value))
-            );
-
-        this.priceMaxControl.valueChanges
-            .pipe(
-                debounceTime(200),
-                distinctUntilChanged(),
-                takeUntilDestroyed(this._destroyRef)
-            )
-            .subscribe((value) =>
-                this.priceMax.set(this._normalizePriceBound(value))
-            );
 
         // The constructor only reads `?category=` / `?featured=` once, at
         // construction — Angular reuses this component across a
@@ -573,10 +532,6 @@ export class CatalogComponent implements OnInit {
     clearFilters(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
-        this.priceMinControl.setValue(null, { emitEvent: false });
-        this.priceMaxControl.setValue(null, { emitEvent: false });
-        this.priceMin.set(null);
-        this.priceMax.set(null);
         this.selectedCategory.set('');
         this.featuredOnly.set(false);
         this.selectedTags.set(new Set());
@@ -777,17 +732,5 @@ export class CatalogComponent implements OnInit {
             queryParamsHandling: 'merge',
             replaceUrl: true,
         });
-    }
-
-    /** Empty / NaN / negative → no bound; otherwise a finite non-negative number. */
-    private _normalizePriceBound(value: number | null): number | null {
-        if (value === null || value === undefined) {
-            return null;
-        }
-        const n = Number(value);
-        if (!Number.isFinite(n) || n < 0) {
-            return null;
-        }
-        return n;
     }
 }

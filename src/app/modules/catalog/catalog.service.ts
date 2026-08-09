@@ -157,8 +157,6 @@ export class CatalogService {
     private _categoriesPromise: Promise<CatalogCategory[]> | null = null;
     /** Featured listings per market id — see {@link getFeaturedProducts}. */
     private _featuredByMarket = new Map<string, Promise<CatalogProduct[]>>();
-    /** Bounded listing sample per market — see {@link getMarketProductSample}. */
-    private _sampleByMarket = new Map<string, Promise<CatalogProduct[]>>();
     /**
      * Complete listing per market, crawled once and replayed after that.
      * Holds the in-flight promise too, so two callers asking at the same time
@@ -294,39 +292,6 @@ export class CatalogService {
     }
 
     /**
-     * A bounded sample of the market's listings, cached per market and read
-     * without touching {@link products}.
-     *
-     * Deliberately **one** request of the largest page the API accepts
-     * (`MAX_PAGE_SIZE`) rather than a full crawl. The storefront landing uses
-     * this to resolve
-     * recommended-basket members against real listings, and a landing page must
-     * not walk an entire market's catalogue before it can render. A basket
-     * member outside the sample resolves as unavailable, which is the same
-     * honest state as a product this market genuinely does not carry.
-     *
-     * An empty result is not cached, for the same reason as
-     * {@link getFeaturedProducts}: a guest 401 is swallowed into `[]` here and
-     * is indistinguishable from a market with no listings.
-     */
-    getMarketProductSample(marketId: string): Promise<CatalogProduct[]> {
-        const cached = this._sampleByMarket.get(marketId);
-        if (cached) {
-            return cached;
-        }
-        const pending = this._fetchMarketPage(marketId, MAX_PAGE_SIZE).then(
-            (products) => {
-                if (products.length === 0) {
-                    this._sampleByMarket.delete(marketId);
-                }
-                return products;
-            }
-        );
-        this._sampleByMarket.set(marketId, pending);
-        return pending;
-    }
-
-    /**
      * Reads `marketId`'s **whole** listing into {@link products}, replacing
      * whatever was there. Call on entry and whenever the market changes.
      *
@@ -365,6 +330,21 @@ export class CatalogService {
                 this._loading.set(false);
             }
         }
+    }
+
+    /**
+     * The market's listing for a surface that wants to *read* it without owning
+     * the page's copy — the header search, which must not blank the catalog
+     * grid behind it.
+     *
+     * Deliberately not {@link loadMarketListing}: that one clears `products`
+     * and raises `loading` because it is the catalog page taking possession of
+     * the signal. This shares the same per-market crawl (so it costs nothing
+     * once the grid has loaded, and joins the in-flight one otherwise) and
+     * writes no signals at all.
+     */
+    async peekMarketListing(marketId: string): Promise<CatalogProduct[]> {
+        return (await this._getMarketListing(marketId)).products;
     }
 
     getProductById(productId: string): Observable<CatalogProduct> {

@@ -1,0 +1,38 @@
+/*
+ * Header catalogue search.
+ *
+ * The input keeps the storefront's pill shape — Fuse's own search uses a
+ * `mat-form-field`, which would put a Material underline/outline in a header
+ * that has none. What is borrowed is the *panel*: the autocomplete overlay,
+ * grouped options and empty row all render as Fuse's do.
+ */
+storefront-search {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    align-items: center;
+}
+
+/*
+ * The overlay is rendered into the CDK overlay container at the document root,
+ * so it is styled globally rather than under the host element. `ViewEncapsulation.None`
+ * on the component makes that reachable, and the class keeps it scoped to this
+ * panel rather than every autocomplete in the app.
+ */
+.ff-search__panel {
+    /* Material's default panel starts hard against the input; the storefront's
+       pill input needs the same breathing room the mega menu keeps. */
+    margin-top: 0.375rem;
+    border-radius: 0.75rem;
+    @apply shadow-lg;
+
+    .mat-mdc-optgroup-label {
+        min-height: 2rem;
+    }
+}
+
+/* Two-line options need more room than Material's single-line default, which
+   otherwise clips the detail line. */
+.ff-search__option.mat-mdc-option {
+    min-height: 3.25rem;
+}

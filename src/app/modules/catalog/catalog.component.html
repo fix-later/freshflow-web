@@ -264,57 +264,6 @@
                             </ul>
                         </mat-expansion-panel>
 
-                        <mat-expansion-panel [(expanded)]="priceExpanded">
-                            <mat-expansion-panel-header>
-                                <mat-panel-title>{{
-                                    t('catalog.filters.price')
-                                }}</mat-panel-title>
-                            </mat-expansion-panel-header>
-
-                            <div class="ff-catalog__price">
-                                <mat-form-field
-                                    class="ff-catalog__price-field fuse-mat-dense"
-                                    appearance="outline"
-                                    subscriptSizing="dynamic"
-                                >
-                                    <mat-label>{{
-                                        t('catalog.filters.priceMin')
-                                    }}</mat-label>
-                                    <input
-                                        matInput
-                                        type="number"
-                                        min="0"
-                                        step="1000"
-                                        [formControl]="priceMinControl"
-                                        [attr.aria-label]="
-                                            t('catalog.filters.priceMin')
-                                        "
-                                    />
-                                    <span matTextSuffix>₫</span>
-                                </mat-form-field>
-                                <mat-form-field
-                                    class="ff-catalog__price-field fuse-mat-dense"
-                                    appearance="outline"
-                                    subscriptSizing="dynamic"
-                                >
-                                    <mat-label>{{
-                                        t('catalog.filters.priceMax')
-                                    }}</mat-label>
-                                    <input
-                                        matInput
-                                        type="number"
-                                        min="0"
-                                        step="1000"
-                                        [formControl]="priceMaxControl"
-                                        [attr.aria-label]="
-                                            t('catalog.filters.priceMax')
-                                        "
-                                    />
-                                    <span matTextSuffix>₫</span>
-                                </mat-form-field>
-                            </div>
-                        </mat-expansion-panel>
-
                         <!--
                           The market's own tags. Only rendered when this market
                           actually uses any — an empty facet is a panel that
@@ -345,8 +294,15 @@
                                                 <span
                                                     class="flex w-full min-w-0 items-center gap-2"
                                                 >
+                                                    <!-- Same chip colour the
+                                                         tag wears on the tiles,
+                                                         so the filter and the
+                                                         results read as one. -->
                                                     <span
-                                                        class="min-w-0 flex-1 truncate"
+                                                        class="min-w-0 flex-1"
+                                                        [class]="
+                                                            tagClass(entry.tag)
+                                                        "
                                                         >{{ entry.tag }}</span
                                                     >
                                                     <span

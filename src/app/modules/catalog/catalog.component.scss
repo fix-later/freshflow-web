@@ -339,26 +339,6 @@
         @apply text-hint;
     }
 
-    &__price {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        padding-bottom: 0.25rem;
-    }
-
-    &__price-field {
-        width: 100%;
-        margin: 0 !important;
-
-        .mat-mdc-text-field-wrapper,
-        .mdc-notched-outline__leading,
-        .mdc-notched-outline__notch,
-        .mdc-notched-outline__trailing,
-        .mat-mdc-form-field-focus-overlay {
-            background-color: #fff !important;
-        }
-    }
-
     /* ---- Results ---------------------------------------------------- */
 
     /*

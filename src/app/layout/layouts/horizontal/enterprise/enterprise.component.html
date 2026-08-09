@@ -372,30 +372,7 @@
             </ng-template>
 
             <ng-template #mainBarSearchAndTools>
-                <form
-                    class="relative flex min-w-0 flex-auto items-center"
-                    *transloco="let t"
-                    (ngSubmit)="megaMenuOpen = false"
-                >
-                    <input
-                        class="text-default bg-card h-12 w-full rounded-full border px-5 pr-12 text-base outline-none focus:border-primary"
-                        type="search"
-                        name="query"
-                        [(ngModel)]="searchQuery"
-                        [placeholder]="t('header.searchPlaceholder')"
-                        [attr.aria-label]="t('header.searchAria')"
-                    />
-                    <button
-                        class="ff-header-icon text-default absolute right-4 inline-flex items-center justify-center hover:text-primary"
-                        type="submit"
-                        [attr.aria-label]="t('header.searchAria')"
-                    >
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'heroicons_outline:magnifying-glass'"
-                        ></mat-icon>
-                    </button>
-                </form>
+                <storefront-search></storefront-search>
 
                 <div class="flex shrink-0 items-center gap-4">
                     <order-tracking></order-tracking>
