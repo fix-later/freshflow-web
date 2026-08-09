@@ -15,32 +15,27 @@ import { CatalogService } from 'app/modules/catalog/catalog.service';
 import { MarketZone } from '../storefront-landing.types';
 
 /**
- * Zone markers, matched against a category's name. Purely presentational: a
- * category with no match still renders, with the default basket marker, so a
- * new category never disappears from the aisle board.
+ * Zones needed before the board takes its bento shape.
+ *
+ * The first two tiles are double-height, which only tiles cleanly when enough
+ * ordinary tiles follow to fill the column beside them. Below this count the
+ * board stays a uniform grid rather than leaving a hole where a market with
+ * three aisles cannot fill the pattern.
  */
-const ZONE_MARKERS: readonly (readonly [RegExp, string])[] = [
-    [/rau|vegetable|greens/i, '🥬'],
-    [/trái cây|trai cay|fruit/i, '🍉'],
-    [/hải sản|hai san|seafood|cá|fish/i, '🐟'],
-    [/thịt|thit|meat|pork|beef/i, '🥩'],
-    [/gia vị|gia vi|spice|sauce/i, '🌶️'],
-    [/trứng|trung|egg/i, '🥚'],
-    [/gạo|gao|rice|grain/i, '🍚'],
-    [/nấm|nam|mushroom/i, '🍄'],
-    [/đồ uống|do uong|drink|beverage/i, '🥤'],
-    [/khô|kho|dry|dried/i, '🫙'],
-];
-
-const DEFAULT_MARKER = '🧺';
+const MIN_ZONES_FOR_BENTO = 6;
 
 /**
  * Section 3: "Đi một vòng quanh chợ".
  *
- * Categories rendered as areas of a market rather than as a taxonomy, so the
- * buyer feels they are choosing an aisle to walk into. Tiles vary in size,
- * biggest aisle first, which is both how a real market is laid out and how the
- * page avoids a repetitive card grid.
+ * Categories rendered as **stalls** rather than as a taxonomy — each tile reads
+ * "Sạp <tên>", so the buyer is picking a stall to walk up to, not filtering a
+ * category tree. Tiles vary in size, biggest aisle first, which is both how a
+ * real market is laid out and how the page avoids a repetitive card grid.
+ *
+ * Artwork is the category's own `imageUrl` and nothing else. There used to be a
+ * regex table mapping category names to emoji, which guessed wrong on anything
+ * it had not been taught and was owned by no one — a category with no picture
+ * now simply shows no picture.
  *
  * Counts are real, from `CatalogService.categoryCounts()`, which costs no
  * request. They count the catalogue rather than this market's listings: the
@@ -83,13 +78,17 @@ export class MarketZonesComponent {
                     name: node.name,
                     nameEn: node.nameEn,
                     imageUrl: node.imageUrl,
-                    marker: markerFor(node.name, node.nameEn),
                     itemCount: own + fromChildren,
                 };
             })
             .filter((zone) => zone.itemCount > 0)
             .sort((a, b) => b.itemCount - a.itemCount);
     });
+
+    /** See {@link MIN_ZONES_FOR_BENTO} — a short board stays uniform. */
+    readonly isBento = computed(
+        () => this.zones().length >= MIN_ZONES_FOR_BENTO
+    );
 
     constructor() {
         this._catalog
@@ -105,13 +104,4 @@ export class MarketZonesComponent {
     private async _loadCounts(): Promise<void> {
         this._counts.set(await this._catalog.categoryCounts());
     }
-}
-
-function markerFor(name: string, nameEn: string): string {
-    for (const [pattern, marker] of ZONE_MARKERS) {
-        if (pattern.test(name) || pattern.test(nameEn)) {
-            return marker;
-        }
-    }
-    return DEFAULT_MARKER;
 }

@@ -1,6 +1,6 @@
 /*
- * Header "Hot Deals" menu — a full-bleed panel under the header: category rail
- * left, featured product tiles right.
+ * Header "Hot Deals" menu — a full-bleed panel under the header: tag rail
+ * left, the active tag's product tiles right.
  *
  * Layout/spacing follow the storefront mega-menu pattern already used by the
  * "Categories" panel in the enterprise layout; every color is a theme token
@@ -191,8 +191,9 @@ hot-deals-menu {
         }
     }
 
-    /* Category artwork when the category has an image; a neutral icon tile
-       when it does not, so the rail keeps one rhythm either way. */
+    /* Tags carry no artwork, so this is always an icon tile — kept as a tile
+       rather than a bare icon so the rail holds the same rhythm it had when
+       the rows were categories with images. */
     &__rail-thumb {
         display: flex;
         height: 2.25rem;
@@ -240,13 +241,38 @@ hot-deals-menu {
         padding-bottom: 1.5rem;
     }
 
-    /* One row of five, matching the tile count the panel loads. Tiles keep
-       their natural height rather than stretching to fill the panel — a
-       viewport-tall product card would be all thumbnail. */
+    /*
+     * Tiles keep their natural height rather than stretching to fill the panel
+     * — a viewport-tall product card would be all thumbnail.
+     *
+     * Sized by a **minimum column width**, not a fixed count. `repeat(5, 1fr)`
+     * kept five columns at every width, so on a narrower viewport (or with the
+     * rail taking its 16rem) each tile was squeezed below the width its own
+     * content needs: the price row and cart button are `white-space: nowrap`
+     * and `flex: none`, so they stopped shrinking and spilled across the
+     * neighbouring tile. `auto-fill` drops to four, three, two columns instead,
+     * and the tiles wrap into the pane's own scroller.
+     */
     &__grid {
         display: grid;
         align-content: start;
-        grid-template-columns: repeat(5, minmax(0, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
         gap: 1rem;
+    }
+}
+
+/*
+ * A hovered tile lifts and casts a shadow. Without a stacking context of its
+ * own it lifts *under* the tile to its right — later siblings paint on top —
+ * so the shadow is sliced down the edge and the two cards read as overlapping.
+ * Scoped to this panel: the catalog grid has room between tiles and does not
+ * need it.
+ */
+.ff-hot-deals__grid ff-product-card {
+    position: relative;
+
+    &:hover,
+    &:focus-within {
+        z-index: 1;
     }
 }

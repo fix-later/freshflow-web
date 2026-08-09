@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
+import { tagClass } from 'app/shared/tag-visual';
 import { ProductCardVm } from './product-card.types';
 
 /**
@@ -46,6 +47,9 @@ export class ProductCardComponent {
 
     @Output() favoriteToggled = new EventEmitter<ProductCardVm>();
     @Output() addedToCart = new EventEmitter<ProductCardVm>();
+
+    /** Chip colour for a tag, keyed on its name so it is the same everywhere. */
+    readonly tagClass = tagClass;
 
     /** Five slots, filled up to `rating` — drives the star row. */
     stars(): boolean[] {

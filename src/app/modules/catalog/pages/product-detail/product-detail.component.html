@@ -1,7 +1,7 @@
 <div class="ff-page flex flex-col" *transloco="let t">
     @if (product(); as product) {
         <!-- Header: breadcrumb + title -->
-        <div class="px-6 pt-6 md:px-8">
+        <div>
             <nav
                 class="text-hint flex items-center gap-1 text-sm"
                 aria-label="Breadcrumb"
@@ -124,12 +124,15 @@
                 @if (product.tags.length) {
                     <ul class="flex flex-wrap gap-2">
                         @for (tag of product.tags; track tag.id || tag.name) {
+                            <!-- A pinning tag keeps the accent chip: that one
+                                 carries platform meaning, so it outranks the
+                                 name-derived colour the rest get. -->
                             <li
-                                class="rounded-full px-2.5 py-1 text-sm"
+                                class="px-2.5 py-1 text-sm"
                                 [class]="
                                     tag.pinsToTop
-                                        ? 'bg-accent font-semibold text-on-accent'
-                                        : 'text-secondary border'
+                                        ? 'rounded-full bg-accent font-semibold text-on-accent'
+                                        : tagClass(tag.name)
                                 "
                             >
                                 {{

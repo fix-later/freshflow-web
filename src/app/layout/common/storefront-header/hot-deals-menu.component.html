@@ -103,58 +103,66 @@
                     </div>
                 } @else if (groups().length) {
                     <div class="ff-hot-deals__body">
-                        <!-- Left: one row per category that has featured items -->
-                        <ul class="ff-hot-deals__rail">
+                        <!-- Left: one row per tag the listings on screen carry.
+                             Built from the listings, so a row without products
+                             behind it cannot occur. -->
+                        <ul
+                            class="ff-hot-deals__rail"
+                            [attr.aria-label]="t('hotDeals.tagsAria')"
+                        >
                             @for (group of groups(); track group.id) {
                                 <li>
                                     <button
                                         class="ff-hot-deals__rail-item"
                                         type="button"
                                         [class.ff-hot-deals__rail-item--active]="
-                                            isActiveCategory(group.id)
+                                            isActiveTag(group.id)
                                         "
                                         [attr.aria-pressed]="
-                                            isActiveCategory(group.id)
+                                            isActiveTag(group.id)
                                         "
-                                        (mouseenter)="selectCategory(group.id)"
-                                        (focus)="selectCategory(group.id)"
-                                        (click)="selectCategory(group.id)"
+                                        (mouseenter)="selectTag(group.id)"
+                                        (focus)="selectTag(group.id)"
+                                        (click)="selectTag(group.id)"
                                     >
-                                        <!-- Categories that carry artwork show
-                                             it; the rest keep the rhythm with a
-                                             neutral icon tile. -->
-                                        <span class="ff-hot-deals__rail-thumb">
-                                            @if (
-                                                group.category?.imageUrl;
-                                                as image
-                                            ) {
-                                                <img
-                                                    [src]="image"
-                                                    alt=""
-                                                    loading="lazy"
-                                                    decoding="async"
-                                                />
-                                            } @else {
+                                        <!-- A pinning tag keeps the flame — it
+                                             is what put these listings here.
+                                             Every other row wears its tag's own
+                                             colour, the same one the chips on
+                                             the tiles use. -->
+                                        @if (group.pinsToTop) {
+                                            <span
+                                                class="ff-hot-deals__rail-thumb"
+                                            >
                                                 <mat-icon
-                                                    class="text-hint icon-size-5"
+                                                    class="text-sale-700 icon-size-5"
                                                     [svgIcon]="
-                                                        'heroicons_outline:squares-2x2'
+                                                        'heroicons_solid:fire'
                                                     "
                                                 ></mat-icon>
-                                            }
-                                        </span>
-                                        <span
-                                            class="ff-hot-deals__rail-label"
-                                            >{{
-                                                group.category
-                                                    ? categoryLabel(
-                                                          group.category
-                                                      )
-                                                    : t(
-                                                          'hotDeals.otherCategory'
-                                                      )
-                                            }}</span
-                                        >
+                                            </span>
+                                            <span
+                                                class="ff-hot-deals__rail-label"
+                                                >{{ tagLabel(group) }}</span
+                                            >
+                                        } @else {
+                                            <span
+                                                class="ff-hot-deals__rail-label"
+                                            >
+                                                <span
+                                                    [class]="
+                                                        tagClass(group.name)
+                                                    "
+                                                    >{{
+                                                        group.name
+                                                            ? tagLabel(group)
+                                                            : t(
+                                                                  'hotDeals.otherTag'
+                                                              )
+                                                    }}</span
+                                                >
+                                            </span>
+                                        }
                                         <span class="ff-hot-deals__rail-count">
                                             {{ group.products.length }}
                                         </span>
@@ -163,7 +171,7 @@
                             }
                         </ul>
 
-                        <!-- Right: the active category's featured listings -->
+                        <!-- Right: the listings carrying the active tag -->
                         <div class="ff-hot-deals__products">
                             <div class="ff-hot-deals__grid">
                                 @for (card of activeCards(); track card.id) {
@@ -178,21 +186,22 @@
                                 }
                             </div>
 
-                            <!-- Only a real category can be linked to: the
-                                 trailing bucket has no id to filter on. -->
+                            <!-- Only a named tag can be linked to: the catalog
+                                 filters `?tag=` by name, and the trailing
+                                 bucket has no name to send. -->
                             @if (activeGroup(); as group) {
-                                @if (hasMoreInCategory() && group.id) {
+                                @if (hasMoreInTag() && group.name) {
                                     <a
                                         class="mt-4 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary no-underline hover:underline"
                                         routerLink="/catalog"
                                         [queryParams]="{
-                                            category: group.id,
+                                            tag: group.name,
                                             featured: '1',
                                         }"
                                         (click)="onClose()"
                                     >
                                         <span>{{
-                                            t('hotDeals.seeAllInCategory')
+                                            t('hotDeals.seeAllInTag')
                                         }}</span>
                                         <mat-icon
                                             class="text-current icon-size-4"

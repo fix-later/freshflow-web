@@ -152,7 +152,9 @@
         @if (product.tags?.length) {
             <ul class="ff-product-card__tags">
                 @for (tag of product.tags; track tag) {
-                    <li class="ff-product-card__tag">{{ tag }}</li>
+                    <li [class]="'ff-product-card__tag ' + tagClass(tag)">
+                        {{ tag }}
+                    </li>
                 }
             </ul>
         }

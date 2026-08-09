@@ -297,17 +297,18 @@ ff-product-card {
         padding: 0;
     }
 
+    /* Colour comes from `.ff-tag--*`, keyed on the tag's name (see
+       `shared/tag-visual.ts`); only the tile's own sizing lives here, so a chip
+       reads the same on the card as in the catalog facet. */
     &__tag {
         max-width: 100%;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
         border-radius: 0.375rem;
-        border: 1px solid var(--fuse-border);
         padding: 0.0625rem 0.375rem;
         font-size: theme('fontSize.xs');
         line-height: 1.5;
-        @apply text-secondary;
     }
 
     /* Trade facts share one row style — icon, then value, all quiet enough not

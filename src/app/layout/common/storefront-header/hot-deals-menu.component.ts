@@ -21,29 +21,30 @@ import { MarketSelectionService } from 'app/core/market/market-selection.service
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
-import {
-    CatalogCategory,
-    CatalogProduct,
-} from 'app/modules/catalog/catalog.types';
+import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { categoryVisual } from 'app/shared/product-card/category-visual';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
+import { tagClass } from 'app/shared/tag-visual';
 import { fromEvent, merge } from 'rxjs';
 
-/** One rail row: a category and the featured listings filed under it. */
+/** One rail row: a catalog tag and the featured listings carrying it. */
 export interface HotDealGroup {
-    /** Category id, or `''` for listings whose category could not be resolved. */
+    /** Tag id, or `''` for the bucket holding listings with no usable tag. */
     id: string;
-    /** `null` for the uncategorised bucket — the template labels that one. */
-    category: CatalogCategory | null;
+    /** Tag name as stored (already lower-cased by the server), or `null`. */
+    name: string | null;
+    /** Pinning tags lead the rail — they are what put a listing here at all. */
+    pinsToTop: boolean;
     products: CatalogProduct[];
 }
 
 /**
- * Tiles shown for the active category before "see all" takes over — one full
- * row of the panel's five columns.
+ * Tiles shown for the active tag before "see all" takes over. Fills the
+ * panel's row at the widths the grid settles on (see the stylesheet, which
+ * sizes columns by a minimum rather than a fixed count).
  */
-const MAX_TILES_PER_CATEGORY = 5;
+const MAX_TILES_PER_TAG = 5;
 
 /**
  * Grace period before a mouse-out closes the panel. The panel is full-bleed
@@ -54,9 +55,13 @@ const MAX_TILES_PER_CATEGORY = 5;
 const CLOSE_DELAY_MS = 140;
 
 /**
- * The header's **Hot Deals** menu: the market's featured listings
- * (`MarketProduct.IsFeatured`), grouped into a category rail on the left with
- * the active category's product tiles on the right.
+ * The header's **Hot Deals** menu: the market's pinned listings, grouped into a
+ * **tag** rail on the left with the active tag's product tiles on the right.
+ *
+ * The rail is built from the tags the listings on screen actually carry, so a
+ * tag is offered only while something behind it exists. Tag names come from the
+ * shared catalog and are shown as stored — a `Tag` has one name, with no
+ * translated form to switch to (see {@link tagLabel}).
  *
  * Scoped to the market picked in the header — featuring is a per-market
  * decision, so there is nothing to show until a market is chosen.
@@ -70,7 +75,7 @@ const CLOSE_DELAY_MS = 140;
  * Opens on hover and on keyboard focus, and the trigger stays a real link —
  * to `/catalog?featured=1`, the same view under a filter, since hot deals have
  * no page of their own — so the panel is an enhancement rather than the only
- * way through. Every string is translated, and category / product names follow
+ * way through. Every string of chrome is translated, and product names follow
  * the active language like the rest of the storefront.
  */
 @Component({
@@ -102,6 +107,9 @@ export class HotDealsMenuComponent {
     readonly open = signal(false);
     readonly loading = signal(false);
 
+    /** Chip colour for a tag, keyed on its name so it is the same everywhere. */
+    readonly tagClass = tagClass;
+
     /** Viewport offset the full-bleed panel hangs from — the header's bottom. */
     readonly panelTop = signal(0);
 
@@ -127,32 +135,62 @@ export class HotDealsMenuComponent {
     readonly isVi = computed(() => this._activeLang() === 'vi');
 
     /**
-     * Featured listings bucketed by category, in the order the category API
-     * returned them so the rail matches the catalog sidebar. Listings whose
-     * category is missing (or names a category the API did not return) fall
-     * into one trailing bucket rather than disappearing.
+     * Featured listings bucketed by the **catalog tags** they carry.
+     *
+     * A tag appears only when at least one listing on screen carries it, which
+     * falls out of building the rail from the listings rather than from the tag
+     * catalog: an empty row is impossible by construction, so the rail never
+     * offers a filter that leads nowhere.
+     *
+     * A listing with two tags is counted under both — it genuinely carries
+     * both, and a buyer looking under either should find it. That makes the
+     * counts overlap, which is why they are per-tag totals and not a partition
+     * of the panel.
+     *
+     * Pinning tags lead: a pinned tag is *why* these listings are in Hot Deals
+     * at all, so its row is the closest thing to "everything here". The rest
+     * follow by how many listings carry them, then by name so the order is
+     * stable between opens.
      */
     readonly groups = computed<HotDealGroup[]>(() => {
-        const byCategory = new Map<string, CatalogProduct[]>();
-        for (const product of this._featured()) {
-            const key = product.categoryId || '';
-            const bucket = byCategory.get(key) ?? [];
-            bucket.push(product);
-            byCategory.set(key, bucket);
-        }
+        const byTag = new Map<string, HotDealGroup>();
+        const untagged: CatalogProduct[] = [];
 
-        const groups: HotDealGroup[] = [];
-        for (const category of this._catalogService.categories()) {
-            const products = byCategory.get(category.id);
-            if (products?.length) {
-                groups.push({ id: category.id, category, products });
-                byCategory.delete(category.id);
+        for (const product of this._featured()) {
+            // A tag with no name cannot be labelled or linked to, so it cannot
+            // be a rail row; the listing still belongs somewhere.
+            const usable = product.tags.filter((tag) => !!tag.name);
+            if (!usable.length) {
+                untagged.push(product);
+                continue;
+            }
+            for (const tag of usable) {
+                const key = tag.id || tag.name;
+                const group = byTag.get(key) ?? {
+                    id: tag.id,
+                    name: tag.name,
+                    pinsToTop: tag.pinsToTop,
+                    products: [],
+                };
+                group.products.push(product);
+                byTag.set(key, group);
             }
         }
-        // Whatever is left has no category we can name — one trailing bucket.
-        const orphans = [...byCategory.values()].flat();
-        if (orphans.length) {
-            groups.push({ id: '', category: null, products: orphans });
+
+        const groups = [...byTag.values()].sort(
+            (a, b) =>
+                Number(b.pinsToTop) - Number(a.pinsToTop) ||
+                b.products.length - a.products.length ||
+                (a.name ?? '').localeCompare(b.name ?? '', 'vi')
+        );
+
+        if (untagged.length) {
+            groups.push({
+                id: '',
+                name: null,
+                pinsToTop: false,
+                products: untagged,
+            });
         }
         return groups;
     });
@@ -177,12 +215,9 @@ export class HotDealsMenuComponent {
         if (!group) {
             return [];
         }
-        const eyebrow = group.category
-            ? this.categoryLabel(group.category)
-            : null;
         return group.products
-            .slice(0, MAX_TILES_PER_CATEGORY)
-            .map((product) => this._productVm(product, eyebrow));
+            .slice(0, MAX_TILES_PER_TAG)
+            .map((product) => this._productVm(product, group.name));
     });
 
     /** Keyed by tile id so the card outputs can find their listing again. */
@@ -190,20 +225,11 @@ export class HotDealsMenuComponent {
         () => new Map(this._featured().map((product) => [product.id, product]))
     );
 
-    readonly hasMoreInCategory = computed(
-        () =>
-            (this.activeGroup()?.products.length ?? 0) > MAX_TILES_PER_CATEGORY
+    readonly hasMoreInTag = computed(
+        () => (this.activeGroup()?.products.length ?? 0) > MAX_TILES_PER_TAG
     );
 
     constructor() {
-        // The rail is labelled from the category list, which the layout also
-        // loads for its "Categories" menu. `getCategories()` caches, so asking
-        // here only costs a request when this menu is the first to need it.
-        this._catalogService
-            .getCategories()
-            .pipe(takeUntilDestroyed())
-            .subscribe();
-
         // Scrolling (or resizing) dismisses the panel. Its offset is measured
         // once when it opens, so anything that moves the header out from under
         // it would leave it floating — closing is both the honest answer and
@@ -329,16 +355,24 @@ export class HotDealsMenuComponent {
         }
     }
 
-    selectCategory(id: string): void {
+    selectTag(id: string): void {
         this._activeId.set(id);
     }
 
-    isActiveCategory(id: string): boolean {
+    isActiveTag(id: string): boolean {
         return this.activeGroup()?.id === id;
     }
 
-    categoryLabel(category: CatalogCategory): string {
-        return this.isVi() ? category.name : category.nameEn;
+    /**
+     * Tag names are shown as stored, in one language.
+     *
+     * `Tag` carries a single `Name` — unlike categories and products there is
+     * no `nameEn` to switch to, so there is nothing to translate here and
+     * inventing an English form would misname the seller's own label. The
+     * chrome around them follows the active language as usual.
+     */
+    tagLabel(group: HotDealGroup): string {
+        return group.name ?? '';
     }
 
     /** Guests get the sign-in popup instead of a silent 401 (see GuestGateService). */
@@ -386,9 +420,6 @@ export class HotDealsMenuComponent {
      * The same tile view model the catalog grid builds, except the link is
      * absolute: this menu renders on every route, so a relative `productId`
      * would resolve against whatever page the user happens to be on.
-     *
-     * The ribbon reads "HOT" in both languages — it is the word both locale
-     * files already use for this section ("Hot Deals"), so it needs no key.
      */
     private _productVm(
         product: CatalogProduct,
@@ -397,8 +428,10 @@ export class HotDealsMenuComponent {
         const unit =
             product.unitShort || (this.isVi() ? product.unit : product.unitEn);
         // Guests get no product photos (`GET /products` needs a role), so every
-        // tile falls back to a category stand-in rather than a blank box.
-        const fallback = categoryVisual(eyebrow ?? product.categoryLabel);
+        // tile falls back to a stand-in. Keyed off the product's *category*,
+        // not the eyebrow: the eyebrow is now the tag, and `categoryVisual`
+        // only recognises category names.
+        const fallback = categoryVisual(product.categoryLabel);
         return {
             id: product.id,
             name: this.isVi() ? product.name : product.nameEn,
@@ -411,7 +444,7 @@ export class HotDealsMenuComponent {
             // The unit moved to the price denominator, so it no longer doubles
             // up here — same split the catalog grid uses.
             meta: product.marketSource,
-            badge: 'HOT',
+            badge: this._translocoService.translate('hotDeals.badge'),
             // Brand pink: this strip *is* the deals surface, and `sale` is the
             // token for that (TOKENS.md), where `rose` was an unbound accent.
             badgeClass: 'ff-product-card__badge--sale',

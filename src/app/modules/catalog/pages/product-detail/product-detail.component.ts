@@ -16,6 +16,7 @@ import { GuestGateService } from 'app/core/auth/guest-gate.service';
 import { formatRelativeTime } from 'app/core/util/relative-time';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
+import { tagClass } from 'app/shared/tag-visual';
 import { CatalogService } from '../../catalog.service';
 import { CatalogProduct } from '../../catalog.types';
 
@@ -45,6 +46,9 @@ export class ProductDetailComponent implements OnInit {
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
     private _guestGate = inject(GuestGateService);
+
+    /** Chip colour for a tag, keyed on its name so it is the same everywhere. */
+    readonly tagClass = tagClass;
 
     readonly product = this._catalogService.product;
     readonly categories = this._catalogService.categories;
