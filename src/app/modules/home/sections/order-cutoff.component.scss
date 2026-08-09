@@ -1,0 +1,174 @@
+/*
+ * Section 7: order cut-off. Layout family = full-width band with a countdown
+ * (used once on this page).
+ *
+ * The band sits on the brand-surface token rather than on navy, so the closing
+ * call to action further down keeps the page's only navy fill and stays the
+ * loudest thing on it.
+ */
+order-cutoff {
+    display: block;
+}
+
+.ff-cutoff {
+    position: relative;
+    overflow: hidden;
+    padding-block: 2.5rem;
+    @apply bg-brand-surface;
+
+    @screen md {
+        padding-block: 3.25rem;
+    }
+
+    /* Awning stripe motif, abstracted to a soft mint edge. Decoration only. */
+    &::after {
+        content: '';
+        position: absolute;
+        inset-inline: 0;
+        bottom: 0;
+        height: 0.25rem;
+        background: linear-gradient(
+            90deg,
+            rgb(80 240 163 / 0.9),
+            rgb(80 240 163 / 0.15)
+        );
+    }
+}
+
+.ff-cutoff__inner {
+    margin-inline: auto;
+    display: flex;
+    width: 100%;
+    max-width: 95rem;
+    flex-direction: column;
+    gap: 1.75rem;
+    padding-inline: 1rem;
+
+    @screen md {
+        padding-inline: 2rem;
+    }
+
+    @screen lg {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 3rem;
+        padding-inline: 3.5rem;
+    }
+}
+
+.ff-cutoff__copy {
+    min-width: 0;
+}
+
+/* The shared eyebrow is navy, which has no contrast on the dark band. */
+.ff-cutoff__eyebrow {
+    color: rgb(80 240 163);
+}
+
+.ff-cutoff__title {
+    margin-top: 0.625rem;
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: #fff;
+
+    @screen md {
+        font-size: 2.25rem;
+    }
+}
+
+.ff-cutoff__lead {
+    margin-top: 0.625rem;
+    max-width: 52ch;
+    font-size: 1.0625rem;
+    color: rgb(255 255 255 / 0.82);
+}
+
+.ff-cutoff__side {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 1.25rem;
+
+    @screen sm {
+        flex-direction: row;
+        align-items: center;
+        gap: 1.75rem;
+    }
+}
+
+.ff-cutoff__clock {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+}
+
+.ff-cutoff__unit {
+    display: flex;
+    min-width: 3.75rem;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    background: rgb(255 255 255 / 0.12);
+}
+
+.ff-cutoff__num {
+    font-size: 1.75rem;
+    font-weight: 800;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: #fff;
+}
+
+.ff-cutoff__cap {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgb(255 255 255 / 0.7);
+}
+
+.ff-cutoff__sep {
+    padding-bottom: 1.25rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: rgb(255 255 255 / 0.45);
+}
+
+.ff-cutoff__action {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 9999px;
+    padding: 0.875rem 1.75rem;
+    font-size: 1rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: transform 150ms ease;
+    /* White fill with navy text: the required AA contrast against a dark band. */
+    @apply bg-card text-primary;
+
+    &:hover {
+        transform: translateY(-1px);
+    }
+
+    &:active {
+        transform: scale(0.985);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-cutoff__action {
+        transition: none;
+
+        &:hover,
+        &:active {
+            transform: none;
+        }
+    }
+}

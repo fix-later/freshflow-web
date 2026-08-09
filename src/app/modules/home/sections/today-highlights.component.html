@@ -1,0 +1,67 @@
+<section class="ff-section" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">{{ t('home.today.title') }}</h2>
+                <p class="ff-section__lead">{{ t('home.today.lead') }}</p>
+            </div>
+            @if (market()) {
+                <a
+                    class="ff-section__more"
+                    routerLink="/catalog"
+                    [queryParams]="{ featured: '1' }"
+                >
+                    <span>{{ t('home.today.seeAll') }}</span>
+                    <mat-icon
+                        class="text-current icon-size-4"
+                        [svgIcon]="'heroicons_outline:arrow-right'"
+                    ></mat-icon>
+                </a>
+            }
+        </div>
+
+        @if (!market()) {
+            <div class="ff-section__state">
+                <mat-icon
+                    class="text-hint icon-size-10"
+                    [svgIcon]="'heroicons_outline:building-storefront'"
+                ></mat-icon>
+                <p class="text-secondary">{{ t('home.today.noMarket') }}</p>
+            </div>
+        } @else if (loading()) {
+            <div class="ff-section__state">
+                <mat-progress-spinner
+                    [diameter]="32"
+                    [mode]="'indeterminate'"
+                ></mat-progress-spinner>
+            </div>
+        } @else if (cards().length) {
+            <!-- Rail, not a grid: breadth beats depth here, and a rail keeps
+                 the next section above the fold on a laptop. -->
+            <ul class="ff-today__rail">
+                @for (card of cards(); track card.id) {
+                    <li class="ff-today__item">
+                        <ff-product-card
+                            data-testid="landing-today-card"
+                            [product]="card"
+                            (addedToCart)="onAddedToCart(card)"
+                            (favoriteToggled)="onFavoriteToggled(card)"
+                        ></ff-product-card>
+                    </li>
+                }
+            </ul>
+        } @else {
+            <div class="ff-section__state">
+                <span class="text-4xl" aria-hidden="true">🧺</span>
+                <p class="text-secondary">{{ t('home.today.empty') }}</p>
+                <a class="ff-section__more" routerLink="/catalog">
+                    <span>{{ t('home.today.browseAll') }}</span>
+                    <mat-icon
+                        class="text-current icon-size-4"
+                        [svgIcon]="'heroicons_outline:arrow-right'"
+                    ></mat-icon>
+                </a>
+            </div>
+        }
+    </div>
+</section>

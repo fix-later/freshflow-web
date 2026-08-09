@@ -1,0 +1,79 @@
+<section class="ff-section ff-section--tint" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">{{ t('home.zones.title') }}</h2>
+                <p class="ff-section__lead">{{ t('home.zones.lead') }}</p>
+            </div>
+            <a class="ff-section__more" routerLink="/catalog">
+                <span>{{ t('home.zones.seeAll') }}</span>
+                <mat-icon
+                    class="text-current icon-size-4"
+                    [svgIcon]="'heroicons_outline:arrow-right'"
+                ></mat-icon>
+            </a>
+        </div>
+
+        @if (zones().length) {
+            <!-- Signage board. Cell count always equals zone count, and the
+                 first two are wide, so the grid never shows an empty tile. -->
+            <ul class="ff-zones">
+                @for (zone of zones(); track zone.id; let i = $index) {
+                    <li
+                        class="ff-zones__cell"
+                        [class.ff-zones__cell--wide]="i < 2"
+                    >
+                        <a
+                            class="ff-zones__zone"
+                            data-testid="landing-zone"
+                            routerLink="/catalog"
+                            [queryParams]="{ category: zone.id }"
+                        >
+                            <span class="ff-zones__art">
+                                @if (zone.imageUrl) {
+                                    <img
+                                        [src]="zone.imageUrl"
+                                        alt=""
+                                        loading="lazy"
+                                        decoding="async"
+                                    />
+                                } @else {
+                                    <span
+                                        class="ff-zones__marker"
+                                        aria-hidden="true"
+                                        >{{ zone.marker }}</span
+                                    >
+                                }
+                            </span>
+                            <span class="ff-zones__body">
+                                <span class="ff-zones__name">
+                                    <span aria-hidden="true">{{
+                                        zone.marker
+                                    }}</span>
+                                    {{ zoneLabel(zone) }}
+                                </span>
+                                <span class="ff-zones__count">{{
+                                    t('home.zones.itemCount', {
+                                        count: zone.itemCount,
+                                    })
+                                }}</span>
+                            </span>
+                            <mat-icon
+                                class="ff-zones__go icon-size-5"
+                                [svgIcon]="'heroicons_outline:arrow-right'"
+                            ></mat-icon>
+                        </a>
+                    </li>
+                }
+            </ul>
+        } @else {
+            <div class="ff-section__state">
+                <mat-icon
+                    class="text-hint icon-size-10"
+                    [svgIcon]="'heroicons_outline:squares-2x2'"
+                ></mat-icon>
+                <p class="text-secondary">{{ t('home.zones.empty') }}</p>
+            </div>
+        }
+    </div>
+</section>

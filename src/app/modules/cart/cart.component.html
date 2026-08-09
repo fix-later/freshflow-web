@@ -12,207 +12,232 @@
     <h1 class="cart-title">{{ t('cart.title') }}</h1>
 
     <!--
+      A guest's cart is empty because the cart *is* a draft order on the server
+      and there is no account to hold one. The ordinary empty state would report
+      that as "you haven't added anything", which is the wrong reason.
+    -->
+    @if (!isSignedIn()) {
+        <sign-in-required
+            icon="heroicons_outline:shopping-cart"
+            titleKey="guest.cart.title"
+            descriptionKey="guest.cart.description"
+        />
+    } @else {
+        <!--
       The cart is an `OrderStatus.Draft` order on the server, so it says which
       one and whether the last change is safely there. Without this the buyer
       cannot tell a saved cart from one that will be gone on reload.
     -->
-    @if (lines().length) {
-        <div
-            class="cart-draft"
-            [class.cart-draft--error]="syncState() === 'error'"
-        >
-            <mat-icon
-                class="icon-size-4"
-                [svgIcon]="
-                    syncState() === 'error'
-                        ? 'heroicons_outline:exclamation-triangle'
-                        : 'heroicons_outline:document-text'
-                "
-            ></mat-icon>
-            @switch (syncState()) {
-                @case ('saving') {
-                    <span>{{ t('cart.draft.saving') }}</span>
-                }
-                @case ('loading') {
-                    <span>{{ t('cart.draft.loading') }}</span>
-                }
-                @case ('error') {
-                    <span>{{ syncError() || t('cart.draft.error') }}</span>
-                    <button type="button" (click)="retrySync()">
-                        {{ t('common.retry') }}
-                    </button>
-                }
-                @case ('local') {
-                    <span>{{ t('cart.draft.local') }}</span>
-                }
-                @default {
-                    <span>{{
-                        t('cart.draft.saved', { id: draftLabel() })
-                    }}</span>
-                }
-            }
-        </div>
-    }
-
-    <!-- Stepper -->
-    <ol class="cart-stepper w-full">
-        <li class="cart-step cart-step--active">
-            <span class="cart-step__inner">
-                <span class="cart-step__num">1</span>
-                <span class="cart-step__label">{{ t('cart.steps.cart') }}</span>
-            </span>
-        </li>
-        <li class="cart-stepper__line" aria-hidden="true"></li>
-        <li class="cart-step">
-            <a
-                class="cart-step__inner"
-                routerLink="/checkout"
-                [class.is-disabled]="!lines().length"
-                [attr.tabindex]="lines().length ? null : -1"
-                [attr.aria-disabled]="!lines().length"
+        @if (lines().length) {
+            <div
+                class="cart-draft"
+                [class.cart-draft--error]="syncState() === 'error'"
             >
-                <span class="cart-step__num">2</span>
-                <span class="cart-step__label">{{
-                    t('cart.steps.checkout')
-                }}</span>
-            </a>
-        </li>
-        <li class="cart-stepper__line" aria-hidden="true"></li>
-        <li class="cart-step">
-            <span class="cart-step__inner">
-                <span class="cart-step__num">3</span>
-                <span class="cart-step__label">{{ t('cart.steps.done') }}</span>
-            </span>
-        </li>
-    </ol>
+                <mat-icon
+                    class="icon-size-4"
+                    [svgIcon]="
+                        syncState() === 'error'
+                            ? 'heroicons_outline:exclamation-triangle'
+                            : 'heroicons_outline:document-text'
+                    "
+                ></mat-icon>
+                @switch (syncState()) {
+                    @case ('saving') {
+                        <span>{{ t('cart.draft.saving') }}</span>
+                    }
+                    @case ('loading') {
+                        <span>{{ t('cart.draft.loading') }}</span>
+                    }
+                    @case ('error') {
+                        <span>{{ syncError() || t('cart.draft.error') }}</span>
+                        <button type="button" (click)="retrySync()">
+                            {{ t('common.retry') }}
+                        </button>
+                    }
+                    @case ('local') {
+                        <span>{{ t('cart.draft.local') }}</span>
+                    }
+                    @default {
+                        <span>{{
+                            t('cart.draft.saved', { id: draftLabel() })
+                        }}</span>
+                    }
+                }
+            </div>
+        }
 
-    <div class="cart-layout w-full">
-        <div class="cart-main w-full min-w-0">
-            @if (!lines().length) {
-                <div class="cart-empty">
-                    <mat-icon
-                        [svgIcon]="'heroicons_outline:shopping-cart'"
-                    ></mat-icon>
-                    <h2>{{ t('cart.empty.title') }}</h2>
-                    <p>{{ t('cart.empty.description') }}</p>
-                    <a mat-flat-button color="primary" routerLink="/catalog">{{
-                        t('cart.empty.cta')
-                    }}</a>
-                </div>
-            } @else {
-                <div class="cart-table">
-                    <div class="cart-table__head">
-                        <span>{{ t('cart.table.product') }}</span>
-                        <span>{{ t('cart.table.price') }}</span>
-                        <span>{{ t('cart.table.quantity') }}</span>
-                        <span>{{ t('cart.table.subtotal') }}</span>
+        <!-- Stepper -->
+        <ol class="cart-stepper w-full">
+            <li class="cart-step cart-step--active">
+                <span class="cart-step__inner">
+                    <span class="cart-step__num">1</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.cart')
+                    }}</span>
+                </span>
+            </li>
+            <li class="cart-stepper__line" aria-hidden="true"></li>
+            <li class="cart-step">
+                <a
+                    class="cart-step__inner"
+                    routerLink="/checkout"
+                    [class.is-disabled]="!lines().length"
+                    [attr.tabindex]="lines().length ? null : -1"
+                    [attr.aria-disabled]="!lines().length"
+                >
+                    <span class="cart-step__num">2</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.checkout')
+                    }}</span>
+                </a>
+            </li>
+            <li class="cart-stepper__line" aria-hidden="true"></li>
+            <li class="cart-step">
+                <span class="cart-step__inner">
+                    <span class="cart-step__num">3</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.done')
+                    }}</span>
+                </span>
+            </li>
+        </ol>
+
+        <div class="cart-layout w-full">
+            <div class="cart-main w-full min-w-0">
+                @if (!lines().length) {
+                    <div class="cart-empty">
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:shopping-cart'"
+                        ></mat-icon>
+                        <h2>{{ t('cart.empty.title') }}</h2>
+                        <p>{{ t('cart.empty.description') }}</p>
+                        <a
+                            mat-flat-button
+                            color="primary"
+                            routerLink="/catalog"
+                            >{{ t('cart.empty.cta') }}</a
+                        >
                     </div>
+                } @else {
+                    <div class="cart-table">
+                        <div class="cart-table__head">
+                            <span>{{ t('cart.table.product') }}</span>
+                            <span>{{ t('cart.table.price') }}</span>
+                            <span>{{ t('cart.table.quantity') }}</span>
+                            <span>{{ t('cart.table.subtotal') }}</span>
+                        </div>
 
-                    @for (line of lines(); track trackByLine($index, line)) {
-                        <div class="cart-row">
-                            <div class="cart-row__product">
-                                <button
-                                    type="button"
-                                    class="cart-row__remove"
-                                    (click)="remove(line.product.id)"
-                                    [attr.aria-label]="t('cart.remove')"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4"
-                                        [svgIcon]="'heroicons_outline:x-mark'"
-                                    ></mat-icon>
-                                </button>
-                                <img
-                                    [src]="line.product.thumbnail"
-                                    [alt]="productName(line.product)"
-                                />
-                                <div>
-                                    <div class="cart-row__name">
-                                        {{ productName(line.product) }}
-                                    </div>
-                                    <div class="cart-row__meta">
-                                        {{ line.product.marketSource }} ·
-                                        {{ productUnit(line.product) }}
-                                    </div>
-                                    <!--
+                        @for (
+                            line of lines();
+                            track trackByLine($index, line)
+                        ) {
+                            <div class="cart-row">
+                                <div class="cart-row__product">
+                                    <button
+                                        type="button"
+                                        class="cart-row__remove"
+                                        (click)="remove(line.product.id)"
+                                        [attr.aria-label]="t('cart.remove')"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="
+                                                'heroicons_outline:x-mark'
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                    <img
+                                        [src]="line.product.thumbnail"
+                                        [alt]="productName(line.product)"
+                                    />
+                                    <div>
+                                        <div class="cart-row__name">
+                                            {{ productName(line.product) }}
+                                        </div>
+                                        <div class="cart-row__meta">
+                                            {{ line.product.marketSource }} ·
+                                            {{ productUnit(line.product) }}
+                                        </div>
+                                        <!--
                                       A line the confirm would refuse. The
                                       stepper cannot produce one, but a cart
                                       restored from storage can hold one, and
                                       it must say so here rather than at the
                                       last step.
                                     -->
-                                    @for (
-                                        issue of lineIssues(line);
-                                        track issue
-                                    ) {
-                                        <div
-                                            class="cart-row__issue"
-                                            role="alert"
-                                        >
-                                            {{ issue }}
-                                        </div>
-                                    }
+                                        @for (
+                                            issue of lineIssues(line);
+                                            track issue
+                                        ) {
+                                            <div
+                                                class="cart-row__issue"
+                                                role="alert"
+                                            >
+                                                {{ issue }}
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                                <div class="cart-row__price">
+                                    {{ line.unitPrice | number: '1.0-0' }}₫
+                                </div>
+                                <div class="cart-row__qty">
+                                    <button
+                                        type="button"
+                                        (click)="decrement(line)"
+                                        [disabled]="!canDecrease(line)"
+                                        [attr.aria-label]="t('cart.decrease')"
+                                    >
+                                        −
+                                    </button>
+                                    <span>{{ line.quantity }}</span>
+                                    <button
+                                        type="button"
+                                        (click)="increment(line)"
+                                        [disabled]="!canIncrease(line)"
+                                        [attr.aria-label]="t('cart.increase')"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                                <div class="cart-row__subtotal">
+                                    {{ lineTotal(line) | number: '1.0-0' }}₫
                                 </div>
                             </div>
-                            <div class="cart-row__price">
-                                {{ line.unitPrice | number: '1.0-0' }}₫
-                            </div>
-                            <div class="cart-row__qty">
-                                <button
-                                    type="button"
-                                    (click)="decrement(line)"
-                                    [disabled]="!canDecrease(line)"
-                                    [attr.aria-label]="t('cart.decrease')"
-                                >
-                                    −
-                                </button>
-                                <span>{{ line.quantity }}</span>
-                                <button
-                                    type="button"
-                                    (click)="increment(line)"
-                                    [disabled]="!canIncrease(line)"
-                                    [attr.aria-label]="t('cart.increase')"
-                                >
-                                    +
-                                </button>
-                            </div>
-                            <div class="cart-row__subtotal">
-                                {{ lineTotal(line) | number: '1.0-0' }}₫
-                            </div>
-                        </div>
-                    }
+                        }
+                    </div>
+                }
+            </div>
+
+            <aside class="cart-totals">
+                <h2>{{ t('cart.totals.title') }}</h2>
+
+                <div class="cart-totals__row">
+                    <span>{{ t('cart.totals.subtotal') }}</span>
+                    <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
                 </div>
-            }
+                <div class="cart-totals__row cart-totals__row--total">
+                    <span>{{ t('cart.totals.total') }}</span>
+                    <strong>{{ total() | number: '1.0-0' }}₫</strong>
+                </div>
+                <p class="cart-totals__note">{{ t('cart.totals.note') }}</p>
+
+                <button
+                    class="cart-totals__btn"
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="!lines().length || hasBlockedLine()"
+                    (click)="proceedToCheckout()"
+                >
+                    {{ t('cart.totals.proceed') }}
+                </button>
+                @if (hasBlockedLine()) {
+                    <p class="cart-totals__note" role="alert">
+                        {{ t('cart.totals.blockedLines') }}
+                    </p>
+                }
+            </aside>
         </div>
-
-        <aside class="cart-totals">
-            <h2>{{ t('cart.totals.title') }}</h2>
-
-            <div class="cart-totals__row">
-                <span>{{ t('cart.totals.subtotal') }}</span>
-                <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
-            </div>
-            <div class="cart-totals__row cart-totals__row--total">
-                <span>{{ t('cart.totals.total') }}</span>
-                <strong>{{ total() | number: '1.0-0' }}₫</strong>
-            </div>
-            <p class="cart-totals__note">{{ t('cart.totals.note') }}</p>
-
-            <button
-                class="cart-totals__btn"
-                mat-flat-button
-                color="primary"
-                type="button"
-                [disabled]="!lines().length || hasBlockedLine()"
-                (click)="proceedToCheckout()"
-            >
-                {{ t('cart.totals.proceed') }}
-            </button>
-            @if (hasBlockedLine()) {
-                <p class="cart-totals__note" role="alert">
-                    {{ t('cart.totals.blockedLines') }}
-                </p>
-            }
-        </aside>
-    </div>
+    }
 </div>

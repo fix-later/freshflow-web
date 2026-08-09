@@ -15,20 +15,37 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatExpansionModule } from '@angular/material/expansion';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
+import { GuestGateService } from 'app/core/auth/guest-gate.service';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
+import { formatRelativeTime } from 'app/core/util/relative-time';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
+import { categoryVisual } from 'app/shared/product-card/category-visual';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
-import { CatalogService, CategoryNode } from './catalog.service';
-import { CatalogCategory, CatalogProduct } from './catalog.types';
+import {
+    CATALOG_PAGE_SIZE,
+    CatalogService,
+    CategoryNode,
+} from './catalog.service';
+import {
+    CatalogCategory,
+    CatalogProduct,
+    normalizeTagNames,
+} from './catalog.types';
 
 type SortOption = '' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc';
 
@@ -45,6 +62,11 @@ const SKELETON_TILES = 10;
     imports: [
         MatIconModule,
         MatButtonModule,
+        MatCheckboxModule,
+        MatExpansionModule,
+        MatFormFieldModule,
+        MatInputModule,
+        MatSelectModule,
         MatProgressSpinnerModule,
         MatTooltipModule,
         ReactiveFormsModule,
@@ -61,6 +83,8 @@ export class CatalogComponent implements OnInit {
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
     private _marketSelection = inject(MarketSelectionService);
+    private _guestGate = inject(GuestGateService);
+    private _permissions = inject(PermissionsService);
     private _route = inject(ActivatedRoute);
     private _router = inject(Router);
 
@@ -68,7 +92,16 @@ export class CatalogComponent implements OnInit {
 
     private _sentinelObserver: IntersectionObserver | null = null;
 
-    readonly searchControl = new FormControl('', { nonNullable: true });
+    /**
+     * Seeded from `?q=` so the storefront landing's hero search lands here
+     * already filtered rather than dropping the buyer into the unfiltered grid.
+     */
+    readonly searchControl = new FormControl(
+        this._route.snapshot.queryParamMap.get('q') ?? '',
+        { nonNullable: true }
+    );
+    readonly priceMinControl = new FormControl<number | null>(null);
+    readonly priceMaxControl = new FormControl<number | null>(null);
     /**
      * Seeded from `?category=` so a link into the catalog (the header's mega
      * menu) lands already filtered, not on the unfiltered "all products" view.
@@ -76,11 +109,45 @@ export class CatalogComponent implements OnInit {
     readonly selectedCategory = signal<string>(
         this._route.snapshot.queryParamMap.get('category') ?? ''
     );
-    readonly searchTerm = signal<string>('');
+    readonly searchTerm = signal<string>(
+        this._route.snapshot.queryParamMap.get('q') ?? ''
+    );
+    readonly priceMin = signal<number | null>(null);
+    readonly priceMax = signal<number | null>(null);
     readonly sortOption = signal<SortOption>('');
+
+    /**
+     * "Hot deals" — the listings carrying a tag that pins to top.
+     * Seeded from `?featured=1` so the header's Hot Deals menu, the footer link
+     * and the mega-menu promo all land here already filtered.
+     *
+     * Kept as its own control rather than folded into {@link selectedTags}:
+     * pinning is a meaning the platform defines (`Tag.PinsToTop`) rather than
+     * one tag among many, every one of those inbound links spells it
+     * `?featured=1`, and the offers panel is where a shopper looks for it.
+     */
+    readonly featuredOnly = signal<boolean>(
+        this._route.snapshot.queryParamMap.get('featured') === '1'
+    );
+
+    /**
+     * Market tags the shopper has ticked, seeded from `?tag=` (repeatable).
+     * A listing must carry **every** selected tag — narrowing, like the rest of
+     * this rail, so adding one never widens the result.
+     */
+    readonly selectedTags = signal<ReadonlySet<string>>(
+        new Set(
+            normalizeTagNames(this._route.snapshot.queryParamMap.getAll('tag'))
+        )
+    );
 
     /** Root categories the user has opened in the sidebar. */
     readonly expandedCategories = signal<ReadonlySet<string>>(new Set());
+    /** Material accordion panels — categories + price + offers start open. */
+    categoriesExpanded = true;
+    priceExpanded = true;
+    offersExpanded = true;
+    tagsExpanded = true;
     /** Sidebar is a drawer below `lg`, where it would otherwise eat the fold. */
     readonly filtersOpen = signal(false);
 
@@ -89,13 +156,35 @@ export class CatalogComponent implements OnInit {
     readonly categories = this._catalogService.categories;
     readonly products = this._catalogService.products;
 
+    /**
+     * Guests browse the full catalogue but cannot order; the page says so once
+     * at the top rather than only when a control refuses.
+     */
+    readonly isSignedIn = this._permissions.isSignedIn;
+
     /** The market being shopped — everything on this page is scoped to it. */
     readonly market = this._marketSelection.selected;
     readonly hasMarket = this._marketSelection.hasSelection;
 
-    /** Paging state comes from the service: one server page per screenful. */
+    /** True while the market's listing is being read. */
     readonly loading = this._catalogService.loading;
-    readonly hasMore = this._catalogService.hasMore;
+    /**
+     * True once `products()` holds the market's whole listing — which is when
+     * the result count below stops being a running tally and becomes a total.
+     */
+    readonly listingComplete = this._catalogService.listingComplete;
+
+    /**
+     * How many of the matching products the grid has rendered.
+     *
+     * Infinite scroll is a **render** window, not paging: the whole listing is
+     * already in memory (the endpoint can neither search, bound by price, sort
+     * nor count — see `CatalogService`), so scrolling reveals more of an answer
+     * that is already complete rather than fetching more of one that isn't.
+     * That is what makes the count a total and keeps a price sort ordering the
+     * market instead of the slice that happens to be on screen.
+     */
+    readonly visibleCount = signal(CATALOG_PAGE_SIZE);
 
     readonly isVi = computed(
         () => this._translocoService.getActiveLang() === 'vi'
@@ -140,17 +229,33 @@ export class CatalogComponent implements OnInit {
     });
 
     /**
-     * Search, category, and sort run over the pages loaded so far. Category is
-     * also sent to the listing endpoint for leaf filters; parent filters stay
-     * client-side because the API does not expand descendants.
+     * Search, category, price, featured and sort, applied to the market's
+     * **whole** listing — every one of them client-side, because the listing
+     * endpoint takes none of them but `category` (and exact-matches a single id
+     * there, so it cannot serve a parent). Running them all in one place is
+     * what makes the count, the sort order and the empty state agree.
      */
     readonly filteredProducts = computed(() => {
         const search = this.searchTerm().trim().toLowerCase();
         const sort = this.sortOption();
         const scope = this.categoryScopeIds();
+        const min = this.priceMin();
+        const max = this.priceMax();
         let items = this.products();
         if (scope.size > 0) {
             items = items.filter((product) => scope.has(product.categoryId));
+        }
+        if (this.featuredOnly()) {
+            items = items.filter((product) => product.featured);
+        }
+        const tags = this.selectedTags();
+        if (tags.size > 0) {
+            // Matched by name: `?tag=` carries names, and both sides are folded
+            // the same way the server folds them.
+            items = items.filter((product) => {
+                const names = new Set(product.tags.map((tag) => tag.name));
+                return [...tags].every((tag) => names.has(tag));
+            });
         }
         if (search) {
             items = items.filter(
@@ -158,6 +263,20 @@ export class CatalogComponent implements OnInit {
                     product.name.toLowerCase().includes(search) ||
                     product.nameEn.toLowerCase().includes(search)
             );
+        }
+        if (min !== null || max !== null) {
+            items = items.filter((product) => {
+                if (product.price === null) {
+                    return false;
+                }
+                if (min !== null && product.price < min) {
+                    return false;
+                }
+                if (max !== null && product.price > max) {
+                    return false;
+                }
+                return true;
+            });
         }
         if (sort === 'name-asc' || sort === 'name-desc') {
             const direction = sort === 'name-asc' ? 1 : -1;
@@ -180,13 +299,51 @@ export class CatalogComponent implements OnInit {
         return items;
     });
 
-    /** Everything loaded so far, after the client-side filters above. */
-    readonly visibleProducts = this.filteredProducts;
+    /**
+     * The tag facet: every tag present in this market's listing, with how many
+     * listings carry it, most-used first then alphabetical.
+     *
+     * Built from the whole listing rather than the current result set, so
+     * ticking one tag does not make the others vanish from under the cursor.
+     * Pinning tags are excluded — they already have their own control in the
+     * offers panel ("Hot deals"), and offering them twice would let the two
+     * disagree. Counted by name, because that is what `?tag=` carries.
+     */
+    readonly tagFacet = computed<{ tag: string; count: number }[]>(() => {
+        const counts = new Map<string, number>();
+        for (const product of this.products()) {
+            for (const tag of product.tags) {
+                if (!tag.pinsToTop && tag.name) {
+                    counts.set(tag.name, (counts.get(tag.name) ?? 0) + 1);
+                }
+            }
+        }
+        return [...counts.entries()]
+            .map(([tag, count]) => ({ tag, count }))
+            .sort(
+                (a, b) => b.count - a.count || a.tag.localeCompare(b.tag, 'vi')
+            );
+    });
 
+    /** The slice of the matches the grid has revealed so far. */
+    readonly visibleProducts = computed(() =>
+        this.filteredProducts().slice(0, this.visibleCount())
+    );
+
+    /** Total matches — every one of them, not just the rendered ones. */
     readonly resultCount = computed(() => this.filteredProducts().length);
 
+    /** More matches exist than are rendered — reveal them on scroll. */
+    readonly hasMore = computed(() => this.visibleCount() < this.resultCount());
+
     readonly hasActiveFilters = computed(
-        () => !!this.selectedCategory() || !!this.searchTerm()
+        () =>
+            !!this.selectedCategory() ||
+            !!this.searchTerm() ||
+            this.featuredOnly() ||
+            this.selectedTags().size > 0 ||
+            this.priceMin() !== null ||
+            this.priceMax() !== null
     );
 
     /** True only before the first page has produced anything to show. */
@@ -203,20 +360,29 @@ export class CatalogComponent implements OnInit {
     ];
 
     constructor() {
-        // Market and category are server-side query parameters: changing either
-        // starts a new listing from the first page rather than filtering rows
-        // that are already on screen. Parent categories with children are not
-        // sent to the API (exact-match would empty the page); those stay
-        // client-scoped via `categoryScopeIds`.
+        // The market is the only thing that changes *what* is listed — every
+        // filter is applied client-side over the listing this reads, so none of
+        // them belongs in this dependency list. Reading a market costs one
+        // crawl, once per session; filtering it costs nothing.
         effect(() => {
-            const marketId = this._marketSelection.selectedId();
-            const category = this.selectedCategory();
-            const node = category
-                ? this.categoryTree().find((n) => n.id === category)
-                : undefined;
-            const serverCategory =
-                category && !node?.children.length ? category : undefined;
-            void this._catalogService.loadFirstPage(marketId, serverCategory);
+            void this._catalogService.loadMarketListing(
+                this._marketSelection.selectedId()
+            );
+        });
+
+        // Any change to what matches restarts the reveal window at the top of
+        // the new result set — otherwise narrowing a filter while deep in the
+        // grid would leave a scrolled-past window over a much shorter list.
+        effect(() => {
+            this.searchTerm();
+            this.selectedCategory();
+            this.priceMin();
+            this.priceMax();
+            this.featuredOnly();
+            this.selectedTags();
+            this.sortOption();
+            this._marketSelection.selectedId();
+            this.visibleCount.set(CATALOG_PAGE_SIZE);
         });
 
         // Keep the branch holding the selection open — categories arrive after
@@ -231,20 +397,10 @@ export class CatalogComponent implements OnInit {
             );
         });
 
-        // When a parent (or search) filter hides the whole first page, keep
-        // pulling until something matches or the listing is exhausted — otherwise
-        // the grid looks empty and the filter appears broken.
-        effect(() => {
-            if (
-                !this.hasActiveFilters() ||
-                this.loading() ||
-                !this.hasMore() ||
-                this.visibleProducts().length > 0
-            ) {
-                return;
-            }
-            this.loadMore();
-        });
+        // (The old "keep fetching until a filter matches something" effect is
+        // gone with the paging it worked around. It could only ever find the
+        // *first* match — a search that hit 30 rows still reported one — which
+        // is exactly the class of bug reading the listing in full removes.)
 
         // The sentinel <div> is unconditionally rendered (see template), so
         // it already exists in the DOM by the first post-construction render.
@@ -257,6 +413,7 @@ export class CatalogComponent implements OnInit {
                 (entries) => {
                     if (entries.some((entry) => entry.isIntersecting)) {
                         this.loadMore();
+                        this._renudgeSentinel();
                     }
                 },
                 { rootMargin: '400px' }
@@ -279,32 +436,95 @@ export class CatalogComponent implements OnInit {
             )
             .subscribe((search) => this.searchTerm.set(search));
 
-        // The constructor only reads `?category=` once, at construction —
-        // Angular reuses this component across a query-param-only navigation
-        // (e.g. picking a different category from the header's mega menu
-        // while already on this page), which fires no lifecycle hook a
-        // one-shot read would catch. Subscribing keeps that link live for as
-        // long as the component does.
+        this.priceMinControl.valueChanges
+            .pipe(
+                debounceTime(200),
+                distinctUntilChanged(),
+                takeUntilDestroyed(this._destroyRef)
+            )
+            .subscribe((value) =>
+                this.priceMin.set(this._normalizePriceBound(value))
+            );
+
+        this.priceMaxControl.valueChanges
+            .pipe(
+                debounceTime(200),
+                distinctUntilChanged(),
+                takeUntilDestroyed(this._destroyRef)
+            )
+            .subscribe((value) =>
+                this.priceMax.set(this._normalizePriceBound(value))
+            );
+
+        // The constructor only reads `?category=` / `?featured=` once, at
+        // construction — Angular reuses this component across a
+        // query-param-only navigation (e.g. picking a different category from
+        // the header's mega menu, or Hot Deals while already on this page),
+        // which fires no lifecycle hook a one-shot read would catch.
+        // Subscribing keeps those links live for as long as the component does.
         this._route.queryParamMap
             .pipe(
                 distinctUntilChanged(
-                    (a, b) => a.get('category') === b.get('category')
+                    (a, b) =>
+                        a.get('category') === b.get('category') &&
+                        a.get('featured') === b.get('featured') &&
+                        a.get('q') === b.get('q') &&
+                        a.getAll('tag').join(' ') === b.getAll('tag').join(' ')
                 ),
                 takeUntilDestroyed(this._destroyRef)
             )
             .subscribe((params) => {
-                const next = params.get('category') ?? '';
-                if (next !== this.selectedCategory()) {
-                    this.selectedCategory.set(next);
+                const category = params.get('category') ?? '';
+                if (category !== this.selectedCategory()) {
+                    this.selectedCategory.set(category);
+                }
+                const featured = params.get('featured') === '1';
+                if (featured !== this.featuredOnly()) {
+                    this.featuredOnly.set(featured);
+                }
+                const tags = normalizeTagNames(params.getAll('tag'));
+                const current = this.selectedTags();
+                if (
+                    tags.length !== current.size ||
+                    tags.some((tag) => !current.has(tag))
+                ) {
+                    this.selectedTags.set(new Set(tags));
+                }
+                const term = params.get('q') ?? '';
+                if (term !== this.searchTerm()) {
+                    this.searchTerm.set(term);
+                    // `emitEvent: false` so seeding the box does not bounce
+                    // back through the debounce and re-set what we just set.
+                    this.searchControl.setValue(term, { emitEvent: false });
                 }
             });
     }
 
     filterByCategory(categoryId: string): void {
-        // The effect in the constructor reloads page 1 for the new category.
+        // No refetch: the listing is already in memory, so this only changes
+        // which of it matches (and resets the reveal window, via the effect).
         this.selectedCategory.set(categoryId);
         this.filtersOpen.set(false);
-        this._syncCategoryQueryParam(categoryId);
+        this._syncQueryParams({ category: categoryId });
+    }
+
+    toggleFeaturedOnly(): void {
+        const next = !this.featuredOnly();
+        this.featuredOnly.set(next);
+        this._syncQueryParams({ featured: next ? '1' : '' });
+    }
+
+    isTagSelected(tag: string): boolean {
+        return this.selectedTags().has(tag);
+    }
+
+    toggleTag(tag: string): void {
+        const next = new Set(this.selectedTags());
+        if (!next.delete(tag)) {
+            next.add(tag);
+        }
+        this.selectedTags.set(next);
+        this._syncQueryParams({ tag: [...next] });
     }
 
     toggleCategory(categoryId: string): void {
@@ -334,6 +554,11 @@ export class CatalogComponent implements OnInit {
         this.filtersOpen.update((open) => !open);
     }
 
+    /** Guest notice CTA — opens the header's quick sign-in popup. */
+    signIn(): void {
+        this._guestGate.requireAccount();
+    }
+
     setSort(option: SortOption): void {
         this.sortOption.set(option);
     }
@@ -341,18 +566,59 @@ export class CatalogComponent implements OnInit {
     clearSearch(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
+        // Also drop `?q=`, or a reload restores the term just cleared.
+        this._syncQueryParams({ q: '' });
     }
 
     clearFilters(): void {
         this.searchControl.setValue('', { emitEvent: false });
         this.searchTerm.set('');
+        this.priceMinControl.setValue(null, { emitEvent: false });
+        this.priceMaxControl.setValue(null, { emitEvent: false });
+        this.priceMin.set(null);
+        this.priceMax.set(null);
         this.selectedCategory.set('');
-        this._syncCategoryQueryParam('');
+        this.featuredOnly.set(false);
+        this.selectedTags.set(new Set());
+        this._syncQueryParams({
+            category: '',
+            featured: '',
+            q: '',
+            tag: [],
+        });
     }
 
-    /** Fetches the next server page — driven by the scroll sentinel. */
+    /**
+     * Reveals the next screenful of matches — driven by the scroll sentinel,
+     * and by the button beneath it for keyboard users. No request: the rows are
+     * already loaded.
+     */
     loadMore(): void {
-        void this._catalogService.loadNextPage();
+        if (!this.hasMore()) {
+            return;
+        }
+        this.visibleCount.update((count) => count + CATALOG_PAGE_SIZE);
+    }
+
+    /**
+     * Re-arms the scroll sentinel after a reveal.
+     *
+     * Revealing is synchronous now, so one screenful of new tiles can leave the
+     * sentinel still inside the observer's 400px margin — and an
+     * IntersectionObserver reports threshold *crossings*, not standing state, so
+     * it would never fire again and the grid would stall until the user
+     * scrolled by hand. Re-observing once the new tiles are laid out produces a
+     * fresh initial entry, which reveals again if the sentinel is still in view.
+     */
+    private _renudgeSentinel(): void {
+        requestAnimationFrame(() => {
+            const el = this.sentinel()?.nativeElement;
+            if (!el || !this._sentinelObserver || !this.hasMore()) {
+                return;
+            }
+            this._sentinelObserver.unobserve(el);
+            this._sentinelObserver.observe(el);
+        });
     }
 
     categoryName(categoryId: string): string {
@@ -386,28 +652,76 @@ export class CatalogComponent implements OnInit {
         return this._favoritesService.isFavorite(product.marketProductId);
     }
 
-    /** The tile stops the click reaching its own link before emitting. */
+    /**
+     * The tile stops the click reaching its own link before emitting.
+     *
+     * Guests get the sign-in popup rather than a silent 401 — favourites are
+     * stored per account, so there is nothing to toggle without one.
+     */
     toggleFavorite(product: CatalogProduct): void {
+        if (!this._guestGate.requireAccount()) {
+            return;
+        }
         void this._favoritesService.toggle(product);
     }
 
     /** Same draft-order entry point the wishlist uses (`WishlistComponent`). */
     addToDraftOrder(product: CatalogProduct): void {
+        if (!this._guestGate.requireAccount()) {
+            return;
+        }
         this._draftOrder.add(product);
     }
 
-    /** Map a listing onto the shared tile's view model. */
+    /**
+     * Map a listing onto the shared tile's view model.
+     *
+     * The listing row carries more than a name and a price — category, selling
+     * unit, packing weight, available vs. on-hand quantity, featured flag and
+     * when the market last restated it — and all of it bears on whether to buy.
+     * The tile shows the lot rather than making the shopper open the product to
+     * find out how it is sold or how old the price is.
+     */
     productVm(product: CatalogProduct): ProductCardVm {
+        const category =
+            this.categoryName(product.categoryId) || product.categoryLabel;
+        // Short form here: this is a denominator and a stock suffix, where
+        // "Kilogram" would wrap the price line.
+        const unit =
+            product.unitShort || (this.isVi() ? product.unit : product.unitEn);
+        // Photos live on the base product, which `GET /products` gates behind a
+        // signed-in role — so a guest's whole grid arrives with no `thumbnail`.
+        // The category stand-in keeps that from reading as a broken page, and
+        // covers a signed-in user's un-photographed products for free.
+        const fallback = categoryVisual(category);
         return {
             id: product.id,
             name: this.productName(product),
             description: this.productDescription(product),
             thumbnail: product.thumbnail,
+            emoji: fallback.emoji,
+            thumbTint: fallback.thumbTint,
             price: this.formatPrice(product.price),
-            eyebrow: this.categoryName(product.categoryId),
-            meta: `${this.isVi() ? product.unit : product.unitEn} · ${product.marketSource}`,
+            priceUnit: unit || undefined,
+            eyebrow: category || undefined,
+            // Market only — the unit moved to the price denominator, where it
+            // says something the shopper can act on.
+            meta: product.marketSource || undefined,
+            packNote: this.packNote(product),
+            updatedNote: this.updatedNote(product),
+            badge: product.featured
+                ? this._translocoService.translate('productCard.featured')
+                : undefined,
+            badgeClass: product.featured
+                ? 'ff-product-card__badge--featured'
+                : undefined,
+            // Pinning tags are the badge above; listing them again here would
+            // put the same claim on the tile twice.
+            tags: product.tags
+                .filter((tag) => !tag.pinsToTop)
+                .map((tag) => tag.name),
             stock: product.quantity,
-            stockUnit: this.isVi() ? product.unit : product.unitEn,
+            stockUnit: unit || undefined,
             favorite: this.isFavorite(product),
             inactive: product.active === false,
             link: product.productId,
@@ -415,16 +729,65 @@ export class CatalogComponent implements OnInit {
     }
 
     /**
-     * Keeps `?category=` in step with in-page filtering, so the URL a click
-     * on the sidebar leaves behind is the same one that lands here filtered
-     * from the header's mega menu — shareable and back/forward-safe either way.
+     * "Kiện 15 kg" — how the goods are packed, from the listing's selling unit.
+     * Undefined for a product sold loose (no packing code, so no capacity).
      */
-    private _syncCategoryQueryParam(categoryId: string): void {
+    packNote(product: CatalogProduct): string | undefined {
+        const weight = product.packWeightKg;
+        if (weight === null || weight <= 0) {
+            return undefined;
+        }
+        return this._translocoService.translate('productCard.packWeight', {
+            weight: weight.toLocaleString(
+                this._translocoService.getActiveLang()
+            ),
+        });
+    }
+
+    /** "2 giờ trước" — how long ago this market last restated price/quantity. */
+    updatedNote(product: CatalogProduct): string | undefined {
+        return (
+            formatRelativeTime(
+                product.updatedAt,
+                this._translocoService.getActiveLang()
+            ) ?? undefined
+        );
+    }
+
+    /**
+     * Keeps `?category=` / `?featured=` in step with in-page filtering, so the
+     * URL a click on the sidebar leaves behind is the same one that lands here
+     * filtered from the header's Hot Deals menu — shareable and
+     * back/forward-safe either way. An empty value drops the parameter.
+     */
+    private _syncQueryParams(params: Record<string, string | string[]>): void {
+        const queryParams: Record<string, string | string[] | null> = {};
+        for (const [key, value] of Object.entries(params)) {
+            // An empty value — or an empty list — drops the parameter, so a
+            // cleared filter leaves no `?tag=` behind to be re-read on reload.
+            queryParams[key] = Array.isArray(value)
+                ? value.length
+                    ? value
+                    : null
+                : value || null;
+        }
         void this._router.navigate([], {
             relativeTo: this._route,
-            queryParams: { category: categoryId || null },
+            queryParams,
             queryParamsHandling: 'merge',
             replaceUrl: true,
         });
+    }
+
+    /** Empty / NaN / negative → no bound; otherwise a finite non-negative number. */
+    private _normalizePriceBound(value: number | null): number | null {
+        if (value === null || value === undefined) {
+            return null;
+        }
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 0) {
+            return null;
+        }
+        return n;
     }
 }

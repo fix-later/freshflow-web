@@ -1,7 +1,7 @@
 <!-- Button -->
 <ng-container *transloco="let t">
     <button
-        class="ff-header-icon text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
+        class="ff-header-icon ff-header-icon--stack text-default relative flex h-10 w-10 items-center justify-center overflow-visible rounded-full hover:bg-hover"
         type="button"
         [matMenuTriggerFor]="userActions"
         [matTooltip]="t('header.account')"
@@ -22,7 +22,7 @@
             }
             @if (isApproved) {
                 <mat-icon
-                    class="user-verified-badge absolute -bottom-0.5 -right-0.5 icon-size-3.5"
+                    class="user-verified-badge pointer-events-none absolute -bottom-0.5 -right-0.5 icon-size-3.5"
                     [svgIcon]="'heroicons_solid:check-badge'"
                     [attr.aria-label]="t('user.verified')"
                 ></mat-icon>
@@ -64,18 +64,8 @@
                 <div class="text-secondary text-xs">
                     {{ t('user.signedInAs') }}
                 </div>
-                <div class="flex min-w-0 items-center gap-1">
-                    <div class="text-default truncate text-sm font-medium">
-                        {{ user.email }}
-                    </div>
-                    @if (isApproved) {
-                        <mat-icon
-                            class="user-verified-badge shrink-0 icon-size-4"
-                            [svgIcon]="'heroicons_solid:check-badge'"
-                            [matTooltip]="t('user.verified')"
-                            [attr.aria-label]="t('user.verified')"
-                        ></mat-icon>
-                    }
+                <div class="text-default truncate text-sm font-medium">
+                    {{ user.email }}
                 </div>
             </div>
         </div>

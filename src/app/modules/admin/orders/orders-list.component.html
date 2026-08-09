@@ -79,6 +79,22 @@
                 ></mat-datepicker-toggle>
                 <mat-datepicker #toPicker></mat-datepicker>
             </mat-form-field>
+            <!-- Server-side: the list is paged, so reordering only the rows on
+                 screen would be a lie about the other pages. Created-date is
+                 also the one field `GET /orders` will sort by. -->
+            <mat-form-field
+                class="fuse-mat-dense w-44"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.orders.sort.label') }}</mat-label>
+                <mat-select [formControl]="sort">
+                    @for (opt of sortOptions; track opt) {
+                        <mat-option [value]="opt">{{
+                            sortLabel(opt)
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
             @if (hasActiveFilters()) {
                 <button
                     mat-stroked-button
@@ -126,13 +142,20 @@
                         <div
                             class="orders-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
                         >
-                            <button
-                                type="button"
-                                class="min-w-0 truncate text-left font-mono text-sm hover:text-primary"
-                                (click)="openDetail(row)"
-                            >
-                                {{ row.orderId }}
-                            </button>
+                            <div class="min-w-0">
+                                <button
+                                    type="button"
+                                    class="block w-full truncate text-left font-mono text-sm hover:text-primary"
+                                    (click)="openDetail(row)"
+                                >
+                                    {{ row.orderId }}
+                                </button>
+                                <!-- The field the list is ordered by, which the
+                                     table otherwise never showed. -->
+                                <div class="text-secondary truncate text-xs">
+                                    {{ formatDate(row.createdAt) || '—' }}
+                                </div>
+                            </div>
                             <div class="min-w-0 truncate">
                                 {{
                                     row.restaurantName ||

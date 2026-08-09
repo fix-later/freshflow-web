@@ -74,22 +74,13 @@
     </nav>
 
     <div
-        class="flex shrink-0 items-center gap-6 whitespace-nowrap"
+        class="flex h-14 shrink-0 items-center gap-6 whitespace-nowrap"
         *transloco="let t"
     >
-        <a
-            class="inline-flex items-center gap-1.5 text-base font-semibold text-sale-700 hover:underline"
-            routerLink="/deals"
-        >
-            <mat-icon
-                class="text-current icon-size-5"
-                [svgIcon]="'heroicons_outline:fire'"
-            ></mat-icon>
-            <span>{{ t('header.hotDeals') }}</span>
-        </a>
+        <hot-deals-menu></hot-deals-menu>
 
         <a
-            class="text-secondary inline-flex items-center gap-1.5 text-base"
+            class="text-secondary inline-flex h-14 items-center gap-1.5 text-base"
             [href]="hotline.href"
         >
             <mat-icon

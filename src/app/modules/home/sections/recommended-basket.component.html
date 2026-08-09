@@ -1,0 +1,214 @@
+<section class="ff-section ff-section--tint" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">{{ t('home.basket.title') }}</h2>
+                <p class="ff-section__lead">{{ t('home.basket.lead') }}</p>
+            </div>
+        </div>
+
+        <div class="ff-basket">
+            <!-- Left: which kitchen's basket -->
+            <ul class="ff-basket__picker">
+                @for (option of baskets; track option.id) {
+                    <li>
+                        <button
+                            class="ff-basket__pick"
+                            type="button"
+                            [class.ff-basket__pick--on]="isChosen(option.id)"
+                            [attr.aria-pressed]="isChosen(option.id)"
+                            (click)="chooseBasket(option.id)"
+                        >
+                            {{ basketLabel(option) }}
+                        </button>
+                    </li>
+                }
+            </ul>
+
+            <!-- Right: the editable lines -->
+            <div class="ff-basket__panel">
+                @if (!market()) {
+                    <div class="ff-section__state">
+                        <mat-icon
+                            class="text-hint icon-size-10"
+                            [svgIcon]="'heroicons_outline:building-storefront'"
+                        ></mat-icon>
+                        <p class="text-secondary">
+                            {{ t('home.basket.noMarket') }}
+                        </p>
+                    </div>
+                } @else if (loading()) {
+                    <div class="ff-section__state">
+                        <mat-progress-spinner
+                            [diameter]="32"
+                            [mode]="'indeterminate'"
+                        ></mat-progress-spinner>
+                    </div>
+                } @else if (lines().length) {
+                    <ul class="ff-basket__lines">
+                        @for (line of lines(); track line.label) {
+                            <li
+                                class="ff-basket__line"
+                                data-testid="landing-basket-line"
+                                [class.ff-basket__line--off]="
+                                    !line.included || !line.available
+                                "
+                            >
+                                <button
+                                    class="ff-basket__check"
+                                    type="button"
+                                    [disabled]="!line.available"
+                                    [attr.aria-pressed]="line.included"
+                                    [attr.aria-label]="
+                                        t('home.basket.toggleLine', {
+                                            name: lineName(line),
+                                        })
+                                    "
+                                    (click)="toggleLine(line)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="
+                                            line.included && line.available
+                                                ? 'heroicons_mini:check'
+                                                : 'heroicons_mini:minus'
+                                        "
+                                    ></mat-icon>
+                                </button>
+
+                                <span class="ff-basket__thumb">
+                                    @if (line.product?.thumbnail; as thumb) {
+                                        <img
+                                            [src]="thumb"
+                                            alt=""
+                                            loading="lazy"
+                                            decoding="async"
+                                        />
+                                    } @else {
+                                        <span aria-hidden="true">🥬</span>
+                                    }
+                                </span>
+
+                                <span class="ff-basket__info">
+                                    <span class="ff-basket__name">{{
+                                        lineName(line)
+                                    }}</span>
+                                    @if (line.available) {
+                                        <span class="ff-basket__meta">
+                                            {{ linePrice(line) }}
+                                            @if (lineUnit(line)) {
+                                                <span
+                                                    >/
+                                                    {{ lineUnit(line) }}</span
+                                                >
+                                            }
+                                        </span>
+                                    } @else {
+                                        <!-- Shown, not hidden: the buyer should
+                                             learn this market lacks it. -->
+                                        <span class="ff-basket__missing">{{
+                                            t('home.basket.unavailable')
+                                        }}</span>
+                                    }
+                                </span>
+
+                                @if (line.available) {
+                                    <span class="ff-basket__stepper">
+                                        <button
+                                            type="button"
+                                            [attr.aria-label]="
+                                                t('home.basket.decrease', {
+                                                    name: lineName(line),
+                                                })
+                                            "
+                                            (click)="changeQuantity(line, -1)"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="
+                                                    'heroicons_mini:minus'
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                        <span
+                                            class="ff-basket__qty"
+                                            aria-live="polite"
+                                            >{{ line.quantity }}</span
+                                        >
+                                        <button
+                                            type="button"
+                                            [attr.aria-label]="
+                                                t('home.basket.increase', {
+                                                    name: lineName(line),
+                                                })
+                                            "
+                                            (click)="changeQuantity(line, 1)"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="
+                                                    'heroicons_mini:plus'
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                    </span>
+                                } @else {
+                                    <a
+                                        class="ff-basket__find"
+                                        routerLink="/catalog"
+                                        [queryParams]="{ q: line.label }"
+                                        >{{ t('home.basket.findIt') }}</a
+                                    >
+                                }
+                            </li>
+                        }
+                    </ul>
+
+                    <div class="ff-basket__foot">
+                        <div class="ff-basket__summary">
+                            <span class="ff-basket__total">{{
+                                estimatedTotal()
+                            }}</span>
+                            <span class="ff-basket__count">
+                                {{
+                                    t('home.basket.selected', {
+                                        count: addableCount(),
+                                    })
+                                }}
+                                @if (unavailableCount()) {
+                                    <span>
+                                        {{
+                                            t('home.basket.missingCount', {
+                                                count: unavailableCount(),
+                                            })
+                                        }}</span
+                                    >
+                                }
+                            </span>
+                        </div>
+                        <button
+                            class="ff-basket__add"
+                            data-testid="landing-basket-add"
+                            type="button"
+                            [disabled]="addableCount() === 0"
+                            (click)="addBasket()"
+                        >
+                            <mat-icon
+                                class="text-current icon-size-5"
+                                [svgIcon]="'heroicons_outline:shopping-cart'"
+                            ></mat-icon>
+                            <span>{{ t('home.basket.addAll') }}</span>
+                        </button>
+                    </div>
+                } @else {
+                    <div class="ff-section__state">
+                        <span class="text-4xl" aria-hidden="true">🧺</span>
+                        <p class="text-secondary">
+                            {{ t('home.basket.empty') }}
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>

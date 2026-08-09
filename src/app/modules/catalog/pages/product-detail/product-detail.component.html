@@ -82,7 +82,10 @@
                     <span
                         class="text-hint text-sm font-medium uppercase tracking-wider"
                     >
-                        {{ categoryName(product.categoryId) }}
+                        {{
+                            categoryName(product.categoryId) ||
+                                product.categoryLabel
+                        }}
                     </span>
                     <button
                         mat-stroked-button
@@ -94,9 +97,11 @@
                         "
                         (click)="toggleFavorite(product)"
                     >
+                        <!-- Brand pink, the same token the tile's heart uses —
+                             not a raw `red-500` (TOKENS.md). -->
                         <mat-icon
                             class="icon-size-5"
-                            [class.text-red-500]="isFavorite(product)"
+                            [class.text-sale-700]="isFavorite(product)"
                             [svgIcon]="
                                 isFavorite(product)
                                     ? 'heroicons_solid:heart'
@@ -111,92 +116,131 @@
                     </button>
                 </div>
 
-                <!-- Attribute table -->
-                <div class="grid grid-cols-2 gap-6">
-                    <div>
-                        <span class="text-hint text-sm">
-                            {{ t('catalog.price') }}
-                        </span>
-                        <p
-                            class="mt-1 font-mono text-2xl font-semibold tabular-nums text-primary"
+                <!--
+                  The market's labels. A pinning tag leads as a filled chip —
+                  pinning is the one meaning the platform defines — and the
+                  rest follow as the seller's own vocabulary.
+                -->
+                @if (product.tags.length) {
+                    <ul class="flex flex-wrap gap-2">
+                        @for (tag of product.tags; track tag.id || tag.name) {
+                            <li
+                                class="rounded-full px-2.5 py-1 text-sm"
+                                [class]="
+                                    tag.pinsToTop
+                                        ? 'bg-accent font-semibold text-on-accent'
+                                        : 'text-secondary border'
+                                "
+                            >
+                                {{
+                                    tag.pinsToTop
+                                        ? t('productCard.featured')
+                                        : tag.name
+                                }}
+                            </li>
+                        }
+                    </ul>
+                }
+
+                <!--
+                  Headline: the price with what it is quoted per, how much can
+                  actually be ordered, and how old the figure is. On a produce
+                  board those three belong together — a price without its unit
+                  or its age is not an offer a buyer can act on.
+                -->
+                <div class="rounded-xl border p-4">
+                    <span class="text-secondary text-sm">
+                        {{ t('catalog.price') }}
+                    </span>
+                    <p class="mt-1 flex items-baseline gap-1.5">
+                        <span
+                            class="font-mono text-4xl font-bold tabular-nums text-primary"
                         >
                             {{ formatPrice(product.price) }}
-                        </p>
-                    </div>
-                    <div>
-                        <span class="text-hint text-sm">
-                            {{ t('catalog.unit') }}
                         </span>
-                        <p class="mt-1 font-medium">
-                            {{ isVi() ? product.unit : product.unitEn }}
-                        </p>
+                        @if (unitShort(); as unit) {
+                            <span class="text-secondary text-lg font-medium"
+                                >/{{ unit }}</span
+                            >
+                        }
+                    </p>
+
+                    <div
+                        class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2"
+                    >
+                        @if (product.quantity !== null) {
+                            @if (isOutOfStock(product)) {
+                                <span
+                                    class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                                >
+                                    {{ t('productCard.outOfStock') }}
+                                </span>
+                            } @else {
+                                <span
+                                    class="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-900"
+                                >
+                                    <mat-icon
+                                        class="text-current icon-size-4"
+                                        svgIcon="heroicons_outline:check-circle"
+                                    ></mat-icon>
+                                    {{
+                                        t('productCard.inStock', {
+                                            count: product.quantity,
+                                        })
+                                    }}
+                                    {{ unitShort() }}
+                                </span>
+                            }
+                        }
+
+                        @if (updatedNote(); as when) {
+                            <span
+                                class="text-secondary inline-flex items-center gap-1.5 text-sm"
+                            >
+                                <mat-icon
+                                    class="text-current icon-size-4"
+                                    svgIcon="heroicons_outline:clock"
+                                ></mat-icon>
+                                {{ t('productCard.updated', { when: when }) }}
+                            </span>
+                        }
                     </div>
-                    <div>
-                        <span class="text-hint text-sm">
-                            {{ t('catalog.marketSource') }}
-                        </span>
-                        <p class="mt-1 font-medium">
-                            {{ product.marketSource }}
-                        </p>
-                    </div>
+
+                    <button
+                        mat-flat-button
+                        class="mt-4 w-full"
+                        color="primary"
+                        type="button"
+                        [disabled]="!canOrder(product)"
+                        (click)="addToDraftOrder(product)"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:shopping-cart"
+                        ></mat-icon>
+                        <span class="ml-2">{{
+                            t('productCard.addToCart')
+                        }}</span>
+                    </button>
                 </div>
 
-                <!-- Price trend over the last 30 days -->
-                @if (priceStats(); as stats) {
-                    <div class="mt-2 rounded-xl border p-4">
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="flex flex-col">
-                                <span class="text-hint text-sm">{{
-                                    t('catalog.priceHistory.title')
-                                }}</span>
-                                <span class="mt-1 text-sm">
-                                    {{ t('catalog.priceHistory.range') }}:
-                                    <strong class="tabular-nums"
-                                        >{{ stats.low | number: '1.0-0' }}₫ –
-                                        {{
-                                            stats.high | number: '1.0-0'
-                                        }}₫</strong
-                                    >
-                                </span>
+                <!--
+                  Spec table. Every row comes from the listing payload; rows the
+                  listing does not carry are absent rather than blank (see
+                  `facts` in the component).
+                -->
+                @if (facts().length) {
+                    <dl class="grid grid-cols-2 gap-x-6 gap-y-4">
+                        @for (fact of facts(); track fact.labelKey) {
+                            <div>
+                                <dt class="text-secondary text-sm">
+                                    {{ t(fact.labelKey) }}
+                                </dt>
+                                <dd class="mt-0.5 font-medium">
+                                    {{ fact.value }}
+                                </dd>
                             </div>
-                            <div class="flex flex-col items-end">
-                                <svg
-                                    class="h-8 w-28 overflow-visible"
-                                    viewBox="0 0 100 32"
-                                    preserveAspectRatio="none"
-                                    aria-hidden="true"
-                                >
-                                    <polyline
-                                        [attr.points]="sparkline()"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        [class.text-red-500]="
-                                            stats.changePct > 0
-                                        "
-                                        [class.text-green-600]="
-                                            stats.changePct <= 0
-                                        "
-                                    />
-                                </svg>
-                                <span
-                                    class="mt-1 text-sm font-medium tabular-nums"
-                                    [class.text-red-600]="stats.changePct > 0"
-                                    [class.text-green-700]="
-                                        stats.changePct <= 0
-                                    "
-                                >
-                                    {{ stats.changePct > 0 ? '+' : ''
-                                    }}{{ stats.changePct | number: '1.0-1' }}%
-                                </span>
-                            </div>
-                        </div>
-                        <p class="text-hint mt-2 text-xs">
-                            {{ t('catalog.priceHistory.hint') }}
-                        </p>
-                    </div>
+                        }
+                    </dl>
                 }
 
                 <!-- Description (collapsible) -->

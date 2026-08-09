@@ -607,9 +607,9 @@
                                         class="ff-rd__row"
                                         [class.border-b]="!last"
                                     >
-                                        <span class="font-semibold"
-                                            >{{ st.month }}/{{ st.year }}</span
-                                        >
+                                        <span class="font-semibold">{{
+                                            statementPeriodLabel(st)
+                                        }}</span>
                                         <span class="text-secondary text-sm">
                                             {{
                                                 t(
@@ -618,8 +618,34 @@
                                             }}:
                                             {{ st.closingBalance | number }} ₫
                                         </span>
+                                        <!-- The list carries headers only; the
+                                             movements behind this balance come
+                                             from the by-id read. -->
                                         <button
                                             class="ml-auto h-8 min-h-8 min-w-10 px-2"
+                                            mat-stroked-button
+                                            type="button"
+                                            [matTooltip]="
+                                                t(
+                                                    'admin.restaurants.statements.viewLines'
+                                                )
+                                            "
+                                            (click)="
+                                                openStatementDetail(
+                                                    st,
+                                                    statementDialog
+                                                )
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="icon-size-5"
+                                                [svgIcon]="
+                                                    'heroicons_outline:list-bullet'
+                                                "
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            class="h-8 min-h-8 min-w-10 px-2"
                                             mat-stroked-button
                                             type="button"
                                             [disabled]="
@@ -723,6 +749,191 @@
         }
     </div>
 </div>
+
+<!-- One statement with its line items (`GET .../statements/{statementId}`) -->
+<ng-template #statementDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-160 md:min-w-160"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-none items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+        >
+            <div class="min-w-0">
+                <div class="text-lg font-medium">
+                    {{ t('admin.restaurants.statements.detailTitle') }}
+                </div>
+                @if (openStatement(); as st) {
+                    <div class="text-secondary truncate text-sm">
+                        {{ statementPeriodLabel(st) }}
+                    </div>
+                }
+            </div>
+            <button
+                mat-icon-button
+                type="button"
+                [tabIndex]="-1"
+                (click)="closeStatementDetail()"
+            >
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        @if (loadingStatement()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+
+        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+            @if (openStatement(); as st) {
+                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.restaurants.statements.opening') }}
+                        </div>
+                        <div class="mt-1 font-semibold tabular-nums">
+                            {{ st.openingBalance | number }} ₫
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.restaurants.statements.charges') }}
+                        </div>
+                        <div class="mt-1 font-semibold tabular-nums">
+                            {{ st.totalCharges | number }} ₫
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.restaurants.statements.payments') }}
+                        </div>
+                        <div class="mt-1 font-semibold tabular-nums">
+                            {{ st.totalPayments | number }} ₫
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.restaurants.statements.closing') }}
+                        </div>
+                        <div class="mt-1 font-semibold tabular-nums">
+                            {{ st.closingBalance | number }} ₫
+                        </div>
+                    </div>
+                </div>
+
+                <div
+                    class="text-secondary mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs"
+                >
+                    <span>
+                        {{ t('admin.restaurants.statements.generatedAt') }}:
+                        {{ formatDateTime(st.generatedAt) }}
+                    </span>
+                    <!-- Soft Net-15 term derived from the period end; there is
+                         no paid/overdue lifecycle behind it. -->
+                    @if (st.dueDate) {
+                        <span>
+                            {{ t('admin.restaurants.statements.dueDate') }}:
+                            {{ formatDateTime(st.dueDate) }}
+                        </span>
+                    }
+                    @if (st.totalRefunds) {
+                        <span>
+                            {{ t('admin.restaurants.statements.refunds') }}:
+                            {{ st.totalRefunds | number }} ₫
+                        </span>
+                    }
+                </div>
+
+                @if (statementError(); as message) {
+                    <div
+                        class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                        role="alert"
+                    >
+                        <mat-icon
+                            class="shrink-0 text-red-500 icon-size-5"
+                            svgIcon="heroicons_outline:exclamation-triangle"
+                        ></mat-icon>
+                        <span class="min-w-0">{{ message }}</span>
+                    </div>
+                } @else if (st.lines.length) {
+                    <div class="mt-6">
+                        <div
+                            class="text-secondary flex items-baseline justify-between"
+                        >
+                            <span class="text-xs uppercase">{{
+                                t('admin.restaurants.statements.lines')
+                            }}</span>
+                            <span class="text-xs tabular-nums">
+                                {{
+                                    t('admin.restaurants.statements.lineTotal')
+                                }}
+                                :
+                                {{ statementLineTotal() | number }} ₫
+                            </span>
+                        </div>
+                        <div class="mt-2 divide-y rounded-xl border">
+                            @for (line of st.lines; track line.id) {
+                                <div
+                                    class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm"
+                                >
+                                    <span
+                                        class="text-secondary w-36 shrink-0 tabular-nums"
+                                    >
+                                        {{ formatDateTime(line.occurredAt) }}
+                                    </span>
+                                    <span
+                                        class="admin-pill admin-pill-neutral shrink-0"
+                                    >
+                                        {{ line.type || '—' }}
+                                    </span>
+                                    <span
+                                        class="font-mono font-semibold tabular-nums"
+                                    >
+                                        {{ line.amount | number }} ₫
+                                    </span>
+                                    <span
+                                        class="text-secondary min-w-0 flex-1 truncate"
+                                        [matTooltip]="line.note || ''"
+                                    >
+                                        {{ line.note || line.reference || '' }}
+                                    </span>
+                                    <span
+                                        class="text-secondary shrink-0 tabular-nums"
+                                    >
+                                        {{ line.balanceAfter | number }} ₫
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                } @else if (!loadingStatement()) {
+                    <p class="text-secondary mt-6 text-sm">
+                        {{ t('admin.restaurants.statements.noLines') }}
+                    </p>
+                }
+
+                <div class="mt-6 flex justify-end gap-3">
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        [disabled]="downloadingStatementId() === st.id"
+                        (click)="downloadStatementPdf(st)"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            [svgIcon]="'heroicons_outline:arrow-down-tray'"
+                        ></mat-icon>
+                        <span class="ml-1">{{
+                            t('admin.restaurants.statements.download')
+                        }}</span>
+                    </button>
+                </div>
+            }
+        </div>
+    </div>
+</ng-template>
 
 <ng-template #settleDialog>
     <div

@@ -70,7 +70,6 @@ const FULL_FOOTER_PREFIXES = [
     '/about',
     '/faq',
     '/contact',
-    '/deals',
 ] as const;
 
 @Component({

@@ -1,0 +1,252 @@
+/*
+ * Header "Hot Deals" menu — a full-bleed panel under the header: category rail
+ * left, featured product tiles right.
+ *
+ * Layout/spacing follow the storefront mega-menu pattern already used by the
+ * "Categories" panel in the enterprise layout; every color is a theme token
+ * (`specs/design/TOKENS.md`), never a hard-coded hex.
+ *
+ * Styles are global (`ViewEncapsulation.None`), so the host is styled by tag
+ * and the panel by its own `.ff-hot-deals*` classes.
+ */
+hot-deals-menu {
+    display: flex;
+    height: 100%;
+    align-items: center;
+}
+
+/*
+ * Enter/leave for the panel's `animate.enter` / `animate.leave` bindings.
+ *
+ * Not Fuse's `fade-in-top`: that translates a full 100%, which on a 33rem
+ * full-bleed panel is a half-screen sweep across the header. Same curves and
+ * durations as Fuse (225ms decelerate in, 195ms accelerate out), with a short
+ * drop instead of a long one.
+ */
+.ff-hot-deals-enter {
+    animation: ff-hot-deals-drop-in 225ms cubic-bezier(0, 0, 0.2, 1);
+}
+
+.ff-hot-deals-leave {
+    animation: ff-hot-deals-drop-out 195ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes ff-hot-deals-drop-in {
+    from {
+        opacity: 0;
+        transform: translate3d(0, -0.75rem, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+}
+
+@keyframes ff-hot-deals-drop-out {
+    from {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translate3d(0, -0.75rem, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-hot-deals-enter,
+    .ff-hot-deals-leave {
+        animation-duration: 1ms;
+    }
+}
+
+.ff-hot-deals {
+    position: relative;
+    display: flex;
+    height: 100%;
+    align-items: center;
+
+    &__caret {
+        transition: transform 150ms ease;
+
+        &--open {
+            transform: rotate(180deg);
+        }
+    }
+
+    /*
+     * Full-bleed across the viewport, hanging off the header. `top` is set
+     * inline from the measured header bottom (CSS has no way to reach it) and
+     * follows it as the page scrolls.
+     *
+     * The height is **fixed**, not derived from the remaining viewport: the
+     * panel slides with the header, and a `bottom: 0` would have made it grow
+     * and shrink on every scrolled pixel. One row of tiles is the whole point
+     * of the panel, so that row sets the height and the content scrolls inside
+     * it. The inline `max-height` is only a guard for viewports too short to
+     * hold that row — on a normal desktop screen it never binds.
+     */
+    &__panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        z-index: 999;
+        height: 33rem;
+        overflow: hidden;
+        border-bottom: 1px solid var(--fuse-border);
+        @apply shadow-2xl;
+    }
+
+    /* Aligns the panel's content with the header's own column, and gives the
+       body a definite height to distribute (so the rail and the tiles scroll
+       inside the panel instead of the panel itself growing). */
+    &__container {
+        display: flex;
+        height: 100%;
+        flex-direction: column;
+        margin-inline: auto;
+        width: 100%;
+        max-width: 95rem;
+        padding-inline: 1rem;
+
+        @screen md {
+            padding-inline: 2rem;
+        }
+
+        @screen lg {
+            padding-inline: 3.5rem;
+        }
+    }
+
+    &__head {
+        display: flex;
+        flex: none;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1.5rem;
+        border-bottom: 1px solid var(--fuse-border);
+        padding-block: 0.875rem;
+    }
+
+    /* Loading / empty / no-market — one shared centered block, which takes the
+       whole remaining height so the state reads as the panel's content rather
+       than a strip stranded under the head. */
+    &__state {
+        display: flex;
+        min-height: 0;
+        flex: 1 1 auto;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 0;
+        text-align: center;
+    }
+
+    &__body {
+        display: grid;
+        min-height: 0;
+        flex: 1 1 auto;
+        grid-template-columns: 16rem minmax(0, 1fr);
+        align-items: stretch;
+        gap: 2rem;
+        padding-block: 1.5rem;
+    }
+
+    /* `overscroll-behavior: contain` here and on the tiles: reaching the end of
+       an inner scroller must not chain to the page, because a page scroll
+       dismisses the panel. */
+    &__rail {
+        display: flex;
+        min-height: 0;
+        flex-direction: column;
+        gap: 0.125rem;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border-right: 1px solid var(--fuse-border);
+        padding-right: 1.5rem;
+    }
+
+    &__rail-item {
+        display: flex;
+        width: 100%;
+        align-items: center;
+        gap: 0.75rem;
+        border-radius: 0.625rem;
+        padding: 0.5rem 0.625rem;
+        text-align: left;
+        transition:
+            background-color 150ms ease,
+            color 150ms ease;
+        @apply text-default;
+
+        &:hover,
+        &--active {
+            @apply bg-default text-primary;
+        }
+
+        &--active {
+            font-weight: 600;
+        }
+    }
+
+    /* Category artwork when the category has an image; a neutral icon tile
+       when it does not, so the rail keeps one rhythm either way. */
+    &__rail-thumb {
+        display: flex;
+        height: 2.25rem;
+        width: 2.25rem;
+        flex: none;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        border: 1px solid var(--fuse-border);
+        @apply bg-card;
+
+        img {
+            height: 100%;
+            width: 100%;
+            object-fit: cover;
+        }
+    }
+
+    &__rail-label {
+        min-width: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: 0.9375rem;
+    }
+
+    &__rail-count {
+        flex: none;
+        border-radius: 9999px;
+        padding: 0.0625rem 0.5rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        @apply text-secondary bg-default;
+    }
+
+    &__products {
+        display: flex;
+        min-width: 0;
+        min-height: 0;
+        flex-direction: column;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding-bottom: 1.5rem;
+    }
+
+    /* One row of five, matching the tile count the panel loads. Tiles keep
+       their natural height rather than stretching to fill the panel — a
+       viewport-tall product card would be all thumbnail. */
+    &__grid {
+        display: grid;
+        align-content: start;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 1rem;
+    }
+}

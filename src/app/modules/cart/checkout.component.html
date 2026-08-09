@@ -15,337 +15,371 @@
 
     <h1 class="cart-title">{{ t('checkout.title') }}</h1>
 
-    <ol class="cart-stepper w-full">
-        <li class="cart-step cart-step--done">
-            <a class="cart-step__inner" routerLink="/cart">
-                <span class="cart-step__num">1</span>
-                <span class="cart-step__label">{{ t('cart.steps.cart') }}</span>
-            </a>
-        </li>
-        <li class="cart-stepper__line" aria-hidden="true"></li>
-        <li
-            class="cart-step"
-            [class.cart-step--active]="!placed()"
-            [class.cart-step--done]="placed()"
-        >
-            <span class="cart-step__inner">
-                <span class="cart-step__num">2</span>
-                <span class="cart-step__label">{{
-                    t('cart.steps.checkout')
-                }}</span>
-            </span>
-        </li>
-        <li class="cart-stepper__line" aria-hidden="true"></li>
-        <li class="cart-step" [class.cart-step--active]="placed()">
-            <span class="cart-step__inner">
-                <span class="cart-step__num">3</span>
-                <span class="cart-step__label">{{ t('cart.steps.done') }}</span>
-            </span>
-        </li>
-    </ol>
-
-    @if (placed()) {
-        <div class="cart-done">
-            <mat-icon
-                class="text-primary icon-size-12"
-                [svgIcon]="'heroicons_outline:check-circle'"
-            ></mat-icon>
-            <h2>{{ t('cart.done.title') }}</h2>
-            <p>{{ t('cart.done.description') }}</p>
-            <a mat-flat-button color="primary" routerLink="/catalog">{{
-                t('cart.done.continue')
-            }}</a>
-        </div>
+    <!--
+      Confirming an order needs an approved restaurant account (BR-AUTH-1), so a
+      guest is stopped here rather than at the confirm button, before filling in
+      an address and a delivery window that cannot be submitted.
+    -->
+    @if (!isSignedIn()) {
+        <sign-in-required
+            icon="heroicons_outline:clipboard-document-check"
+            titleKey="guest.checkout.title"
+            descriptionKey="guest.checkout.description"
+        />
     } @else {
-        <div class="checkout-layout">
-            <!-- Left: shipping info -->
-            <section class="checkout-shipping">
-                <h2>{{ t('checkout.shipping.title') }}</h2>
+        <ol class="cart-stepper w-full">
+            <li class="cart-step cart-step--done">
+                <a class="cart-step__inner" routerLink="/cart">
+                    <span class="cart-step__num">1</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.cart')
+                    }}</span>
+                </a>
+            </li>
+            <li class="cart-stepper__line" aria-hidden="true"></li>
+            <li
+                class="cart-step"
+                [class.cart-step--active]="!placed()"
+                [class.cart-step--done]="placed()"
+            >
+                <span class="cart-step__inner">
+                    <span class="cart-step__num">2</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.checkout')
+                    }}</span>
+                </span>
+            </li>
+            <li class="cart-stepper__line" aria-hidden="true"></li>
+            <li class="cart-step" [class.cart-step--active]="placed()">
+                <span class="cart-step__inner">
+                    <span class="cart-step__num">3</span>
+                    <span class="cart-step__label">{{
+                        t('cart.steps.done')
+                    }}</span>
+                </span>
+            </li>
+        </ol>
 
-                <div class="checkout-shipping__address">
-                    <div class="checkout-shipping__address-head">
-                        <span class="checkout-field__label">{{
-                            t('checkout.shipping.address')
-                        }}</span>
-                        <!-- Editing here rather than sending the buyer to
+        @if (placed()) {
+            <div class="cart-done">
+                <mat-icon
+                    class="text-primary icon-size-12"
+                    [svgIcon]="'heroicons_outline:check-circle'"
+                ></mat-icon>
+                <h2>{{ t('cart.done.title') }}</h2>
+                <p>{{ t('cart.done.description') }}</p>
+                <a mat-flat-button color="primary" routerLink="/catalog">{{
+                    t('cart.done.continue')
+                }}</a>
+            </div>
+        } @else {
+            <div class="checkout-layout">
+                <!-- Left: shipping info -->
+                <section class="checkout-shipping">
+                    <h2>{{ t('checkout.shipping.title') }}</h2>
+
+                    <div class="checkout-shipping__address">
+                        <div class="checkout-shipping__address-head">
+                            <span class="checkout-field__label">{{
+                                t('checkout.shipping.address')
+                            }}</span>
+                            <!-- Editing here rather than sending the buyer to
                              /profile: leaving checkout to add an address is
                              how a full cart gets abandoned. -->
-                        <button
-                            class="checkout-shipping__address-edit"
-                            type="button"
-                            (click)="openAddresses()"
-                        >
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="
-                                    defaultAddress()
-                                        ? 'heroicons_outline:pencil-square'
-                                        : 'heroicons_outline:plus'
-                                "
-                            ></mat-icon>
-                            <span>{{
-                                defaultAddress()
-                                    ? t('checkout.shipping.changeAddress')
-                                    : t('checkout.shipping.addAddress')
-                            }}</span>
-                        </button>
-                    </div>
-                    <div class="checkout-shipping__address-body">
-                        <mat-icon
-                            class="text-primary icon-size-5"
-                            [svgIcon]="'heroicons_outline:map-pin'"
-                        ></mat-icon>
-                        @if (defaultAddress(); as address) {
-                            <p>{{ address }}</p>
-                        } @else {
-                            <p>{{ t('checkout.shipping.noAddress') }}</p>
-                        }
-                    </div>
-                </div>
-
-                <div class="checkout-shipping__schedule">
-                    <div class="checkout-field">
-                        <span class="checkout-field__label">{{
-                            t('checkout.shipping.date')
-                        }}</span>
-                        <mat-form-field
-                            class="w-full"
-                            appearance="outline"
-                            subscriptSizing="dynamic"
-                        >
-                            <input
-                                matInput
-                                [matDatepicker]="deliveryPicker"
-                                [min]="minDeliveryDate()"
-                                [max]="maxDeliveryDate()"
-                                [ngModel]="deliveryDate()"
-                                (ngModelChange)="onDeliveryDateChange($event)"
-                                [placeholder]="t('checkout.shipping.date')"
-                                readonly
-                                (click)="deliveryPicker.open()"
-                            />
-                            <mat-datepicker-toggle
-                                matIconSuffix
-                                [for]="deliveryPicker"
-                            ></mat-datepicker-toggle>
-                            <mat-datepicker
-                                #deliveryPicker
-                                panelClass="checkout-datepicker"
-                            ></mat-datepicker>
-                        </mat-form-field>
-                        <p class="checkout-shipping__hint">
-                            @if (afterCutoff()) {
-                                {{ t('checkout.shipping.cutoffHint') }}
-                            } @else {
-                                {{ t('checkout.shipping.minDateHint') }}
-                            }
-                        </p>
-                    </div>
-
-                    <div class="checkout-field">
-                        <span class="checkout-field__label">{{
-                            t('checkout.shipping.time')
-                        }}</span>
-                        <mat-form-field
-                            class="w-full"
-                            appearance="outline"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-select
-                                [ngModel]="deliverySlot()"
-                                (ngModelChange)="onDeliverySlotChange($event)"
+                            <button
+                                class="checkout-shipping__address-edit"
+                                type="button"
+                                (click)="openAddresses()"
                             >
-                                @for (slot of deliverySlots(); track slot) {
-                                    <mat-option [value]="slot">{{
-                                        windowLabel(slot)
-                                    }}</mat-option>
-                                }
-                            </mat-select>
-                        </mat-form-field>
-                    </div>
-                </div>
-
-                <div class="checkout-shipping__notes">
-                    <span class="checkout-field__label">{{
-                        t('checkout.shipping.notes')
-                    }}</span>
-                    <mat-checkbox
-                        class="checkout-fresh-check"
-                        color="primary"
-                        [ngModel]="freshQualityNote()"
-                        (ngModelChange)="freshQualityNote.set($event)"
-                    >
-                        {{ t('checkout.shipping.freshNote') }}
-                    </mat-checkbox>
-                    <mat-form-field
-                        class="w-full"
-                        appearance="outline"
-                        subscriptSizing="dynamic"
-                    >
-                        <mat-label>{{
-                            t('checkout.shipping.extraNote')
-                        }}</mat-label>
-                        <textarea
-                            matInput
-                            rows="2"
-                            [ngModel]="extraNote()"
-                            (ngModelChange)="extraNote.set($event)"
-                        ></textarea>
-                    </mat-form-field>
-                </div>
-            </section>
-
-            <!-- Right: order pile -->
-            <aside class="checkout-order">
-                <h2 class="checkout-order__title">
-                    {{ t('checkout.order.title') }}
-                </h2>
-
-                <div class="checkout-order__lines">
-                    <div class="checkout-order__head">
-                        <span>{{ t('cart.table.product') }}</span>
-                        <span>{{ t('cart.table.subtotal') }}</span>
-                    </div>
-                    @for (line of lines(); track trackByLine($index, line)) {
-                        <div class="checkout-order__line">
-                            <div>
-                                <div class="checkout-order__name">
-                                    {{ productName(line.product) }}
-                                    <span>× {{ line.quantity }}</span>
-                                </div>
-                                <div class="checkout-order__meta">
-                                    {{ line.product.marketSource }}
-                                </div>
-                            </div>
-                            <strong
-                                >{{
-                                    lineTotal(line) | number: '1.0-0'
-                                }}₫</strong
-                            >
-                        </div>
-                    }
-                </div>
-
-                <div class="checkout-card checkout-card--row">
-                    <span>{{ t('checkout.payment.label') }}</span>
-                    <strong>{{ t('checkout.payment.credit') }}</strong>
-                </div>
-
-                <div class="checkout-card checkout-summary">
-                    <h3>{{ t('checkout.summary.title') }}</h3>
-
-                    <div class="checkout-summary__row">
-                        <span>{{ t('checkout.summary.goods') }}</span>
-                        <div class="checkout-summary__value">
-                            <strong>{{ subtotal() | number: '1.0-0' }}₫</strong>
-                            <small>{{
-                                t('checkout.summary.weightNote')
-                            }}</small>
-                        </div>
-                    </div>
-
-                    <div class="checkout-summary__row">
-                        <span>
-                            {{ t('checkout.summary.deliveryFee') }}
-                            @if (deliveryDistanceKm(); as km) {
-                                <small class="text-secondary">
-                                    ({{ km | number: '1.0-1' }} km)
-                                </small>
-                            }
-                        </span>
-                        @if (quoting()) {
-                            <strong class="text-secondary">…</strong>
-                        } @else if (deliveryFee(); as fee) {
-                            <strong>{{ fee | number: '1.0-0' }}₫</strong>
-                        } @else if (deliveryFee() === 0) {
-                            <strong class="is-free">{{
-                                t('checkout.summary.free')
-                            }}</strong>
-                        } @else {
-                            <strong class="text-secondary">{{
-                                t('checkout.summary.feePending')
-                            }}</strong>
-                        }
-                    </div>
-
-                    @if (vatAmount()) {
-                        <div class="checkout-summary__row">
-                            <span>{{ t('checkout.summary.vat') }}</span>
-                            <strong
-                                >{{ vatAmount() | number: '1.0-0' }}₫</strong
-                            >
-                        </div>
-                    }
-
-                    <div class="checkout-summary__total">
-                        <span>{{ t('checkout.summary.payable') }}</span>
-                        <div class="checkout-summary__payable">
-                            <strong>{{ total() | number: '1.0-0' }}₫</strong>
-                        </div>
-                    </div>
-
-                    <p class="checkout-summary__note">
-                        {{ t('checkout.summary.creditNote') }}
-                    </p>
-
-                    @if (blockers().length) {
-                        <div
-                            class="mb-3 flex flex-col gap-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                            role="alert"
-                        >
-                            <div class="flex items-center gap-2 font-medium">
                                 <mat-icon
-                                    class="text-red-500 icon-size-5"
+                                    class="icon-size-4"
                                     [svgIcon]="
-                                        'heroicons_outline:exclamation-triangle'
+                                        defaultAddress()
+                                            ? 'heroicons_outline:pencil-square'
+                                            : 'heroicons_outline:plus'
                                     "
                                 ></mat-icon>
-                                <span>{{ t('checkout.blockedTitle') }}</span>
-                            </div>
-                            <ul class="ml-7 list-disc">
-                                @for (reason of blockers(); track reason) {
-                                    <li>{{ reason }}</li>
-                                }
-                            </ul>
+                                <span>{{
+                                    defaultAddress()
+                                        ? t('checkout.shipping.changeAddress')
+                                        : t('checkout.shipping.addAddress')
+                                }}</span>
+                            </button>
                         </div>
-                    }
+                        <div class="checkout-shipping__address-body">
+                            <mat-icon
+                                class="text-primary icon-size-5"
+                                [svgIcon]="'heroicons_outline:map-pin'"
+                            ></mat-icon>
+                            @if (defaultAddress(); as address) {
+                                <p>{{ address }}</p>
+                            } @else {
+                                <p>{{ t('checkout.shipping.noAddress') }}</p>
+                            }
+                        </div>
+                    </div>
 
-                    <button
-                        class="cart-totals__btn"
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        [disabled]="!lines().length || submitting()"
-                        (click)="placeOrder()"
+                    <div class="checkout-shipping__schedule">
+                        <div class="checkout-field">
+                            <span class="checkout-field__label">{{
+                                t('checkout.shipping.date')
+                            }}</span>
+                            <mat-form-field
+                                class="w-full"
+                                appearance="outline"
+                                subscriptSizing="dynamic"
+                            >
+                                <input
+                                    matInput
+                                    [matDatepicker]="deliveryPicker"
+                                    [min]="minDeliveryDate()"
+                                    [max]="maxDeliveryDate()"
+                                    [ngModel]="deliveryDate()"
+                                    (ngModelChange)="
+                                        onDeliveryDateChange($event)
+                                    "
+                                    [placeholder]="t('checkout.shipping.date')"
+                                    readonly
+                                    (click)="deliveryPicker.open()"
+                                />
+                                <mat-datepicker-toggle
+                                    matIconSuffix
+                                    [for]="deliveryPicker"
+                                ></mat-datepicker-toggle>
+                                <mat-datepicker
+                                    #deliveryPicker
+                                    panelClass="checkout-datepicker"
+                                ></mat-datepicker>
+                            </mat-form-field>
+                            <p class="checkout-shipping__hint">
+                                @if (afterCutoff()) {
+                                    {{ t('checkout.shipping.cutoffHint') }}
+                                } @else {
+                                    {{ t('checkout.shipping.minDateHint') }}
+                                }
+                            </p>
+                        </div>
+
+                        <div class="checkout-field">
+                            <span class="checkout-field__label">{{
+                                t('checkout.shipping.time')
+                            }}</span>
+                            <mat-form-field
+                                class="w-full"
+                                appearance="outline"
+                                subscriptSizing="dynamic"
+                            >
+                                <mat-select
+                                    [ngModel]="deliverySlot()"
+                                    (ngModelChange)="
+                                        onDeliverySlotChange($event)
+                                    "
+                                >
+                                    @for (slot of deliverySlots(); track slot) {
+                                        <mat-option [value]="slot">{{
+                                            windowLabel(slot)
+                                        }}</mat-option>
+                                    }
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+                    </div>
+
+                    <div class="checkout-shipping__notes">
+                        <span class="checkout-field__label">{{
+                            t('checkout.shipping.notes')
+                        }}</span>
+                        <mat-checkbox
+                            class="checkout-fresh-check"
+                            color="primary"
+                            [ngModel]="freshQualityNote()"
+                            (ngModelChange)="freshQualityNote.set($event)"
+                        >
+                            {{ t('checkout.shipping.freshNote') }}
+                        </mat-checkbox>
+                        <mat-form-field
+                            class="w-full"
+                            appearance="outline"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('checkout.shipping.extraNote')
+                            }}</mat-label>
+                            <textarea
+                                matInput
+                                rows="2"
+                                [ngModel]="extraNote()"
+                                (ngModelChange)="extraNote.set($event)"
+                            ></textarea>
+                        </mat-form-field>
+                    </div>
+                </section>
+
+                <!-- Right: order pile -->
+                <aside class="checkout-order">
+                    <h2 class="checkout-order__title">
+                        {{ t('checkout.order.title') }}
+                    </h2>
+
+                    <div class="checkout-order__lines">
+                        <div class="checkout-order__head">
+                            <span>{{ t('cart.table.product') }}</span>
+                            <span>{{ t('cart.table.subtotal') }}</span>
+                        </div>
+                        @for (
+                            line of lines();
+                            track trackByLine($index, line)
+                        ) {
+                            <div class="checkout-order__line">
+                                <div>
+                                    <div class="checkout-order__name">
+                                        {{ productName(line.product) }}
+                                        <span>× {{ line.quantity }}</span>
+                                    </div>
+                                    <div class="checkout-order__meta">
+                                        {{ line.product.marketSource }}
+                                    </div>
+                                </div>
+                                <strong
+                                    >{{
+                                        lineTotal(line) | number: '1.0-0'
+                                    }}₫</strong
+                                >
+                            </div>
+                        }
+                    </div>
+
+                    <div class="checkout-card checkout-card--row">
+                        <span>{{ t('checkout.payment.label') }}</span>
+                        <strong>{{ t('checkout.payment.credit') }}</strong>
+                    </div>
+
+                    <div class="checkout-card checkout-summary">
+                        <h3>{{ t('checkout.summary.title') }}</h3>
+
+                        <div class="checkout-summary__row">
+                            <span>{{ t('checkout.summary.goods') }}</span>
+                            <div class="checkout-summary__value">
+                                <strong
+                                    >{{ subtotal() | number: '1.0-0' }}₫</strong
+                                >
+                                <small>{{
+                                    t('checkout.summary.weightNote')
+                                }}</small>
+                            </div>
+                        </div>
+
+                        <div class="checkout-summary__row">
+                            <span>
+                                {{ t('checkout.summary.deliveryFee') }}
+                                @if (deliveryDistanceKm(); as km) {
+                                    <small class="text-secondary">
+                                        ({{ km | number: '1.0-1' }} km)
+                                    </small>
+                                }
+                            </span>
+                            @if (quoting()) {
+                                <strong class="text-secondary">…</strong>
+                            } @else if (deliveryFee(); as fee) {
+                                <strong>{{ fee | number: '1.0-0' }}₫</strong>
+                            } @else if (deliveryFee() === 0) {
+                                <strong class="is-free">{{
+                                    t('checkout.summary.free')
+                                }}</strong>
+                            } @else {
+                                <strong class="text-secondary">{{
+                                    t('checkout.summary.feePending')
+                                }}</strong>
+                            }
+                        </div>
+
+                        @if (vatAmount()) {
+                            <div class="checkout-summary__row">
+                                <span>{{ t('checkout.summary.vat') }}</span>
+                                <strong
+                                    >{{
+                                        vatAmount() | number: '1.0-0'
+                                    }}₫</strong
+                                >
+                            </div>
+                        }
+
+                        <div class="checkout-summary__total">
+                            <span>{{ t('checkout.summary.payable') }}</span>
+                            <div class="checkout-summary__payable">
+                                <strong
+                                    >{{ total() | number: '1.0-0' }}₫</strong
+                                >
+                            </div>
+                        </div>
+
+                        <p class="checkout-summary__note">
+                            {{ t('checkout.summary.creditNote') }}
+                        </p>
+
+                        @if (blockers().length) {
+                            <div
+                                class="mb-3 flex flex-col gap-1 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                                role="alert"
+                            >
+                                <div
+                                    class="flex items-center gap-2 font-medium"
+                                >
+                                    <mat-icon
+                                        class="text-red-500 icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:exclamation-triangle'
+                                        "
+                                    ></mat-icon>
+                                    <span>{{
+                                        t('checkout.blockedTitle')
+                                    }}</span>
+                                </div>
+                                <ul class="ml-7 list-disc">
+                                    @for (reason of blockers(); track reason) {
+                                        <li>{{ reason }}</li>
+                                    }
+                                </ul>
+                            </div>
+                        }
+
+                        <button
+                            class="cart-totals__btn"
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            [disabled]="!lines().length || submitting()"
+                            (click)="placeOrder()"
+                        >
+                            {{ t('cart.totals.placeOrder') }}
+                        </button>
+
+                        <ul class="checkout-trust">
+                            <li>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_solid:check-circle'"
+                                ></mat-icon>
+                                {{ t('checkout.trust.returns') }}
+                            </li>
+                            <li>
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [svgIcon]="'heroicons_solid:check-circle'"
+                                ></mat-icon>
+                                {{ t('checkout.trust.invoice') }}
+                            </li>
+                        </ul>
+                    </div>
+
+                    <a
+                        class="checkout-back"
+                        mat-stroked-button
+                        routerLink="/cart"
+                        >{{ t('cart.totals.back') }}</a
                     >
-                        {{ t('cart.totals.placeOrder') }}
-                    </button>
-
-                    <ul class="checkout-trust">
-                        <li>
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="'heroicons_solid:check-circle'"
-                            ></mat-icon>
-                            {{ t('checkout.trust.returns') }}
-                        </li>
-                        <li>
-                            <mat-icon
-                                class="icon-size-4"
-                                [svgIcon]="'heroicons_solid:check-circle'"
-                            ></mat-icon>
-                            {{ t('checkout.trust.invoice') }}
-                        </li>
-                    </ul>
-                </div>
-
-                <a
-                    class="checkout-back"
-                    mat-stroked-button
-                    routerLink="/cart"
-                    >{{ t('cart.totals.back') }}</a
-                >
-            </aside>
-        </div>
+                </aside>
+            </div>
+        }
     }
 </div>

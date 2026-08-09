@@ -266,9 +266,27 @@ export interface AdminOrderListFilters {
     status?: string;
     from?: string;
     to?: string;
+    /** See {@link ORDER_SORT_OPTIONS} — anything else is a 400. */
+    sort?: string;
     page?: number;
     pageSize?: number;
 }
+
+/**
+ * The only two sorts `GET /orders` accepts.
+ *
+ * `OrderQueryParsing.TryParseSort` recognises `createdAt:desc` and
+ * `createdAt:asc` and nothing else — `ListOrdersQueryValidator` rejects any
+ * other value with "Sort must be 'createdAt:asc' or 'createdAt:desc'". So this
+ * is the whole vocabulary, not a subset the UI happens to offer, and no other
+ * column can be sorted server-side however sortable it looks in the table.
+ */
+export const ORDER_SORT_OPTIONS = ['createdAt:desc', 'createdAt:asc'] as const;
+
+export type OrderSortOption = (typeof ORDER_SORT_OPTIONS)[number];
+
+/** `OrderQueryParsing.DefaultSort` — what the server applies when none is sent. */
+export const ORDER_SORT_DEFAULT: OrderSortOption = 'createdAt:desc';
 
 export interface AdminOrdersResult {
     orders: AdminOrderDetail[];
@@ -428,17 +446,59 @@ export interface AdminRestaurantCredit {
 /**
  * A monthly credit statement row
  * (`GET /restaurants/{id}/credit/statements`, untyped envelope).
+ *
+ * The wire shape is `CreditStatementSummaryDto`, which names the period by its
+ * UTC boundaries — there is no `year` / `month` and no `totalPayments` on it.
+ * `AdminService` fills those in (see `normalizeCreditStatement`) because the
+ * boundaries are month starts **in Asia/Ho_Chi_Minh**, so the calendar month
+ * they belong to cannot be read off them in the browser's zone.
  */
 export interface AdminCreditStatement {
     id: string;
+    /** Derived from `periodStart` in Vietnam time — not sent by the server. */
     year?: number;
+    /** 1–12, derived from `periodStart` in Vietnam time. */
     month?: number;
+    /** Inclusive period start, UTC (`CreditStatementPeriodCalculator`). */
+    periodStart?: string;
+    /** Exclusive period end, UTC — the first instant of the next month. */
+    periodEnd?: string;
     openingBalance?: number;
     closingBalance?: number;
     totalCharges?: number;
+    /** Alias of `totalSettlements`, which is what the server actually sends. */
     totalPayments?: number;
+    totalSettlements?: number;
+    totalRefunds?: number;
     generatedAt?: string;
     [key: string]: unknown;
+}
+
+/**
+ * One ledger movement inside a statement (`CreditStatementLineDto`). Only the
+ * by-id read carries these — the list returns headers alone.
+ */
+export interface AdminCreditStatementLine {
+    /** Normalized from `transactionId`, so always present. */
+    id: string;
+    transactionId?: string;
+    type?: string;
+    amount?: number;
+    balanceAfter?: number;
+    occurredAt?: string;
+    note?: string | null;
+    reference?: string | null;
+    [key: string]: unknown;
+}
+
+/**
+ * A statement read by id (`GET .../credit/statements/{statementId}`), which is
+ * `CreditStatementDto`: the header plus the line items and the soft due date
+ * (period end + `PaymentTermDays`) that the list view does not carry.
+ */
+export interface AdminCreditStatementDetail extends AdminCreditStatement {
+    dueDate?: string;
+    lines: AdminCreditStatementLine[];
 }
 
 /**

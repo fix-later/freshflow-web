@@ -1,0 +1,81 @@
+/*
+ * Section 8: operational flow. Layout family = timeline (used once on this page).
+ *
+ * Horizontal on wide viewports, vertical on narrow ones. The connector is drawn
+ * with a pseudo-element rather than a hand-rolled SVG, so it inherits the border
+ * token and follows dark mode for free.
+ */
+freshflow-process {
+    display: block;
+}
+
+.ff-process {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+
+    @screen lg {
+        flex-direction: row;
+    }
+}
+
+.ff-process__step {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-block: 0.875rem;
+
+    @screen lg {
+        flex: 1 1 0;
+        flex-direction: column;
+        gap: 0.875rem;
+        padding-block: 0;
+        text-align: center;
+    }
+}
+
+/* Connector between steps: vertical on narrow, horizontal on wide. Drawn from
+   the icon's centre so it meets the next disc rather than the text. */
+.ff-process__step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    background: var(--fuse-border);
+
+    /* Narrow: down the left gutter, aligned to the 3rem disc's centre. */
+    left: 1.5rem;
+    top: 3.75rem;
+    height: calc(100% - 3rem);
+    width: 2px;
+
+    @screen lg {
+        left: calc(50% + 2rem);
+        top: 1.5rem;
+        height: 2px;
+        width: calc(100% - 4rem);
+    }
+}
+
+.ff-process__icon {
+    display: flex;
+    height: 3rem;
+    width: 3rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 1px solid var(--fuse-border);
+    @apply bg-card text-primary;
+}
+
+.ff-process__label {
+    min-width: 0;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.4;
+    @apply text-default;
+
+    @screen lg {
+        max-width: 16ch;
+    }
+}

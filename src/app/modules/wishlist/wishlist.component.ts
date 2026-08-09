@@ -15,6 +15,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
@@ -38,6 +39,10 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 export class WishlistComponent implements OnInit {
     private readonly _favorites = inject(FavoritesService);
     private readonly _draftOrder = inject(DraftOrderService);
+    private readonly _permissions = inject(PermissionsService);
+
+    /** Guests see the sign-in panel instead of an empty-favorites state. */
+    readonly isSignedIn = this._permissions.isSignedIn;
     private readonly _transloco = inject(TranslocoService);
     private readonly _snackBar = inject(MatSnackBar);
 

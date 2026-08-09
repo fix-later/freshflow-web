@@ -2,12 +2,12 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
-    OnInit,
-    ViewEncapsulation,
     computed,
     inject,
     input,
+    OnInit,
     signal,
+    ViewEncapsulation,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -16,12 +16,17 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
+import {
+    CatalogTag,
+    MAX_MARKET_PRODUCT_TAGS,
+} from 'app/modules/catalog/catalog.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
@@ -30,8 +35,12 @@ import { CatalogAdminService } from './catalog-admin.service';
 interface MarketProductRow {
     productId: string;
     name: string;
+    /** Selling unit, for labelling the quantity on the price-history screen. */
+    unit: string;
     price: number | null;
     quantity: number | null;
+    /** Catalog tags assigned to this listing (`MarketProductTagDto`). */
+    tags: CatalogTag[];
 }
 
 interface ProductSelectionRow {
@@ -40,6 +49,29 @@ interface ProductSelectionRow {
     category: string;
     unit: string;
     description: string;
+}
+
+/**
+ * Reads `MarketProductItemDto.Tags` — `{ id, name, pinsToTop }` objects since
+ * SCRUM-386. Entries without an id are dropped: the write path sends ids, so a
+ * tag this screen cannot identify is one it could not save back either, and
+ * showing it would invite an agent to "keep" something that silently vanishes.
+ */
+function readTagList(value: unknown): CatalogTag[] {
+    if (!Array.isArray(value)) {
+        return [];
+    }
+    return value
+        .filter(
+            (entry): entry is Record<string, unknown> =>
+                !!entry && typeof entry === 'object'
+        )
+        .map((entry) => ({
+            id: String(entry['id'] ?? ''),
+            name: String(entry['name'] ?? ''),
+            pinsToTop: entry['pinsToTop'] === true,
+        }))
+        .filter((tag) => !!tag.id);
 }
 
 function num(value: unknown): number | null {
@@ -83,14 +115,18 @@ function decimalPlaces(value: number): number {
         MatIconModule,
         MatInputModule,
         MatProgressBarModule,
+        MatSelectModule,
         MatSnackBarModule,
         MatTooltipModule,
         TranslocoModule,
     ],
     styles: [
         `
+            /* Actions column carries the pin indicator + history + save. */
             .market-products-grid {
-                grid-template-columns: minmax(0, 1.4fr) 9rem 9rem 5rem;
+                grid-template-columns:
+                    minmax(0, 1.2fr) 8.5rem 8.5rem minmax(0, 1fr)
+                    9.5rem;
             }
 
             .product-picker-grid {
@@ -172,16 +208,46 @@ export class MarketProductsComponent implements OnInit {
         return list.filter((row) => includesFolded(row.name, term));
     });
 
+    /**
+     * Only the three columns that carry a sort header are sortable. Spelled out
+     * rather than indexing the row blindly: `tags` is an array, which has no
+     * meaningful order, and a blind accessor would happily hand it to the
+     * comparator if a header were ever added for it.
+     */
     readonly sortedRows = computed(() =>
-        this.sort.apply(
-            this.filteredRows(),
-            (row, key) => row[key as keyof MarketProductRow]
-        )
+        this.sort.apply(this.filteredRows(), (row, key) => {
+            switch (key) {
+                case 'name':
+                    return row.name;
+                case 'price':
+                    return row.price;
+                case 'quantity':
+                    return row.quantity;
+                default:
+                    return null;
+            }
+        })
     );
 
     /** Per-row draft edits, keyed by product id. */
     priceDraft: Record<string, number | null> = {};
     quantityDraft: Record<string, number | null> = {};
+    /**
+     * Drafted tag **ids** per product id.
+     *
+     * Ids, not typed text: tags are a shared catalog now
+     * (`PUT .../tags` binds `TagIds`), so this is a selection from
+     * {@link tagCatalog} rather than free input. An agent who needs a tag that
+     * does not exist has to have it created in Admin ▸ Catalog ▸ Tags — which
+     * is the point of a controlled vocabulary.
+     */
+    tagsDraft: Record<string, string[]> = {};
+
+    /** The tag catalog, loaded once — the source for every row's picker. */
+    readonly tagCatalog = signal<CatalogTag[]>([]);
+    readonly loadingTags = signal(false);
+
+    readonly maxTags = MAX_MARKET_PRODUCT_TAGS;
 
     /**
      * Initial price / quantity typed in the quick-add picker, keyed by product id.
@@ -218,6 +284,7 @@ export class MarketProductsComponent implements OnInit {
 
         this.load();
         this._loadPickerProducts();
+        this._loadTagCatalog();
     }
 
     goBack(): void {
@@ -405,6 +472,9 @@ export class MarketProductsComponent implements OnInit {
                 for (const row of mapped) {
                     this.priceDraft[row.productId] = row.price;
                     this.quantityDraft[row.productId] = row.quantity;
+                    this.tagsDraft[row.productId] = row.tags.map(
+                        (tag) => tag.id
+                    );
                 }
             })
             .catch(() => {
@@ -414,7 +484,76 @@ export class MarketProductsComponent implements OnInit {
             .finally(() => this.loading.set(false));
     }
 
+    /**
+     * Opens the recorded price/quantity changes for this listing.
+     *
+     * The names travel in navigation state so the screen can title itself
+     * immediately; it re-fetches them when opened by deep link, so this is an
+     * optimisation rather than the only source.
+     */
+    openPriceHistory(row: MarketProductRow): void {
+        void this._router.navigate(
+            [
+                '/admin/markets',
+                this.effectiveMarketId(),
+                'products',
+                row.productId,
+                'price-history',
+            ],
+            {
+                state: {
+                    priceHistoryContext: {
+                        marketName: this.marketName(),
+                        productName: row.name,
+                        unit: row.unit,
+                    },
+                },
+            }
+        );
+    }
+
+    /** The tag ids currently drafted for a row. */
+    draftTags(productId: string): string[] {
+        return this.tagsDraft[productId] ?? [];
+    }
+
+    /**
+     * Client-side verdict on a row's drafted tags, as an i18n key. Mirrors
+     * `SetMarketProductTagsCommandValidator` (≤ 8 tags), so a rejected set
+     * never reaches the server. The per-tag length rule now lives on the tag
+     * itself and is enforced where tags are created, not here.
+     */
+    tagsErrorKey(productId: string): string | null {
+        return this.draftTags(productId).length > MAX_MARKET_PRODUCT_TAGS
+            ? 'admin.markets.pricing.tagsTooMany'
+            : null;
+    }
+
+    /**
+     * Whether the drafted set pins this listing to the top of the board.
+     *
+     * Read off the catalog rather than a tag name: pinning is `pinsToTop` on
+     * the tag, so which tags pin is decided in Admin ▸ Catalog ▸ Tags and can
+     * change without this screen knowing any particular name.
+     */
+    isFeaturedRow(row: MarketProductRow): boolean {
+        const pinning = new Set(
+            this.tagCatalog()
+                .filter((tag) => tag.pinsToTop)
+                .map((tag) => tag.id)
+        );
+        return this.draftTags(row.productId).some((id) => pinning.has(id));
+    }
+
+    /** Display name for a tag id, for the row's summary line. */
+    tagName(tagId: string): string {
+        return this.tagCatalog().find((tag) => tag.id === tagId)?.name ?? tagId;
+    }
+
     saveRow(row: MarketProductRow): void {
+        if (this.tagsErrorKey(row.productId)) {
+            return;
+        }
         const price = num(this.priceDraft[row.productId]);
         const quantity = num(this.quantityDraft[row.productId]);
         const tasks: Promise<void>[] = [];
@@ -433,6 +572,21 @@ export class MarketProductsComponent implements OnInit {
                     this.effectiveMarketId(),
                     row.productId,
                     quantity
+                )
+            );
+        }
+        // Tags go as a whole set (the endpoint replaces, it does not merge), so
+        // compare the drafted set against the stored one before sending. Both
+        // sides are sorted first: order carries no meaning, so comparing them
+        // unsorted would issue a pointless write after a mere reselection.
+        const tagIds = this.draftTags(row.productId);
+        const storedIds = row.tags.map((tag) => tag.id);
+        if ([...tagIds].sort().join(' ') !== [...storedIds].sort().join(' ')) {
+            tasks.push(
+                this._catalog.setMarketProductTags(
+                    this.effectiveMarketId(),
+                    row.productId,
+                    tagIds
                 )
             );
         }
@@ -471,12 +625,39 @@ export class MarketProductsComponent implements OnInit {
     }
 
     private _normalize(row: CrudRow): MarketProductRow {
+        const sellingUnit = (row['sellingUnit'] ?? null) as Record<
+            string,
+            unknown
+        > | null;
         return {
             productId: String(row['productId'] ?? row.id ?? ''),
             name: String(row['productName'] ?? row['name'] ?? ''),
+            unit: String(row['unit'] ?? sellingUnit?.['unitName'] ?? ''),
             price: num(row['price'] ?? row['currentPrice']),
             quantity: num(row['availableQuantity'] ?? row['quantity']),
+            tags: readTagList(row['tags']),
         };
+    }
+
+    private _loadTagCatalog(): void {
+        this.loadingTags.set(true);
+        void this._catalog
+            .listTags()
+            .then((rows) =>
+                this.tagCatalog.set(
+                    rows
+                        .filter((row) => !!row.id)
+                        .map((row) => ({
+                            id: row.id,
+                            name: String(row['name'] ?? ''),
+                            pinsToTop: row['pinsToTop'] === true,
+                        }))
+                )
+            )
+            // An empty catalog only disables the picker; price and quantity
+            // editing stand on their own and must not go down with it.
+            .catch(() => this.tagCatalog.set([]))
+            .finally(() => this.loadingTags.set(false));
     }
 
     private _notify(key: string): void {

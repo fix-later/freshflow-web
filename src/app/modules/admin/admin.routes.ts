@@ -4,10 +4,12 @@ import { AuditLogsComponent } from './audit-logs/audit-logs.component';
 import { CategoriesComponent } from './catalog/categories.component';
 import { MarketCreateComponent } from './catalog/market-create.component';
 import { MarketEditComponent } from './catalog/market-edit.component';
+import { MarketProductPriceHistoryComponent } from './catalog/market-product-price-history.component';
 import { MarketsComponent } from './catalog/markets.component';
 import { PackingCodesComponent } from './catalog/packing-codes.component';
 import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
+import { TagsComponent } from './catalog/tags.component';
 import { UnitsComponent } from './catalog/units.component';
 import { ClaimsListComponent } from './claims/claims-list.component';
 import { FinanceComponent } from './finance/finance.component';
@@ -26,6 +28,8 @@ import { OrdersListComponent } from './orders/orders-list.component';
 import { RestaurantDetailComponent } from './restaurants/restaurant-detail.component';
 import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
 import { RestaurantsCreateComponent } from './restaurants/restaurants-create.component';
+import { ScheduledOrderDetailComponent } from './scheduled-orders/scheduled-order-detail.component';
+import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-orders-list.component';
 import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
 import { UsersCreateComponent } from './users/users-create.component';
 import { UsersListComponent } from './users/users-list.component';
@@ -77,6 +81,12 @@ export default [
         path: 'packing-codes',
         component: PackingCodesComponent,
     },
+    // Tag catalog (SCRUM-386) — the vocabulary market listings reference, and
+    // where `pinsToTop` decides which tags pin a listing to the top of a board.
+    {
+        path: 'tags',
+        component: TagsComponent,
+    },
     {
         path: 'markets/new',
         component: MarketCreateComponent,
@@ -84,6 +94,12 @@ export default [
     {
         path: 'markets',
         component: MarketsComponent,
+    },
+    // Before `markets/:marketId/products` — Angular matches in order, and the
+    // shorter pattern would otherwise swallow this one's prefix.
+    {
+        path: 'markets/:marketId/products/:productId/price-history',
+        component: MarketProductPriceHistoryComponent,
     },
     {
         path: 'markets/:marketId/products',
@@ -127,6 +143,16 @@ export default [
     {
         path: 'orders/:orderId',
         component: OrderDetailComponent,
+    },
+    // Recurring orders (M5 — UC-ORD-09/10/11; the endpoints are
+    // `admin,restaurant`, so Operations sees every restaurant's schedules)
+    {
+        path: 'scheduled-orders',
+        component: ScheduledOrdersListComponent,
+    },
+    {
+        path: 'scheduled-orders/:scheduledOrderId',
+        component: ScheduledOrderDetailComponent,
     },
     // Procurement batching (M5)
     {

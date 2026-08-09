@@ -1,9 +1,35 @@
 <div class="ff-catalog ff-page flex flex-col" *transloco="let t">
     <!-- Approval gate notice for PENDING_APPROVAL restaurants (BR-AUTH-1) -->
-    <approval-banner class="block pt-2"></approval-banner>
+    <approval-banner class="block"></approval-banner>
 
-    <!-- Page head: breadcrumb, title, market the listing is scoped to -->
-    <header class="pt-2">
+    <!--
+      Guests may browse the whole catalogue but cannot order. Said once, up
+      front, so the sign-in prompt that follows a click on ♥ or the cart is an
+      expected step rather than a surprise. Photos and descriptions are also
+      missing for guests (`GET /products` needs a role), which is the other
+      thing this explains.
+    -->
+    @if (!isSignedIn()) {
+        <div class="ff-catalog__guest" role="status">
+            <mat-icon
+                class="shrink-0 text-primary icon-size-5"
+                svgIcon="heroicons_outline:information-circle"
+            ></mat-icon>
+            <p class="min-w-0 flex-auto text-sm">
+                {{ t('guest.catalogNotice') }}
+            </p>
+            <button
+                type="button"
+                class="ff-catalog__guest-cta"
+                (click)="signIn()"
+            >
+                {{ t('guest.signIn') }}
+            </button>
+        </div>
+    }
+
+    <!-- Page head: breadcrumb + title (market or selected category) -->
+    <header>
         <nav
             class="text-secondary flex flex-wrap items-center gap-1 text-sm"
             aria-label="Breadcrumb"
@@ -38,186 +64,341 @@
             }
         </nav>
 
-        <div
-            class="mt-2 flex flex-wrap items-end justify-between gap-x-6 gap-y-2"
-        >
-            <h1 class="text-3xl font-bold tracking-tight md:text-4xl">
-                {{
-                    selectedCategory()
-                        ? categoryName(selectedCategory())
-                        : t('catalog.allProducts')
-                }}
-            </h1>
-            @if (market(); as m) {
-                <p class="text-secondary flex items-center gap-1.5 text-sm">
-                    <mat-icon
-                        class="text-hint icon-size-4"
-                        svgIcon="heroicons_outline:building-storefront"
-                    ></mat-icon>
-                    {{ t('catalog.scopedToMarket', { market: m.name }) }}
-                </p>
+        <h1 class="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+            @if (selectedCategory()) {
+                {{ categoryName(selectedCategory()) }}
+            } @else if (market(); as m) {
+                {{ t('market.displayName', { name: m.name }) }}
+            } @else {
+                {{ t('catalog.allProducts') }}
             }
-        </div>
+        </h1>
     </header>
 
     <div class="flex flex-col gap-8 pb-10 pt-6 lg:flex-row">
         <!--
-          Filter rail. Below `lg` it collapses behind a toggle so the grid keeps
-          the fold; from `lg` up it is always open and sticks while the grid
-          scrolls past it.
+          Filter rail.
+          `lg+`: the whole rail pins under the header and the accordion scrolls
+          inside it. The <aside> must NOT be `self-start` — that would shrink it
+          to the rail's own height, leaving a sticky child no box to travel in,
+          which is the difference between pinning and appearing to do nothing.
+          Below `lg`: search + the filters toggle pin on their own (they are
+          what a shopper reaches for mid-scroll) and the accordion collapses
+          behind the toggle.
         -->
         <aside class="w-full shrink-0 lg:w-64">
-            <button
-                type="button"
-                class="ff-catalog__filters-toggle lg:hidden"
-                [attr.aria-expanded]="filtersOpen()"
-                (click)="toggleFilters()"
-            >
-                <mat-icon
-                    class="icon-size-5"
-                    svgIcon="heroicons_outline:adjustments-horizontal"
-                ></mat-icon>
-                <span class="font-semibold">{{
-                    t('catalog.filters.title')
-                }}</span>
-                <mat-icon
-                    class="ml-auto transition-transform icon-size-5"
-                    [class.rotate-180]="filtersOpen()"
-                    svgIcon="heroicons_mini:chevron-down"
-                ></mat-icon>
-            </button>
+            <div class="ff-catalog__rail">
+                <div class="ff-catalog__rail-head">
+                    <!-- Search runs over the market's whole listing (see component) -->
+                    <div class="ff-catalog__search">
+                        <mat-icon
+                            class="text-hint icon-size-5"
+                            svgIcon="heroicons_outline:magnifying-glass"
+                        ></mat-icon>
+                        <input
+                            type="search"
+                            [formControl]="searchControl"
+                            [placeholder]="t('catalog.searchPlaceholder')"
+                            [attr.aria-label]="t('catalog.searchPlaceholder')"
+                        />
+                        @if (searchTerm()) {
+                            <button
+                                type="button"
+                                class="text-hint hover:text-default"
+                                [attr.aria-label]="t('catalog.clearSearch')"
+                                (click)="clearSearch()"
+                            >
+                                <mat-icon
+                                    class="icon-size-4"
+                                    svgIcon="heroicons_mini:x-mark"
+                                ></mat-icon>
+                            </button>
+                        }
+                    </div>
 
-            <div
-                class="ff-catalog__filters mt-4 lg:sticky lg:top-6 lg:mt-0 lg:block"
-                [class.hidden]="!filtersOpen()"
-            >
-                <!-- Search runs over the pages already loaded (see component) -->
-                <div class="ff-catalog__search">
-                    <mat-icon
-                        class="text-hint icon-size-5"
-                        svgIcon="heroicons_outline:magnifying-glass"
-                    ></mat-icon>
-                    <input
-                        type="search"
-                        [formControl]="searchControl"
-                        [placeholder]="t('catalog.searchPlaceholder')"
-                        [attr.aria-label]="t('catalog.searchPlaceholder')"
-                    />
-                    @if (searchTerm()) {
-                        <button
-                            type="button"
-                            class="text-hint hover:text-default"
-                            [attr.aria-label]="t('catalog.clearSearch')"
-                            (click)="clearSearch()"
-                        >
-                            <mat-icon
-                                class="icon-size-4"
-                                svgIcon="heroicons_mini:x-mark"
-                            ></mat-icon>
-                        </button>
-                    }
+                    <button
+                        type="button"
+                        class="ff-catalog__filters-toggle lg:hidden"
+                        [attr.aria-expanded]="filtersOpen()"
+                        (click)="toggleFilters()"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            svgIcon="heroicons_outline:adjustments-horizontal"
+                        ></mat-icon>
+                        <span class="font-semibold">{{
+                            t('catalog.filters.title')
+                        }}</span>
+                        <mat-icon
+                            class="ml-auto transition-transform icon-size-5"
+                            [class.rotate-180]="filtersOpen()"
+                            svgIcon="heroicons_mini:chevron-down"
+                        ></mat-icon>
+                    </button>
                 </div>
 
-                <!-- Category tree: roots expand to reveal their children -->
-                <h2 class="mt-7 text-xl font-bold text-primary">
-                    {{ t('catalog.filters.categories') }}
-                </h2>
-                <ul class="ff-catalog__tree mt-3">
-                    <li>
-                        <button
-                            type="button"
-                            class="ff-catalog__cat"
-                            [class.ff-catalog__cat--active]="
-                                !selectedCategory()
-                            "
-                            (click)="filterByCategory('')"
-                        >
-                            {{ t('catalog.filters.all') }}
-                        </button>
-                    </li>
+                <div
+                    class="ff-catalog__filters lg:block"
+                    [class.hidden]="!filtersOpen()"
+                >
+                    <!--
+                      Material accordion around the existing filters. Scoped styles
+                      flatten Fuse's card/shadow defaults to the divider + navy
+                      header look used on this rail.
+                    -->
+                    <mat-accordion class="ff-catalog__accordion mt-2" multi>
+                        <mat-expansion-panel [(expanded)]="categoriesExpanded">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>{{
+                                    t('catalog.filters.categories')
+                                }}</mat-panel-title>
+                            </mat-expansion-panel-header>
 
-                    @for (node of categoryTree(); track node.id) {
-                        <li>
-                            <div class="flex items-center">
-                                <button
-                                    type="button"
-                                    class="ff-catalog__cat flex-1"
-                                    [class.ff-catalog__cat--active]="
-                                        selectedCategory() === node.id
-                                    "
-                                    [class.ff-catalog__cat--branch]="
-                                        isBranchSelected(node)
-                                    "
-                                    (click)="filterByCategory(node.id)"
-                                >
-                                    {{ categoryLabel(node) }}
-                                </button>
-
-                                @if (node.children.length) {
+                            <ul class="ff-catalog__tree">
+                                <li>
                                     <button
                                         type="button"
-                                        class="ff-catalog__cat-toggle"
-                                        [attr.aria-expanded]="
-                                            isExpanded(node.id)
+                                        class="ff-catalog__cat"
+                                        [class.ff-catalog__cat--active]="
+                                            !selectedCategory()
                                         "
-                                        [attr.aria-label]="
-                                            t(
-                                                'catalog.filters.toggleCategory',
-                                                {
-                                                    category:
-                                                        categoryLabel(node),
-                                                }
-                                            )
-                                        "
-                                        (click)="toggleCategory(node.id)"
+                                        (click)="filterByCategory('')"
                                     >
-                                        <mat-icon
-                                            class="icon-size-4"
-                                            [svgIcon]="
-                                                isExpanded(node.id)
-                                                    ? 'heroicons_mini:minus'
-                                                    : 'heroicons_mini:plus'
-                                            "
-                                        ></mat-icon>
+                                        {{ t('catalog.filters.all') }}
                                     </button>
-                                }
-                            </div>
+                                </li>
 
-                            @if (node.children.length && isExpanded(node.id)) {
-                                <ul class="ff-catalog__subtree">
-                                    @for (
-                                        child of node.children;
-                                        track child.id
-                                    ) {
-                                        <li>
+                                @for (node of categoryTree(); track node.id) {
+                                    <li>
+                                        <div class="flex items-center">
                                             <button
                                                 type="button"
-                                                class="ff-catalog__cat ff-catalog__cat--child"
+                                                class="ff-catalog__cat flex-1"
                                                 [class.ff-catalog__cat--active]="
                                                     selectedCategory() ===
-                                                    child.id
+                                                    node.id
+                                                "
+                                                [class.ff-catalog__cat--branch]="
+                                                    isBranchSelected(node)
                                                 "
                                                 (click)="
-                                                    filterByCategory(child.id)
+                                                    filterByCategory(node.id)
                                                 "
                                             >
-                                                {{ categoryLabel(child) }}
+                                                {{ categoryLabel(node) }}
                                             </button>
+
+                                            @if (node.children.length) {
+                                                <button
+                                                    type="button"
+                                                    class="ff-catalog__cat-toggle"
+                                                    [attr.aria-expanded]="
+                                                        isExpanded(node.id)
+                                                    "
+                                                    [attr.aria-label]="
+                                                        t(
+                                                            'catalog.filters.toggleCategory',
+                                                            {
+                                                                category:
+                                                                    categoryLabel(
+                                                                        node
+                                                                    ),
+                                                            }
+                                                        )
+                                                    "
+                                                    (click)="
+                                                        toggleCategory(node.id)
+                                                    "
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-4"
+                                                        [svgIcon]="
+                                                            isExpanded(node.id)
+                                                                ? 'heroicons_mini:minus'
+                                                                : 'heroicons_mini:plus'
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                        </div>
+
+                                        @if (
+                                            node.children.length &&
+                                            isExpanded(node.id)
+                                        ) {
+                                            <ul
+                                                class="ff-catalog__subtree"
+                                                animate.enter="ff-catalog-subtree-enter"
+                                                animate.leave="ff-catalog-subtree-leave"
+                                            >
+                                                @for (
+                                                    child of node.children;
+                                                    track child.id
+                                                ) {
+                                                    <li>
+                                                        <button
+                                                            type="button"
+                                                            class="ff-catalog__cat ff-catalog__cat--child"
+                                                            [class.ff-catalog__cat--active]="
+                                                                selectedCategory() ===
+                                                                child.id
+                                                            "
+                                                            (click)="
+                                                                filterByCategory(
+                                                                    child.id
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                categoryLabel(
+                                                                    child
+                                                                )
+                                                            }}
+                                                        </button>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                    </li>
+                                }
+                            </ul>
+                        </mat-expansion-panel>
+
+                        <mat-expansion-panel [(expanded)]="priceExpanded">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>{{
+                                    t('catalog.filters.price')
+                                }}</mat-panel-title>
+                            </mat-expansion-panel-header>
+
+                            <div class="ff-catalog__price">
+                                <mat-form-field
+                                    class="ff-catalog__price-field fuse-mat-dense"
+                                    appearance="outline"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('catalog.filters.priceMin')
+                                    }}</mat-label>
+                                    <input
+                                        matInput
+                                        type="number"
+                                        min="0"
+                                        step="1000"
+                                        [formControl]="priceMinControl"
+                                        [attr.aria-label]="
+                                            t('catalog.filters.priceMin')
+                                        "
+                                    />
+                                    <span matTextSuffix>₫</span>
+                                </mat-form-field>
+                                <mat-form-field
+                                    class="ff-catalog__price-field fuse-mat-dense"
+                                    appearance="outline"
+                                    subscriptSizing="dynamic"
+                                >
+                                    <mat-label>{{
+                                        t('catalog.filters.priceMax')
+                                    }}</mat-label>
+                                    <input
+                                        matInput
+                                        type="number"
+                                        min="0"
+                                        step="1000"
+                                        [formControl]="priceMaxControl"
+                                        [attr.aria-label]="
+                                            t('catalog.filters.priceMax')
+                                        "
+                                    />
+                                    <span matTextSuffix>₫</span>
+                                </mat-form-field>
+                            </div>
+                        </mat-expansion-panel>
+
+                        <!--
+                          The market's own tags. Only rendered when this market
+                          actually uses any — an empty facet is a panel that
+                          promises a filter the data cannot serve.
+                        -->
+                        @if (tagFacet().length) {
+                            <mat-expansion-panel [(expanded)]="tagsExpanded">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title>{{
+                                        t('catalog.filters.tags')
+                                    }}</mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <ul class="ff-catalog__tree">
+                                    @for (
+                                        entry of tagFacet();
+                                        track entry.tag
+                                    ) {
+                                        <li>
+                                            <mat-checkbox
+                                                class="ff-catalog__offer-check"
+                                                color="primary"
+                                                [checked]="
+                                                    isTagSelected(entry.tag)
+                                                "
+                                                (change)="toggleTag(entry.tag)"
+                                            >
+                                                <span
+                                                    class="flex w-full min-w-0 items-center gap-2"
+                                                >
+                                                    <span
+                                                        class="min-w-0 flex-1 truncate"
+                                                        >{{ entry.tag }}</span
+                                                    >
+                                                    <span
+                                                        class="ff-catalog__tag-count"
+                                                        >{{ entry.count }}</span
+                                                    >
+                                                </span>
+                                            </mat-checkbox>
                                         </li>
                                     }
                                 </ul>
-                            }
-                        </li>
-                    }
-                </ul>
+                            </mat-expansion-panel>
+                        }
 
-                <!--
-                  No market filter here any more: the whole page is scoped to the
-                  market picked in the header, so there is nothing to filter across.
-                  No price or attribute filters either — the listing endpoint
-                  exposes neither, and filtering only the loaded pages would read
-                  as filtering the whole market.
-                -->
+                        <mat-expansion-panel [(expanded)]="offersExpanded">
+                            <mat-expansion-panel-header>
+                                <mat-panel-title>{{
+                                    t('catalog.filters.offers')
+                                }}</mat-panel-title>
+                            </mat-expansion-panel-header>
+
+                            <ul class="ff-catalog__tree">
+                                <li>
+                                    <mat-checkbox
+                                        class="ff-catalog__offer-check"
+                                        color="primary"
+                                        [checked]="featuredOnly()"
+                                        (change)="toggleFeaturedOnly()"
+                                    >
+                                        <span
+                                            class="inline-flex items-center gap-1.5"
+                                        >
+                                            <mat-icon
+                                                class="icon-size-4"
+                                                [svgIcon]="
+                                                    featuredOnly()
+                                                        ? 'heroicons_solid:fire'
+                                                        : 'heroicons_outline:fire'
+                                                "
+                                            ></mat-icon>
+                                            {{
+                                                t(
+                                                    'catalog.filters.featuredOnly'
+                                                )
+                                            }}
+                                        </span>
+                                    </mat-checkbox>
+                                </li>
+                            </ul>
+                        </mat-expansion-panel>
+                    </mat-accordion>
+                </div>
             </div>
         </aside>
 
@@ -225,8 +406,22 @@
         <section class="min-w-0 flex-1">
             <!-- Toolbar -->
             <div class="ff-catalog__toolbar">
-                <p class="text-secondary text-sm">
-                    {{ t('catalog.resultCount', { count: resultCount() }) }}
+                <!--
+                  A total, not a running tally: the filters above run over the
+                  market's whole listing. While the listing is still being read
+                  the number is honestly labelled as partial rather than passed
+                  off as a total.
+                -->
+                <p class="text-secondary text-xs">
+                    @if (listingComplete()) {
+                        {{ t('catalog.resultCount', { count: resultCount() }) }}
+                    } @else {
+                        {{
+                            t('catalog.resultCountPartial', {
+                                count: resultCount(),
+                            })
+                        }}
+                    }
                 </p>
 
                 @if (hasActiveFilters()) {
@@ -244,24 +439,26 @@
                 }
 
                 <div class="ff-catalog__sort ml-auto">
-                    <label class="text-secondary text-sm" for="catalog-sort">
-                        {{ t('catalog.sort.label') }}
-                    </label>
-                    <select
-                        id="catalog-sort"
-                        [value]="sortOption()"
-                        (change)="setSort($any($event.target).value)"
+                    <span class="text-secondary text-xs">{{
+                        t('catalog.sort.label')
+                    }}</span>
+                    <mat-form-field
+                        class="ff-catalog__sort-field fuse-mat-dense fuse-mat-rounded"
+                        appearance="outline"
+                        subscriptSizing="dynamic"
                     >
-                        @for (option of sortOptions; track option.value) {
-                            <option [value]="option.value">
-                                {{ t(option.label) }}
-                            </option>
-                        }
-                    </select>
-                    <mat-icon
-                        class="text-hint icon-size-4"
-                        svgIcon="heroicons_mini:chevron-down"
-                    ></mat-icon>
+                        <mat-select
+                            [value]="sortOption()"
+                            [aria-label]="t('catalog.sort.label')"
+                            (selectionChange)="setSort($event.value)"
+                        >
+                            @for (option of sortOptions; track option.value) {
+                                <mat-option [value]="option.value">{{
+                                    t(option.label)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
                 </div>
             </div>
 
@@ -303,6 +500,21 @@
                         ></ff-product-card>
                     }
                 </div>
+            } @else if (!listingComplete()) {
+                <!--
+                  Nothing matches *yet*. The rest of the listing is still being
+                  read, so "no products found" would be a verdict on a question
+                  that has not finished being asked.
+                -->
+                <div class="ff-catalog__empty">
+                    <mat-progress-spinner
+                        [diameter]="32"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
+                    <p class="text-secondary mt-4 text-lg font-medium">
+                        {{ t('catalog.searching') }}
+                    </p>
+                </div>
             } @else {
                 <!-- Empty state -->
                 <div class="ff-catalog__empty">
@@ -333,14 +545,8 @@
             ></div>
 
             <div class="flex flex-col items-center gap-3 py-8">
-                @if (loading() && resultCount() > 0) {
-                    <!-- Next page in flight (the sentinel already fired) -->
-                    <mat-progress-spinner
-                        [diameter]="28"
-                        [mode]="'indeterminate'"
-                    ></mat-progress-spinner>
-                } @else if (hasMore()) {
-                    <!-- Keyboard/no-JS path to the same fetch the sentinel does -->
+                @if (hasMore()) {
+                    <!-- Keyboard path to the same reveal the sentinel does -->
                     <button
                         mat-stroked-button
                         data-testid="catalog-load-more"
@@ -348,6 +554,12 @@
                     >
                         {{ t('catalog.loadMore') }}
                     </button>
+                } @else if (!listingComplete() && resultCount() > 0) {
+                    <!-- Everything matched so far is on screen; more still arriving -->
+                    <mat-progress-spinner
+                        [diameter]="28"
+                        [mode]="'indeterminate'"
+                    ></mat-progress-spinner>
                 } @else if (resultCount() > 0) {
                     <p class="text-secondary text-sm">
                         {{ t('catalog.allLoaded', { count: resultCount() }) }}
@@ -355,7 +567,7 @@
                 }
 
                 <div class="sr-only" aria-live="polite">
-                    @if (resultCount() > 0) {
+                    @if (listingComplete() && resultCount() > 0) {
                         {{ t('catalog.resultCount', { count: resultCount() }) }}
                     }
                 </div>

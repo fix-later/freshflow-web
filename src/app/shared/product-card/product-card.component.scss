@@ -95,24 +95,41 @@ ff-product-card {
         letter-spacing: 0.02em;
         @apply bg-primary text-on-primary;
 
+        /*
+         * Unavailable (delisted / out of stock). Neutral on purpose: this is a
+         * state, not a merchandising label, and it must not compete with the
+         * brand tints beside it. slate-700 carries white at ~9:1.
+         */
         &--muted {
-            @apply bg-gray-800 text-white;
+            @apply bg-gray-700 text-white;
         }
 
         /*
-         * Tints for merchandising labels ("Bán chạy", "Giảm giá"). Palette
-         * steps from the Tailwind theme — never raw hex (TOKENS.md).
+         * Tints for merchandising labels. Brand tokens first (TOKENS.md):
+         * mint `accent` is the sparing highlight, `sale` pink marks a discount.
+         * Both pair with their generated ink, so neither can ship unreadable —
+         * `text-white` on mint measured 1.5:1, which is why this is not a
+         * hand-picked ink.
          */
+        &--featured {
+            @apply bg-accent text-on-accent;
+        }
+
+        &--sale {
+            @apply bg-sale text-on-sale;
+        }
+
+        /* Non-brand accents, for callers that need a third and fourth voice. */
         &--rose {
-            @apply bg-rose-500 text-white;
+            @apply bg-rose-600 text-white;
         }
 
         &--blue {
-            @apply bg-blue-500 text-white;
+            @apply bg-blue-600 text-white;
         }
 
         &--amber {
-            @apply bg-amber-500 text-white;
+            @apply bg-amber-600 text-white;
         }
     }
 
@@ -138,8 +155,27 @@ ff-product-card {
             @apply text-default bg-hover;
         }
 
+        /* Brand pink rather than a raw `red-500`: every colour binds a token
+           (TOKENS.md). The 700 step is the one the discounted price already
+           uses (5.11:1 on the card), so the two pinks match. */
         &--on {
-            @apply text-red-500;
+            @apply text-sale-700;
+        }
+    }
+
+    /*
+     * Icons follow the button they sit in.
+     *
+     * `mat-icon` is painted by Material's own `--mat-icon-color` (slate-500
+     * here), which does NOT inherit — so a colour set on the button never
+     * reached the glyph. That is why the cart icon stayed grey-blue on the navy
+     * hover fill and the favourited heart never turned pink. Same fix Fuse
+     * applies to its own buttons.
+     */
+    &__fav,
+    &__atc {
+        .mat-icon {
+            color: currentColor !important;
         }
     }
 
@@ -151,6 +187,18 @@ ff-product-card {
         flex: 1 1 auto;
         flex-direction: column;
         padding: 0.875rem 1rem 1rem;
+    }
+
+    &__eyebrow {
+        margin: 0 0 0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-size: theme('fontSize.xs');
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        @apply text-secondary;
     }
 
     &__name {
@@ -234,15 +282,77 @@ ff-product-card {
         @apply text-secondary;
     }
 
-    /* `text-secondary`, not `text-hint`: the hint token measures 2.56:1 on the
+    /*
+     * The market's own labels. Deliberately the quietest thing in the body —
+     * they are the seller's vocabulary, not a claim the platform is making, so
+     * they read as an outlined chip rather than a filled one (which is what the
+     * corner badge is for).
+     */
+    &__tags {
+        display: flex;
+        margin: 0.375rem 0 0;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        list-style: none;
+        padding: 0;
+    }
+
+    &__tag {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border-radius: 0.375rem;
+        border: 1px solid var(--fuse-border);
+        padding: 0.0625rem 0.375rem;
+        font-size: theme('fontSize.xs');
+        line-height: 1.5;
+        @apply text-secondary;
+    }
+
+    /* Trade facts share one row style — icon, then value, all quiet enough not
+       to compete with the name and price.
+
+       `text-secondary`, not `text-hint`: the hint token measures 2.56:1 on the
        card surface, below the AA floor for text this size (TOKENS.md). */
+    &__pack,
+    &__updated,
     &__stock {
         margin: 0.25rem 0 0;
         display: flex;
+        align-items: center;
         gap: 0.25rem;
+        min-width: 0;
         font-size: theme('fontSize.sm');
         font-variant-numeric: tabular-nums;
         @apply text-secondary;
+    }
+
+    &__pack,
+    &__updated {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    &__pack-icon,
+    &__updated-icon {
+        --fuse-mat-icon-size: 0.875rem;
+        height: 0.875rem;
+        width: 0.875rem;
+        flex: none;
+        color: currentColor !important;
+    }
+
+    /* Stock is the one fact that changes the answer to "can I order this", so
+       it carries the brand's success accent (TOKENS.md: success → mint) rather
+       than the quiet grey.
+
+       The 900 step: this is small text, and the mint ramp only clears AA on
+       white at 900 (4.85:1) — 500 is 1.47:1 and 700 still only 2.34:1. */
+    &__stock {
+        font-weight: 600;
+        @apply text-accent-900;
     }
 
     &__foot {
@@ -258,6 +368,22 @@ ff-product-card {
         display: flex;
         min-width: 0;
         flex-direction: column;
+    }
+
+    /* Price and its denominator share a baseline — "130.000 ₫ /kg" reads as one
+       figure, which is the point of showing the unit at all. */
+    &__price-line {
+        display: flex;
+        min-width: 0;
+        align-items: baseline;
+        gap: 0.1875rem;
+    }
+
+    &__price-unit {
+        font-size: theme('fontSize.sm');
+        font-weight: 500;
+        white-space: nowrap;
+        @apply text-secondary;
     }
 
     &__price-now {

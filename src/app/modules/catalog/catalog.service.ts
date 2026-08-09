@@ -3,20 +3,56 @@ import {
     extractList,
     extractNextCursor,
     fetchAllOffset,
+    MAX_PAGE_SIZE,
     parseJson,
 } from 'app/core/api/envelope';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { categoriesApi, marketsApi, productsApi } from 'contract';
 import { from, Observable, tap } from 'rxjs';
-import { CatalogCategory, CatalogProduct, PricePoint } from './catalog.types';
+import {
+    CatalogCategory,
+    CatalogProduct,
+    CatalogTag,
+    normalizeTagNames,
+} from './catalog.types';
 
 /** A root category with the children the API reports beneath it. */
 export interface CategoryNode extends CatalogCategory {
     children: CatalogCategory[];
 }
 
-/** Listings fetched per request — one screenful, then infinite scroll. */
+/**
+ * Listings revealed per step of the catalog's infinite scroll.
+ *
+ * A **render** window, not a request size: the whole market listing is fetched
+ * up front (see {@link CatalogService.loadMarketListing}), and the grid reveals
+ * it a screenful at a time so the DOM does not carry thousands of tiles at once.
+ */
 export const CATALOG_PAGE_SIZE = 20;
+
+/**
+ * Rows per request while crawling a market's listing — the largest the backend
+ * accepts, so the crawl costs ⌈rows / 100⌉ requests rather than one per
+ * screenful.
+ */
+const LISTING_FETCH_PAGE_SIZE = MAX_PAGE_SIZE;
+
+/**
+ * Safety cap on the crawl below. At {@link LISTING_FETCH_PAGE_SIZE} rows a page
+ * this is 20k listings — far beyond any single market — and stops a backend
+ * that keeps handing back a cursor from looping forever.
+ */
+const MAX_LISTING_PAGES = 200;
+
+/**
+ * Page size used when harvesting a market's featured listings.
+ *
+ * The listing endpoint pins **every** featured row to the top of page 1
+ * regardless of page size (`MarketProductReader.GetPageAsync`), so one small
+ * request returns the complete featured set; this only bounds the ordinary
+ * rows that ride along behind them.
+ */
+const FEATURED_PROBE_PAGE_SIZE = 5;
 
 /**
  * Catalog data access — backed by the generated, typed OpenAPI client
@@ -25,9 +61,22 @@ export const CATALOG_PAGE_SIZE = 20;
  * **Scoped to the selected market.** Price and availability are per-market, so
  * the catalog lists `GET /markets/{marketId}/products` for the market chosen in
  * the header (`MarketSelectionService`) — not an aggregate across every market.
- * That endpoint is cursor-paginated, and the catalog walks it
- * {@link CATALOG_PAGE_SIZE} rows at a time as the user scrolls, rather than
- * crawling every page up front.
+ *
+ * **The market's listing is read in full, once per market.** That endpoint is
+ * cursor-paginated and reports **no total**, and it filters on nothing but
+ * `category` — no search, no price bounds, no sort. Filtering page-by-page as
+ * the user scrolls therefore cannot answer "how many match": a search would
+ * only see the rows already fetched, a price sort would re-order a slice rather
+ * than the market, and the result count would climb with every scroll instead
+ * of naming a total. So the catalog crawls every page up front
+ * ({@link LISTING_FETCH_PAGE_SIZE} rows a request) and caches the result per
+ * market; search, price, category, featured, sort, count and the infinite
+ * scroll then all run over the complete set and agree with each other.
+ *
+ * The trade is explicit: ⌈rows / 100⌉ requests when a market is first opened,
+ * and that market's listing held in memory for the session. Move the filters
+ * (and a `totalCount`) onto the endpoint if a market ever grows past what that
+ * can carry.
  *
  * Each listing row is joined back to its base product for the fields the market
  * row does not carry (description, unit, images, i18n names). The base product
@@ -41,6 +90,20 @@ export const CATALOG_PAGE_SIZE = 20;
  */
 interface RawRow {
     [key: string]: unknown;
+}
+
+/** Notified with the rows read so far after each page of a listing crawl. */
+type ProgressFn = (rows: CatalogProduct[]) => void;
+
+/** The outcome of crawling one market's listing. */
+interface MarketListing {
+    products: CatalogProduct[];
+    /**
+     * False when the crawl stopped early (a failed request, or the page cap),
+     * which makes `products` a prefix of the listing rather than all of it —
+     * so nothing derived from it may be presented as a total.
+     */
+    complete: boolean;
 }
 
 /** First numeric value among `keys` on `row`, parsing numeric strings too. */
@@ -81,11 +144,9 @@ export class CatalogService {
     private _products = signal<CatalogProduct[]>([]);
     private _product = signal<CatalogProduct | null>(null);
     private _loading = signal(false);
-    private _hasMore = signal(false);
+    private _listingComplete = signal(false);
 
-    /** Cursor for the next page; `undefined` before the first page is read. */
-    private _cursor: string | undefined;
-    /** Identifies the active query so a stale response cannot overwrite it. */
+    /** Market whose listing is being shown, so a stale crawl cannot overwrite it. */
     private _requestKey = '';
     private _baseProducts: Promise<Map<string, RawRow>> | null = null;
     /**
@@ -94,16 +155,37 @@ export class CatalogService {
      * each fire their own `GET /categories` for the same session-lifetime data.
      */
     private _categoriesPromise: Promise<CatalogCategory[]> | null = null;
+    /** Featured listings per market id — see {@link getFeaturedProducts}. */
+    private _featuredByMarket = new Map<string, Promise<CatalogProduct[]>>();
+    /** Bounded listing sample per market — see {@link getMarketProductSample}. */
+    private _sampleByMarket = new Map<string, Promise<CatalogProduct[]>>();
+    /**
+     * Complete listing per market, crawled once and replayed after that.
+     * Holds the in-flight promise too, so two callers asking at the same time
+     * (the grid and a deep-linked product page) share one crawl.
+     */
+    private _listingByMarket = new Map<string, Promise<MarketListing>>();
+    /** Per-market progress listeners for the crawl above. */
+    private _listingProgress = new Map<string, Set<ProgressFn>>();
 
     readonly categories = this._categories.asReadonly();
     /** True while the first (uncached) category fetch of the session is in flight. */
     readonly categoriesLoading = this._categoriesLoading.asReadonly();
+    /**
+     * The selected market's listings. Complete once {@link listingComplete} is
+     * true; before that it holds the pages the crawl has landed so far, so the
+     * grid fills as they arrive instead of waiting behind a blank screen.
+     */
     readonly products = this._products.asReadonly();
     readonly product = this._product.asReadonly();
-    /** True while a page is in flight — drives the scroll spinner. */
+    /** True while the market's listing is being crawled. */
     readonly loading = this._loading.asReadonly();
-    /** True when the server reported another page after the last one. */
-    readonly hasMore = this._hasMore.asReadonly();
+    /**
+     * True once {@link products} holds the market's **whole** listing. Any
+     * total shown to the user is only honest from this point — before it, the
+     * count is of what has landed, not of what matches.
+     */
+    readonly listingComplete = this._listingComplete.asReadonly();
 
     /**
      * Categories arranged into a two-level tree (root categories with their
@@ -158,34 +240,131 @@ export class CatalogService {
     }
 
     /**
-     * Starts a fresh listing for `marketId`, replacing whatever was loaded.
-     * Call on entry and whenever the market or category filter changes.
+     * How many catalogue products sit in each category, keyed by category id.
+     *
+     * Costs **no** request: {@link _loadBaseProducts} already walks the whole
+     * product list once per session (market listing rows carry no description,
+     * unit or images, so the base products are fetched regardless), and this is
+     * a reduction over that cached map.
+     *
+     * Counts the **catalogue**, not the selected market's listings — the market
+     * listing endpoint is cursor-paginated and reports no total, so a
+     * per-market count is not obtainable without walking every page. Callers
+     * must label the number accordingly.
      */
-    async loadFirstPage(
-        marketId: string | null,
-        categoryId?: string
-    ): Promise<void> {
-        this._cursor = undefined;
-        this._requestKey = `${marketId ?? ''}|${categoryId ?? ''}`;
+    async categoryCounts(): Promise<ReadonlyMap<string, number>> {
+        const counts = new Map<string, number>();
+        const baseById = await this._loadBaseProducts();
+        for (const row of baseById.values()) {
+            const categoryId = str(row, ['categoryId']);
+            if (!categoryId) {
+                continue;
+            }
+            counts.set(categoryId, (counts.get(categoryId) ?? 0) + 1);
+        }
+        return counts;
+    }
+
+    /**
+     * The market's featured listings — the rows carrying a tag whose
+     * `pinsToTop` is set, which the header's Hot Deals menu groups by category.
+     *
+     * Deliberately separate from the paged `products` signal: the menu is
+     * global chrome and must not disturb (or be disturbed by) whatever page
+     * the catalog grid is currently showing.
+     *
+     * Cached per market for the session. An empty result is not cached — a
+     * guest 401 is swallowed into `[]` here and looks identical to "this
+     * market pinned nothing", so the next open retries instead of replaying
+     * an empty menu for the rest of the tab.
+     */
+    getFeaturedProducts(marketId: string): Promise<CatalogProduct[]> {
+        const cached = this._featuredByMarket.get(marketId);
+        if (cached) {
+            return cached;
+        }
+        const pending = this._loadFeatured(marketId).then((products) => {
+            if (products.length === 0) {
+                this._featuredByMarket.delete(marketId);
+            }
+            return products;
+        });
+        this._featuredByMarket.set(marketId, pending);
+        return pending;
+    }
+
+    /**
+     * A bounded sample of the market's listings, cached per market and read
+     * without touching {@link products}.
+     *
+     * Deliberately **one** request of the largest page the API accepts
+     * (`MAX_PAGE_SIZE`) rather than a full crawl. The storefront landing uses
+     * this to resolve
+     * recommended-basket members against real listings, and a landing page must
+     * not walk an entire market's catalogue before it can render. A basket
+     * member outside the sample resolves as unavailable, which is the same
+     * honest state as a product this market genuinely does not carry.
+     *
+     * An empty result is not cached, for the same reason as
+     * {@link getFeaturedProducts}: a guest 401 is swallowed into `[]` here and
+     * is indistinguishable from a market with no listings.
+     */
+    getMarketProductSample(marketId: string): Promise<CatalogProduct[]> {
+        const cached = this._sampleByMarket.get(marketId);
+        if (cached) {
+            return cached;
+        }
+        const pending = this._fetchMarketPage(marketId, MAX_PAGE_SIZE).then(
+            (products) => {
+                if (products.length === 0) {
+                    this._sampleByMarket.delete(marketId);
+                }
+                return products;
+            }
+        );
+        this._sampleByMarket.set(marketId, pending);
+        return pending;
+    }
+
+    /**
+     * Reads `marketId`'s **whole** listing into {@link products}, replacing
+     * whatever was there. Call on entry and whenever the market changes.
+     *
+     * Filters are deliberately *not* parameters: the endpoint cannot apply
+     * them (see the class docs), so the catalog filters the complete set
+     * client-side rather than refetching per filter — which also means changing
+     * a filter costs no request.
+     */
+    async loadMarketListing(marketId: string | null): Promise<void> {
+        this._requestKey = marketId ?? '';
         this._products.set([]);
-        this._hasMore.set(false);
 
         if (!marketId) {
             // No market chosen yet — the catalog shows its "pick a market"
-            // state rather than an arbitrary market's products.
+            // state rather than an arbitrary market's products. Nothing is
+            // pending, so the (empty) listing is already complete.
+            this._listingComplete.set(true);
             return;
         }
-        await this._loadPage(marketId, categoryId);
-    }
 
-    /** Appends the next page. No-op while loading or at the end of the list. */
-    async loadNextPage(): Promise<void> {
-        const marketId = this._marketSelection.selectedId();
-        if (!marketId || this._loading() || !this._hasMore()) {
-            return;
+        this._listingComplete.set(false);
+        this._loading.set(true);
+        try {
+            const listing = await this._getMarketListing(marketId, (soFar) => {
+                if (this._requestKey === marketId) {
+                    this._products.set(soFar);
+                }
+            });
+            if (this._requestKey !== marketId) {
+                return;
+            }
+            this._products.set(listing.products);
+            this._listingComplete.set(listing.complete);
+        } finally {
+            if (this._requestKey === marketId) {
+                this._loading.set(false);
+            }
         }
-        const [, categoryId] = this._requestKey.split('|');
-        await this._loadPage(marketId, categoryId || undefined);
     }
 
     getProductById(productId: string): Observable<CatalogProduct> {
@@ -194,99 +373,189 @@ export class CatalogService {
         );
     }
 
+    // Price history is deliberately NOT read here. It is an operational record
+    // of what a market agent set and when — it belongs to product configuration
+    // in Admin (`CatalogAdminService.getPriceHistory`, Admin ▸ Markets ▸
+    // Pricing ▸ History), not to the buyer-facing listing.
+
     /**
-     * Recorded price points for one market's listing, oldest first, so the
-     * product page can show whether today's price is unusual. Reads tolerantly
-     * (the endpoint is untyped) and returns an empty series rather than
-     * throwing — a missing chart must never break the product page.
+     * A market's complete listing, crawled at most once and replayed after
+     * that. `onProgress` (optional) receives the rows landed so far after every
+     * page, so a caller can render the listing as it fills; it is called on the
+     * shared crawl, so a second caller joining mid-crawl still sees progress.
+     *
+     * Only a **complete, non-empty** crawl is cached. A partial one would be
+     * replayed as though it were the whole listing — the count would then name
+     * a total that is short, and a product past the failure point would look
+     * like one this market does not carry. An empty one is dropped for the same
+     * reason as in {@link getFeaturedProducts}: a guest 401 is swallowed into
+     * `[]` here and is indistinguishable from a market with no listings.
      */
-    async getPriceHistory(
+    private _getMarketListing(
         marketId: string,
-        productId: string,
-        days = 30
-    ): Promise<PricePoint[]> {
-        const from = new Date();
-        from.setDate(from.getDate() - days);
+        onProgress?: ProgressFn
+    ): Promise<MarketListing> {
+        if (onProgress) {
+            const listeners =
+                this._listingProgress.get(marketId) ?? new Set<ProgressFn>();
+            listeners.add(onProgress);
+            this._listingProgress.set(marketId, listeners);
+        }
+
+        let pending = this._listingByMarket.get(marketId);
+        if (!pending) {
+            pending = this._crawlMarketListing(marketId).then((listing) => {
+                if (!listing.complete || listing.products.length === 0) {
+                    this._listingByMarket.delete(marketId);
+                }
+                return listing;
+            });
+            this._listingByMarket.set(marketId, pending);
+        }
+
+        return pending.finally(() => {
+            if (!onProgress) {
+                return;
+            }
+            const listeners = this._listingProgress.get(marketId);
+            listeners?.delete(onProgress);
+            if (listeners && listeners.size === 0) {
+                this._listingProgress.delete(marketId);
+            }
+        });
+    }
+
+    /**
+     * Walks every page of `GET /markets/{id}/products` and maps the rows.
+     *
+     * Stops on a missing, repeated or short-page cursor — the same three
+     * conditions the paged reader used — and at {@link MAX_LISTING_PAGES} as a
+     * backstop. A failure mid-crawl resolves with the pages already read rather
+     * than rejecting (a partial catalog is worth more to a shopper than an empty
+     * one) but reports `complete: false`, which is what stops those rows being
+     * counted as a total or cached as the whole listing.
+     *
+     * Rows are de-duplicated by listing id. The backend pins featured rows to
+     * page 1 *and* excludes them from the keyset stream, so it should not repeat
+     * anything — but over a whole crawl a single overlap would show a duplicate
+     * tile and inflate the total, which is the one number this exists to get
+     * right.
+     */
+    private async _crawlMarketListing(
+        marketId: string
+    ): Promise<MarketListing> {
+        const market = this._marketSelection.selected() ?? {
+            id: marketId,
+            name: '',
+        };
+        const all: CatalogProduct[] = [];
+        const seenProducts = new Set<string>();
+        const seenCursors = new Set<string>();
+        let cursor: string | undefined;
+        let complete = false;
+
         try {
-            const res =
-                await marketsApi.apiV1MarketsMarketIdProductsProductIdPriceHistoryGetRaw(
-                    {
-                        marketId,
-                        productId,
-                        from: from.toISOString(),
-                        pageSize: 100,
-                    }
+            const baseById = await this._loadBaseProducts();
+
+            for (let page = 0; page < MAX_LISTING_PAGES; page++) {
+                const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw(
+                    { marketId, cursor, pageSize: LISTING_FETCH_PAGE_SIZE }
                 );
-            const rows = extractList<RawRow>(await parseJson(res.raw));
-            return rows
-                .map((row) => ({
-                    recordedAt: str(row, ['recordedAt', 'date', 'createdAt']),
-                    price: num(row, ['price', 'unitPrice', 'value']),
-                }))
-                .filter(
-                    (point): point is PricePoint =>
-                        !!point.recordedAt && point.price !== null
-                )
-                .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
+                const body = await parseJson(res.raw);
+                const rows = extractList<RawRow>(body);
+
+                for (const row of rows) {
+                    const product = this._toCatalogProduct(
+                        row,
+                        market,
+                        baseById
+                    );
+                    if (product && !seenProducts.has(product.id)) {
+                        seenProducts.add(product.id);
+                        all.push(product);
+                    }
+                }
+                this._emitListingProgress(marketId, all);
+
+                const next = extractNextCursor(body);
+                if (
+                    !next ||
+                    seenCursors.has(next) ||
+                    rows.length < LISTING_FETCH_PAGE_SIZE
+                ) {
+                    complete = true;
+                    break;
+                }
+                seenCursors.add(next);
+                cursor = next;
+            }
         } catch {
-            return [];
+            // Keep what landed, flagged incomplete — see the doc comment above.
+        }
+
+        return { products: all, complete };
+    }
+
+    /** Hands the rows read so far to whoever is watching this market's crawl. */
+    private _emitListingProgress(
+        marketId: string,
+        rows: CatalogProduct[]
+    ): void {
+        const listeners = this._listingProgress.get(marketId);
+        if (!listeners?.size) {
+            return;
+        }
+        const snapshot = [...rows];
+        for (const listener of listeners) {
+            listener(snapshot);
         }
     }
 
     /**
-     * Reads one page and appends it. Guards against out-of-order responses:
-     * switching market mid-flight changes `_requestKey`, and the late response
-     * for the previous market is then dropped instead of mixing in.
+     * Reads page 1 of the market's listing and keeps only the pinned rows.
+     * Failures resolve to an empty list — a menu that cannot load must not
+     * break the header it lives in.
      */
-    private async _loadPage(
+    private async _loadFeatured(marketId: string): Promise<CatalogProduct[]> {
+        const page = await this._fetchMarketPage(
+            marketId,
+            FEATURED_PROBE_PAGE_SIZE
+        );
+        return page.filter((product) => product.featured);
+    }
+
+    /**
+     * One page of a market's listings, mapped but **not** stored in
+     * {@link products}.
+     *
+     * Deliberately separate from {@link loadMarketListing}: surfaces outside
+     * the catalog grid (the header's deals menu, the storefront landing) need a
+     * bounded slice of the listing without disturbing the grid — and without
+     * paying for the full crawl the grid does. Failures resolve to an empty
+     * list rather than rejecting, because
+     * every one of those surfaces has an empty state and none of them should be
+     * able to break the page they sit on.
+     */
+    private async _fetchMarketPage(
         marketId: string,
-        categoryId?: string
-    ): Promise<void> {
-        const key = this._requestKey;
-        const cursor = this._cursor;
-        this._loading.set(true);
+        pageSize: number
+    ): Promise<CatalogProduct[]> {
         try {
             const res = await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
                 marketId,
-                category: categoryId || undefined,
-                cursor,
-                pageSize: CATALOG_PAGE_SIZE,
+                pageSize,
             });
-            const body = await parseJson(res.raw);
-            if (key !== this._requestKey) {
-                return;
-            }
-
-            const rows = extractList<RawRow>(body);
+            const rows = extractList<RawRow>(await parseJson(res.raw));
             const market = this._marketSelection.selected() ?? {
                 id: marketId,
                 name: '',
             };
             const baseById = await this._loadBaseProducts();
-            if (key !== this._requestKey) {
-                return;
-            }
-
-            const page = rows
+            return rows
                 .map((row) => this._toCatalogProduct(row, market, baseById))
                 .filter((product): product is CatalogProduct => !!product);
-            this._products.update((current) => [...current, ...page]);
-
-            const next = extractNextCursor(body);
-            // A short page means the end even when the backend still hands back
-            // a cursor, and a repeated cursor would loop forever.
-            this._hasMore.set(
-                !!next && next !== cursor && rows.length >= CATALOG_PAGE_SIZE
-            );
-            this._cursor = next;
         } catch {
-            if (key === this._requestKey) {
-                this._hasMore.set(false);
-            }
-        } finally {
-            if (key === this._requestKey) {
-                this._loading.set(false);
-            }
+            return [];
         }
     }
 
@@ -317,6 +586,7 @@ export class CatalogService {
             nameEn: str(row, ['nameEn']) || name,
             slug: str(row, ['slug']),
             icon: str(row, ['icon']),
+            imageUrl: str(row, ['imageUrl', 'image']),
             parentId: parentRaw || null,
         };
     }
@@ -364,6 +634,9 @@ export class CatalogService {
         const thumbnail =
             str(base, ['thumbnail', 'imageUrl']) || images[0] || '';
         const name = str(row, ['productName']) || str(base, ['name']);
+        if (!name) {
+            return null;
+        }
         const description = str(base, ['description']);
         // The market-product row's own id — distinct from the base productId
         // above. Not documented in the spec (the GET response has no declared
@@ -372,6 +645,47 @@ export class CatalogService {
         // row genuinely has no separate identifier.
         const marketProductId =
             str(row, ['marketProductId', 'id']) || `${productId}:${market.id}`;
+
+        // Listing payload now sends the category *name* (`category`), not an
+        // id. Keep the label for the tile and resolve an id against the tree
+        // when we can so sidebar filters still match.
+        const categoryLabel = str(row, ['category']);
+        let categoryId = str(row, ['categoryId']) || str(base, ['categoryId']);
+        if (!categoryId && categoryLabel) {
+            const match = this._categories().find(
+                (cat) =>
+                    cat.name === categoryLabel || cat.nameEn === categoryLabel
+            );
+            categoryId = match?.id ?? '';
+        }
+
+        const sellingUnit =
+            row['sellingUnit'] && typeof row['sellingUnit'] === 'object'
+                ? (row['sellingUnit'] as RawRow)
+                : null;
+        const unitFromSelling = sellingUnit
+            ? str(sellingUnit, ['unitName', 'name'])
+            : '';
+        const unit =
+            str(row, ['unit']) ||
+            unitFromSelling ||
+            str(base, ['unitName', 'unit']) ||
+            '';
+        const unitEn =
+            str(base, ['unitAbbreviation', 'unitEn']) ||
+            unitFromSelling ||
+            unit;
+        // "kg" rather than "Kilogram" wherever the full name would crowd the
+        // layout. Only the abbreviation qualifies — `unitEn` falls back to the
+        // full name, which would defeat the point.
+        const unitShort = str(base, ['unitAbbreviation']) || unit;
+        // `weightKg` on the listing's `sellingUnit`; the base product spells the
+        // same figure `capacityKg`.
+        const packWeightKg = sellingUnit
+            ? num(sellingUnit, ['weightKg', 'capacityKg'])
+            : num(base, ['capacityKg']);
+        const tags = this._readTags(row);
+
         return {
             id: `${productId}:${market.id}`,
             productId,
@@ -380,15 +694,25 @@ export class CatalogService {
             nameEn: str(base, ['nameEn']) || name,
             description,
             descriptionEn: str(base, ['descriptionEn']) || description,
-            categoryId: str(row, ['categoryId']) || str(base, ['categoryId']),
-            unit: str(base, ['unitName', 'unit']),
-            unitEn:
-                str(base, ['unitAbbreviation', 'unitEn']) ||
-                str(base, ['unitName', 'unit']),
-            marketId: market.id,
+            categoryId,
+            categoryLabel,
+            unit,
+            unitEn,
+            unitShort,
+            marketId: str(row, ['marketId']) || market.id,
             marketSource: market.name,
-            price: num(row, ['price', 'currentPrice']),
-            quantity: num(row, ['availableQuantity', 'quantity']),
+            price: num(row, ['currentPrice', 'price', 'unitPrice']),
+            // `availableQuantity` first, deliberately: it is on-hand minus
+            // reserved, i.e. what this buyer can still order. Falling back to
+            // `currentQuantity` would promise stock other orders already hold.
+            quantity: num(row, [
+                'availableQuantity',
+                'currentQuantity',
+                'quantity',
+            ]),
+            totalQuantity: num(row, ['currentQuantity', 'quantity']),
+            packWeightKg,
+            updatedAt: str(row, ['updatedAt', 'modifiedAt']),
             // Lives on the product, not the market listing, so it is read from
             // `base`. A missing or nonsensical value means "no minimum", which
             // is what the backend's own default of 1 amounts to.
@@ -399,14 +723,89 @@ export class CatalogService {
             thumbnail,
             images,
             active: base['active'] !== false,
+            tags,
+            featured: tags.some((tag) => tag.pinsToTop),
         };
     }
 
     /**
+     * The listing's tags, read across every shape this API has served.
+     *
+     * Three generations exist and a deployment can be on any of them:
+     *  - `isFeatured: boolean` (original),
+     *  - `tags: string[]` of free-form names, one of which meant "pinned"
+     *    (SCRUM-385),
+     *  - `tags: [{ id, name, pinsToTop }]` referencing the tag catalog
+     *    (SCRUM-386, current).
+     *
+     * All three are read because none of these failures announces itself — the
+     * grid simply stops pinning anything and the tag facet empties, with no
+     * error anywhere. A bare string is kept as a name-only tag so it can still
+     * be displayed and filtered; it just cannot claim to pin, since only the
+     * catalog knows that.
+     */
+    private _readTags(row: RawRow): CatalogTag[] {
+        if (!Array.isArray(row['tags'])) {
+            // Oldest shape: a boolean with no tag vocabulary behind it.
+            return row['isFeatured'] === true
+                ? [{ id: '', name: '', pinsToTop: true }]
+                : [];
+        }
+        // Both key spaces are tracked, not just whichever the entry carries:
+        // the same tag can arrive once as an object and once as a bare name,
+        // and matching on only one of them would show it twice. Names are safe
+        // to dedupe on because the catalog enforces them unique.
+        const seenIds = new Set<string>();
+        const seenNames = new Set<string>();
+        const tags: CatalogTag[] = [];
+        for (const entry of row['tags'] as unknown[]) {
+            const tag =
+                typeof entry === 'string'
+                    ? { id: '', name: entry, pinsToTop: false }
+                    : this._tagOf(entry);
+            if (!tag) {
+                continue;
+            }
+            const name = normalizeTagNames([tag.name])[0] ?? '';
+            if (!tag.id && !name) {
+                continue;
+            }
+            if (
+                (tag.id && seenIds.has(tag.id)) ||
+                (name && seenNames.has(name))
+            ) {
+                continue;
+            }
+            if (tag.id) {
+                seenIds.add(tag.id);
+            }
+            if (name) {
+                seenNames.add(name);
+            }
+            tags.push({ ...tag, name });
+        }
+        return tags;
+    }
+
+    /** One `MarketProductTagDto`, or null when the entry is not one. */
+    private _tagOf(entry: unknown): CatalogTag | null {
+        if (!entry || typeof entry !== 'object') {
+            return null;
+        }
+        const record = entry as Record<string, unknown>;
+        const name = str(record, ['name', 'tagName']);
+        const id = str(record, ['id', 'tagId']);
+        if (!name && !id) {
+            return null;
+        }
+        return { id, name, pinsToTop: record['pinsToTop'] === true };
+    }
+
+    /**
      * Resolves a product for the detail route. Prefers what the grid already
-     * loaded; on a deep link (nothing loaded yet) it walks the selected market's
-     * listing until the product turns up, which costs one page for anything the
-     * user could plausibly have linked from.
+     * loaded; on a deep link it reads the selected market's listing through the
+     * shared cache — without `onProgress`, so the crawl fills the cache for the
+     * catalog page without writing into a grid this route is not showing.
      */
     private async _resolveProduct(productId: string): Promise<CatalogProduct> {
         const inGrid = this._products().find(
@@ -421,18 +820,13 @@ export class CatalogService {
             throw new Error('No market selected');
         }
 
-        await this.loadFirstPage(marketId);
-        for (;;) {
-            const found = this._products().find(
-                (product) => product.productId === productId
-            );
-            if (found) {
-                return found;
-            }
-            if (!this._hasMore()) {
-                throw new Error(`Product ${productId} not found`);
-            }
-            await this.loadNextPage();
+        const listing = await this._getMarketListing(marketId);
+        const found = listing.products.find(
+            (product) => product.productId === productId
+        );
+        if (!found) {
+            throw new Error(`Product ${productId} not found`);
         }
+        return found;
     }
 }

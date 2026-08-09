@@ -1,0 +1,45 @@
+<section class="ff-section" *transloco="let t">
+    <div class="ff-section__inner">
+        <div class="ff-section__head">
+            <div>
+                <h2 class="ff-section__title">
+                    {{ t('home.tomorrow.title') }}
+                </h2>
+                <p class="ff-section__lead">{{ t('home.tomorrow.lead') }}</p>
+            </div>
+        </div>
+
+        <ul class="ff-tomorrow">
+            @for (kind of kinds; track kind.id) {
+                <li>
+                    <button
+                        class="ff-tomorrow__chip"
+                        type="button"
+                        (click)="kindSelected.emit(kind.id)"
+                    >
+                        <span class="ff-tomorrow__marker" aria-hidden="true">{{
+                            kind.marker
+                        }}</span>
+                        <span class="ff-tomorrow__body">
+                            <span class="ff-tomorrow__name">{{
+                                kindLabel(kind)
+                            }}</span>
+                            <span class="ff-tomorrow__count">{{
+                                t('home.tomorrow.ingredients', {
+                                    count: kind.ingredientCount,
+                                })
+                            }}</span>
+                        </span>
+                        <span class="ff-tomorrow__go">
+                            <span>{{ t('home.tomorrow.action') }}</span>
+                            <mat-icon
+                                class="text-current icon-size-4"
+                                [svgIcon]="'heroicons_outline:arrow-up-right'"
+                            ></mat-icon>
+                        </span>
+                    </button>
+                </li>
+            }
+        </ul>
+    </div>
+</section>

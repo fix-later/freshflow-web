@@ -1,0 +1,222 @@
+<div
+    class="ff-hot-deals"
+    *transloco="let t"
+    (mouseenter)="onOpen()"
+    (mouseleave)="onCloseSoon()"
+    (focusin)="onOpen()"
+    (focusout)="onFocusOut($event)"
+    (keydown)="onKeydown($event)"
+>
+    <!-- Trigger stays a real link: the panel is an enhancement, not the only
+         way to reach the deals. There is no deals page — clicking through
+         lands on the catalog filtered to the market's featured listings. -->
+    <a
+        class="ff-hot-deals__trigger inline-flex h-14 items-center gap-2 text-base font-semibold text-sale-700 no-underline hover:underline"
+        routerLink="/catalog"
+        [queryParams]="{ featured: '1' }"
+        aria-haspopup="true"
+        [attr.aria-expanded]="open()"
+        (click)="onClose()"
+    >
+        <mat-icon
+            class="text-current icon-size-5"
+            [svgIcon]="'heroicons_outline:fire'"
+        ></mat-icon>
+        <span>{{ t('header.hotDeals') }}</span>
+        <mat-icon
+            class="ff-hot-deals__caret text-current icon-size-4"
+            [class.ff-hot-deals__caret--open]="open()"
+            [svgIcon]="'heroicons_outline:chevron-down'"
+        ></mat-icon>
+    </a>
+
+    @if (open()) {
+        <!-- Full-bleed: spans the viewport and hangs off the header's bottom
+             edge (measured — the header changes height when it pins). Fixed
+             height; `max-height` only guards viewports too short for it.
+             `animate.leave` is what keeps the panel in the DOM long enough to
+             animate out. -->
+        <div
+            class="ff-hot-deals__panel bg-card"
+            animate.enter="ff-hot-deals-enter"
+            animate.leave="ff-hot-deals-leave"
+            [style.top.px]="panelTop()"
+            [style.maxHeight]="'calc(100vh - ' + panelTop() + 'px)'"
+        >
+            <div class="ff-hot-deals__container">
+                <!-- Panel head: what this is, and where it comes from -->
+                <div class="ff-hot-deals__head">
+                    <div class="flex min-w-0 items-center gap-2.5">
+                        <mat-icon
+                            class="text-sale-700 icon-size-6"
+                            [svgIcon]="'heroicons_solid:fire'"
+                        ></mat-icon>
+                        <div class="flex min-w-0 flex-col">
+                            <p
+                                class="text-default truncate text-base font-bold"
+                            >
+                                {{ t('hotDeals.title') }}
+                            </p>
+                            @if (market(); as selected) {
+                                <p class="text-secondary truncate text-sm">
+                                    {{
+                                        t('hotDeals.subtitle', {
+                                            market: selected.name,
+                                        })
+                                    }}
+                                </p>
+                            }
+                        </div>
+                    </div>
+
+                    <a
+                        class="inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-primary no-underline hover:underline"
+                        routerLink="/catalog"
+                        [queryParams]="{ featured: '1' }"
+                        (click)="onClose()"
+                    >
+                        <span>{{ t('hotDeals.seeAll') }}</span>
+                        <mat-icon
+                            class="text-current icon-size-4"
+                            [svgIcon]="'heroicons_outline:arrow-right'"
+                        ></mat-icon>
+                    </a>
+                </div>
+
+                @if (!market()) {
+                    <!-- Featuring is per-market: nothing to show until one is picked. -->
+                    <div class="ff-hot-deals__state">
+                        <mat-icon
+                            class="text-hint icon-size-10"
+                            [svgIcon]="'heroicons_outline:building-storefront'"
+                        ></mat-icon>
+                        <p class="text-secondary mt-3 text-base">
+                            {{ t('hotDeals.pickMarket') }}
+                        </p>
+                    </div>
+                } @else if (loading()) {
+                    <div class="ff-hot-deals__state">
+                        <mat-progress-spinner
+                            [diameter]="32"
+                            [mode]="'indeterminate'"
+                        ></mat-progress-spinner>
+                    </div>
+                } @else if (groups().length) {
+                    <div class="ff-hot-deals__body">
+                        <!-- Left: one row per category that has featured items -->
+                        <ul class="ff-hot-deals__rail">
+                            @for (group of groups(); track group.id) {
+                                <li>
+                                    <button
+                                        class="ff-hot-deals__rail-item"
+                                        type="button"
+                                        [class.ff-hot-deals__rail-item--active]="
+                                            isActiveCategory(group.id)
+                                        "
+                                        [attr.aria-pressed]="
+                                            isActiveCategory(group.id)
+                                        "
+                                        (mouseenter)="selectCategory(group.id)"
+                                        (focus)="selectCategory(group.id)"
+                                        (click)="selectCategory(group.id)"
+                                    >
+                                        <!-- Categories that carry artwork show
+                                             it; the rest keep the rhythm with a
+                                             neutral icon tile. -->
+                                        <span class="ff-hot-deals__rail-thumb">
+                                            @if (
+                                                group.category?.imageUrl;
+                                                as image
+                                            ) {
+                                                <img
+                                                    [src]="image"
+                                                    alt=""
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                />
+                                            } @else {
+                                                <mat-icon
+                                                    class="text-hint icon-size-5"
+                                                    [svgIcon]="
+                                                        'heroicons_outline:squares-2x2'
+                                                    "
+                                                ></mat-icon>
+                                            }
+                                        </span>
+                                        <span
+                                            class="ff-hot-deals__rail-label"
+                                            >{{
+                                                group.category
+                                                    ? categoryLabel(
+                                                          group.category
+                                                      )
+                                                    : t(
+                                                          'hotDeals.otherCategory'
+                                                      )
+                                            }}</span
+                                        >
+                                        <span class="ff-hot-deals__rail-count">
+                                            {{ group.products.length }}
+                                        </span>
+                                    </button>
+                                </li>
+                            }
+                        </ul>
+
+                        <!-- Right: the active category's featured listings -->
+                        <div class="ff-hot-deals__products">
+                            <div class="ff-hot-deals__grid">
+                                @for (card of activeCards(); track card.id) {
+                                    <ff-product-card
+                                        data-testid="hot-deal-card"
+                                        [product]="card"
+                                        (favoriteToggled)="
+                                            onFavoriteToggled(card)
+                                        "
+                                        (addedToCart)="onAddedToCart(card)"
+                                    ></ff-product-card>
+                                }
+                            </div>
+
+                            <!-- Only a real category can be linked to: the
+                                 trailing bucket has no id to filter on. -->
+                            @if (activeGroup(); as group) {
+                                @if (hasMoreInCategory() && group.id) {
+                                    <a
+                                        class="mt-4 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary no-underline hover:underline"
+                                        routerLink="/catalog"
+                                        [queryParams]="{
+                                            category: group.id,
+                                            featured: '1',
+                                        }"
+                                        (click)="onClose()"
+                                    >
+                                        <span>{{
+                                            t('hotDeals.seeAllInCategory')
+                                        }}</span>
+                                        <mat-icon
+                                            class="text-current icon-size-4"
+                                            [svgIcon]="
+                                                'heroicons_outline:arrow-right'
+                                            "
+                                        ></mat-icon>
+                                    </a>
+                                }
+                            }
+                        </div>
+                    </div>
+                } @else {
+                    <div class="ff-hot-deals__state">
+                        <mat-icon
+                            class="text-hint icon-size-10"
+                            [svgIcon]="'heroicons_outline:fire'"
+                        ></mat-icon>
+                        <p class="text-secondary mt-3 text-base">
+                            {{ t('hotDeals.empty') }}
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+</div>

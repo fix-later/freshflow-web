@@ -12,6 +12,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { AdminService } from '../admin.service';
 import { AdminInvoiceRow } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
@@ -47,6 +48,48 @@ export class InvoiceDetailComponent implements OnInit {
     readonly invoice = signal<AdminInvoiceRow | null>(null);
     readonly loading = signal(false);
     readonly notFound = signal(false);
+    readonly exporting = signal(false);
+    /** Localized reason the last export failed, shown next to the button. */
+    readonly exportError = signal<string | null>(null);
+
+    /**
+     * Downloads the invoice's structured XML document.
+     *
+     * The server only persists one for an **issued** invoice, so a draft
+     * answers 404/409 — the reason is surfaced rather than swallowed, since
+     * "nothing happened" on a download button is indistinguishable from a
+     * broken one.
+     */
+    exportInvoice(): void {
+        const invoice = this.invoice();
+        if (!invoice || this.exporting()) {
+            return;
+        }
+        this.exporting.set(true);
+        this.exportError.set(null);
+        this._admin
+            .exportInvoice(invoice.id)
+            .then(({ blob, fileName }) => {
+                // Same anchor-click download the analytics and credit-statement
+                // exports use.
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                link.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch(async (err: unknown) => {
+                this.exportError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.invoices.exportError'
+                    )
+                );
+            })
+            .finally(() => this.exporting.set(false));
+    }
 
     ngOnInit(): void {
         const id = this._route.snapshot.paramMap.get('invoiceId') ?? '';

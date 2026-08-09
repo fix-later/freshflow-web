@@ -22,16 +22,23 @@ const product = (id: string): CatalogProduct => ({
     description: '',
     descriptionEn: '',
     categoryId: '',
+    categoryLabel: '',
     unit: 'kg',
     unitEn: 'kg',
+    unitShort: 'kg',
     marketId: 'market-1',
     marketSource: 'Chợ đầu mối',
     price: 10000,
     quantity: 50,
+    totalQuantity: 50,
+    packWeightKg: null,
+    updatedAt: '',
     minimumOrderQuantity: 1,
     thumbnail: '',
     images: [],
     active: true,
+    tags: [],
+    featured: false,
 });
 
 /**

@@ -217,12 +217,26 @@ export class FavoritesService {
             description: '',
             descriptionEn: '',
             categoryId: str(row, ['categoryId']),
+            // Favourites rows may omit category; blank keeps the tile usable
+            // until the catalog listing supplies the real label.
+            categoryLabel: str(row, [
+                'category',
+                'categoryName',
+                'categoryLabel',
+            ]),
             unit,
             unitEn: str(row, ['unitAbbreviation', 'unitEn']) || unit,
+            unitShort: str(row, ['unitAbbreviation']) || unit,
             marketId,
             marketSource: str(row, ['marketName', 'marketSource']),
             price: num(row, ['price', 'currentPrice']),
             quantity: num(row, ['availableQuantity', 'quantity']),
+            totalQuantity: num(row, ['currentQuantity', 'quantity']),
+            // Packing weight and the listing's last-updated stamp are not on
+            // the favourites row; the catalog listing supplies both when the
+            // tile is rendered from there.
+            packWeightKg: null,
+            updatedAt: str(row, ['updatedAt']),
             // The favourites row does not carry it (see the note above about
             // base-product fields); 1 is the backend's own default, so a line
             // added from here is bounded by the cart's stock rule alone until
@@ -234,6 +248,11 @@ export class FavoritesService {
             thumbnail,
             images: thumbnail ? [thumbnail] : [],
             active: row['active'] !== false,
+            // Not carried by the favourites row (see the note above about
+            // base-product fields), and unread on this surface. The catalog
+            // listing is what supplies tags when a tile is rendered from there.
+            tags: [],
+            featured: false,
         };
     }
 }

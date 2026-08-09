@@ -211,7 +211,8 @@
                     <li>
                         <a
                             class="text-secondary hover:text-primary"
-                            routerLink="/deals"
+                            routerLink="/catalog"
+                            [queryParams]="{ featured: '1' }"
                             >Hot Deals</a
                         >
                     </li>

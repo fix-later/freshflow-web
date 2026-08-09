@@ -15,6 +15,7 @@ import {
     marketsApi,
     packingCodesApi,
     productsApi,
+    rawApi,
     unitsApi,
 } from 'contract';
 import {
@@ -36,9 +37,34 @@ export const CATEGORY_NAME_MAX_LENGTH = 200;
 export const UNIT_NAME_MAX_LENGTH = 100;
 export const UNIT_ABBREVIATION_MAX_LENGTH = 20;
 export const MARKET_NAME_MAX_LENGTH = 200;
+
+/**
+ * `CrudFormValue` holds only strings/numbers, so the tag screen's pin flag
+ * travels as a two-option select. These are its values — kept next to the
+ * mapping that reads them so the pair cannot drift.
+ */
+export const PIN_YES = '1';
+export const PIN_NO = '0';
 export const MARKET_LOCATION_MAX_LENGTH = 200;
 export const MARKET_ADDRESS_MAX_LENGTH = 500;
 export const MARKET_DESCRIPTION_MAX_LENGTH = 2000;
+
+/**
+ * One recorded price/quantity change for a market listing
+ * (`GET /markets/{marketId}/products/{productId}/price-history`, UC-PRI-10).
+ *
+ * `quantity` is nullable because the endpoint is untyped and an older snapshot
+ * may not carry one; `price` is not — an entry without a price is dropped
+ * before it gets here.
+ */
+export interface PriceHistoryEntry {
+    /** ISO timestamp the change was recorded at. */
+    recordedAt: string;
+    price: number;
+    quantity: number | null;
+    /** User id of the agent who set it; empty when the record predates the field. */
+    recordedBy: string;
+}
 
 /** Server-side page of products (one page loaded at a time). */
 export interface ProductsPage {
@@ -318,6 +344,19 @@ export class CatalogAdminService {
         return withId<CrudRow>(rows, 'productId').filter((row) => !!row.id);
     }
 
+    /** Single product by id, for pages reached by deep link (no passed state). */
+    async getProduct(id: string): Promise<CrudRow | null> {
+        const res = await productsApi.apiV1ProductsIdGetRaw({ id });
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        const [row] = withId([data as CrudRow], 'productId');
+        return row?.id ? row : null;
+    }
+
     async createProduct(value: CrudFormValue): Promise<void> {
         await productsApi.apiV1ProductsPost({
             createProductRequest: {
@@ -532,6 +571,96 @@ export class CatalogAdminService {
         });
     }
 
+    /**
+     * Replaces a listing's tag assignments
+     * (`PUT .../products/{productId}/tags`).
+     *
+     * A **replace**, not a merge: the endpoint takes the complete set, so the
+     * caller must send every tag the listing should keep. Sending a tag whose
+     * `pinsToTop` is set is what pins the listing to the top of the market's
+     * board — that is what the old `PATCH .../featured` did.
+     *
+     * Takes **catalog tag ids**, not names. `SetMarketProductTagsRequest` binds
+     * `TagIds` (guids) and the validator rejects a null set, so the earlier
+     * `{ tags: ["name"] }` body did not merely lose the names — it failed the
+     * request outright. Ids that are not in the live catalog come back as
+     * `VALIDATION_ERROR` (400) from the handler's lookup.
+     *
+     * Goes through `rawApi` because the checked-in client predates this
+     * endpoint; regenerating needs Docker and a running backend
+     * (`scripts/generate-api.mjs`). Swap it for the generated method once
+     * `npm run generate:api` catches up.
+     */
+    async setMarketProductTags(
+        marketId: string,
+        productId: string,
+        tagIds: readonly string[]
+    ): Promise<void> {
+        await rawApi.send(
+            `/api/v1/markets/${marketId}/products/${productId}/tags`,
+            'PUT',
+            { tagIds: [...new Set(tagIds.filter(Boolean))] }
+        );
+    }
+
+    // -------------------------------------------------------------------
+    // Tag catalog (SCRUM-386) — global, not per market
+    // -------------------------------------------------------------------
+
+    /**
+     * The whole tag catalog (`GET /api/v1/tags`).
+     *
+     * Readable by any authenticated user, because the storefront needs the
+     * names too; only the writes below are admin-only.
+     *
+     * All four tag routes go through `rawApi` — the controller postdates the
+     * `openapi.json` snapshot entirely, so there is no generated client for it.
+     */
+    async listTags(): Promise<CrudRow[]> {
+        const res = await rawApi.send('/api/v1/tags', 'GET');
+        return withId<CrudRow>(extractList(await parseJson(res)), 'tagId');
+    }
+
+    /** Tag catalog as picker options, label = the tag's (normalized) name. */
+    async listTagOptions(): Promise<CrudOption[]> {
+        const rows = await this.listTags();
+        return rows
+            .filter((row) => !!row.id)
+            .map((row) => ({
+                value: row.id,
+                label: String(row['name'] ?? row.id),
+            }));
+    }
+
+    /**
+     * Creates a tag. The name is normalized server-side (trim + lower-case) and
+     * must be unique — a collision answers 409 `TAG_NAME_CONFLICT`, which the
+     * CRUD shell surfaces through `describeApiError`.
+     */
+    async createTag(value: CrudFormValue): Promise<void> {
+        await rawApi.send('/api/v1/tags', 'POST', {
+            name: String(value['name'] ?? '').trim(),
+            pinsToTop: value['pinsToTop'] === PIN_YES,
+        });
+    }
+
+    /** Renames a tag and/or toggles its pin flag (both fields are required). */
+    async updateTag(id: string, value: CrudFormValue): Promise<void> {
+        await rawApi.send(`/api/v1/tags/${encodeURIComponent(id)}`, 'PUT', {
+            name: String(value['name'] ?? '').trim(),
+            pinsToTop: value['pinsToTop'] === PIN_YES,
+        });
+    }
+
+    /**
+     * Soft-deletes a tag **and clears it from every listing that carried it**
+     * — the backend does both in one command. A pinning tag therefore unpins
+     * every listing it was on, which is why the screen asks before running it.
+     */
+    async deleteTag(id: string): Promise<void> {
+        await rawApi.send(`/api/v1/tags/${encodeURIComponent(id)}`, 'DELETE');
+    }
+
     /** Delists a product from a market (does not deactivate the base product). */
     async removeMarketProduct(
         marketId: string,
@@ -541,6 +670,57 @@ export class CatalogAdminService {
             marketId,
             productId,
         });
+    }
+
+    // ---- Market products (price history) ----------------------------------
+
+    /**
+     * Every recorded price/quantity change for one market listing, within
+     * `days`, oldest first.
+     *
+     * Reads the whole window rather than one page: this drives a chart and a
+     * change log, both of which need the complete series to mean anything — a
+     * "lowest price" over a partial window is a wrong number, not a partial one.
+     * `fetchAllCursor` bounds the walk.
+     *
+     * Rows are read tolerantly (`GET` responses have no declared schema) and a
+     * row missing a timestamp or a price is dropped: it cannot be placed on a
+     * time axis, and plotting it at 0 would invent a price collapse.
+     *
+     * Throws on a failed request — unlike the storefront reads, this is the
+     * screen's whole subject, so the caller shows the error rather than an
+     * empty chart that looks like "no changes yet".
+     */
+    async getPriceHistory(
+        marketId: string,
+        productId: string,
+        days = 30
+    ): Promise<PriceHistoryEntry[]> {
+        const from = new Date();
+        from.setDate(from.getDate() - days);
+        const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            marketsApi
+                .apiV1MarketsMarketIdProductsProductIdPriceHistoryGetRaw({
+                    marketId,
+                    productId,
+                    from: from.toISOString(),
+                    cursor,
+                    pageSize,
+                })
+                .then((res) => res.raw)
+        );
+        return rows
+            .map((row) => ({
+                recordedAt: str(row['recordedAt'] ?? row['createdAt']),
+                price: optNum(row['price'] ?? row['unitPrice']),
+                quantity: optNum(row['quantity']),
+                recordedBy: str(row['recordedBy'] ?? row['updatedBy']),
+            }))
+            .filter(
+                (entry): entry is PriceHistoryEntry =>
+                    !!entry.recordedAt && entry.price !== null
+            )
+            .sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
     }
 
     private _toOptions(rows: CrudRow[], suffixKey?: string): CrudOption[] {

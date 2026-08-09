@@ -1,0 +1,72 @@
+<section class="ff-cutoff" *transloco="let t">
+    <div class="ff-cutoff__inner">
+        <div class="ff-cutoff__copy">
+            <!-- Eyebrow 2 of the 2 this page spends -->
+            <p class="ff-section__eyebrow ff-cutoff__eyebrow">
+                <mat-icon
+                    class="text-current icon-size-4"
+                    [svgIcon]="'heroicons_outline:clock'"
+                ></mat-icon>
+                <span>{{ t('home.cutoff.eyebrow') }}</span>
+            </p>
+
+            @if (view().known && view().cutoffLabel) {
+                <h2 class="ff-cutoff__title">
+                    {{ t('home.cutoff.title', { time: view().cutoffLabel }) }}
+                </h2>
+            } @else {
+                <!-- No time is shown when the window could not be read. -->
+                <h2 class="ff-cutoff__title">
+                    {{ t('home.cutoff.titleUnknown') }}
+                </h2>
+            }
+
+            <p class="ff-cutoff__lead">
+                @if (view().known && !view().isOpen) {
+                    {{ t('home.cutoff.closed') }}
+                } @else {
+                    {{ t('home.cutoff.lead') }}
+                }
+            </p>
+        </div>
+
+        <div class="ff-cutoff__side">
+            @if (showCountdown()) {
+                <div
+                    class="ff-cutoff__clock"
+                    role="timer"
+                    [attr.aria-label]="t('home.cutoff.remainingAria')"
+                >
+                    <span class="ff-cutoff__unit">
+                        <span class="ff-cutoff__num">{{ hours() }}</span>
+                        <span class="ff-cutoff__cap">{{
+                            t('home.cutoff.hours')
+                        }}</span>
+                    </span>
+                    <span class="ff-cutoff__sep" aria-hidden="true">:</span>
+                    <span class="ff-cutoff__unit">
+                        <span class="ff-cutoff__num">{{ minutes() }}</span>
+                        <span class="ff-cutoff__cap">{{
+                            t('home.cutoff.minutes')
+                        }}</span>
+                    </span>
+                    <span class="ff-cutoff__sep" aria-hidden="true">:</span>
+                    <span class="ff-cutoff__unit">
+                        <span class="ff-cutoff__num">{{ seconds() }}</span>
+                        <span class="ff-cutoff__cap">{{
+                            t('home.cutoff.seconds')
+                        }}</span>
+                    </span>
+                </div>
+            }
+
+            <a class="ff-cutoff__action" routerLink="/catalog">
+                <span>{{ t('home.cutoff.action') }}</span>
+                <mat-icon
+                    class="text-current icon-size-5"
+                    [svgIcon]="'heroicons_outline:arrow-right'"
+                ></mat-icon>
+            </a>
+        </div>
+    </div>
+</section>

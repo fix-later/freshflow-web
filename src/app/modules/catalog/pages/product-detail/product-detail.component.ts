@@ -1,9 +1,7 @@
-import { DecimalPipe } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
     computed,
-    effect,
     inject,
     OnInit,
     signal,
@@ -14,9 +12,18 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { GuestGateService } from 'app/core/auth/guest-gate.service';
+import { formatRelativeTime } from 'app/core/util/relative-time';
+import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { CatalogService } from '../../catalog.service';
-import { CatalogProduct, PricePoint } from '../../catalog.types';
+import { CatalogProduct } from '../../catalog.types';
+
+/** One row of the listing's spec table. */
+interface ProductFact {
+    labelKey: string;
+    value: string;
+}
 
 @Component({
     selector: 'product-detail',
@@ -25,7 +32,6 @@ import { CatalogProduct, PricePoint } from '../../catalog.types';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
-        DecimalPipe,
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
@@ -37,6 +43,8 @@ export class ProductDetailComponent implements OnInit {
     private _catalogService = inject(CatalogService);
     private _translocoService = inject(TranslocoService);
     private _favoritesService = inject(FavoritesService);
+    private _draftOrder = inject(DraftOrderService);
+    private _guestGate = inject(GuestGateService);
 
     readonly product = this._catalogService.product;
     readonly categories = this._catalogService.categories;
@@ -62,71 +70,82 @@ export class ProductDetailComponent implements OnInit {
         return images[this.selectedIndex()] ?? images[0] ?? '';
     });
 
-    /** Last 30 days of recorded prices for this market listing. */
-    readonly priceHistory = signal<PricePoint[]>([]);
-
-    /**
-     * Low/high/latest over the loaded window, plus the change from the first
-     * recorded point — the figures a buyer needs to judge whether today's
-     * price is worth acting on. Null until at least two points exist.
-     */
-    readonly priceStats = computed(() => {
-        const points = this.priceHistory();
-        if (points.length < 2) {
-            return null;
-        }
-        const prices = points.map((point) => point.price);
-        const first = prices[0];
-        const latest = prices[prices.length - 1];
-        return {
-            low: Math.min(...prices),
-            high: Math.max(...prices),
-            latest,
-            changePct: first === 0 ? 0 : ((latest - first) / first) * 100,
-        };
-    });
-
-    /** `polyline` points normalised into a 100×32 viewBox, oldest to newest. */
-    readonly sparkline = computed(() => {
-        const points = this.priceHistory();
-        if (points.length < 2) {
+    /** Short unit ("kg") for the price denominator and stock count. */
+    readonly unitShort = computed(() => {
+        const product = this.product();
+        if (!product) {
             return '';
         }
-        const prices = points.map((point) => point.price);
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        const span = max - min || 1;
-        return prices
-            .map((price, index) => {
-                const x = (index / (prices.length - 1)) * 100;
-                // SVG y grows downward, so a high price must sit near 0.
-                const y = 32 - ((price - min) / span) * 32;
-                return `${x.toFixed(2)},${y.toFixed(2)}`;
-            })
-            .join(' ');
+        return (
+            product.unitShort || (this.isVi() ? product.unit : product.unitEn)
+        );
     });
 
-    constructor() {
-        // Re-fetch whenever the resolved listing changes (deep-link, or the
-        // header switching market under the same product).
-        effect(() => {
-            const product = this.product();
-            if (!product) {
-                this.priceHistory.set([]);
-                return;
-            }
-            const key = product.id;
-            this.priceHistory.set([]);
-            void this._catalogService
-                .getPriceHistory(product.marketId, product.productId)
-                .then((points) => {
-                    // Drop a late response for a listing we've navigated away from.
-                    if (this.product()?.id === key) {
-                        this.priceHistory.set(points);
-                    }
-                });
-        });
-    }
+    /**
+     * The listing's spec table — everything
+     * `GET /markets/{id}/products` reports about this row that is not already
+     * in the headline, in the order a buyer weighs it.
+     *
+     * Rows with no value are dropped rather than rendered as a dash: a listing
+     * without a packing code should not show an empty "packing" line.
+     */
+    readonly facts = computed<ProductFact[]>(() => {
+        const product = this.product();
+        if (!product) {
+            return [];
+        }
+        const lang = this._translocoService.getActiveLang();
+        const rows: ProductFact[] = [];
+
+        const unit = this.isVi() ? product.unit : product.unitEn;
+        if (unit) {
+            rows.push({ labelKey: 'catalog.unit', value: unit });
+        }
+        if (product.packWeightKg !== null && product.packWeightKg > 0) {
+            rows.push({
+                labelKey: 'catalog.detail.packing',
+                value: `${product.packWeightKg.toLocaleString(lang)} kg`,
+            });
+        }
+        if (product.marketSource) {
+            rows.push({
+                labelKey: 'catalog.marketSource',
+                value: product.marketSource,
+            });
+        }
+        const category =
+            this.categoryName(product.categoryId) || product.categoryLabel;
+        if (category) {
+            rows.push({ labelKey: 'catalog.detail.category', value: category });
+        }
+        if (product.minimumOrderQuantity > 1) {
+            rows.push({
+                labelKey: 'catalog.detail.minimumOrder',
+                value: `${product.minimumOrderQuantity.toLocaleString(lang)} ${this.unitShort()}`,
+            });
+        }
+        // Only worth a row when it differs from what is orderable — otherwise
+        // it repeats the stock figure already in the headline.
+        if (
+            product.totalQuantity !== null &&
+            product.quantity !== null &&
+            product.totalQuantity > product.quantity
+        ) {
+            rows.push({
+                labelKey: 'catalog.detail.reserved',
+                value: `${(product.totalQuantity - product.quantity).toLocaleString(lang)} ${this.unitShort()}`,
+            });
+        }
+        return rows;
+    });
+
+    /** "2 giờ trước" — how long ago the market last restated this listing. */
+    readonly updatedNote = computed(() =>
+        formatRelativeTime(
+            this.product()?.updatedAt,
+            this._translocoService.getActiveLang()
+        )
+    );
 
     ngOnInit(): void {
         // Deep-linkable route — ensure favorites are loaded even if the
@@ -142,8 +161,29 @@ export class ProductDetailComponent implements OnInit {
         return this._favoritesService.isFavorite(product.marketProductId);
     }
 
+    /** Guests get the sign-in popup — a favourite is stored per account. */
     toggleFavorite(product: CatalogProduct): void {
+        if (!this._guestGate.requireAccount()) {
+            return;
+        }
         void this._favoritesService.toggle(product);
+    }
+
+    /** Same draft-order entry point the catalog grid and wishlist use. */
+    addToDraftOrder(product: CatalogProduct): void {
+        if (!this._guestGate.requireAccount()) {
+            return;
+        }
+        this._draftOrder.add(product);
+    }
+
+    /** Only an explicit zero is out of stock; a missing count is unreported. */
+    isOutOfStock(product: CatalogProduct): boolean {
+        return product.quantity === 0;
+    }
+
+    canOrder(product: CatalogProduct): boolean {
+        return product.active !== false && !this.isOutOfStock(product);
     }
 
     toggleDescription(): void {

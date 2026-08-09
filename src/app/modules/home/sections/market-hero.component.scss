@@ -1,0 +1,525 @@
+/*
+ * Section 1: hero — a cinematic doorway into the market.
+ *
+ * The footage is the canvas: full bleed, edge to edge, and the interface lives
+ * inside it. There is no content column and no surface behind the type — the
+ * moment the page draws a panel for the text it stops being a market and
+ * becomes a banner with a video in it.
+ *
+ * Contrast is carried by a photographic grade (a pool of shadow on the left,
+ * thinning to almost nothing on the right), never by a box. That is the whole
+ * trick, and it is why the right third of the frame is left alone.
+ */
+market-hero {
+    display: block;
+}
+
+.ff-hero {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    isolation: isolate;
+    background: #0d1330;
+
+    /*
+     * Exactly the rest of the first screen: the header's measured height is
+     * published as `--ff-hero-header` by the component, so header + hero fill
+     * one viewport and the whole market is visible on arrival without a scroll.
+     *
+     * `dvh`, not `vh` — on mobile `vh` is the *largest* viewport, so a hero
+     * sized with it is taller than the screen while the browser's toolbars are
+     * showing, which is the whole time on first paint.
+     *
+     * `max()` with a floor: on a short landscape phone the remainder can be a
+     * couple of hundred pixels, and a hero that thin is a stripe, not a place.
+     * There it exceeds the screen and the page simply scrolls, which is the
+     * honest outcome.
+     *
+     * The fallback covers the moment before measurement and any surface where
+     * no header is found.
+     */
+    min-height: max(26rem, calc(100dvh - var(--ff-hero-header, 12rem)));
+}
+
+/* ---- Stage: everything the type sits on ------------------------------- */
+
+.ff-hero__stage {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    overflow: hidden;
+}
+
+.ff-hero__art,
+.ff-hero__video {
+    position: absolute;
+    inset: 0;
+    display: block;
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+}
+
+/*
+ * Transparent until a frame exists, so the built scene behind shows through
+ * and the hero is never a black rectangle while the file loads. Fades in when
+ * the first frame lands — with a heavy file that can be seconds after the page
+ * settles, and a hard cut there reads as something breaking.
+ */
+.ff-hero__video {
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 700ms ease;
+
+    &--ready {
+        opacity: 1;
+    }
+}
+
+/* ---- The grade -------------------------------------------------------- */
+
+.ff-hero__grade {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+        /*
+         * The pool the type actually lives in — anchored to the lower-left,
+         * where the content block sits, and falling off in every direction.
+         * A plain left-to-right ramp was not enough: the heading's second line
+         * crossed a bank of bright white crates and stopped being readable.
+         * A radial concentrates the shadow on the type instead of dimming the
+         * whole left half, which is both more photographic and cheaper for the
+         * rest of the frame.
+         */
+        radial-gradient(
+            72% 78% at 20% 74%,
+            rgb(9 13 36 / 0.82) 0%,
+            rgb(9 13 36 / 0.55) 42%,
+            rgb(9 13 36 / 0) 78%
+        ),
+        /* Floor: hands the bottom edge to the section below. */
+            linear-gradient(
+                to top,
+                rgb(13 19 48 / 0.92) 0%,
+                rgb(13 19 48 / 0.55) 12%,
+                rgb(13 19 48 / 0) 34%
+            ),
+        /* Sky: settles the top so the navigation above it does not float. */
+            linear-gradient(
+                to bottom,
+                rgb(13 19 48 / 0.52) 0%,
+                rgb(13 19 48 / 0) 26%
+            ),
+        /* Side wash: keeps the left readable while the right stays footage. */
+            linear-gradient(
+                to right,
+                rgb(9 13 36 / 0.72) 0%,
+                rgb(9 13 36 / 0.5) 30%,
+                rgb(9 13 36 / 0.22) 56%,
+                rgb(9 13 36 / 0.04) 80%,
+                rgb(9 13 36 / 0) 100%
+            );
+}
+
+/* ---- Backdrop palette ------------------------------------------------- */
+
+/*
+ * Silhouettes stepped by depth. Only ever seen under the grade and only until
+ * the footage paints, so these run deliberately heavy — a pale scene under a
+ * dark pool turns to mud.
+ */
+.ff-hero__art-roof {
+    fill: rgb(49 63 144 / 0.4);
+}
+
+.ff-hero__art-lamps {
+    fill: rgb(49 63 144 / 0.56);
+}
+
+.ff-hero__art-far {
+    fill: rgb(49 63 144 / 0.2);
+}
+
+.ff-hero__art-awning {
+    fill: rgb(49 63 144 / 0.66);
+}
+
+.ff-hero__art-stall {
+    fill: rgb(49 63 144 / 0.36);
+}
+
+.ff-hero__art-counter {
+    fill: rgb(49 63 144 / 0.56);
+}
+
+/* The only shapes that leave navy: a produce market rendered in one hue reads
+   as a warehouse. */
+.ff-hero__art-produce-green {
+    fill: rgb(64 191 129 / 0.76);
+}
+
+.ff-hero__art-produce-warm {
+    fill: rgb(214 138 74 / 0.66);
+}
+
+.ff-hero__art-people {
+    fill: rgb(49 63 144 / 0.78);
+}
+
+.ff-hero__art-crates {
+    fill: rgb(49 63 144 / 0.84);
+}
+
+.ff-hero__art-cart {
+    fill: rgb(49 63 144 / 0.9);
+    animation: ff-hero-cart 22s linear infinite;
+}
+
+.ff-hero__art-floor {
+    fill: rgb(49 63 144 / 0.26);
+}
+
+@keyframes ff-hero-cart {
+    0% {
+        transform: translateX(-18%);
+    }
+
+    82%,
+    100% {
+        transform: translateX(124%);
+    }
+}
+
+/* ---- Content ---------------------------------------------------------- */
+
+/*
+ * Lower-middle left, not mechanically centred: the eye lands on the market
+ * first, then falls to the type. The column is bounded by the type itself
+ * rather than by a grid track — nothing here is a column.
+ */
+/*
+ * The page's shared content column — the same one the header bar, the nav row
+ * and every section below sit on. Kept in step by hand because these values
+ * live in three places (`.ff-page`, the header wrappers, here); if the column
+ * ever moves, it moves in all of them.
+ */
+.ff-hero__col {
+    position: relative;
+    z-index: 3;
+    display: flex;
+    width: 100%;
+    max-width: 95rem;
+    margin-inline: auto;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-inline: 1rem;
+
+    @screen md {
+        padding-inline: 2rem;
+    }
+
+    @screen lg {
+        padding-inline: 3.5rem;
+    }
+}
+
+.ff-hero__content {
+    /* The type's own measure, inside the page column — not a second column. */
+    max-width: 46rem;
+    padding-bottom: clamp(1.25rem, 4vh, 4rem);
+}
+
+/*
+ * Editorial footer: the way down on the left, the documentary plate on the
+ * right, both on the page column's edges. In flow rather than pinned to the
+ * section, so they track the column instead of the viewport.
+ */
+.ff-hero__foot {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1.5rem;
+    /* Small screens carry a fixed bottom nav, which the layout already clears
+       with its own `pb-13` — no extra room needed here. */
+    padding-bottom: 1.75rem;
+
+    /*
+     * From `lg` the contact FAB floats in the bottom-right corner of every
+     * page (`bottom: 1.5rem`, 3rem tall). At the narrow end of `lg` the page
+     * column's right edge is close enough to the viewport edge that the FAB
+     * landed on top of the plate. Lifting the whole row clears it without
+     * moving either element off the column.
+     */
+    @screen lg {
+        padding-bottom: clamp(2.5rem, 7vh, 5.5rem);
+    }
+}
+
+.ff-hero__eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.85);
+}
+
+/* One of the few places brand colour appears: a mint tick, nothing more. */
+.ff-hero__eyebrow-rule {
+    display: block;
+    height: 2px;
+    width: 2.25rem;
+    flex: none;
+    border-radius: 2px;
+    background: #50f0a3;
+}
+
+.ff-hero__title {
+    margin-top: 1.25rem;
+    /* Bound by height as well as width: on a short laptop the width-only
+       clamp produced a heading tall enough to push the search off the frame. */
+    font-size: clamp(2rem, min(6.4vw, 9.5vh), 5.25rem);
+    font-weight: 800;
+    line-height: 0.98;
+    letter-spacing: -0.035em;
+    color: #fff;
+    /* Type on moving footage: a wide, soft shadow keeps it legible through a
+       bright frame without reading as a drop shadow. */
+    text-shadow: 0 2px 28px rgb(6 10 30 / 0.55);
+}
+
+.ff-hero__title-line {
+    display: block;
+}
+
+.ff-hero__lead {
+    margin-top: clamp(0.625rem, 2vh, 1.25rem);
+    max-width: 34ch;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    color: rgb(255 255 255 / 0.82);
+    text-shadow: 0 1px 16px rgb(6 10 30 / 0.5);
+}
+
+/* ---- Search ----------------------------------------------------------- */
+
+/*
+ * The commerce action, sized like an instrument rather than a banner: a
+ * bounded pill on a clean surface, restrained shadow, no glass. It is the one
+ * opaque object in the composition, which is exactly why it reads as the thing
+ * to use.
+ */
+.ff-hero__search {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-top: clamp(1rem, 3vh, 2rem);
+    width: 100%;
+    max-width: 40.625rem;
+    border-radius: 9999px;
+    padding: 0.375rem 0.375rem 0.375rem 1.25rem;
+    background: #fff;
+    box-shadow:
+        0 1px 2px rgb(6 10 30 / 0.16),
+        0 12px 32px rgb(6 10 30 / 0.28);
+    transition: box-shadow 200ms ease;
+
+    &:focus-within {
+        box-shadow:
+            0 0 0 2px #313f90,
+            0 12px 34px rgb(6 10 30 / 0.32);
+    }
+
+    input {
+        min-width: 0;
+        flex: 1 1 auto;
+        border: none;
+        background: transparent;
+        padding-block: 0.8125rem;
+        font-size: 1.0625rem;
+        outline: none;
+        @apply text-default;
+
+        &::placeholder {
+            @apply text-hint;
+        }
+    }
+}
+
+.ff-hero__search-icon {
+    flex: none;
+    @apply text-hint;
+}
+
+.ff-hero__search-go {
+    flex: none;
+    border-radius: 9999px;
+    padding: 0.6875rem 1.625rem;
+    font-size: 0.9375rem;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: background-color 150ms ease;
+    @apply bg-primary text-on-primary;
+
+    &:hover {
+        @apply bg-primary-600;
+    }
+}
+
+/* ---- Categories ------------------------------------------------------- */
+
+/*
+ * Secondary navigation. Outlined in the footage's own light rather than filled,
+ * so they sit a layer behind the search instead of competing with it.
+ */
+.ff-hero__chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.625rem;
+    margin-top: clamp(0.75rem, 1.8vh, 1.125rem);
+}
+
+.ff-hero__chip {
+    display: inline-flex;
+    border-radius: 9999px;
+    border: 1px solid rgb(255 255 255 / 0.34);
+    padding: 0.375rem 0.875rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: rgb(255 255 255 / 0.88);
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+
+    &:hover {
+        border-color: #50f0a3;
+        background: rgb(80 240 163 / 0.14);
+        color: #fff;
+    }
+}
+
+/* ---- Editorial metadata ----------------------------------------------- */
+
+.ff-hero__plate {
+    display: none;
+    max-width: 12rem;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: right;
+
+    /* Below `lg` the frame is too narrow to carry a second column of type. */
+    @screen lg {
+        display: flex;
+    }
+}
+
+.ff-hero__plate-num {
+    font-size: 0.8125rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    font-variant-numeric: tabular-nums;
+    color: #50f0a3;
+    text-shadow: 0 1px 12px rgb(6 10 30 / 0.85);
+}
+
+.ff-hero__plate-place {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    line-height: 1.5;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.8);
+    text-shadow: 0 1px 12px rgb(6 10 30 / 0.85);
+}
+
+.ff-hero__explore {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-decoration: none;
+    color: rgb(255 255 255 / 0.78);
+    text-shadow: 0 1px 12px rgb(6 10 30 / 0.8);
+    transition: color 200ms ease;
+
+    &:hover {
+        color: #fff;
+    }
+}
+
+/* ---- Entrance --------------------------------------------------------- */
+
+/*
+ * One gesture, staggered: the type rises a little and settles. Nothing bounces,
+ * nothing floats, and the footage itself is not animated — its own camera move
+ * is the motion in the frame.
+ */
+@media (prefers-reduced-motion: no-preference) {
+    .ff-hero__eyebrow,
+    .ff-hero__title-line,
+    .ff-hero__lead,
+    .ff-hero__search,
+    .ff-hero__chips,
+    .ff-hero__plate,
+    .ff-hero__explore {
+        animation: ff-hero-rise 700ms cubic-bezier(0.16, 0.84, 0.44, 1) both;
+    }
+
+    .ff-hero__title-line:nth-child(1) {
+        animation-delay: 90ms;
+    }
+
+    .ff-hero__title-line:nth-child(2) {
+        animation-delay: 170ms;
+    }
+
+    .ff-hero__lead {
+        animation-delay: 260ms;
+    }
+
+    .ff-hero__search {
+        animation-delay: 350ms;
+    }
+
+    .ff-hero__chips {
+        animation-delay: 440ms;
+    }
+
+    .ff-hero__plate,
+    .ff-hero__explore {
+        animation-delay: 620ms;
+    }
+}
+
+@keyframes ff-hero-rise {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 1rem, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-hero__art-cart {
+        animation: none;
+    }
+
+    .ff-hero__video {
+        transition: none;
+    }
+}

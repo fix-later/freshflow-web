@@ -1,0 +1,132 @@
+/*
+ * Section 3: market zones. Layout family = signage bento with mixed tile sizes
+ * (used once on this page).
+ *
+ * The grid uses `auto-fill` with a wide-cell modifier on the first two zones,
+ * so the cell count always equals the zone count. No blank tiles, ever.
+ */
+market-zones {
+    display: block;
+}
+
+.ff-zones {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.875rem;
+
+    @screen sm {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @screen lg {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+/* The two biggest aisles get a double-width sign, the way the main halls of a
+   market are signposted larger than the side rows. */
+@screen lg {
+    .ff-zones__cell--wide {
+        grid-column: span 2;
+    }
+}
+
+.ff-zones__zone {
+    display: flex;
+    height: 100%;
+    align-items: center;
+    gap: 0.875rem;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.75rem 1rem 0.75rem 0.75rem;
+    text-decoration: none;
+    transition:
+        border-color 150ms ease,
+        transform 150ms ease,
+        box-shadow 150ms ease;
+    @apply bg-card;
+
+    &:hover {
+        transform: translateY(-2px);
+        @apply border-primary shadow-md;
+
+        .ff-zones__go {
+            transform: translateX(2px);
+            @apply text-primary;
+        }
+    }
+}
+
+.ff-zones__art {
+    display: flex;
+    height: 4rem;
+    width: 4rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    @apply bg-default;
+
+    img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+    }
+}
+
+.ff-zones__marker {
+    font-size: 1.75rem;
+    line-height: 1;
+}
+
+.ff-zones__body {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.1875rem;
+}
+
+.ff-zones__name {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    @apply text-default;
+}
+
+.ff-zones__count {
+    font-size: 0.8125rem;
+    @apply text-secondary;
+}
+
+.ff-zones__go {
+    flex: none;
+    transition:
+        transform 150ms ease,
+        color 150ms ease;
+    @apply text-hint;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-zones__zone,
+    .ff-zones__go {
+        transition: none;
+    }
+
+    .ff-zones__zone:hover {
+        transform: none;
+
+        .ff-zones__go {
+            transform: none;
+        }
+    }
+}

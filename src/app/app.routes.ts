@@ -195,14 +195,9 @@ export const appRoutes: Route[] = [
                     ),
                 data: { title: 'Liên hệ' },
             },
-            {
-                path: 'deals',
-                loadComponent: () =>
-                    import('app/modules/pages/placeholder-page.component').then(
-                        (m) => m.PlaceholderPageComponent
-                    ),
-                data: { title: 'Hot Deals' },
-            },
+            // No `deals` route: hot deals are the catalog filtered to the
+            // market's featured listings (`/catalog?featured=1`), not a page
+            // of their own.
             // Order management area (header "Theo dõi đơn hàng").
             {
                 path: 'orders',
