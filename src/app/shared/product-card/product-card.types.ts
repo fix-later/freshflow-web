@@ -13,6 +13,7 @@ export interface ProductCardVm {
 
     /** Image URL. When absent, `emoji` + `thumbTint` render as the fallback. */
     thumbnail?: string | null;
+    imageUrl?: string | null;
     emoji?: string | null;
     /** Any CSS background value behind the emoji fallback. */
     thumbTint?: string | null;

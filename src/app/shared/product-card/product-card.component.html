@@ -20,13 +20,15 @@
             <div
                 class="ff-product-card__thumb"
                 [style.background]="
-                    product.thumbnail ? null : product.thumbTint
+                    product.imageUrl || product.thumbnail
+                        ? null
+                        : product.thumbTint
                 "
             >
-                @if (product.thumbnail) {
+                @if (product.imageUrl || product.thumbnail; as imgSrc) {
                     <img
                         class="ff-product-card__img"
-                        [src]="product.thumbnail"
+                        [src]="imgSrc"
                         alt=""
                         loading="lazy"
                         decoding="async"

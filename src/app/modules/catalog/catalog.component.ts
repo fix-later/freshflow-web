@@ -654,6 +654,7 @@ export class CatalogComponent implements OnInit {
             name: this.productName(product),
             description: this.productDescription(product),
             thumbnail: product.thumbnail,
+            imageUrl: product.imageUrl || product.thumbnail,
             emoji: fallback.emoji,
             thumbTint: fallback.thumbTint,
             price: this.formatPrice(product.price),

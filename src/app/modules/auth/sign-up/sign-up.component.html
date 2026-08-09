@@ -495,13 +495,21 @@
                         formControlName="agreements"
                     >
                         <span>{{ t('auth.signUp.agreeWith') }}</span>
-                        <a class="ff-signup__link ml-1" [routerLink]="['./']">{{
-                            t('auth.signUp.terms')
-                        }}</a>
+                        <a
+                            class="ff-signup__link ml-1 underline"
+                            href="files/FreshFlow_Chinh_sach_van_hanh_nha_hang.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >{{ t('auth.signUp.terms') }}</a
+                        >
                         <span>{{ t('auth.signUp.and') }}</span>
-                        <a class="ff-signup__link ml-1" [routerLink]="['./']">{{
-                            t('auth.signUp.privacyPolicy')
-                        }}</a>
+                        <a
+                            class="ff-signup__link ml-1 underline"
+                            href="files/FreshFlow_Chinh_sach_bao_mat.pdf"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            >{{ t('auth.signUp.privacyPolicy') }}</a
+                        >
                     </mat-checkbox>
                     @if (
                         signUpForm.controls.agreements.touched &&

@@ -436,6 +436,7 @@ export class HotDealsMenuComponent {
             id: product.id,
             name: this.isVi() ? product.name : product.nameEn,
             thumbnail: product.thumbnail,
+            imageUrl: product.imageUrl || product.thumbnail,
             emoji: fallback.emoji,
             thumbTint: fallback.thumbTint,
             price: this._formatPrice(product.price),

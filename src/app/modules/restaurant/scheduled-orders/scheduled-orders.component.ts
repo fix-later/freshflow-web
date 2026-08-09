@@ -190,8 +190,8 @@ export class ScheduledOrdersComponent implements OnInit {
      */
     readonly resolvingItems = signal(false);
     readonly itemSearchTerm = signal('');
+    readonly visibleCount = signal(20);
     readonly catalogLoading = this._catalog.loading;
-    readonly catalogHasMore = this._catalog.hasMore;
 
     /** Loaded market products, filtered by the picker's own search box. */
     readonly filteredPickerProducts = computed(() => {
@@ -207,6 +207,14 @@ export class ScheduledOrdersComponent implements OnInit {
         );
     });
 
+    readonly visiblePickerProducts = computed(() =>
+        this.filteredPickerProducts().slice(0, this.visibleCount())
+    );
+
+    readonly catalogHasMore = computed(
+        () => this.visibleCount() < this.filteredPickerProducts().length
+    );
+
     /** The restaurant's default saved delivery address, or `null` if none exists yet. */
     readonly defaultAddress = computed(() =>
         this._restaurantProfile.defaultDeliveryAddress()
@@ -216,12 +224,10 @@ export class ScheduledOrdersComponent implements OnInit {
         await this.reload();
         void this._restaurantProfile.loadDeliveryAddresses();
         await this._marketSelection.ensureLoaded();
-        // Awaited (not fire-and-forget) so _consumePrefill below never races it: calling
-        // loadFirstPage a second time concurrently for the same market (which
-        // _hydratePickedItems' own "not loaded yet" guard would otherwise trigger) resets and
-        // re-fetches page 1 twice, and both in-flight calls append their result — duplicating
-        // every product in the picker.
-        await this._catalog.loadFirstPage(this._marketSelection.selectedId());
+        // Awaited (not fire-and-forget) so _consumePrefill below never races it
+        await this._catalog.loadMarketListing(
+            this._marketSelection.selectedId()
+        );
         this._consumePrefill();
     }
 
@@ -302,8 +308,13 @@ export class ScheduledOrdersComponent implements OnInit {
         );
     }
 
-    async loadMorePickerProducts(): Promise<void> {
-        await this._catalog.loadNextPage();
+    loadMorePickerProducts(): void {
+        this.visibleCount.update((count) => count + 20);
+    }
+
+    onSearchTermChange(term: string): void {
+        this.itemSearchTerm.set(term);
+        this.visibleCount.set(20);
     }
 
     /** Map a listing onto the shared tile's view model (no favorite action here). */
@@ -312,6 +323,7 @@ export class ScheduledOrdersComponent implements OnInit {
             id: product.id,
             name: product.name,
             thumbnail: product.thumbnail,
+            imageUrl: product.imageUrl || product.thumbnail,
             price: this._formatPrice(product.price),
             meta: `${product.unit} · ${product.marketSource}`,
             stock: product.quantity,
@@ -345,7 +357,7 @@ export class ScheduledOrdersComponent implements OnInit {
         this.resolvingItems.set(true);
         try {
             if (this._catalog.products().length === 0) {
-                await this._catalog.loadFirstPage(
+                await this._catalog.loadMarketListing(
                     this._marketSelection.selectedId()
                 );
             }

@@ -611,8 +611,12 @@ export class CatalogService {
                   (v): v is string => typeof v === 'string'
               )
             : [];
-        const thumbnail =
-            str(base, ['thumbnail', 'imageUrl']) || images[0] || '';
+        const imageUrl =
+            str(row, ['imageUrl', 'thumbnail', 'image']) ||
+            str(base, ['thumbnail', 'imageUrl']) ||
+            images[0] ||
+            '';
+        const thumbnail = imageUrl;
         const name = str(row, ['productName']) || str(base, ['name']);
         if (!name) {
             return null;
@@ -701,7 +705,8 @@ export class CatalogService {
                 num(base, ['minimumOrderQuantity']) ?? 1
             ),
             thumbnail,
-            images,
+            imageUrl,
+            images: images.length ? images : imageUrl ? [imageUrl] : [],
             active: base['active'] !== false,
             tags,
             featured: tags.some((tag) => tag.pinsToTop),

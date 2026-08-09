@@ -136,6 +136,7 @@ export class TodayHighlightsComponent {
             id: product.id,
             name: this.isVi() ? product.name : product.nameEn,
             thumbnail: product.thumbnail,
+            imageUrl: product.imageUrl || product.thumbnail,
             emoji: fallback.emoji,
             thumbTint: fallback.thumbTint,
             price: formatVnd(product.price, this._lang()),

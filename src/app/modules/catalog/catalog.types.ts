@@ -120,6 +120,7 @@ export interface CatalogProduct {
      */
     minimumOrderQuantity: number;
     thumbnail: string;
+    imageUrl?: string;
     images: string[];
     active: boolean;
     /**
