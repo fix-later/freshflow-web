@@ -29,6 +29,7 @@ const DERIVED_ROW_KEYS = new Set(['id', 'items']);
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    host: { class: 'flex w-full min-w-0 flex-auto flex-col' },
     imports: [
         AccountShellComponent,
         MatButtonModule,
