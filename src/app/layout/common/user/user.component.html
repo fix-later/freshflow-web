@@ -6,6 +6,7 @@
         [matMenuTriggerFor]="userActions"
         [matTooltip]="t('header.account')"
         [attr.aria-label]="t('header.account')"
+        (menuOpened)="onMenuOpened()"
     >
         <span class="relative inline-flex">
             @if (showAvatar && user.avatar) {
@@ -69,6 +70,38 @@
                 </div>
             </div>
         </div>
+
+        <!--
+          The one figure a buyer on credit terms checks before ordering, sat
+          with the identity block because "who you are" and "where you stand"
+          are read together. It lives here rather than only on the credit page
+          because this menu is a click away from anywhere.
+
+          Dashes are the loading state as well as the failure one: the panel is
+          a summary, and a spinner in a dropdown that closes on the next click
+          buys nothing.
+        -->
+        @if (showBalance) {
+            <div
+                class="px-4 pb-3"
+                [class.animate-pulse]="balanceLoading() && !balance()"
+            >
+                <div class="text-secondary text-xs uppercase tracking-wide">
+                    {{ t('restaurantCredit.availableCredit') }}
+                </div>
+                <div class="mt-0.5 text-lg font-bold tabular-nums text-primary">
+                    {{ formatAmount(availableCredit()) }}
+                </div>
+                <div
+                    class="text-secondary mt-1 flex items-baseline justify-between gap-3 text-xs"
+                >
+                    <span>{{ t('restaurantCredit.currentBalance') }}</span>
+                    <span class="tabular-nums">{{
+                        formatAmount(outstanding())
+                    }}</span>
+                </div>
+            </div>
+        }
 
         <mat-divider class="my-1"></mat-divider>
 
