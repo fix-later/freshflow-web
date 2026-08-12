@@ -33,7 +33,7 @@ const QUICK_CATEGORIES = 5;
 export const MARKET_SCENE_SOURCES: readonly {
     src: string;
     type: string;
-}[] = [{ src: 'media/market-scene.mp4', type: 'video/mp4' }];
+}[] = [{ src: '/media/market-scene.mp4', type: 'video/mp4' }];
 
 /**
  * Connection classes that do not get the footage.

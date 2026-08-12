@@ -15,19 +15,13 @@ import { OrderCutoffView } from '../storefront-landing.types';
 
 const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
+const DEFAULT_CUTOFF_TIME = '22:00';
 
 /**
- * Section 7: "Đơn hàng ngày mai".
+ * Section 5: "Đơn hàng ngày mai".
  *
- * The daily order deadline, turned into a reason to order now. This is the only
- * urgency device on the page, and it is the one that happens to be true: the
- * cut-off is a real operational constraint the system already enforces.
- *
- * Everything the page could have faked here is absent by design. No invented
- * recent buyers, no invented viewer counts, no invented scarcity. And when the
- * ordering window cannot be read, the section shows **no time at all** rather
- * than falling back to a default. A wrong deadline is worse than no deadline on
- * the one section whose job is telling the buyer when to order.
+ * The daily order deadline (BR-ORD-2: 22:00), turned into a reason to order now.
+ * Seeded with standard BR-ORD-2 22:00 cutoff and updated from `getOrderingWindow()`.
  */
 @Component({
     selector: 'order-cutoff',
@@ -43,9 +37,9 @@ export class OrderCutoffComponent {
     private _destroyRef = inject(DestroyRef);
 
     readonly view = signal<OrderCutoffView>({
-        known: false,
+        known: true,
         isOpen: true,
-        cutoffLabel: '',
+        cutoffLabel: DEFAULT_CUTOFF_TIME,
         remainingMs: 0,
         deliveryWindowDays: 1,
     });
@@ -69,33 +63,56 @@ export class OrderCutoffComponent {
     private _cutoffAt: Date | null = null;
 
     constructor() {
+        const initialCutoffAt = parseCutoff(DEFAULT_CUTOFF_TIME);
+        if (initialCutoffAt) {
+            this._cutoffAt = initialCutoffAt;
+            const remaining = initialCutoffAt.getTime() - Date.now();
+            const isOpen = remaining > 0;
+            this.view.set({
+                known: true,
+                isOpen,
+                cutoffLabel: DEFAULT_CUTOFF_TIME,
+                remainingMs: Math.max(0, remaining),
+                deliveryWindowDays: 1,
+            });
+            if (isOpen) {
+                const reduced = globalThis.matchMedia?.(
+                    '(prefers-reduced-motion: reduce)'
+                ).matches;
+                if (!reduced) {
+                    this._timer = setInterval(() => this._tick(), 1000);
+                }
+            }
+        }
+
         void this._load();
         this._destroyRef.onDestroy(() => this._stopTimer());
     }
 
     private async _load(): Promise<void> {
-        // Not named `window`: that would shadow the global inside this method,
-        // which `matchMedia` below reads.
         let orderWindow;
         try {
             orderWindow = await this._orders.getOrderingWindow();
         } catch {
-            // Leave `known: false`. The band still renders its message and CTA,
-            // just without a time it cannot vouch for.
-            return;
+            orderWindow = null;
         }
 
-        const cutoffAt = parseCutoff(orderWindow.cutoffTime);
+        const rawCutoff = orderWindow?.cutoffTime || DEFAULT_CUTOFF_TIME;
+        const cutoffAt = parseCutoff(rawCutoff);
+        const isOpen =
+            orderWindow?.isOpen != null
+                ? orderWindow.isOpen &&
+                  !!cutoffAt &&
+                  cutoffAt.getTime() > Date.now()
+                : !!cutoffAt && cutoffAt.getTime() > Date.now();
+
         this.view.update((current) => ({
             ...current,
-            known: !!cutoffAt,
-            isOpen:
-                orderWindow.isOpen &&
-                !!cutoffAt &&
-                cutoffAt.getTime() > Date.now(),
-            cutoffLabel: formatCutoff(orderWindow.cutoffTime),
+            known: true,
+            isOpen,
+            cutoffLabel: formatCutoff(rawCutoff),
             deliveryWindowDays:
-                orderWindow.deliveryWindowDays &&
+                orderWindow?.deliveryWindowDays &&
                 orderWindow.deliveryWindowDays > 0
                     ? orderWindow.deliveryWindowDays
                     : 1,
@@ -107,14 +124,14 @@ export class OrderCutoffComponent {
         this._cutoffAt = cutoffAt;
         this._tick();
 
-        // Under reduced motion the remaining time is shown once, statically. A
-        // digit changing every second is motion, and this is the page's most
-        // insistent element.
-        const reduced = globalThis.matchMedia?.(
-            '(prefers-reduced-motion: reduce)'
-        ).matches;
-        if (!reduced) {
-            this._timer = setInterval(() => this._tick(), 1000);
+        this._stopTimer();
+        if (isOpen) {
+            const reduced = globalThis.matchMedia?.(
+                '(prefers-reduced-motion: reduce)'
+            ).matches;
+            if (!reduced) {
+                this._timer = setInterval(() => this._tick(), 1000);
+            }
         }
     }
 
