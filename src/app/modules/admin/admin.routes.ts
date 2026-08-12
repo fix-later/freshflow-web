@@ -156,6 +156,11 @@ export default [
     },
     // Procurement batching (M5)
     {
+        path: 'order-groups/history',
+        component: OrderGroupsComponent,
+        data: { view: 'history' },
+    },
+    {
         path: 'order-groups',
         component: OrderGroupsComponent,
     },

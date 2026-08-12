@@ -12,8 +12,8 @@ const STORAGE_KEY = 'freshflow.shortcuts';
 const DEFAULT_SHORTCUTS: Shortcut[] = [
     {
         id: 'order-groups',
-        label: 'Phiên chợ',
-        description: 'Gom đơn theo phiên',
+        label: 'Phiên thu mua',
+        description: 'Lập phiên theo ngày giao',
         icon: 'heroicons_outline:rectangle-group',
         link: '/admin/order-groups',
         useRouter: true,

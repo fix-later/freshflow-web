@@ -33,7 +33,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -43,10 +43,13 @@ import { AdminService } from '../admin.service';
 import {
     AdminAutoBatchBatch,
     AdminAutoBatchResult,
+    AdminBatchMember,
+    AdminOrderDetail,
     AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
+import { CatalogAdminService } from '../catalog/catalog-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ADMIN_DEFAULT_PAGE_SIZE } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
@@ -64,6 +67,15 @@ const KNOWN_SKIP_REASONS = new Set([
     'batching_disabled',
     'outside_window',
 ]);
+
+const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
+
+interface PlanningDay {
+    iso: string;
+    date: DateTime;
+    pendingOrders: number;
+    existingSessions: number;
+}
 
 /** Optional Luxon day from the Material datepicker. */
 function validTargetDate(control: AbstractControl): ValidationErrors | null {
@@ -109,21 +121,43 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
             .order-groups-grid {
                 /* market | status | agent | actions */
                 grid-template-columns:
-                    minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1.4fr)
+                    minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 1.2fr)
                     3.5rem;
 
                 @screen md {
-                    /* + orders */
+                    /* delivery date | market | status | orders | agent | actions */
                     grid-template-columns:
-                        minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.55fr)
-                        minmax(0, 1.4fr) 3.5rem;
+                        minmax(8.5rem, 0.85fr) minmax(0, 1fr)
+                        minmax(0, 0.85fr) minmax(0, 0.5fr)
+                        minmax(0, 1.3fr) 3.5rem;
+                }
+            }
+
+            .planning-day-card {
+                min-width: 10.5rem;
+                transition:
+                    border-color 160ms ease,
+                    background-color 160ms ease,
+                    transform 160ms ease;
+            }
+
+            .planning-day-card:hover {
+                transform: translateY(-1px);
+            }
+
+            .history-groups-grid {
+                grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.75fr) 3.5rem;
+
+                @screen md {
+                    grid-template-columns:
+                        8.5rem minmax(0, 1.2fr) minmax(0, 0.75fr)
+                        minmax(8rem, 0.85fr) 3.5rem;
                 }
 
                 @screen lg {
-                    /* + created */
                     grid-template-columns:
-                        minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 0.55fr)
-                        minmax(0, 1fr) minmax(0, 1.4fr) 3.5rem;
+                        8.5rem minmax(0, 1.15fr) minmax(0, 0.75fr)
+                        minmax(8rem, 0.85fr) minmax(0, 1.2fr) 3.5rem;
                 }
             }
         `,
@@ -131,17 +165,22 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
 })
 export class OrderGroupsComponent implements OnInit {
     private readonly _admin = inject(AdminService);
+    private readonly _catalog = inject(CatalogAdminService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _dialog = inject(MatDialog);
     private readonly _router = inject(Router);
+    private readonly _route = inject(ActivatedRoute);
+
+    readonly historyView = this._route.snapshot.data['view'] === 'history';
 
     readonly statusPillClass = statusPillClass;
 
     private _batchDialogRef: MatDialogRef<unknown> | null = null;
     private _resetDialogRef: MatDialogRef<unknown> | null = null;
     private _agentDialogRef: MatDialogRef<unknown> | null = null;
+    private _orderDialogRef: MatDialogRef<unknown> | null = null;
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
     readonly agents = signal<AdminUserRow[]>([]);
@@ -150,6 +189,33 @@ export class OrderGroupsComponent implements OnInit {
     readonly pageIndex = signal(0);
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
+    readonly pendingOrders = signal<AdminOrderDetail[]>([]);
+    readonly historyOrderDetails = signal<Map<string, AdminOrderDetail>>(
+        new Map()
+    );
+    readonly historySummaryLoading = signal(false);
+    readonly planningLoading = signal(false);
+    readonly planningApplying = signal(false);
+
+    private readonly _localToday = DateTime.now()
+        .setZone(VIETNAM_ZONE)
+        .startOf('day');
+    readonly tomorrowDate = this._localToday.plus({ days: 1 });
+    readonly planningDate = signal<DateTime>(this.tomorrowDate);
+    readonly planningResult = signal<AdminAutoBatchResult | null>(null);
+    readonly planningRestaurantNames = signal<Map<string, string>>(new Map());
+
+    /** Order selected from a proposed/existing session. */
+    readonly planningOrder = signal<AdminOrderDetail | null>(null);
+    readonly planningOrderId = signal('');
+    readonly planningOrderRestaurant = signal('');
+    readonly planningOrderLoading = signal(false);
+    readonly planningOrderError = signal(false);
+    readonly planningOrderUnits = signal<Map<string, string>>(new Map());
+    private readonly _marketUnitCache = new Map<
+        string,
+        Promise<Map<string, string>>
+    >();
 
     /**
      * Server-side batching progress (`GET /admin/order-groups/progress`).
@@ -179,6 +245,117 @@ export class OrderGroupsComponent implements OnInit {
     /** Exceptions still open across the run — the number that needs an owner. */
     readonly openExceptions = computed(() =>
         Number(this.progressSummary()?.openExceptions ?? 0)
+    );
+
+    readonly activeSessionCount = computed(
+        () =>
+            this.groups().filter(
+                (group) =>
+                    !['completed', 'cancelled'].includes(
+                        String(group.status ?? '').toLowerCase()
+                    )
+            ).length
+    );
+
+    readonly unassignedSessionCount = computed(
+        () =>
+            this.groups().filter(
+                (group) =>
+                    !['completed', 'cancelled'].includes(
+                        String(group.status ?? '').toLowerCase()
+                    ) && !group.agentId
+            ).length
+    );
+
+    /** Delivery dates that restaurants actually have confirmed orders for. */
+    readonly planningDays = computed<PlanningDay[]>(() => {
+        const pendingByDate = new Map<string, number>();
+        for (const order of this.pendingOrders()) {
+            const iso = this._deliveryDateIso(order.scheduledFor);
+            if (iso) {
+                pendingByDate.set(iso, (pendingByDate.get(iso) ?? 0) + 1);
+            }
+        }
+
+        const sessionsByDate = new Map<string, number>();
+        for (const group of this.groups()) {
+            if (String(group.status ?? '').toLowerCase() === 'cancelled') {
+                continue;
+            }
+            const iso = this.sessionDateIso(group);
+            if (iso) {
+                sessionsByDate.set(iso, (sessionsByDate.get(iso) ?? 0) + 1);
+            }
+        }
+
+        const dates = new Set<string>();
+        const tomorrowIso = this.tomorrowDate.toISODate();
+        if (tomorrowIso) {
+            dates.add(tomorrowIso);
+        }
+        for (const iso of pendingByDate.keys()) {
+            const day = DateTime.fromISO(iso, { zone: VIETNAM_ZONE });
+            if (day.isValid && day >= this.tomorrowDate) {
+                dates.add(iso);
+            }
+        }
+        for (const iso of sessionsByDate.keys()) {
+            const day = DateTime.fromISO(iso, { zone: VIETNAM_ZONE });
+            if (day.isValid && day >= this.tomorrowDate) {
+                dates.add(iso);
+            }
+        }
+
+        return [...dates]
+            .sort()
+            .slice(0, 7)
+            .map((iso) => ({
+                iso,
+                date: DateTime.fromISO(iso, { zone: VIETNAM_ZONE }),
+                pendingOrders: pendingByDate.get(iso) ?? 0,
+                existingSessions: sessionsByDate.get(iso) ?? 0,
+            }));
+    });
+
+    readonly selectedPlanningIso = computed(
+        () => this.planningDate().toISODate() ?? ''
+    );
+
+    readonly selectedPlanningDay = computed(() =>
+        this.planningDays().find(
+            (day) => day.iso === this.selectedPlanningIso()
+        )
+    );
+
+    readonly selectedPendingOrders = computed(() =>
+        this.pendingOrders().filter(
+            (order) =>
+                this._deliveryDateIso(order.scheduledFor) ===
+                this.selectedPlanningIso()
+        )
+    );
+
+    readonly selectedExistingSessions = computed(() =>
+        this.groups().filter(
+            (group) =>
+                this.sessionDateIso(group) === this.selectedPlanningIso() &&
+                String(group.status ?? '').toLowerCase() !== 'cancelled'
+        )
+    );
+
+    readonly existingOrderCount = computed(() =>
+        this.selectedExistingSessions().reduce(
+            (sum, group) => sum + this.membersOf(group).length,
+            0
+        )
+    );
+
+    readonly canCreatePlannedSessions = computed(
+        () =>
+            !this.planningLoading() &&
+            !this.planningApplying() &&
+            !!this.planningResult()?.preview?.length &&
+            !this.planningResult()?.skipped
     );
     readonly batching = signal(false);
     readonly resetting = signal(false);
@@ -235,6 +412,13 @@ export class OrderGroupsComponent implements OnInit {
                 : null;
 
         return this.groups().filter((group) => {
+            if (
+                this.historyView &&
+                (group['isCompleted'] !== true ||
+                    String(group.status ?? '').toLowerCase() === 'cancelled')
+            ) {
+                return false;
+            }
             if (status) {
                 if (String(group.status ?? '').toLowerCase() !== status) {
                     return false;
@@ -307,10 +491,68 @@ export class OrderGroupsComponent implements OnInit {
 
     readonly filteredTotal = computed(() => this.filteredGroups().length);
 
+    readonly historyMarketCount = computed(
+        () =>
+            new Set(
+                this.filteredGroups()
+                    .map((group) => String(group.marketId ?? ''))
+                    .filter(Boolean)
+            ).size
+    );
+
+    readonly historyOrderCount = computed(() => {
+        const ids = new Set<string>();
+        for (const group of this.filteredGroups()) {
+            for (const member of this.membersOf(group)) {
+                const id = String(member.orderId ?? '');
+                if (id) {
+                    ids.add(id);
+                }
+            }
+        }
+        return ids.size;
+    });
+
+    readonly historyItemCount = computed(() =>
+        this.filteredGroups().reduce(
+            (sum, group) =>
+                sum +
+                Number(
+                    group.itemCount ??
+                        group['totalItemCount'] ??
+                        (Array.isArray(group['items'])
+                            ? group['items'].length
+                            : 0)
+                ),
+            0
+        )
+    );
+
+    readonly historyInvoiceTotal = computed(() => {
+        const ids = new Set<string>();
+        for (const group of this.filteredGroups()) {
+            for (const member of this.membersOf(group)) {
+                const id = String(member.orderId ?? '');
+                if (id) {
+                    ids.add(id);
+                }
+            }
+        }
+        return [...ids].reduce(
+            (sum, id) =>
+                sum +
+                Number(this.historyOrderDetails().get(id)?.totalAmount ?? 0),
+            0
+        );
+    });
+
     readonly batchForm = this._formBuilder.group({
-        targetDate: this._formBuilder.control<DateTime | null>(null, {
-            validators: [validTargetDate],
-        }),
+        targetDate: this._formBuilder.control<DateTime | null>(
+            this.tomorrowDate,
+            {
+                validators: [Validators.required, validTargetDate],
+            }
+        ),
         dryRun: this._formBuilder.nonNullable.control(true),
         force: this._formBuilder.nonNullable.control(false),
     });
@@ -321,9 +563,12 @@ export class OrderGroupsComponent implements OnInit {
      * being second-guessed here.
      */
     readonly resetForm = this._formBuilder.group({
-        targetDate: this._formBuilder.control<DateTime | null>(null, {
-            validators: [validTargetDate],
-        }),
+        targetDate: this._formBuilder.control<DateTime | null>(
+            this.tomorrowDate,
+            {
+                validators: [Validators.required, validTargetDate],
+            }
+        ),
         confirmation: this._formBuilder.nonNullable.control('', {
             validators: [Validators.required],
         }),
@@ -331,21 +576,233 @@ export class OrderGroupsComponent implements OnInit {
 
     ngOnInit(): void {
         this._load();
-        this._admin
-            .getAgentOptions()
-            .then((agents) => this.agents.set(agents))
-            .catch(() => this.agents.set([]));
-        this._admin
-            .getMarkets()
-            .then((markets) =>
-                this.markets.set(
-                    markets.map((m) => ({
-                        id: String(m.id),
-                        name: String(m.name ?? m.id),
-                    }))
+        void Promise.all([
+            this._admin
+                .getAgentOptions()
+                .then((agents) => this.agents.set(agents))
+                .catch(() => this.agents.set([])),
+            this._admin
+                .getMarkets()
+                .then((markets) =>
+                    this.markets.set(
+                        markets.map((m) => ({
+                            id: String(m.id),
+                            name: String(m.name ?? m.id),
+                        }))
+                    )
                 )
+                .catch(() => this.markets.set([])),
+        ]).finally(() => {
+            if (!this.historyView) {
+                this._loadPlanning();
+            }
+        });
+    }
+
+    openHistory(): void {
+        void this._router.navigate(['/admin/order-groups/history']);
+    }
+
+    openPlanning(): void {
+        void this._router.navigate(['/admin/order-groups']);
+    }
+
+    selectPlanningDay(day: PlanningDay): void {
+        if (this.planningLoading() || this.planningApplying()) {
+            return;
+        }
+        this.planningDate.set(day.date);
+        this.batchForm.patchValue({ targetDate: day.date, dryRun: true });
+        this.previewPlanningDay();
+    }
+
+    previewPlanningDay(): void {
+        const targetDate = this.selectedPlanningIso();
+        if (!targetDate) {
+            return;
+        }
+        this.planningLoading.set(true);
+        this.planningResult.set(null);
+        this.autoBatchError.set(null);
+        this._admin
+            .runAutoBatch({ targetDate, dryRun: true, force: false })
+            .then((result) => this.planningResult.set(result))
+            .catch((err) => void this._handleAutoBatchError(err))
+            .finally(() => this.planningLoading.set(false));
+    }
+
+    createPlannedSessions(): void {
+        const targetDate = this.selectedPlanningIso();
+        if (!targetDate || !this.canCreatePlannedSessions()) {
+            return;
+        }
+        this.planningApplying.set(true);
+        this.autoBatchError.set(null);
+        this._admin
+            .runAutoBatch({ targetDate, dryRun: false, force: false })
+            .then((result) => {
+                this.planningResult.set(result);
+                this._notifyKey('admin.orderGroups.autoBatch.success');
+                this.dateFrom.set(this.planningDate());
+                this.dateTo.set(this.planningDate());
+                this.pageIndex.set(0);
+                this._load();
+                this._loadPlanning();
+            })
+            .catch((err) => void this._handleAutoBatchError(err))
+            .finally(() => this.planningApplying.set(false));
+    }
+
+    planningDayLabel(day: PlanningDay): string {
+        if (day.iso === this.tomorrowDate.toISODate()) {
+            return this._transloco.translate(
+                'admin.orderGroups.planning.tomorrow'
+            );
+        }
+        return day.date
+            .setLocale(this._transloco.getActiveLang())
+            .toFormat('cccc');
+    }
+
+    formatPlanningDate(date: DateTime): string {
+        return date.setLocale(this._transloco.getActiveLang()).toLocaleString({
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        });
+    }
+
+    /** Orders represented by one dry-run session, preserving backend order. */
+    previewOrders(session: AdminAutoBatchBatch): AdminOrderDetail[] {
+        const byId = new Map(
+            this.pendingOrders().map((order) => [String(order.orderId), order])
+        );
+        return (session.coveredOrderIds ?? [])
+            .map((id) => byId.get(String(id)))
+            .filter((order): order is AdminOrderDetail => !!order);
+    }
+
+    membersOf(row: AdminOrderGroupRow): AdminBatchMember[] {
+        return Array.isArray(row['members'])
+            ? (row['members'] as AdminBatchMember[])
+            : [];
+    }
+
+    planningRestaurantLabel(order: AdminOrderDetail): string {
+        const restaurantId = String(order.restaurantId ?? '');
+        return (
+            this.planningRestaurantNames().get(restaurantId) ||
+            this._transloco.translate(
+                'admin.orderGroups.planning.restaurantFallback'
             )
-            .catch(() => this.markets.set([]));
+        );
+    }
+
+    shortOrderId(value: string | null | undefined): string {
+        const id = String(value ?? '');
+        return id ? id.slice(0, 8).toUpperCase() : '—';
+    }
+
+    openPlanningOrder(
+        orderId: string | null | undefined,
+        marketId: string | null | undefined,
+        template: TemplateRef<unknown>
+    ): void {
+        const id = String(orderId ?? '');
+        if (!id || this._orderDialogRef) {
+            return;
+        }
+
+        this.planningOrderId.set(id);
+        this.planningOrder.set(null);
+        this.planningOrderRestaurant.set('');
+        this.planningOrderUnits.set(new Map());
+        this.planningOrderError.set(false);
+        this.planningOrderLoading.set(true);
+        this._orderDialogRef = this._dialog.open(template, {
+            autoFocus: false,
+            maxWidth: '96vw',
+            width: '760px',
+        });
+        this._orderDialogRef.afterClosed().subscribe(() => {
+            this._orderDialogRef = null;
+            this.planningOrderLoading.set(false);
+        });
+
+        const marketKey = String(marketId ?? '');
+        Promise.all([
+            this._admin.getOrder(id),
+            marketKey
+                ? this._marketUnits(marketKey).catch(
+                      () => new Map<string, string>()
+                  )
+                : Promise.resolve(new Map<string, string>()),
+        ])
+            .then(async ([order, units]) => {
+                if (!order) {
+                    throw new Error('ORDER_NOT_FOUND');
+                }
+                this.planningOrder.set(order);
+                this.planningOrderUnits.set(units);
+                const restaurantId = String(order.restaurantId ?? '');
+                if (restaurantId) {
+                    const profile = await this._admin
+                        .getRestaurantProfile(restaurantId)
+                        .catch(() => null);
+                    this.planningOrderRestaurant.set(
+                        String(profile?.name ?? restaurantId)
+                    );
+                }
+            })
+            .catch(() => this.planningOrderError.set(true))
+            .finally(() => this.planningOrderLoading.set(false));
+    }
+
+    closePlanningOrder(): void {
+        this._orderDialogRef?.close();
+    }
+
+    orderItemUnit(marketProductId: string | null | undefined): string {
+        return (
+            this.planningOrderUnits().get(String(marketProductId ?? '')) ||
+            this._transloco.translate(
+                'admin.orderGroups.planning.orderDialog.unitFallback'
+            )
+        );
+    }
+
+    money(value: number | null | undefined): string {
+        if (value === null || value === undefined) {
+            return '—';
+        }
+        return new Intl.NumberFormat(this._transloco.getActiveLang(), {
+            style: 'currency',
+            currency: 'VND',
+            maximumFractionDigits: 0,
+        }).format(value);
+    }
+
+    private _marketUnits(marketId: string): Promise<Map<string, string>> {
+        let pending = this._marketUnitCache.get(marketId);
+        if (!pending) {
+            pending = this._catalog.listMarketProducts(marketId).then(
+                (rows) =>
+                    new Map(
+                        rows.map((row) => {
+                            const sellingUnit = (row['sellingUnit'] ??
+                                {}) as Record<string, unknown>;
+                            return [
+                                String(row['marketProductId'] ?? row.id ?? ''),
+                                String(
+                                    row['unit'] ?? sellingUnit['unitName'] ?? ''
+                                ),
+                            ];
+                        })
+                    )
+            );
+            this._marketUnitCache.set(marketId, pending);
+        }
+        return pending;
     }
 
     onSearch(value: string): void {
@@ -405,6 +862,53 @@ export class OrderGroupsComponent implements OnInit {
         return row.id ?? '';
     }
 
+    sessionCode(row: AdminOrderGroupRow): string {
+        const code = String(row.batchNumber ?? '').trim();
+        return code || this.shortOrderId(this.batchIdOf(row));
+    }
+
+    historyGroupInvoice(row: AdminOrderGroupRow): number {
+        return this.membersOf(row).reduce(
+            (sum, member) =>
+                sum +
+                Number(
+                    this.historyOrderDetails().get(String(member.orderId ?? ''))
+                        ?.totalAmount ?? 0
+                ),
+            0
+        );
+    }
+
+    historyGroupRestaurantCount(row: AdminOrderGroupRow): number {
+        return new Set(
+            this.membersOf(row)
+                .map((member) =>
+                    String(
+                        this.historyOrderDetails().get(
+                            String(member.orderId ?? '')
+                        )?.restaurantId ?? ''
+                    )
+                )
+                .filter(Boolean)
+        ).size;
+    }
+
+    historyGroupItemCount(row: AdminOrderGroupRow): number {
+        return Number(
+            row.itemCount ??
+                row['totalItemCount'] ??
+                (Array.isArray(row['items']) ? row['items'].length : 0)
+        );
+    }
+
+    historyMoney(value: number): string {
+        return new Intl.NumberFormat(this._transloco.getActiveLang(), {
+            style: 'currency',
+            currency: 'VND',
+            maximumFractionDigits: 0,
+        }).format(value);
+    }
+
     /** Opens the full-detail page for a batch, passing the row for instant render. */
     openDetail(row: AdminOrderGroupRow): void {
         const id = this.batchIdOf(row);
@@ -423,6 +927,11 @@ export class OrderGroupsComponent implements OnInit {
             return;
         }
         this.autoBatchError.set(null);
+        this.batchForm.reset({
+            targetDate: this.planningDate(),
+            dryRun: true,
+            force: false,
+        });
         this._batchDialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
             maxWidth: '95vw',
@@ -477,7 +986,10 @@ export class OrderGroupsComponent implements OnInit {
         if (this._resetDialogRef) {
             return;
         }
-        this.resetForm.reset({ targetDate: null, confirmation: '' });
+        this.resetForm.reset({
+            targetDate: this.planningDate(),
+            confirmation: '',
+        });
         this.autoBatchError.set(null);
         this._resetDialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
@@ -636,8 +1148,12 @@ export class OrderGroupsComponent implements OnInit {
             return;
         }
         this.agentDialogSaving.set(true);
-        this._admin
-            .assignBatchAgent(batchId, agentUserId)
+        const prepareSession =
+            String(row?.status ?? '').toLowerCase() === 'built'
+                ? this._admin.generateManifest(batchId)
+                : Promise.resolve();
+        prepareSession
+            .then(() => this._admin.assignBatchAgent(batchId, agentUserId))
             .then(() => {
                 this._notifyKey('admin.orderGroups.assignAgent.success');
                 this.closeAgentDialog();
@@ -662,14 +1178,47 @@ export class OrderGroupsComponent implements OnInit {
         return label && label !== key ? label : String(status);
     }
 
+    sessionNeedsManifest(row: AdminOrderGroupRow): boolean {
+        return String(row.status ?? '').toLowerCase() === 'built';
+    }
+
     /** Start-of-day for a batch's date field, or null when missing/invalid. */
     private _batchDay(row: AdminOrderGroupRow): DateTime | null {
-        const raw = row.createdAt ?? row['batchDate'];
+        const raw =
+            row['batchDate'] ??
+            row['BatchDate'] ??
+            row.targetDate ??
+            row.createdAt;
         if (raw === null || raw === undefined || raw === '') {
             return null;
         }
         const parsed = DateTime.fromISO(String(raw));
         return parsed.isValid ? parsed.startOf('day') : null;
+    }
+
+    sessionDateIso(row: AdminOrderGroupRow): string {
+        return this._batchDay(row)?.toISODate() ?? '';
+    }
+
+    formatSessionDate(row: AdminOrderGroupRow): string {
+        const date = this._batchDay(row);
+        return date
+            ? date.setLocale(this._transloco.getActiveLang()).toLocaleString({
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : '';
+    }
+
+    private _deliveryDateIso(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '';
+        }
+        const parsed = DateTime.fromISO(String(value), { setZone: true });
+        return parsed.isValid
+            ? parsed.setZone(VIETNAM_ZONE).toISODate() ?? ''
+            : '';
     }
 
     /** Locale date-time for a stored ISO value, or '' when missing/invalid. */
@@ -709,6 +1258,9 @@ export class OrderGroupsComponent implements OnInit {
             }
             this.groups.set(groups);
             this.totalCount.set(groups.length);
+            if (this.historyView) {
+                await this._loadHistoryOrderDetails(groups);
+            }
         } catch {
             this.groups.set([]);
             this.totalCount.set(0);
@@ -723,6 +1275,115 @@ export class OrderGroupsComponent implements OnInit {
         } catch {
             this.progress.set(null);
         }
+    });
+
+    private async _loadHistoryOrderDetails(
+        groups: AdminOrderGroupRow[]
+    ): Promise<void> {
+        const ids = [
+            ...new Set(
+                groups
+                    .filter(
+                        (group) =>
+                            group['isCompleted'] === true &&
+                            String(group.status ?? '').toLowerCase() !==
+                                'cancelled'
+                    )
+                    .flatMap((group) =>
+                        this.membersOf(group).map((member) =>
+                            String(member.orderId ?? '')
+                        )
+                    )
+                    .filter(Boolean)
+            ),
+        ];
+        if (!ids.length) {
+            this.historyOrderDetails.set(new Map());
+            return;
+        }
+
+        this.historySummaryLoading.set(true);
+        const details = new Map<string, AdminOrderDetail>();
+        try {
+            for (let offset = 0; offset < ids.length; offset += 20) {
+                const chunk = ids.slice(offset, offset + 20);
+                const results = await Promise.all(
+                    chunk.map(async (id) => {
+                        try {
+                            return [
+                                id,
+                                await this._admin.getOrder(id),
+                            ] as const;
+                        } catch {
+                            return [id, null] as const;
+                        }
+                    })
+                );
+                for (const [id, detail] of results) {
+                    if (detail) {
+                        details.set(id, detail);
+                    }
+                }
+            }
+            this.historyOrderDetails.set(details);
+        } finally {
+            this.historySummaryLoading.set(false);
+        }
+    }
+
+    private _loadPlanning(): void {
+        this._loadPlanningTask.trigger();
+    }
+
+    private readonly _loadPlanningTask = new CoalescedTask(async () => {
+        try {
+            const pageSize = 100;
+            const first = await this._admin.getOrders({
+                status: 'confirmed',
+                sort: 'createdAt:desc',
+                page: 1,
+                pageSize,
+            });
+            const orders = [...first.orders];
+            let page = 2;
+            while (orders.length < first.totalCount) {
+                const next = await this._admin.getOrders({
+                    status: 'confirmed',
+                    sort: 'createdAt:desc',
+                    page,
+                    pageSize,
+                });
+                if (!next.orders.length) {
+                    break;
+                }
+                orders.push(...next.orders);
+                page += 1;
+            }
+            this.pendingOrders.set(orders);
+            const restaurantIds = [
+                ...new Set(
+                    orders
+                        .map((order) => String(order.restaurantId ?? ''))
+                        .filter(Boolean)
+                ),
+            ];
+            const profiles = await Promise.all(
+                restaurantIds.map(async (id) => {
+                    try {
+                        const profile =
+                            await this._admin.getRestaurantProfile(id);
+                        return [id, String(profile?.name ?? id)] as const;
+                    } catch {
+                        return [id, id] as const;
+                    }
+                })
+            );
+            this.planningRestaurantNames.set(new Map(profiles));
+        } catch {
+            this.pendingOrders.set([]);
+            this.planningRestaurantNames.set(new Map());
+        }
+        this.previewPlanningDay();
     });
 
     private _notifyKey(key: string): void {
