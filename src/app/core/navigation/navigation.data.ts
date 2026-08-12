@@ -112,6 +112,13 @@ const NAVIGATION: AreaNavItem[] = [
                 title: 'nav.admin.orderGroups',
                 type: 'basic',
                 link: '/admin/order-groups',
+                exactMatch: true,
+            },
+            {
+                id: 'admin-order-group-history',
+                title: 'nav.admin.orderGroupHistory',
+                type: 'basic',
+                link: '/admin/order-groups/history',
             },
             {
                 id: 'admin-orders',

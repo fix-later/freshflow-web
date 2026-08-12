@@ -33,8 +33,12 @@ import {
     AdminOrderDetail,
     AdminOrderGroupRow,
     AdminOrderItem,
+    AdminUserRow,
 } from '../admin.types';
+import { CatalogAdminService } from '../catalog/catalog-admin.service';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import { CrudRow } from '../shared/resource-crud.types';
 import {
     canCancelBatch,
     canGenerateManifest,
@@ -127,6 +131,8 @@ export interface DetailField {
 })
 export class OrderGroupDetailComponent implements OnInit {
     private readonly _admin = inject(AdminService);
+    private readonly _catalog = inject(CatalogAdminService);
+    private readonly _logistics = inject(LogisticsAdminService);
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
@@ -148,7 +154,11 @@ export class OrderGroupDetailComponent implements OnInit {
     readonly marketNames = signal<Map<string, string>>(new Map());
     readonly hubNames = signal<Map<string, string>>(new Map());
     readonly agentNames = signal<Map<string, string>>(new Map());
+    readonly usersById = signal<Map<string, AdminUserRow>>(new Map());
     readonly restaurantNames = signal<Map<string, string>>(new Map());
+    readonly vehiclesById = signal<Map<string, CrudRow>>(new Map());
+    readonly productUnits = signal<Map<string, string>>(new Map());
+    private _loadedUnitMarketId = '';
 
     /** Member order drill-down: open ids, fetched-detail cache, in-flight ids. */
     readonly expandedOrders = signal<Set<string>>(new Set());
@@ -161,6 +171,7 @@ export class OrderGroupDetailComponent implements OnInit {
     /** Header title — batch id (UUID). */
     readonly detailTitle = computed(
         () =>
+            String(this.batch()?.batchNumber ?? '').trim() ||
             this.batchId() ||
             this._transloco.translate('admin.orderGroups.detailPage.title')
     );
@@ -173,6 +184,70 @@ export class OrderGroupDetailComponent implements OnInit {
     readonly memberCount = computed(() => this.membersOf(this.batch()).length);
     readonly exceptionCount = computed(
         () => this.exceptionsOf(this.batch()).length
+    );
+
+    /** Financial and volume roll-ups calculated from the fetched member orders. */
+    readonly loadedOrders = computed(() => [...this.orderDetails().values()]);
+    readonly restaurantCount = computed(
+        () =>
+            new Set(
+                this.loadedOrders()
+                    .map((order) => String(order.restaurantId ?? ''))
+                    .filter(Boolean)
+            ).size
+    );
+    readonly totalOrderValue = computed(() =>
+        this.loadedOrders().reduce(
+            (sum, order) => sum + Number(order.totalAmount ?? 0),
+            0
+        )
+    );
+    readonly totalOrderLines = computed(() =>
+        this.loadedOrders().reduce(
+            (sum, order) => sum + this.orderItemsOf(order).length,
+            0
+        )
+    );
+    readonly totalRequestedQuantity = computed(() =>
+        this.loadedOrders().reduce(
+            (sum, order) =>
+                sum +
+                this.orderItemsOf(order).reduce(
+                    (lineSum, item) => lineSum + Number(item.quantity ?? 0),
+                    0
+                ),
+            0
+        )
+    );
+    readonly totalActualQuantity = computed(() =>
+        this.loadedOrders().reduce(
+            (sum, order) =>
+                sum +
+                this.orderItemsOf(order).reduce(
+                    (lineSum, item) =>
+                        lineSum + Number(item.actualQuantity ?? 0),
+                    0
+                ),
+            0
+        )
+    );
+    readonly referencePurchaseValue = computed(() =>
+        this.itemsOf(this.batch()).reduce(
+            (sum, item) =>
+                sum +
+                Number(item.totalQuantity ?? 0) *
+                    Number(item.referenceUnitPrice ?? 0),
+            0
+        )
+    );
+    readonly actualPurchaseValue = computed(() =>
+        this.itemsOf(this.batch()).reduce(
+            (sum, item) =>
+                sum +
+                Number(item.actualQuantity ?? 0) *
+                    Number(item.actualUnitPrice ?? 0),
+            0
+        )
     );
 
     ngOnInit(): void {
@@ -191,7 +266,7 @@ export class OrderGroupDetailComponent implements OnInit {
     }
 
     goBack(): void {
-        this._router.navigate(['/admin/order-groups']);
+        this._router.navigate(['/admin/order-groups/history']);
     }
 
     generateManifest(): void {
@@ -506,6 +581,132 @@ export class OrderGroupDetailComponent implements OnInit {
         return Array.isArray(items) ? items : [];
     }
 
+    itemUnit(marketProductId: string | null | undefined): string {
+        return (
+            this.productUnits().get(String(marketProductId ?? '')) ||
+            this._t('admin.orderGroups.historyDetail.unitUnknown')
+        );
+    }
+
+    participatingUserIds(row: AdminOrderGroupRow): string[] {
+        const ids = new Set<string>();
+        const assigned = String(
+            row.agentId ?? row['assignedAgentUserId'] ?? ''
+        );
+        if (assigned) {
+            ids.add(assigned);
+        }
+        for (const exception of this.exceptionsOf(row)) {
+            const reporter = String(exception['reportedByUserId'] ?? '');
+            if (reporter) {
+                ids.add(reporter);
+            }
+        }
+        return [...ids];
+    }
+
+    participantName(userId: string): string {
+        const user = this.usersById().get(userId);
+        return String(
+            user?.['name'] ??
+                user?.['fullName'] ??
+                user?.email ??
+                this.agentNames().get(userId) ??
+                userId
+        );
+    }
+
+    participantEmail(userId: string): string {
+        return this.usersById().get(userId)?.email ?? '';
+    }
+
+    participantPhone(userId: string): string {
+        return this.usersById().get(userId)?.phone ?? '';
+    }
+
+    participantRole(row: AdminOrderGroupRow, userId: string): string {
+        const assigned = String(
+            row.agentId ?? row['assignedAgentUserId'] ?? ''
+        );
+        return assigned === userId
+            ? this._t('admin.orderGroups.historyDetail.primaryAgent')
+            : this._t('admin.orderGroups.historyDetail.exceptionReporter');
+    }
+
+    vehicleIds(row: AdminOrderGroupRow): string[] {
+        const ids = new Set<string>();
+        const raw = row as Record<string, unknown>;
+        for (const candidate of [
+            raw['vehicleId'],
+            raw['assignedVehicleId'],
+            (raw['vehicle'] as Record<string, unknown> | null)?.['id'],
+            (raw['route'] as Record<string, unknown> | null)?.['vehicleId'],
+        ]) {
+            const id = String(candidate ?? '');
+            if (id) {
+                ids.add(id);
+            }
+        }
+        if (Array.isArray(raw['vehicles'])) {
+            for (const vehicle of raw['vehicles']) {
+                const data = vehicle as Record<string, unknown>;
+                const id = String(data['vehicleId'] ?? data['id'] ?? '');
+                if (id) {
+                    ids.add(id);
+                }
+            }
+        }
+        return [...ids];
+    }
+
+    vehicleLabel(vehicleId: string): string {
+        const row = this.vehiclesById().get(vehicleId);
+        return String(row?.['plateNumber'] ?? vehicleId);
+    }
+
+    vehicleType(vehicleId: string): string {
+        return String(
+            this.vehiclesById().get(vehicleId)?.['vehicleType'] ?? '—'
+        );
+    }
+
+    vehicleCapacity(vehicleId: string): string {
+        const capacity = this.vehiclesById().get(vehicleId)?.['capacityKg'];
+        return capacity === null || capacity === undefined
+            ? '—'
+            : `${Number(capacity).toLocaleString(
+                  this._transloco.getActiveLang()
+              )} kg`;
+    }
+
+    restaurantOrderCount(restaurantId: string): number {
+        return this.loadedOrders().filter(
+            (order) => String(order.restaurantId ?? '') === restaurantId
+        ).length;
+    }
+
+    restaurantOrderValue(restaurantId: string): number {
+        return this.loadedOrders()
+            .filter(
+                (order) => String(order.restaurantId ?? '') === restaurantId
+            )
+            .reduce((sum, order) => sum + Number(order.totalAmount ?? 0), 0);
+    }
+
+    participatingRestaurants(): string[] {
+        return [
+            ...new Set(
+                this.loadedOrders()
+                    .map((order) => String(order.restaurantId ?? ''))
+                    .filter(Boolean)
+            ),
+        ];
+    }
+
+    restaurantName(restaurantId: string): string {
+        return this.restaurantNames().get(restaurantId) || restaurantId;
+    }
+
     toggleOrder(orderId: string | null | undefined): void {
         if (!orderId) {
             return;
@@ -631,16 +832,26 @@ export class OrderGroupDetailComponent implements OnInit {
             .catch(() => this.hubNames.set(new Map()));
         this._admin
             .getAgentOptions()
-            .then((agents) =>
+            .then((agents) => {
                 this.agentNames.set(
                     new Map(
                         agents
                             .filter((a) => !!a.id)
                             .map((a) => [a.id, a.email || a.id])
                     )
-                )
-            )
-            .catch(() => this.agentNames.set(new Map()));
+                );
+                this.usersById.set(
+                    new Map(
+                        agents
+                            .filter((agent) => !!agent.id)
+                            .map((agent) => [agent.id, agent])
+                    )
+                );
+            })
+            .catch(() => {
+                this.agentNames.set(new Map());
+                this.usersById.set(new Map());
+            });
         this._admin
             .getUsers({ role: 'restaurant', pageSize: 100 })
             .then((result) => {
@@ -655,10 +866,23 @@ export class OrderGroupDetailComponent implements OnInit {
                 this.restaurantNames.set(map);
             })
             .catch(() => this.restaurantNames.set(new Map()));
+        this._logistics
+            .listVehicles()
+            .then((vehicles) =>
+                this.vehiclesById.set(
+                    new Map(
+                        vehicles
+                            .filter((vehicle) => !!vehicle.id)
+                            .map((vehicle) => [vehicle.id, vehicle])
+                    )
+                )
+            )
+            .catch(() => this.vehiclesById.set(new Map()));
     }
 
     /** Parallel GET /orders/{id} for every member so the Orders tab is ready. */
     private _prefetchMemberOrders(batch: AdminOrderGroupRow | null): void {
+        this._loadProductUnits(batch);
         const ids = this.membersOf(batch)
             .map((m) => String(m.orderId ?? '').trim())
             .filter(Boolean);
@@ -695,6 +919,34 @@ export class OrderGroupDetailComponent implements OnInit {
                 this.orderDetails.set(cache);
             })
             .finally(() => this.ordersPrefetching.set(false));
+    }
+
+    private _loadProductUnits(batch: AdminOrderGroupRow | null): void {
+        const marketId = String(batch?.marketId ?? '');
+        if (!marketId || marketId === this._loadedUnitMarketId) {
+            return;
+        }
+        this._loadedUnitMarketId = marketId;
+        void this._catalog
+            .listMarketProducts(marketId)
+            .then((rows) => {
+                const units = new Map<string, string>();
+                for (const row of rows) {
+                    const sellingUnit = (row['sellingUnit'] ?? null) as Record<
+                        string,
+                        unknown
+                    > | null;
+                    const id = String(row['marketProductId'] ?? row.id ?? '');
+                    const unit = String(
+                        row['unit'] ?? sellingUnit?.['unitName'] ?? ''
+                    ).trim();
+                    if (id && unit) {
+                        units.set(id, unit);
+                    }
+                }
+                this.productUnits.set(units);
+            })
+            .catch(() => this.productUnits.set(new Map()));
     }
 
     private _loadOrder(orderId: string): void {
