@@ -15,10 +15,7 @@
         </div>
 
         @if (zones().length) {
-            <!-- Stall board. The first two tiles run double-height, but only
-                 once there are enough ordinary tiles beside them to fill the
-                 column — see `isBento`. -->
-            <ul class="ff-zones" [class.ff-zones--bento]="isBento()">
+            <ul class="ff-zones">
                 @for (zone of zones(); track zone.id) {
                     <li class="ff-zones__cell">
                         <a
@@ -27,33 +24,28 @@
                             routerLink="/catalog"
                             [queryParams]="{ category: zone.id }"
                         >
-                            <span class="ff-zone__copy">
+                            <div class="ff-zone__copy">
                                 <span class="ff-zone__count">{{
                                     t('home.zones.itemCount', {
                                         count: zone.itemCount,
                                     })
                                 }}</span>
-                                <!-- "Sạp <tên>": the tile is a stall to walk up
-                                     to, not a category to tick. -->
                                 <span class="ff-zone__name">{{
                                     t('home.zones.stall', {
                                         name: zoneLabel(zone),
                                     })
                                 }}</span>
-                            </span>
+                            </div>
 
-                            <!-- The category's own artwork, or nothing. No
-                                 stand-in glyph: an invented one is a picture
-                                 nobody chose. -->
                             @if (zone.imageUrl) {
-                                <span class="ff-zone__art">
+                                <div class="ff-zone__art">
                                     <img
                                         [src]="zone.imageUrl"
                                         alt=""
                                         loading="lazy"
                                         decoding="async"
                                     />
-                                </span>
+                                </div>
                             }
                         </a>
                     </li>

@@ -1,99 +1,99 @@
 name: CI
 
 on:
-  push:
-    branches: [main, dev]
-  pull_request:
-    branches: [main, dev]
+    push:
+        branches: [main, dev]
+    pull_request:
+        branches: [main, dev]
 
 jobs:
-  ci:
-    name: Lint, Test & Build
-    runs-on: ubuntu-latest
+    ci:
+        name: Lint, Test & Build
+        runs-on: ubuntu-latest
 
-    # generate-env.mjs bakes these into the bundle and fails without
-    # API_BASE_URL. It is a public backend origin (ships to the browser), so a
-    # committed fallback is fine; a repo secret/variable overrides it when set.
-    env:
-      API_BASE_URL: ${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
-      GOONG_MAPS_KEY: ${{ secrets.GOONG_MAPS_KEY }}
-      GOONG_PLACES_KEY: ${{ secrets.GOONG_PLACES_KEY }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Check formatting (Prettier)
-        run: npx prettier --check "src/**/*.{ts,html,scss,json}"
-
-      - name: Unit tests
-        run: npm run test:ci
-
-      - name: Build (production)
-        run: npm run build -- --configuration production
-
-  deploy:
-    name: Build & Deploy to VPS
-    needs: ci
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
-    runs-on: ubuntu-latest
-
-    environment: development
-
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ghcr.io/${{ github.repository }}:dev
-          build-args: |
-            API_BASE_URL=${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
-            GOONG_MAPS_KEY=${{ secrets.GOONG_MAPS_KEY }}
-            GOONG_PLACES_KEY=${{ secrets.GOONG_PLACES_KEY }}
-
-      - name: Deploy to VPS
-        uses: appleboy/ssh-action@v1
+        # generate-env.mjs bakes these into the bundle and fails without
+        # API_BASE_URL. It is a public backend origin (ships to the browser), so a
+        # committed fallback is fine; a repo secret/variable overrides it when set.
         env:
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          host: ${{ secrets.VPS_HOST }}
-          username: ${{ secrets.VPS_USER }}
-          key: ${{ secrets.VPS_SSH_KEY }}
-          port: ${{ secrets.VPS_PORT }}
-          envs: GHCR_USER,GHCR_TOKEN
-          script: |
-            set -e
-            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
-            docker pull ghcr.io/${{ github.repository }}:dev
-            docker logout ghcr.io
-            docker rm -f freshflow-web || true
-            docker run -d --name freshflow-web --restart unless-stopped -p 127.0.0.1:4300:80 \
-              ghcr.io/${{ github.repository }}:dev
+            API_BASE_URL: ${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
+            GOONG_MAPS_KEY: ${{ secrets.GOONG_MAPS_KEY }}
+            GOONG_PLACES_KEY: ${{ secrets.GOONG_PLACES_KEY }}
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version-file: .nvmrc
+                  cache: npm
+
+            - name: Install dependencies
+              run: npm ci
+
+            - name: Lint
+              run: npm run lint
+
+            - name: Check formatting (Prettier)
+              run: npx prettier --check "src/**/*.{ts,html,scss,json}"
+
+            - name: Unit tests
+              run: npm run test:ci
+
+            - name: Build (production)
+              run: npm run build -- --configuration production
+
+    deploy:
+        name: Build & Deploy to VPS
+        needs: ci
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/dev' }}
+        runs-on: ubuntu-latest
+
+        environment: development
+
+        permissions:
+            contents: read
+            packages: write
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Login to GitHub Container Registry
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Build and push Docker image
+              uses: docker/build-push-action@v5
+              with:
+                  context: .
+                  push: true
+                  tags: ghcr.io/${{ github.repository }}:dev
+                  build-args: |
+                      API_BASE_URL=${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
+                      GOONG_MAPS_KEY=${{ secrets.GOONG_MAPS_KEY }}
+                      GOONG_PLACES_KEY=${{ secrets.GOONG_PLACES_KEY }}
+
+            - name: Deploy to VPS
+              uses: appleboy/ssh-action@v1
+              env:
+                  GHCR_USER: ${{ github.actor }}
+                  GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+              with:
+                  host: ${{ secrets.VPS_HOST }}
+                  username: ${{ secrets.VPS_USER }}
+                  key: ${{ secrets.VPS_SSH_KEY }}
+                  port: ${{ secrets.VPS_PORT }}
+                  envs: GHCR_USER,GHCR_TOKEN
+                  script: |
+                      set -e
+                      echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+                      docker pull ghcr.io/${{ github.repository }}:dev
+                      docker logout ghcr.io
+                      docker rm -f freshflow-web || true
+                      docker run -d --name freshflow-web --restart unless-stopped -p 127.0.0.1:4300:80 \
+                        ghcr.io/${{ github.repository }}:dev

@@ -34,6 +34,7 @@ import { map } from 'rxjs';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
+    host: { class: 'flex w-full min-w-0 flex-auto flex-col' },
     imports: [
         MatSidenavModule,
         MatButtonModule,

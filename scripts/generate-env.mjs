@@ -33,6 +33,22 @@ const KEYS = ['API_BASE_URL', 'GOONG_MAPS_KEY', 'GOONG_PLACES_KEY'];
 const REQUIRED = ['API_BASE_URL'];
 
 /**
+ * A production image must carry *every* key, not just the required ones.
+ *
+ * A bundle built without the Goong keys still boots and looks healthy: the map
+ * service degrades quietly (`mapsEnabled` is false, `autocomplete()` returns
+ * `[]`), so the only symptom is a map that never renders and an address box
+ * that never suggests anything — with nothing in the console to say why. That
+ * is a CI secret gone missing, and it should stop the build, not ship.
+ *
+ * `npm start` and the PR build stay permissive: a contributor without Goong
+ * keys can still run the app, and pull requests from forks get no secrets at
+ * all. The Dockerfile sets `STRICT_ENV=1` so only the image that actually gets
+ * deployed is held to the stricter bar.
+ */
+const required = process.env.STRICT_ENV === '1' ? KEYS : REQUIRED;
+
+/**
  * Minimal `KEY=VALUE` parser — enough for this file's shape, and avoids a
  * dependency. Supports `#` comments, blank lines, `export ` prefixes and
  * quoted values; does not support multi-line values.
@@ -74,16 +90,24 @@ const resolved = Object.fromEntries(
     KEYS.map((key) => [key, process.env[key] ?? fromFile[key] ?? ''])
 );
 
-const missingRequired = REQUIRED.filter((key) => !resolved[key]);
+const missingRequired = required.filter((key) => !resolved[key]);
 if (missingRequired.length) {
     console.error(
         `✖ Missing required config: ${missingRequired.join(', ')}\n` +
-            (existsSync(envFile)
-                ? `  Set it in ${relativeEnvFile}, or pass it in the environment.`
-                : `  No ${relativeEnvFile} found.\n` +
-                  `  Locally:  cp .env.example .env\n` +
-                  `  In CI/Docker: pass it in the environment ` +
-                  `(docker build --build-arg API_BASE_URL=…).`)
+            (process.env.STRICT_ENV === '1'
+                ? `  This is a production image build, where every key is\n` +
+                  `  mandatory. Each one is passed as a --build-arg from the\n` +
+                  `  matching GitHub Actions secret, so an empty value here\n` +
+                  `  means that secret is unset or misnamed:\n` +
+                  missingRequired
+                      .map((key) => `    Settings → Secrets → Actions → ${key}`)
+                      .join('\n')
+                : existsSync(envFile)
+                  ? `  Set it in ${relativeEnvFile}, or pass it in the environment.`
+                  : `  No ${relativeEnvFile} found.\n` +
+                    `  Locally:  cp .env.example .env\n` +
+                    `  In CI/Docker: pass it in the environment ` +
+                    `(docker build --build-arg API_BASE_URL=…).`)
     );
     process.exit(1);
 }

@@ -1,15 +1,6 @@
 <section class="ff-cutoff" *transloco="let t">
     <div class="ff-cutoff__inner">
         <div class="ff-cutoff__copy">
-            <!-- Eyebrow 2 of the 2 this page spends -->
-            <p class="ff-section__eyebrow ff-cutoff__eyebrow">
-                <mat-icon
-                    class="text-current icon-size-4"
-                    [svgIcon]="'heroicons_outline:clock'"
-                ></mat-icon>
-                <span>{{ t('home.cutoff.eyebrow') }}</span>
-            </p>
-
             @if (view().known && view().cutoffLabel) {
                 <h2 class="ff-cutoff__title">
                     {{ t('home.cutoff.title', { time: view().cutoffLabel }) }}
