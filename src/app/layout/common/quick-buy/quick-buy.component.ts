@@ -1,3 +1,4 @@
+import { Clipboard } from '@angular/cdk/clipboard';
 import { Overlay, OverlayRef } from '@angular/cdk/overlay';
 import { TemplatePortal } from '@angular/cdk/portal';
 import {
@@ -21,6 +22,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { activeLang } from 'app/core/i18n/active-lang';
+import { MarkdownToHtmlPipe } from 'app/core/pipes/markdown-to-html.pipe';
 import {
     ASSISTANT_MESSAGE_MAX_LENGTH,
     AssistantPendingConfirmation,
@@ -33,6 +35,16 @@ interface QuickBuyMessage {
     /** Set on the message that reported a failure, so it can offer a retry. */
     failed?: boolean;
 }
+
+/** How close to the bottom still counts as "following along", in pixels. */
+const FOLLOW_THRESHOLD_PX = 80;
+
+/**
+ * How long a turn may run before the typing indicator admits it is taking a
+ * while. Tool-calling turns (search → model → reply) routinely run past this,
+ * and three static dots for fifteen seconds reads as broken rather than busy.
+ */
+const STILL_WORKING_AFTER_MS = 6000;
 
 /** One `key: value` the preview carried that this screen has no label for. */
 interface PreviewExtra {
@@ -130,7 +142,13 @@ const SUGGESTION_KEYS = [
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.Eager,
     standalone: true,
-    imports: [FormsModule, MatIconModule, MatTooltipModule, TranslocoModule],
+    imports: [
+        FormsModule,
+        MatIconModule,
+        MatTooltipModule,
+        TranslocoModule,
+        MarkdownToHtmlPipe,
+    ],
 })
 export class QuickBuyComponent {
     private readonly _assistant = inject(AssistantService);
@@ -139,6 +157,7 @@ export class QuickBuyComponent {
     private readonly _overlay = inject(Overlay);
     private readonly _viewContainer = inject(ViewContainerRef);
     private readonly _destroyRef = inject(DestroyRef);
+    private readonly _clipboard = inject(Clipboard);
 
     private readonly _lang = activeLang();
 
@@ -166,11 +185,37 @@ export class QuickBuyComponent {
     readonly query = signal('');
     readonly messages = signal<QuickBuyMessage[]>([]);
 
+    /** Index of the reply whose copy button just fired, for the "Copied" tick. */
+    readonly copiedIndex = signal<number | null>(null);
+
+    /** True once a turn has run long enough to be worth reassuring about. */
+    readonly stillWorking = signal(false);
+
+    /**
+     * A reply landed while the user was reading further up. The thread is not
+     * yanked to the bottom in that case (see {@link _scrollToLatest}); this
+     * raises the pill that offers to take them there.
+     */
+    readonly unreadBelow = signal(false);
+
     /** The order awaiting an explicit press of the confirm button. */
     readonly pending = signal<AssistantPendingConfirmation | null>(null);
 
     /** Last thing the user typed — what {@link retry} re-sends. */
     private _lastUserMessage = '';
+
+    /**
+     * Overrides the "only follow if already at the bottom" rule for the next
+     * transcript change. Set by the actions the user drove themselves — sending,
+     * retrying, confirming — where landing on the newest content is the point.
+     */
+    private _pinNext = true;
+
+    /** Transcript length at the last scroll decision, to spot a new arrival. */
+    private _lastCount = 0;
+
+    private _workingTimer: ReturnType<typeof setTimeout> | undefined;
+    private _copiedTimer: ReturnType<typeof setTimeout> | undefined;
 
     /** Nothing said yet: the panel shows the greeting and starter prompts. */
     readonly isEmpty = computed(() => this.messages().length === 0);
@@ -194,18 +239,52 @@ export class QuickBuyComponent {
 
     constructor() {
         // Anything that lengthens the transcript — a message, the typing
-        // indicator, the receipt — pins the view to the newest content. Without
-        // this the panel stayed where it was and the reply arrived off-screen.
+        // indicator, the receipt — pulls the view down to it, but only while the
+        // user is actually following along. Yanking someone who scrolled up to
+        // re-read an earlier reply is the worse failure of the two, so that case
+        // raises the "new reply" pill and leaves their position alone.
         effect(() => {
-            this.messages();
+            const count = this.messages().length;
             this.sending();
             this.pending();
-            if (this.opened()) {
+            if (!this.opened()) {
+                this._lastCount = count;
+                return;
+            }
+            const grew = count > this._lastCount;
+            this._lastCount = count;
+            // Measured here rather than inside the deferred scroll: by the time
+            // the new content has rendered, the scroller has already grown and
+            // nobody is "near the bottom" any more.
+            const follow = this._pinNext || this._isNearBottom();
+            this._pinNext = false;
+            if (follow) {
                 this._scrollToLatest();
+            } else if (grew) {
+                this.unreadBelow.set(true);
             }
         });
 
-        this._destroyRef.onDestroy(() => this._detach());
+        // Three static dots for fifteen seconds reads as broken. A turn that
+        // calls tools routinely runs that long, so past a threshold the
+        // indicator says so rather than pretending nothing is happening.
+        effect(() => {
+            clearTimeout(this._workingTimer);
+            if (!this.sending()) {
+                this.stillWorking.set(false);
+                return;
+            }
+            this._workingTimer = setTimeout(
+                () => this.stillWorking.set(true),
+                STILL_WORKING_AFTER_MS
+            );
+        });
+
+        this._destroyRef.onDestroy(() => {
+            clearTimeout(this._workingTimer);
+            clearTimeout(this._copiedTimer);
+            this._detach();
+        });
     }
 
     // ── Panel ────────────────────────────────────────────────────────────
@@ -223,6 +302,8 @@ export class QuickBuyComponent {
             return;
         }
         this.opened.set(true);
+        // Reopening lands on the newest message, not wherever it was left.
+        this._pinNext = true;
         this._attach();
         setTimeout(() => this._composer()?.nativeElement.focus());
     }
@@ -272,6 +353,8 @@ export class QuickBuyComponent {
         this.messages.set([]);
         this.query.set('');
         this._lastUserMessage = '';
+        this.unreadBelow.set(false);
+        this.copiedIndex.set(null);
         setTimeout(() => this._composer()?.nativeElement.focus());
     }
 
@@ -330,6 +413,7 @@ export class QuickBuyComponent {
             return;
         }
         const text = this._lastUserMessage;
+        this._pinNext = true;
         // Drop the failure notice being retried, so the thread does not
         // accumulate one error bubble per attempt.
         this.messages.update((list) =>
@@ -354,6 +438,7 @@ export class QuickBuyComponent {
         }
         const text = this._transloco.translate('assistant.confirm.sent');
         this.pending.set(null);
+        this._pinNext = true;
         this._push({ role: 'user', text });
         void this._turn(text, {
             confirmOrderId: pending.orderId,
@@ -365,6 +450,33 @@ export class QuickBuyComponent {
     /** Walks away from the prepared order without confirming it. */
     dismissConfirmation(): void {
         this.pending.set(null);
+    }
+
+    // ── Reading the reply ────────────────────────────────────────────────
+
+    /**
+     * Copies a reply as the markdown the model actually sent, not the rendered
+     * HTML — that is what pastes usefully into a note or an order sheet.
+     */
+    copyReply(index: number, text: string): void {
+        if (!this._clipboard.copy(text)) {
+            return;
+        }
+        this.copiedIndex.set(index);
+        clearTimeout(this._copiedTimer);
+        this._copiedTimer = setTimeout(() => this.copiedIndex.set(null), 2000);
+    }
+
+    /** The "new reply" pill — takes the reader down to what arrived. */
+    jumpToLatest(): void {
+        this._scrollToLatest();
+    }
+
+    /** Scrolling back down by hand retires the pill, same as pressing it. */
+    onThreadScroll(): void {
+        if (this.unreadBelow() && this._isNearBottom()) {
+            this.unreadBelow.set(false);
+        }
     }
 
     // ── Formatting ───────────────────────────────────────────────────────
@@ -397,6 +509,8 @@ export class QuickBuyComponent {
     private _ask(text: string): void {
         this.query.set('');
         this._resetComposerHeight();
+        // The user drove this, so follow it down wherever they were reading.
+        this._pinNext = true;
         this._push({ role: 'user', text });
         void this._turn(text);
     }
@@ -416,7 +530,22 @@ export class QuickBuyComponent {
                 confirmOrderId: options?.confirmOrderId,
                 deliveryAddressId: options?.deliveryAddressId,
             });
-            this._push({ role: 'assistant', text: answer.reply });
+            // An empty reply renders as an empty bubble, which reads as a bug in
+            // this panel rather than a turn that produced nothing. Name it, and
+            // treat it as failed so the retry button is there — retrying is the
+            // one useful thing to do with it.
+            const reply = answer.reply.trim();
+            this._push(
+                reply
+                    ? { role: 'assistant', text: reply }
+                    : {
+                          role: 'assistant',
+                          failed: true,
+                          text: this._transloco.translate(
+                              'assistant.emptyReply'
+                          ),
+                      }
+            );
             this.pending.set(answer.pendingConfirmation);
         } catch (err) {
             // A confirmation that failed puts its card back, so the user can
@@ -467,7 +596,21 @@ export class QuickBuyComponent {
                 top: el.scrollHeight,
                 behavior: reduced ? 'auto' : 'smooth',
             });
+            this.unreadBelow.set(false);
         });
+    }
+
+    /** Whether the reader is close enough to the newest message to follow it. */
+    private _isNearBottom(): boolean {
+        const el = this._scroller()?.nativeElement;
+        if (!el) {
+            // Nothing rendered yet, so there is no position to preserve.
+            return true;
+        }
+        return (
+            el.scrollHeight - el.scrollTop - el.clientHeight <=
+            FOLLOW_THRESHOLD_PX
+        );
     }
 }
 

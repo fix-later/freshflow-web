@@ -98,7 +98,12 @@
                 </div>
             </header>
 
-            <div class="ff-qb-thread" #messageScroller aria-live="polite">
+            <div
+                class="ff-qb-thread"
+                #messageScroller
+                aria-live="polite"
+                (scroll)="onThreadScroll()"
+            >
                 <div class="ff-qb-col ff-qb-thread__inner">
                     @if (isEmpty()) {
                         <!-- Starter prompts, so the first turn does not start from
@@ -153,9 +158,21 @@
                                         "
                                     ></mat-icon>
                                 }
-                                <p class="ff-qb-bubble__text">
-                                    {{ message.text }}
-                                </p>
+                                @if (
+                                    message.role === 'assistant' &&
+                                    !message.failed
+                                ) {
+                                    <div
+                                        class="ff-qb-bubble__text ff-qb-prose"
+                                        [innerHTML]="
+                                            message.text | markdownToHtml
+                                        "
+                                    ></div>
+                                } @else {
+                                    <p class="ff-qb-bubble__text">
+                                        {{ message.text }}
+                                    </p>
+                                }
                             </div>
 
                             @if (message.failed && !sending()) {
@@ -173,6 +190,43 @@
                                     <span>{{ t('assistant.retry') }}</span>
                                 </button>
                             }
+
+                            <!--
+                              A reply is often a shopping list the buyer wants
+                              somewhere else. Copies the markdown the model
+                              sent, not the rendered HTML.
+                            -->
+                            @if (
+                                message.role === 'assistant' && !message.failed
+                            ) {
+                                <button
+                                    class="ff-qb-copy"
+                                    type="button"
+                                    [class.ff-qb-copy--done]="
+                                        copiedIndex() === $index
+                                    "
+                                    [attr.aria-label]="
+                                        copiedIndex() === $index
+                                            ? t('assistant.copied')
+                                            : t('assistant.copy')
+                                    "
+                                    (click)="copyReply($index, message.text)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-4"
+                                        [svgIcon]="
+                                            copiedIndex() === $index
+                                                ? 'heroicons_outline:check'
+                                                : 'heroicons_outline:clipboard-document'
+                                        "
+                                    ></mat-icon>
+                                    <span>{{
+                                        copiedIndex() === $index
+                                            ? t('assistant.copied')
+                                            : t('assistant.copy')
+                                    }}</span>
+                                </button>
+                            }
                         </div>
                     }
 
@@ -186,6 +240,16 @@
                                 <span class="ff-qb-typing__dot"></span>
                                 <span class="ff-qb-typing__dot"></span>
                             </div>
+                            <!--
+                              Turns that call tools run for ten seconds and more.
+                              Past the threshold the wait says so, rather than
+                              leaving three dots to look like a hang.
+                            -->
+                            @if (stillWorking()) {
+                                <p class="ff-qb-working">
+                                    {{ t('assistant.stillWorking') }}
+                                </p>
+                            }
                         </div>
                     }
 
@@ -370,6 +434,25 @@
             </div>
 
             <footer class="ff-qb-composer">
+                <!--
+                  Raised only when a reply landed while the reader was further
+                  up the thread — the case where auto-scrolling would have
+                  stolen their place. Anchored to the composer so it sits over
+                  the bottom edge of the thread it points into.
+                -->
+                @if (unreadBelow()) {
+                    <button
+                        class="ff-qb-jump"
+                        type="button"
+                        (click)="jumpToLatest()"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_outline:arrow-down'"
+                        ></mat-icon>
+                        <span>{{ t('assistant.jumpToLatest') }}</span>
+                    </button>
+                }
                 <div class="ff-qb-col ff-qb-composer__inner">
                     <textarea
                         #chatInput

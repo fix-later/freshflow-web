@@ -232,13 +232,166 @@ quick-buy {
         flex: none;
     }
 
-    /* Replies are plain text — no markdown renderer — so newlines the model
-       sent are honoured here rather than collapsing into one paragraph. */
+    /* The user's own turn and any failure notice stay plain text, so
+       `pre-wrap` honours the newlines they were typed with rather than
+       collapsing into one paragraph. Assistant replies are markdown — see
+       `.ff-qb-prose` below — and get their own paragraph/list spacing instead. */
     &__text {
         margin: 0;
         min-width: 0;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
+    }
+}
+
+/*
+ * Style set for the assistant's rendered markdown. Kept deliberately close
+ * to the plain-text bubble it replaces: same size and line-height, `em`/`strong`
+ * only add weight/slant rather than a second colour, and every block collapses
+ * its own margins so a short reply (most of them) doesn't gain dead space it
+ * didn't have as plain text.
+ */
+.ff-qb-prose {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+
+    > :first-child {
+        margin-top: 0;
+    }
+
+    > :last-child {
+        margin-bottom: 0;
+    }
+
+    p {
+        margin: 0 0 0.5em;
+    }
+
+    strong {
+        font-weight: 700;
+    }
+
+    em {
+        font-style: italic;
+    }
+
+    ul,
+    ol {
+        margin: 0 0 0.5em;
+        padding-inline-start: 1.25em;
+    }
+
+    ul {
+        list-style: disc;
+    }
+
+    ol {
+        list-style: decimal;
+    }
+
+    li {
+        margin: 0.125em 0;
+
+        > ul,
+        > ol {
+            margin: 0.125em 0 0.125em 1em;
+        }
+    }
+
+    a {
+        text-decoration: underline;
+        text-underline-offset: 0.125em;
+        @apply text-primary;
+    }
+
+    code {
+        border-radius: 0.25rem;
+        padding: 0.0625em 0.375em;
+        font-size: 0.875em;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        @apply bg-hover;
+    }
+
+    pre {
+        margin: 0 0 0.5em;
+        overflow-x: auto;
+        border-radius: 0.5rem;
+        padding: 0.625em 0.75em;
+        @apply bg-hover;
+
+        code {
+            border-radius: 0;
+            padding: 0;
+            background: transparent;
+        }
+    }
+
+    blockquote {
+        margin: 0 0 0.5em;
+        border-inline-start: 3px solid var(--fuse-border);
+        padding-inline-start: 0.75em;
+        opacity: 0.85;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+        margin: 0.75em 0 0.375em;
+        font-weight: 700;
+        line-height: 1.3;
+
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+
+    h1 {
+        font-size: 1.125em;
+    }
+
+    h2 {
+        font-size: 1.0625em;
+    }
+
+    h3,
+    h4 {
+        font-size: 1em;
+    }
+
+    hr {
+        margin: 0.75em 0;
+        border: none;
+        border-top: 1px solid var(--fuse-border);
+    }
+
+    /* `display: block` turns the table into its own scroll container. A price
+       list wide enough to overflow otherwise stretches the bubble past the
+       panel and takes the whole layout sideways with it on a phone; this keeps
+       the overflow inside the table, where it can be swiped. */
+    table {
+        display: block;
+        width: max-content;
+        max-width: 100%;
+        margin: 0 0 0.5em;
+        overflow-x: auto;
+        border-collapse: collapse;
+        font-size: 0.9em;
+    }
+
+    th,
+    td {
+        border: 1px solid var(--fuse-border);
+        padding: 0.25em 0.5em;
+        text-align: start;
+    }
+
+    th {
+        font-weight: 700;
+        @apply bg-hover;
     }
 }
 
@@ -255,6 +408,84 @@ quick-buy {
     font-size: theme('fontSize.sm');
     font-weight: 600;
     @apply text-primary;
+
+    &:hover {
+        @apply bg-hover;
+    }
+}
+
+/*
+ * Copy sits quiet until wanted: it fades in on hover or keyboard focus so a
+ * read-through is not lined with buttons. Touch has no hover to reveal it
+ * with, so there it is simply always visible.
+ */
+.ff-qb-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    padding: 0.125rem 0.5rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 600;
+    opacity: 0;
+    transition:
+        opacity 150ms ease,
+        color 150ms ease;
+    @apply text-secondary;
+
+    .ff-qb-row:hover &,
+    .ff-qb-row:focus-within & {
+        opacity: 1;
+    }
+
+    &:hover {
+        @apply text-default bg-hover;
+    }
+
+    /* Confirmation is the label and the tick, not a colour alone. */
+    &--done {
+        opacity: 1;
+        @apply text-primary;
+    }
+}
+
+@media (hover: none) {
+    .ff-qb-copy {
+        opacity: 1;
+    }
+}
+
+/* Sits under the dots, in the assistant bubble's own column. */
+.ff-qb-working {
+    margin: 0;
+    padding-inline-start: 0.25rem;
+    font-size: theme('fontSize.sm');
+    @apply text-secondary;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+}
+
+/*
+ * Floats over the top edge of the composer, pointing back into the thread.
+ * `position: absolute` against the composer keeps it clear of the input while
+ * still reading as part of the conversation rather than a toolbar control.
+ */
+.ff-qb-jump {
+    position: absolute;
+    top: -1.25rem;
+    left: 50%;
+    z-index: 1;
+    display: inline-flex;
+    translate: -50% 0;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 9999px;
+    border: 1px solid var(--fuse-border);
+    padding: 0.25rem 0.75rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+    @apply bg-card text-primary;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
 
     &:hover {
         @apply bg-hover;
@@ -557,6 +788,8 @@ quick-buy {
 /* ── Composer ──────────────────────────────────────────────────────────── */
 
 .ff-qb-composer {
+    /* Anchors `.ff-qb-jump`, which floats above this band's top edge. */
+    position: relative;
     flex: none;
     border-top: 1px solid var(--fuse-border);
     padding: 0.75rem 1rem 1rem;
