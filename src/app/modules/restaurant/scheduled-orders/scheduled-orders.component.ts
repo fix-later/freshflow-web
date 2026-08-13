@@ -49,6 +49,13 @@ import {
     ScheduledOrderInstance,
 } from './scheduled-orders.types';
 
+/**
+ * Every run this schedule generates delivers in the same fixed early-morning
+ * window as a one-off order (see `checkout.component.ts`) — the restaurant
+ * only picks the first-run day, never a time.
+ */
+const DELIVERY_HOUR = 4;
+
 /** One product the create/edit form's item picker has added to the template. */
 interface PickedItem {
     marketProductId: string;
@@ -128,6 +135,15 @@ export class ScheduledOrdersComponent implements OnInit {
     /** Recurrence options, from BR-ORD-5 / FR-ORD-009 (daily or weekly). */
     readonly recurrenceTypes = SCHEDULE_RECURRENCE_TYPES;
 
+    /**
+     * The fixed delivery window every run lands in, for the template's
+     * "next/first run" caption — the stored instant's own clock time
+     * (`DELIVERY_HOUR:00` exactly) reads as a precise minute if shown as-is,
+     * when the actual delivery can fall anywhere in this two-hour window.
+     */
+    readonly deliveryHourStart = DELIVERY_HOUR;
+    readonly deliveryHourEnd = DELIVERY_HOUR + 2;
+
     /** `null` = closed, `'new'` = creating, otherwise the id being edited. */
     readonly editingId = signal<string | null>(null);
     /**
@@ -144,15 +160,11 @@ export class ScheduledOrdersComponent implements OnInit {
             validators: [Validators.required, nonBlankValidator],
         }),
         // Date uses MatDatepicker (same component as checkout's delivery date, driven by the
-        // app-wide Luxon DateAdapter) instead of typing it by hand. Time stays a plain native
-        // `<input type="time">` — MatTimepicker's dropdown lists every interval slot in one long
-        // scroll, which is worse here than just typing "14:30". Combined into one instant in
-        // `_combinedFirstRunAt()`; "must be in the future" is checked there too (in saveEdit),
-        // since that check needs both parts together.
+        // app-wide Luxon DateAdapter) instead of typing it by hand. Every schedule fires at the
+        // same fixed early-morning delivery hour (see `DELIVERY_HOUR`) — there is no time field
+        // to pick — so the picked day alone is combined into an instant in `_combinedFirstRunAt()`,
+        // where "must be in the future" is also checked (in saveEdit).
         firstRunAtDate: this._fb.control<DateTime | null>(null, {
-            validators: [Validators.required],
-        }),
-        firstRunAtTime: this._fb.nonNullable.control('', {
             validators: [Validators.required],
         }),
         notes: this._fb.nonNullable.control('', {
@@ -457,7 +469,6 @@ export class ScheduledOrdersComponent implements OnInit {
         this.editForm.reset({
             recurrenceType: SCHEDULE_RECURRENCE_TYPES[0],
             firstRunAtDate: null,
-            firstRunAtTime: '',
             notes: '',
         });
         this.pickedItems.set([]);
@@ -474,8 +485,6 @@ export class ScheduledOrdersComponent implements OnInit {
         this.editingId.set(schedule.id);
         this.actionError.set(null);
         clearServerErrors(this.editForm);
-        // Both pickers seed from the same instant — one shows its date part, the other its
-        // time part, same as assigning one Luxon DateTime to two independent controls.
         const seedAt = toDateTime(schedule.nextRunAt ?? schedule.firstRunAt);
         this.editForm.reset({
             // A schedule saved with a value outside the documented vocabulary
@@ -484,7 +493,6 @@ export class ScheduledOrdersComponent implements OnInit {
                 ? schedule.recurrenceType.toUpperCase()
                 : '',
             firstRunAtDate: seedAt,
-            firstRunAtTime: seedAt ? seedAt.toFormat('HH:mm') : '',
             notes: schedule.notes ?? '',
         });
         this.itemSearchTerm.set('');
@@ -495,17 +503,18 @@ export class ScheduledOrdersComponent implements OnInit {
         this.editingId.set(null);
     }
 
-    /** Merges the date picker's day with the typed "HH:mm" time into one instant. */
+    /** Combines the date picker's day with the fixed early-morning delivery hour. */
     private _combinedFirstRunAt(): DateTime | null {
-        const { firstRunAtDate, firstRunAtTime } = this.editForm.getRawValue();
-        if (!firstRunAtDate || !firstRunAtTime) {
+        const { firstRunAtDate } = this.editForm.getRawValue();
+        if (!firstRunAtDate) {
             return null;
         }
-        const [hour, minute] = firstRunAtTime.split(':').map(Number);
-        if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
-            return null;
-        }
-        return firstRunAtDate.set({ hour, minute, second: 0, millisecond: 0 });
+        return firstRunAtDate.set({
+            hour: DELIVERY_HOUR,
+            minute: 0,
+            second: 0,
+            millisecond: 0,
+        });
     }
 
     /** Persists the edit — recurrence/notes plus the item template and delivery address. */
@@ -523,21 +532,19 @@ export class ScheduledOrdersComponent implements OnInit {
         const address = this.defaultAddress();
         const isCreate = id === 'new';
         // Create always sets firstRunAt; editing only re-validates/resends it if the user
-        // actually touched one of the two pickers. An active schedule's seeded value is normally
+        // actually touched the date picker. An active schedule's seeded value is normally
         // already in the past by design (it already started running — `nextRunAt` never
         // populates from the real API, so the form always seeds from `firstRunAt` itself), so
         // requiring it to be in the future on every save would make it impossible to edit
         // notes/recurrence on any schedule that has ever run. Angular's own `dirty` flag (set by
-        // the pickers' value accessors on user interaction, untouched by the programmatic
+        // the picker's value accessor on user interaction, untouched by the programmatic
         // `reset()` in openEdit) is exactly "did the user change this" — no separate flag needed.
         const firstRunAtTouched =
-            isCreate ||
-            this.editForm.controls.firstRunAtDate.dirty ||
-            this.editForm.controls.firstRunAtTime.dirty;
+            isCreate || this.editForm.controls.firstRunAtDate.dirty;
         let firstRunAt: DateTime | null = null;
         if (firstRunAtTouched) {
-            // Combining needs both pickers together, so "must be in the future" can't live on
-            // either control's own validators — it has to be checked here instead.
+            // "Must be in the future" can't live on the control's own validators, since it needs
+            // the fixed delivery hour combined in — it has to be checked here instead.
             firstRunAt = this._combinedFirstRunAt();
             if (!firstRunAt || firstRunAt.toMillis() <= Date.now()) {
                 this.actionError.set(

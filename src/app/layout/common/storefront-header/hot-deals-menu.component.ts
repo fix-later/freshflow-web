@@ -451,6 +451,7 @@ export class HotDealsMenuComponent {
             badgeClass: 'ff-product-card__badge--sale',
             stock: product.quantity,
             stockUnit: unit,
+            packWeightKg: product.packWeightKg,
             favorite: this._favoritesService.isFavorite(
                 product.marketProductId
             ),

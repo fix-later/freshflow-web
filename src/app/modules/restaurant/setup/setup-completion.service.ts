@@ -47,12 +47,14 @@ export class SetupCompletionService {
         // for review: the backend marks every field optional and the edit form
         // only requires `name`. This stricter reading is UI-side and must not
         // leak into the form's validators (research R6).
+        // `pickupStart`/`pickupEnd` dropped from this check: the receiving-window
+        // feature is retired (every delivery now uses a fixed platform-wide
+        // window), and the edit form no longer lets a restaurant fill them in —
+        // requiring them would make this step permanently unreachable.
         const businessDone =
             isFilled(profile?.name) &&
             isFilled(profile?.address) &&
-            isFilled(profile?.contactPerson) &&
-            isFilled(profile?.pickupStart) &&
-            isFilled(profile?.pickupEnd);
+            isFilled(profile?.contactPerson);
 
         return {
             business: state(businessDone),

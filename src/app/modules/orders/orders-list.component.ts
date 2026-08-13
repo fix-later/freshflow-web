@@ -173,6 +173,29 @@ export class OrdersListComponent implements OnInit {
         });
     }
 
+    /**
+     * `scheduledFor`'s clock time is always the same fixed early-morning hour
+     * now (see `DELIVERY_HOUR` in `checkout.component.ts`) — the actual
+     * delivery can land anywhere in that window, so this shows the date plus
+     * the window instead of the stored instant's own minute, which would read
+     * as an exact time.
+     */
+    formatScheduledFor(value: string | null | undefined): string {
+        if (!value) {
+            return '—';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '—';
+        }
+        const day = date.toLocaleDateString(this._transloco.getActiveLang());
+        const window = this._transloco.translate('orders.deliveryWindow', {
+            start: 4,
+            end: 6,
+        });
+        return `${day} (${window})`;
+    }
+
     formatAmount(value: number | null | undefined): string {
         if (value == null) {
             return '—';
@@ -180,7 +203,13 @@ export class OrdersListComponent implements OnInit {
         return `${value.toLocaleString(this._transloco.getActiveLang())} ₫`;
     }
 
+    /**
+     * `GET /orders` and `GET /orders/history` (this list's two scopes) return
+     * `itemCount` per row, not the `items` array itself — that only comes back
+     * from `GET /orders/{orderId}`. Falling back to `items?.length` covers any
+     * row that did carry the full array (e.g. one already loaded elsewhere).
+     */
     itemCount(row: OrderRow): number {
-        return row.items?.length ?? 0;
+        return row.itemCount ?? row.items?.length ?? 0;
     }
 }

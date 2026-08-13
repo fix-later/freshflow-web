@@ -112,53 +112,6 @@
             </div>
         </section>
 
-        <!-- Receiving window -->
-        <section class="ff-biz__card" aria-labelledby="ff-biz-pickup-title">
-            <header class="ff-biz__card-head">
-                <div class="ff-biz__card-icon" aria-hidden="true">
-                    <mat-icon
-                        class="icon-size-5"
-                        [svgIcon]="'heroicons_outline:clock'"
-                    ></mat-icon>
-                </div>
-                <div class="min-w-0">
-                    <h2
-                        id="ff-biz-pickup-title"
-                        class="text-base font-bold tracking-tight"
-                    >
-                        {{ t('restaurantProfile.profile.pickupWindow') }}
-                    </h2>
-                    <p class="text-secondary mt-0.5 text-sm leading-snug">
-                        {{ t('restaurantProfile.profile.pickupHint') }}
-                    </p>
-                </div>
-            </header>
-
-            <div class="ff-biz__card-body">
-                <mat-form-field
-                    class="w-full sm:max-w-xs"
-                    subscriptSizing="dynamic"
-                >
-                    <mat-label>{{
-                        t('restaurantProfile.profile.pickupWindow')
-                    }}</mat-label>
-                    <mat-select
-                        formControlName="pickupWindow"
-                        data-testid="business-pickup-window"
-                    >
-                        <mat-option [value]="null">{{
-                            t('restaurantProfile.profile.pickupAny')
-                        }}</mat-option>
-                        @for (slot of windowOptions(); track slot) {
-                            <mat-option [value]="slot">{{
-                                windowLabel(slot)
-                            }}</mat-option>
-                        }
-                    </mat-select>
-                </mat-form-field>
-            </div>
-        </section>
-
         <!-- Licence -->
         <section class="ff-biz__card" aria-labelledby="ff-biz-license-title">
             <header class="ff-biz__card-head">

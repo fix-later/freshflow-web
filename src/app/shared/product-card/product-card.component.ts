@@ -65,12 +65,32 @@ export class ProductCardComponent {
         return this.product.stock === 0;
     }
 
-    hasStock(): boolean {
-        return (this.product.stock ?? 0) > 0;
+    /** No packing code configured — there is no whole-case quantity to add. */
+    hasNoPackingCode(): boolean {
+        return !this.product.packWeightKg || this.product.packWeightKg <= 0;
+    }
+
+    /**
+     * Stock exists but is under one whole case — just as unorderable as none,
+     * since adding a fresh line always seeds one full case regardless of what
+     * is on hand (`DraftOrderService.add`'s default quantity).
+     */
+    hasInsufficientStock(): boolean {
+        const stock = this.product.stock;
+        const pack = this.product.packWeightKg;
+        if (stock === null || stock === undefined || !pack || pack <= 0) {
+            return false;
+        }
+        return stock < pack;
     }
 
     canAddToCart(): boolean {
-        return !this.product.inactive && !this.isOutOfStock();
+        return (
+            !this.product.inactive &&
+            !this.isOutOfStock() &&
+            !this.hasNoPackingCode() &&
+            !this.hasInsufficientStock()
+        );
     }
 
     /** The favorite button sits over the thumb's link — never navigate. */

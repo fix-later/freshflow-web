@@ -86,9 +86,14 @@ describe('SetupCompletionService', () => {
             'name',
             'address',
             'contactPerson',
-            'pickupStart',
-            'pickupEnd',
         ];
+
+        it('is done even when pickupStart/pickupEnd are absent (retired field)', () => {
+            profile.set(
+                completeProfile({ pickupStart: null, pickupEnd: null })
+            );
+            expect(service.states().business).toBe('done');
+        });
 
         requiredFields.forEach((field) => {
             it(`is outstanding when ${field} is missing`, () => {

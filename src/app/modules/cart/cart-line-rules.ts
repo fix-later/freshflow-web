@@ -19,36 +19,56 @@ export interface CartLineIssue {
     params: Record<string, string | number>;
 }
 
-/** Fewest units the server will accept on this line. Never below 1. */
+/**
+ * The whole-package size a line's quantity must move in and land on — a
+ * market product is only ever picked/shipped by the case ("kiện"), not by
+ * the loose kilogram, so 1 kg mỗi kiện = 5 means every legal quantity is a
+ * multiple of 5. Falls back to 1 for a line whose product carries no packing
+ * code (legacy cart data from before this existed), so it stays editable
+ * instead of breaking — new lines can't reach this state; see
+ * `product-card.component.ts`'s `canAddToCart()`, which refuses to add a
+ * product with no packing code in the first place.
+ */
+export function packSize(line: DraftOrderLine): number {
+    const weight = line.product.packWeightKg;
+    return typeof weight === 'number' && weight > 0 ? weight : 1;
+}
+
+/** Fewest units the server will accept on this line, rounded up to a whole case. */
 export function minQuantity(line: DraftOrderLine): number {
-    return Math.max(1, line.product.minimumOrderQuantity);
+    const step = packSize(line);
+    const floor = Math.max(step, line.product.minimumOrderQuantity);
+    return Math.ceil(floor / step) * step;
 }
 
 /**
- * Most units the listing can supply, or `null` when it reports no figure — an
- * absent stock count is "unknown", not "none", so it must not cap anything.
+ * Most units the listing can supply, rounded down to the last whole case it
+ * can fill — or `null` when it reports no figure — an absent stock count is
+ * "unknown", not "none", so it must not cap anything.
  */
 export function maxQuantity(line: DraftOrderLine): number | null {
     const available = line.product.quantity;
-    return typeof available === 'number' && Number.isFinite(available)
-        ? available
-        : null;
+    if (typeof available !== 'number' || !Number.isFinite(available)) {
+        return null;
+    }
+    const step = packSize(line);
+    return Math.floor(available / step) * step;
 }
 
-/** True when `+` would push the line past what the listing has. */
+/** True when `+` (one more case) would push the line past what the listing has. */
 export function canIncrease(line: DraftOrderLine): boolean {
     const max = maxQuantity(line);
-    return max === null || line.quantity < max;
+    return max === null || line.quantity + packSize(line) <= max;
 }
 
 /**
- * True when `−` would leave a line the server still accepts. At the minimum the
- * step down is refused rather than silently deleting the line — removal is the
- * bin button's job, and a stepper that empties the row is a different action
- * than the one the user asked for.
+ * True when `−` (one fewer case) would leave a line the server still accepts.
+ * At the minimum the step down is refused rather than silently deleting the
+ * line — removal is the bin button's job, and a stepper that empties the row
+ * is a different action than the one the user asked for.
  */
 export function canDecrease(line: DraftOrderLine): boolean {
-    return line.quantity > minQuantity(line);
+    return line.quantity - packSize(line) >= minQuantity(line);
 }
 
 /**

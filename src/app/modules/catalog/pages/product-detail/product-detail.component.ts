@@ -187,8 +187,34 @@ export class ProductDetailComponent implements OnInit {
         return product.quantity === 0;
     }
 
+    /** No packing code configured — there is no whole-case quantity to add. */
+    hasNoPackingCode(product: CatalogProduct): boolean {
+        return product.packWeightKg === null || product.packWeightKg <= 0;
+    }
+
+    /**
+     * Stock exists but is under one whole case — just as unorderable as none,
+     * since adding a fresh line always seeds one full case regardless of what
+     * is on hand (`DraftOrderService.add`'s default quantity).
+     */
+    hasInsufficientStock(product: CatalogProduct): boolean {
+        if (
+            product.quantity === null ||
+            product.packWeightKg === null ||
+            product.packWeightKg <= 0
+        ) {
+            return false;
+        }
+        return product.quantity < product.packWeightKg;
+    }
+
     canOrder(product: CatalogProduct): boolean {
-        return product.active !== false && !this.isOutOfStock(product);
+        return (
+            product.active !== false &&
+            !this.isOutOfStock(product) &&
+            !this.hasNoPackingCode(product) &&
+            !this.hasInsufficientStock(product)
+        );
     }
 
     toggleDescription(): void {

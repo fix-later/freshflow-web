@@ -678,6 +678,7 @@ export class CatalogComponent implements OnInit {
                 .map((tag) => tag.name),
             stock: product.quantity,
             stockUnit: unit || undefined,
+            packWeightKg: product.packWeightKg,
             favorite: this.isFavorite(product),
             inactive: product.active === false,
             link: product.productId,

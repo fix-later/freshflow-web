@@ -264,6 +264,13 @@
     }
 
     &__qty {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+    }
+
+    &__qty-stepper {
         display: inline-flex;
         align-items: center;
         gap: 0.35rem;
@@ -289,6 +296,13 @@
             font-weight: 600;
             font-size: 0.875rem;
         }
+    }
+
+    /* "5 kg mỗi kiện" under the stepper — explains why one click moves the
+       quantity by more than 1. */
+    &__pack {
+        font-size: 0.75rem;
+        color: var(--fuse-text-secondary);
     }
 }
 
