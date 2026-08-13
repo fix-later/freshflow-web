@@ -1,5 +1,5 @@
 import { BooleanInput } from '@angular/cdk/coercion';
-import { NgClass, NgTemplateOutlet } from '@angular/common';
+import { NgClass } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     ChangeDetectorRef,
@@ -13,13 +13,7 @@ import {
 } from '@angular/core';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import {
-    IsActiveMatchOptions,
-    NavigationEnd,
-    Router,
-    RouterLink,
-    RouterLinkActive,
-} from '@angular/router';
+import { NavigationEnd, Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { FuseNavigationService } from '@fuse/components/navigation/navigation.service';
 import { FuseNavigationItem } from '@fuse/components/navigation/navigation.types';
@@ -28,7 +22,6 @@ import { FuseVerticalNavigationDividerItemComponent } from '@fuse/components/nav
 import { FuseVerticalNavigationGroupItemComponent } from '@fuse/components/navigation/vertical/components/group/group.component';
 import { FuseVerticalNavigationSpacerItemComponent } from '@fuse/components/navigation/vertical/components/spacer/spacer.component';
 import { FuseVerticalNavigationComponent } from '@fuse/components/navigation/vertical/vertical.component';
-import { FuseUtilsService } from '@fuse/services/utils/utils.service';
 import { Subject, filter, takeUntil } from 'rxjs';
 
 @Component({
@@ -38,11 +31,8 @@ import { Subject, filter, takeUntil } from 'rxjs';
     standalone: true,
     imports: [
         NgClass,
-        NgTemplateOutlet,
         MatTooltipModule,
         MatIconModule,
-        RouterLink,
-        RouterLinkActive,
         FuseVerticalNavigationBasicItemComponent,
         forwardRef(() => FuseVerticalNavigationCollapsableItemComponent),
         FuseVerticalNavigationDividerItemComponent,
@@ -60,13 +50,6 @@ export class FuseVerticalNavigationCollapsableItemComponent
     private _changeDetectorRef = inject(ChangeDetectorRef);
     private _router = inject(Router);
     private _fuseNavigationService = inject(FuseNavigationService);
-    private _fuseUtilsService = inject(FuseUtilsService);
-
-    // Only read when the item declares a `link` (see the template). Mirrors the
-    // basic item: assigning `undefined` to [routerLinkActiveOptions] makes the
-    // router throw, so it starts at the {exact: false} equivalent.
-    isActiveMatchOptions: IsActiveMatchOptions =
-        this._fuseUtilsService.subsetMatchOptions;
 
     @Input() autoCollapse: boolean;
     @Input() item: FuseNavigationItem;
@@ -105,12 +88,6 @@ export class FuseVerticalNavigationCollapsableItemComponent
      * On init
      */
     ngOnInit(): void {
-        // Same resolution order the basic item uses, for linkable collapsables.
-        this.isActiveMatchOptions =
-            this.item.isActiveMatchOptions ?? this.item.exactMatch
-                ? this._fuseUtilsService.exactMatchOptions
-                : this._fuseUtilsService.subsetMatchOptions;
-
         // Get the parent navigation component
         this._fuseVerticalNavigationComponent =
             this._fuseNavigationService.getComponent(this.name);
