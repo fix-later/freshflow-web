@@ -310,6 +310,8 @@
     "admin.markets.coordinates": "Coordinates",
     "admin.markets.create": "Add market",
     "admin.markets.createPage.back": "Back to markets",
+    "admin.markets.createPage.afterSave.title": "Available after saving",
+    "admin.markets.createPage.afterSave.hubs": "A hub is assigned to a market by id, so save this market first — you land on its page, where the hub tab can add one.",
     "admin.markets.createPage.pricingLocked": "Save market details first to unlock pricing management.",
     "admin.markets.delete.action": "Delete permanently",
     "admin.markets.delete.confirm": "Delete",

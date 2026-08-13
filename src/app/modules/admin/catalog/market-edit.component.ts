@@ -45,21 +45,15 @@ import {
     MARKET_LOCATION_MAX_LENGTH,
     MARKET_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
+import { MarketFleetPanelComponent } from './market-fleet-panel.component';
 import { MarketProductsComponent } from './market-products.component';
+import {
+    MARKET_HUBS_TAB,
+    MARKET_PRODUCTS_TAB,
+    MARKET_TABS,
+} from './market-tabs';
 
-/** The config sections, in tab order. */
-const TABS = [
-    { index: 0, label: 'admin.markets.editPage.tabs.details' },
-    { index: 1, label: 'admin.markets.editPage.tabs.hubs' },
-    { index: 2, label: 'admin.markets.editPage.tabs.vehicles' },
-    { index: 3, label: 'admin.markets.editPage.tabs.drivers' },
-    { index: 4, label: 'admin.markets.editPage.tabs.pricing' },
-] as const;
-
-const HUBS_TAB = 1;
-const VEHICLES_TAB = 2;
-const DRIVERS_TAB = 3;
-const PRICING_TAB = 4;
+const PRICING_TAB = MARKET_PRODUCTS_TAB;
 
 /** A hub of this market, with the staff roster resolved to people. */
 interface MarketHubRow {
@@ -100,6 +94,7 @@ const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
         ReactiveFormsModule,
         TranslocoModule,
         LocationPickerComponent,
+        MarketFleetPanelComponent,
         MarketProductsComponent,
     ],
     templateUrl: './market-edit.component.html',
@@ -124,20 +119,15 @@ export class MarketEditComponent implements OnInit {
     readonly agentOptions = signal<AdminUserRow[]>([]);
     /** Agent assigned when the page loaded (for setMarketAgent previous id). */
     readonly previousAgentId = signal<string | null>(null);
-    readonly tabs = TABS;
+    readonly tabs = MARKET_TABS;
     readonly selectedTab = signal(0);
     readonly pricingTabLoaded = signal(false);
 
-    // Hub / xe / tài xế — each tab fetches once, the first time it is opened.
+    // Hubs fetch once, the first time that tab is opened. The fleet tabs load
+    // themselves — see MarketFleetPanelComponent.
     readonly hubs = signal<MarketHubRow[]>([]);
     readonly hubsLoading = signal(false);
     readonly hubsLoaded = signal(false);
-    readonly vehicles = signal<CrudRow[]>([]);
-    readonly vehiclesLoading = signal(false);
-    readonly vehiclesLoaded = signal(false);
-    readonly drivers = signal<AdminUserRow[]>([]);
-    readonly driversLoading = signal(false);
-    readonly driversLoaded = signal(false);
 
     readonly marketName = computed(() => String(this.market()?.['name'] ?? ''));
     readonly isActive = computed(() => this.market()?.isActive !== false);
@@ -234,14 +224,8 @@ export class MarketEditComponent implements OnInit {
 
     onTabChange(index: number): void {
         this.selectedTab.set(index);
-        if (index === HUBS_TAB) {
+        if (index === MARKET_HUBS_TAB) {
             void this._loadHubs();
-        }
-        if (index === VEHICLES_TAB) {
-            void this._loadVehicles();
-        }
-        if (index === DRIVERS_TAB) {
-            void this._loadDrivers();
         }
         if (index === PRICING_TAB) {
             this.pricingTabLoaded.set(true);
@@ -307,43 +291,6 @@ export class MarketEditComponent implements OnInit {
             void this._notifyError(err, 'admin.crud.loadError');
         } finally {
             this.hubsLoading.set(false);
-        }
-    }
-
-    /**
-     * Vehicles carry neither a market nor a hub, so this is the platform-wide
-     * fleet — the tab says so rather than implying the list belongs to this
-     * market.
-     */
-    private async _loadVehicles(): Promise<void> {
-        if (this.vehiclesLoaded() || this.vehiclesLoading()) {
-            return;
-        }
-        this.vehiclesLoading.set(true);
-        try {
-            this.vehicles.set(
-                await this._logistics.listVehicles().catch(() => [])
-            );
-            this.vehiclesLoaded.set(true);
-        } finally {
-            this.vehiclesLoading.set(false);
-        }
-    }
-
-    /** Drivers are eligible across hubs, so this list is platform-wide too. */
-    private async _loadDrivers(): Promise<void> {
-        if (this.driversLoaded() || this.driversLoading()) {
-            return;
-        }
-        this.driversLoading.set(true);
-        try {
-            const page = await this._admin
-                .getUsers({ role: 'driver', pageSize: 200 })
-                .catch(() => ({ users: [] as AdminUserRow[], totalCount: 0 }));
-            this.drivers.set(page.users);
-            this.driversLoaded.set(true);
-        } finally {
-            this.driversLoading.set(false);
         }
     }
 

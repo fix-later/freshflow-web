@@ -310,6 +310,8 @@
     "admin.markets.coordinates": "Toạ độ",
     "admin.markets.create": "Thêm chợ",
     "admin.markets.createPage.back": "Quay lại chợ đầu mối",
+    "admin.markets.createPage.afterSave.title": "Có sau khi lưu chợ",
+    "admin.markets.createPage.afterSave.hubs": "Hub được gán vào chợ theo id, nên hãy lưu chợ trước — bạn sẽ được đưa sang trang chợ, ở đó tab Hub thêm được hub.",
     "admin.markets.createPage.pricingLocked": "Lưu thông tin chợ trước để mở tab quản lý giá.",
     "admin.markets.delete.action": "Xoá vĩnh viễn",
     "admin.markets.delete.confirm": "Xoá",
