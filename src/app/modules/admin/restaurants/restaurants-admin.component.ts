@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
     ChangeDetectionStrategy,
     Component,
@@ -5,7 +6,9 @@ import {
     OnInit,
     ViewEncapsulation,
     computed,
+    effect,
     inject,
+    input,
     signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -50,6 +53,7 @@ const RESTAURANT_ROLE = 'restaurant';
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        NgTemplateOutlet,
         MatButtonModule,
         MatFormFieldModule,
         MatIconModule,
@@ -81,6 +85,17 @@ export class RestaurantsAdminComponent implements OnInit {
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _destroyRef = inject(DestroyRef);
 
+    /**
+     * True when this list lives inside another page's tab (Admin ▸ Users ▸
+     * restaurant). The page chrome — title, own search box, create button,
+     * active/inactive filter — then belongs to the host, which feeds its own
+     * values in through {@link search} and {@link isActive}. The approval
+     * filter stays, having no counterpart on the users page.
+     */
+    readonly embedded = input(false);
+    readonly search = input('');
+    readonly isActive = input('');
+
     readonly users = signal<AdminUserRow[]>([]);
     readonly sort = new TableSort<AdminUserRow>();
     readonly sortedUsers = computed(() =>
@@ -109,11 +124,30 @@ export class RestaurantsAdminComponent implements OnInit {
 
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
+        if (this.embedded()) {
+            // Search and status are the host's to clear.
+            return !!(v.restaurantStatus ?? '');
+        }
         return (
             (v.search ?? '').trim() !== '' ||
             !!(v.isActive ?? '') ||
             !!(v.restaurantStatus ?? '')
         );
+    });
+
+    /**
+     * Mirrors the host's search / status filters into the form the reload
+     * pipeline already watches, so a keystroke on the users page reaches this
+     * list through the same debounce-and-refetch path as a local edit.
+     */
+    private readonly _hostFilters = effect(() => {
+        if (!this.embedded()) {
+            return;
+        }
+        this.filterForm.patchValue({
+            search: this.search(),
+            isActive: this.isActive(),
+        });
     });
 
     /** i18n key for a restaurant's approval lifecycle pill. */
@@ -220,6 +254,10 @@ export class RestaurantsAdminComponent implements OnInit {
     }
 
     clearFilters(): void {
+        if (this.embedded()) {
+            this.filterForm.patchValue({ restaurantStatus: '' });
+            return;
+        }
         this.filterForm.reset({
             search: '',
             isActive: '',

@@ -2,7 +2,6 @@ import { inject, Injectable } from '@angular/core';
 import { FuseNavigationItem } from '@fuse/components/navigation';
 import { TranslocoService } from '@jsverse/transloco';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
-import { ConsoleModeService } from 'app/core/navigation/console-mode.service';
 import { buildNavigation } from 'app/core/navigation/navigation.data';
 import { Area, Navigation } from 'app/core/navigation/navigation.types';
 import { Observable, of, ReplaySubject } from 'rxjs';
@@ -10,7 +9,6 @@ import { Observable, of, ReplaySubject } from 'rxjs';
 @Injectable({ providedIn: 'root' })
 export class NavigationService {
     private _permissions = inject(PermissionsService);
-    private _consoleMode = inject(ConsoleModeService);
     private _transloco = inject(TranslocoService);
     private _navigation: ReplaySubject<Navigation> =
         new ReplaySubject<Navigation>(1);
@@ -51,17 +49,12 @@ export class NavigationService {
      * (guests see the public storefront items). Called with the route
      * block's area by the initial-data resolver; calling with no argument
      * rebuilds the current area — used after quick sign-in, where the user
-     * stays on the page but the role changed, after a console-mode switch,
-     * and on every language change.
+     * stays on the page but the role changed, and on every language change.
      */
     get(area: Area = this._lastArea): Observable<Navigation> {
         this._lastArea = area;
         const items = this._translate(
-            buildNavigation(
-                area,
-                this._permissions.role(),
-                this._consoleMode.mode()
-            )
+            buildNavigation(area, this._permissions.role())
         );
         const navigation: Navigation = {
             compact: items,

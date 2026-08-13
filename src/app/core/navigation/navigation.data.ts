@@ -1,5 +1,4 @@
 import { FuseNavigationItem } from '@fuse/components/navigation';
-import { ConsoleMode } from 'app/core/navigation/console-mode.service';
 import { Area } from 'app/core/navigation/navigation.types';
 import { UserRole } from 'app/core/user/user.types';
 
@@ -7,14 +6,10 @@ import { UserRole } from 'app/core/user/user.types';
  * A navigation item annotated with the area it belongs to and, optionally,
  * the roles allowed to see it. No `roles` = every viewer of the area sees
  * it, including guests (the storefront is public).
- *
- * `modes` narrows an admin-console item to one job (see `ConsoleMode`);
- * no `modes` = shown in both jobs.
  */
 interface AreaNavItem extends FuseNavigationItem {
     area: Area;
     roles?: UserRole[];
-    modes?: ConsoleMode[];
 }
 
 /**
@@ -78,38 +73,69 @@ const NAVIGATION: AreaNavItem[] = [
         roles: ['admin'],
     },
 
-    // Admin console — Dashboard + collapsable domain trees. Children use the
+    // Admin console — five domain trees, one per thing the console is about:
+    // dashboard, the market session, chợ, hàng hóa, tài khoản. Children use the
     // tree connector style (no icons).
     //
-    // Order follows the operational day (phiên chợ → gom đơn → cuốc giao hàng),
-    // then the reference data behind it. Recurring work sits above configuration
-    // that is touched once in a while; creating a record is a primary button on
-    // the list screen, not a nav entry.
+    // The console no longer splits by job (vận hành ↔ quản trị): every section
+    // is on one nav at all times.
     //
-    // `modes` splits the console by job: the daily dispatch work belongs to
-    // `operations` (orders, restaurants, network, finance), account/system
-    // administration and hàng hóa to `administration`.
+    // Screens marked "chưa gộp" below are staged here because the config tabs
+    // that will absorb them (session detail, market config, product config) do
+    // not exist yet. They come out of the nav as each set of tabs lands —
+    // leaving them out now would only make working screens unreachable.
     {
-        id: 'admin-dashboard',
+        id: 'admin.dashboard',
         title: 'nav.admin.dashboard',
-        type: 'basic',
+        type: 'collapsable',
         icon: 'heroicons_outline:home',
-        link: '/admin',
-        // /admin is a prefix of /admin/users|products — exact only
-        exactMatch: true,
         area: 'admin',
+        children: [
+            {
+                id: 'admin-audit-logs',
+                title: 'nav.admin.auditLogs',
+                type: 'basic',
+                link: '/admin/audit-logs',
+            },
+            {
+                id: 'admin.charts',
+                title: 'nav.admin.charts',
+                type: 'collapsable',
+                children: [
+                    {
+                        id: 'admin-finance',
+                        title: 'nav.admin.finance',
+                        type: 'basic',
+                        link: '/admin/finance',
+                    },
+                    {
+                        id: 'admin-claims',
+                        title: 'nav.admin.claims',
+                        type: 'basic',
+                        link: '/admin/claims',
+                    },
+                    {
+                        id: 'admin-analysis',
+                        title: 'nav.admin.analysis',
+                        type: 'basic',
+                        link: '/admin',
+                        // /admin prefixes every console route — exact only
+                        exactMatch: true,
+                    },
+                ],
+            },
+        ],
     },
     {
-        id: 'admin.operations',
-        title: 'nav.admin.operations',
+        id: 'admin.sessions',
+        title: 'nav.admin.sessions',
         type: 'collapsable',
         icon: 'heroicons_outline:clipboard-document-list',
         area: 'admin',
-        modes: ['operations'],
         children: [
             {
                 id: 'admin-order-groups',
-                title: 'nav.admin.orderGroups',
+                title: 'nav.admin.sessionCreate',
                 type: 'basic',
                 link: '/admin/order-groups',
                 exactMatch: true,
@@ -120,6 +146,7 @@ const NAVIGATION: AreaNavItem[] = [
                 type: 'basic',
                 link: '/admin/order-groups/history',
             },
+            // chưa gộp vào config của phiên
             {
                 id: 'admin-orders',
                 title: 'nav.admin.orders',
@@ -139,71 +166,75 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/routes',
             },
             {
-                id: 'admin-restaurants',
-                title: 'nav.admin.restaurants',
-                type: 'basic',
-                link: '/admin/restaurants',
-            },
-        ],
-    },
-    {
-        id: 'admin.finance',
-        title: 'nav.admin.finance',
-        type: 'collapsable',
-        icon: 'heroicons_outline:banknotes',
-        area: 'admin',
-        modes: ['operations'],
-        children: [
-            {
-                id: 'admin-finance-overview',
-                title: 'nav.admin.financeOverview',
-                type: 'basic',
-                link: '/admin/finance',
-            },
-            {
-                id: 'admin-finance-invoices',
+                id: 'admin-invoices',
                 title: 'nav.admin.invoices',
                 type: 'basic',
                 link: '/admin/invoices',
             },
             {
-                id: 'admin-finance-claims',
-                title: 'nav.admin.claims',
+                id: 'admin-order-group-settings',
+                title: 'nav.admin.orderGroupSettings',
                 type: 'basic',
-                link: '/admin/claims',
+                link: '/admin/order-group-settings',
             },
         ],
     },
     {
-        id: 'admin.accounts',
-        title: 'nav.admin.accounts',
+        id: 'admin.markets',
+        title: 'nav.admin.markets',
         type: 'collapsable',
-        icon: 'heroicons_outline:users',
+        icon: 'heroicons_outline:building-storefront',
         area: 'admin',
-        modes: ['administration'],
         children: [
             {
-                id: 'admin-users',
-                title: 'nav.admin.users',
+                id: 'admin-market-create',
+                title: 'nav.admin.marketCreate',
                 type: 'basic',
-                link: '/admin/users',
+                link: '/admin/markets/new',
+            },
+            {
+                id: 'admin-markets-all',
+                title: 'nav.admin.marketsAll',
+                type: 'basic',
+                link: '/admin/markets',
+                exactMatch: true,
+            },
+            // chưa gộp vào config của chợ
+            {
+                id: 'admin-hubs',
+                title: 'nav.admin.hubs',
+                type: 'basic',
+                link: '/admin/hubs',
+            },
+            {
+                id: 'admin-vehicles',
+                title: 'nav.admin.vehicles',
+                type: 'basic',
+                link: '/admin/vehicles',
             },
         ],
     },
     {
-        id: 'admin.goods',
-        title: 'nav.admin.goods',
+        id: 'admin.products',
+        title: 'nav.admin.products',
         type: 'collapsable',
         icon: 'heroicons_outline:cube',
         area: 'admin',
-        modes: ['administration'],
         children: [
             {
-                id: 'admin-products',
-                title: 'nav.admin.products',
+                id: 'admin-product-create',
+                title: 'nav.admin.productCreate',
+                type: 'basic',
+                link: '/admin/products/new',
+            },
+            {
+                id: 'admin-products-all',
+                title: 'nav.admin.productsAll',
                 type: 'basic',
                 link: '/admin/products',
+                exactMatch: true,
             },
+            // chưa gộp vào config của sản phẩm
             {
                 id: 'admin-categories',
                 title: 'nav.admin.categories',
@@ -231,52 +262,24 @@ const NAVIGATION: AreaNavItem[] = [
         ],
     },
     {
-        id: 'admin.network',
-        title: 'nav.admin.network',
+        id: 'admin.users',
+        title: 'nav.admin.users',
         type: 'collapsable',
-        icon: 'heroicons_outline:map',
+        icon: 'heroicons_outline:users',
         area: 'admin',
-        modes: ['operations'],
         children: [
             {
-                id: 'admin-markets',
-                title: 'nav.admin.markets',
+                id: 'admin-user-create',
+                title: 'nav.admin.userCreate',
                 type: 'basic',
-                link: '/admin/markets',
+                link: '/admin/users/new',
             },
             {
-                id: 'admin-hubs',
-                title: 'nav.admin.hubs',
+                id: 'admin-users-all',
+                title: 'nav.admin.usersAll',
                 type: 'basic',
-                link: '/admin/hubs',
-            },
-            {
-                id: 'admin-vehicles',
-                title: 'nav.admin.vehicles',
-                type: 'basic',
-                link: '/admin/vehicles',
-            },
-        ],
-    },
-    {
-        id: 'admin.system',
-        title: 'nav.admin.system',
-        type: 'collapsable',
-        icon: 'heroicons_outline:cog-6-tooth',
-        area: 'admin',
-        modes: ['administration'],
-        children: [
-            {
-                id: 'admin-order-group-settings',
-                title: 'nav.admin.orderGroupSettings',
-                type: 'basic',
-                link: '/admin/order-group-settings',
-            },
-            {
-                id: 'admin-audit-logs',
-                title: 'nav.admin.auditLogs',
-                type: 'basic',
-                link: '/admin/audit-logs',
+                link: '/admin/users',
+                exactMatch: true,
             },
         ],
     },
@@ -298,21 +301,17 @@ const NAVIGATION: AreaNavItem[] = [
 ];
 
 /**
- * Build the Fuse navigation items for `area`, filtered by `role` and — inside
- * the admin console — by the active `mode`. Role-restricted items are hidden
- * from guests (`role === null`); `mode` is ignored outside the admin console
- * since no storefront item declares one.
+ * Build the Fuse navigation items for `area`, filtered by `role`.
+ * Role-restricted items are hidden from guests (`role === null`).
  */
 export function buildNavigation(
     area: Area,
-    role: UserRole | null,
-    mode: ConsoleMode
+    role: UserRole | null
 ): FuseNavigationItem[] {
     return NAVIGATION.filter((item) => item.area === area)
         .filter(
             (item) =>
                 !item.roles || (role !== null && item.roles.includes(role))
         )
-        .filter((item) => !item.modes || item.modes.includes(mode))
-        .map(({ area: _area, roles: _roles, modes: _modes, ...item }) => item);
+        .map(({ area: _area, roles: _roles, ...item }) => item);
 }

@@ -110,299 +110,333 @@
 
     <!-- Main -->
     <mat-tab-nav-panel class="flex flex-auto overflow-hidden" #usersTabPanel>
-        <div
-            class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
-        >
-            @if (sortedUsers().length > 0) {
-                <div class="grid">
-                    <div
-                        class="users-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
-                    >
-                        @for (
-                            col of [
-                                {
-                                    key: 'email',
-                                    label: 'admin.users.table.email',
-                                },
-                                {
-                                    key: 'role',
-                                    label: 'admin.users.table.role',
-                                },
-                                {
-                                    key: 'restaurantName',
-                                    label: 'admin.users.table.restaurant',
-                                },
-                                {
-                                    key: 'status',
-                                    label: 'admin.users.table.status',
-                                },
-                            ];
-                            track col.key
-                        ) {
-                            <div [attr.aria-sort]="sort.ariaSort(col.key)">
-                                <button
-                                    type="button"
-                                    class="admin-sort-header"
-                                    (click)="sort.toggle(col.key)"
-                                >
-                                    {{ t(col.label) }}
-                                    <mat-icon
-                                        class="icon-size-4"
-                                        [class.text-accent]="
-                                            sort.key() === col.key
-                                        "
-                                        [svgIcon]="
-                                            'heroicons_outline:' +
-                                            sort.icon(col.key)
-                                        "
-                                    ></mat-icon>
-                                </button>
-                            </div>
-                        }
-                        <div class="text-right">
-                            {{ t('admin.crud.details') }}
-                        </div>
-                    </div>
-
-                    @for (
-                        user of sortedUsers();
-                        track trackById($index, user)
-                    ) {
+        @if (showRestaurants()) {
+            <admin-restaurants-admin
+                [embedded]="true"
+                [search]="searchTerm()"
+                [isActive]="statusFilter()"
+            />
+        } @else {
+            <div
+                class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
+            >
+                @if (sortedUsers().length > 0) {
+                    <div class="grid">
                         <div
-                            class="users-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                            class="users-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                         >
-                            <div class="min-w-0 truncate font-medium">
-                                {{ user.email || user.id }}
-                            </div>
-                            <div class="truncate">{{ user.role || '—' }}</div>
-                            <div class="truncate">
-                                {{ user.restaurantName || '—' }}
-                            </div>
-                            <div>
-                                @if (user.isActive) {
-                                    <span class="admin-pill admin-pill-success">
-                                        {{ t('admin.users.filters.active') }}
-                                    </span>
-                                } @else {
-                                    <span class="admin-pill admin-pill-neutral">
-                                        {{ t('admin.users.filters.inactive') }}
-                                    </span>
-                                }
-                                @if (user.lockedUntil) {
-                                    <span
-                                        class="admin-pill admin-pill-warning ml-1"
+                            @for (
+                                col of [
+                                    {
+                                        key: 'email',
+                                        label: 'admin.users.table.email',
+                                    },
+                                    {
+                                        key: 'role',
+                                        label: 'admin.users.table.role',
+                                    },
+                                    {
+                                        key: 'restaurantName',
+                                        label: 'admin.users.table.restaurant',
+                                    },
+                                    {
+                                        key: 'status',
+                                        label: 'admin.users.table.status',
+                                    },
+                                ];
+                                track col.key
+                            ) {
+                                <div [attr.aria-sort]="sort.ariaSort(col.key)">
+                                    <button
+                                        type="button"
+                                        class="admin-sort-header"
+                                        (click)="sort.toggle(col.key)"
                                     >
-                                        {{ t('admin.users.table.locked') }}
-                                    </span>
-                                }
-                            </div>
-                            <div class="flex justify-end">
-                                <button
-                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    (click)="toggleDetails(user)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        [svgIcon]="
-                                            selectedId() === user.id
-                                                ? 'heroicons_solid:chevron-up'
-                                                : 'heroicons_solid:chevron-down'
-                                        "
-                                    ></mat-icon>
-                                </button>
+                                        {{ t(col.label) }}
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [class.text-accent]="
+                                                sort.key() === col.key
+                                            "
+                                            [svgIcon]="
+                                                'heroicons_outline:' +
+                                                sort.icon(col.key)
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            }
+                            <div class="text-right">
+                                {{ t('admin.crud.details') }}
                             </div>
                         </div>
 
-                        @if (selectedId() === user.id) {
+                        @for (
+                            user of sortedUsers();
+                            track trackById($index, user)
+                        ) {
                             <div
-                                class="overflow-hidden shadow-lg"
-                                (animate.enter)="expandOnEnter($event)"
-                                (animate.leave)="collapseOnLeave($event)"
+                                class="users-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
                             >
-                                <form
-                                    class="flex w-full flex-col"
-                                    [formGroup]="roleForm"
-                                    (ngSubmit)="saveRole()"
-                                >
-                                    <div
-                                        class="grid gap-6 p-6 md:grid-cols-2 md:p-8"
-                                    >
-                                        <div class="flex flex-col gap-4">
-                                            <div
-                                                class="text-lg font-medium tracking-tight"
-                                            >
-                                                {{
-                                                    t(
-                                                        'admin.userDetail.profile.title'
-                                                    )
-                                                }}
-                                            </div>
-                                            <div
-                                                class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"
-                                            >
-                                                <span class="text-secondary">{{
-                                                    t(
-                                                        'admin.userDetail.profile.email'
-                                                    )
-                                                }}</span>
-                                                <span>{{
-                                                    user.email || '—'
-                                                }}</span>
-                                                <span class="text-secondary">{{
-                                                    t(
-                                                        'admin.userDetail.profile.phone'
-                                                    )
-                                                }}</span>
-                                                <span>{{
-                                                    user.phone || '—'
-                                                }}</span>
-                                                <span class="text-secondary">{{
-                                                    t(
-                                                        'admin.userDetail.profile.restaurant'
-                                                    )
-                                                }}</span>
-                                                <span>{{
-                                                    user.restaurantName || '—'
-                                                }}</span>
-                                                <span class="text-secondary">{{
-                                                    t(
-                                                        'admin.userDetail.profile.status'
-                                                    )
-                                                }}</span>
-                                                <span>
-                                                    @if (user.isActive) {
-                                                        <span
-                                                            class="admin-pill admin-pill-success"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'admin.users.filters.active'
-                                                                )
-                                                            }}
-                                                        </span>
-                                                    } @else {
-                                                        <span
-                                                            class="admin-pill admin-pill-neutral"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'admin.users.filters.inactive'
-                                                                )
-                                                            }}
-                                                        </span>
-                                                    }
-                                                    @if (user.lockedUntil) {
-                                                        <span
-                                                            class="admin-pill admin-pill-warning ml-1"
-                                                        >
-                                                            {{
-                                                                t(
-                                                                    'admin.users.table.locked'
-                                                                )
-                                                            }}
-                                                        </span>
-                                                    }
-                                                </span>
-                                            </div>
-                                        </div>
-
-                                        <div class="flex flex-col gap-4">
-                                            <div
-                                                class="text-lg font-medium tracking-tight"
-                                            >
-                                                {{
-                                                    t(
-                                                        'admin.userDetail.role.title'
-                                                    )
-                                                }}
-                                            </div>
-                                            <mat-form-field
-                                                class="w-full"
-                                                subscriptSizing="dynamic"
-                                            >
-                                                <mat-select
-                                                    formControlName="role"
-                                                    [attr.aria-label]="
-                                                        t(
-                                                            'admin.userDetail.role.label'
-                                                        )
-                                                    "
-                                                >
-                                                    @for (
-                                                        role of roles();
-                                                        track role
-                                                    ) {
-                                                        <mat-option
-                                                            [value]="role"
-                                                            >{{
-                                                                role
-                                                            }}</mat-option
-                                                        >
-                                                    }
-                                                </mat-select>
-                                            </mat-form-field>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
-                                    >
-                                        <button
-                                            class="-ml-2"
-                                            mat-button
-                                            color="warn"
-                                            type="button"
-                                            [disabled]="savingActive()"
-                                            (click)="toggleActive(user)"
+                                <div class="min-w-0 truncate font-medium">
+                                    {{ user.email || user.id }}
+                                </div>
+                                <div class="truncate">
+                                    {{ user.role || '—' }}
+                                </div>
+                                <div class="truncate">
+                                    {{ user.restaurantName || '—' }}
+                                </div>
+                                <div>
+                                    @if (user.isActive) {
+                                        <span
+                                            class="admin-pill admin-pill-success"
                                         >
                                             {{
-                                                user.isActive
-                                                    ? t(
-                                                          'admin.users.actions.deactivate'
-                                                      )
-                                                    : t(
-                                                          'admin.users.actions.activate'
-                                                      )
+                                                t('admin.users.filters.active')
                                             }}
-                                        </button>
-                                        <button
-                                            mat-flat-button
-                                            color="primary"
-                                            type="submit"
-                                            [disabled]="
-                                                roleForm.invalid || savingRole()
-                                            "
+                                        </span>
+                                    } @else {
+                                        <span
+                                            class="admin-pill admin-pill-neutral"
                                         >
-                                            {{ t('admin.crud.save') }}
-                                        </button>
-                                    </div>
-                                </form>
+                                            {{
+                                                t(
+                                                    'admin.users.filters.inactive'
+                                                )
+                                            }}
+                                        </span>
+                                    }
+                                    @if (user.lockedUntil) {
+                                        <span
+                                            class="admin-pill admin-pill-warning ml-1"
+                                        >
+                                            {{ t('admin.users.table.locked') }}
+                                        </span>
+                                    }
+                                </div>
+                                <div class="flex justify-end">
+                                    <button
+                                        class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                        mat-stroked-button
+                                        type="button"
+                                        (click)="toggleDetails(user)"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="
+                                                selectedId() === user.id
+                                                    ? 'heroicons_solid:chevron-up'
+                                                    : 'heroicons_solid:chevron-down'
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                </div>
                             </div>
-                        }
-                    }
-                </div>
 
-                <mat-paginator
-                    class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
-                    [class.pointer-events-none]="loading()"
-                    [length]="totalCount()"
-                    [pageIndex]="pageIndex()"
-                    [pageSize]="pageSize()"
-                    [pageSizeOptions]="[10, 20, 50]"
-                    [showFirstLastButtons]="true"
-                    (page)="onPageChange($event)"
-                ></mat-paginator>
-            } @else if (loading()) {
-                <admin-loading-state />
-            } @else {
-                <div
-                    class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
-                >
-                    {{ t('admin.users.empty') }}
-                </div>
-            }
-        </div>
+                            @if (selectedId() === user.id) {
+                                <div
+                                    class="overflow-hidden shadow-lg"
+                                    (animate.enter)="expandOnEnter($event)"
+                                    (animate.leave)="collapseOnLeave($event)"
+                                >
+                                    <form
+                                        class="flex w-full flex-col"
+                                        [formGroup]="roleForm"
+                                        (ngSubmit)="saveRole()"
+                                    >
+                                        <div
+                                            class="grid gap-6 p-6 md:grid-cols-2 md:p-8"
+                                        >
+                                            <div class="flex flex-col gap-4">
+                                                <div
+                                                    class="text-lg font-medium tracking-tight"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.userDetail.profile.title'
+                                                        )
+                                                    }}
+                                                </div>
+                                                <div
+                                                    class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm"
+                                                >
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{
+                                                            t(
+                                                                'admin.userDetail.profile.email'
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span>{{
+                                                        user.email || '—'
+                                                    }}</span>
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{
+                                                            t(
+                                                                'admin.userDetail.profile.phone'
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span>{{
+                                                        user.phone || '—'
+                                                    }}</span>
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{
+                                                            t(
+                                                                'admin.userDetail.profile.restaurant'
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span>{{
+                                                        user.restaurantName ||
+                                                            '—'
+                                                    }}</span>
+                                                    <span
+                                                        class="text-secondary"
+                                                        >{{
+                                                            t(
+                                                                'admin.userDetail.profile.status'
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span>
+                                                        @if (user.isActive) {
+                                                            <span
+                                                                class="admin-pill admin-pill-success"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.users.filters.active'
+                                                                    )
+                                                                }}
+                                                            </span>
+                                                        } @else {
+                                                            <span
+                                                                class="admin-pill admin-pill-neutral"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.users.filters.inactive'
+                                                                    )
+                                                                }}
+                                                            </span>
+                                                        }
+                                                        @if (user.lockedUntil) {
+                                                            <span
+                                                                class="admin-pill admin-pill-warning ml-1"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.users.table.locked'
+                                                                    )
+                                                                }}
+                                                            </span>
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            <div class="flex flex-col gap-4">
+                                                <div
+                                                    class="text-lg font-medium tracking-tight"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.userDetail.role.title'
+                                                        )
+                                                    }}
+                                                </div>
+                                                <mat-form-field
+                                                    class="w-full"
+                                                    subscriptSizing="dynamic"
+                                                >
+                                                    <mat-select
+                                                        formControlName="role"
+                                                        [attr.aria-label]="
+                                                            t(
+                                                                'admin.userDetail.role.label'
+                                                            )
+                                                        "
+                                                    >
+                                                        @for (
+                                                            role of roles();
+                                                            track role
+                                                        ) {
+                                                            <mat-option
+                                                                [value]="role"
+                                                                >{{
+                                                                    role
+                                                                }}</mat-option
+                                                            >
+                                                        }
+                                                    </mat-select>
+                                                </mat-form-field>
+                                            </div>
+                                        </div>
+
+                                        <div
+                                            class="flex w-full flex-wrap items-center justify-between gap-3 border-t px-6 py-4 md:px-8"
+                                        >
+                                            <button
+                                                class="-ml-2"
+                                                mat-button
+                                                color="warn"
+                                                type="button"
+                                                [disabled]="savingActive()"
+                                                (click)="toggleActive(user)"
+                                            >
+                                                {{
+                                                    user.isActive
+                                                        ? t(
+                                                              'admin.users.actions.deactivate'
+                                                          )
+                                                        : t(
+                                                              'admin.users.actions.activate'
+                                                          )
+                                                }}
+                                            </button>
+                                            <button
+                                                mat-flat-button
+                                                color="primary"
+                                                type="submit"
+                                                [disabled]="
+                                                    roleForm.invalid ||
+                                                    savingRole()
+                                                "
+                                            >
+                                                {{ t('admin.crud.save') }}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            }
+                        }
+                    </div>
+
+                    <mat-paginator
+                        class="z-10 border-b bg-gray-50 dark:bg-transparent sm:absolute sm:inset-x-0 sm:bottom-0 sm:border-b-0 sm:border-t"
+                        [class.pointer-events-none]="loading()"
+                        [length]="totalCount()"
+                        [pageIndex]="pageIndex()"
+                        [pageSize]="pageSize()"
+                        [pageSizeOptions]="[10, 20, 50]"
+                        [showFirstLastButtons]="true"
+                        (page)="onPageChange($event)"
+                    ></mat-paginator>
+                } @else if (loading()) {
+                    <admin-loading-state />
+                } @else {
+                    <div
+                        class="border-t p-8 text-center text-4xl font-semibold tracking-tight sm:p-16"
+                    >
+                        {{ t('admin.users.empty') }}
+                    </div>
+                }
+            </div>
+        }
     </mat-tab-nav-panel>
 </div>

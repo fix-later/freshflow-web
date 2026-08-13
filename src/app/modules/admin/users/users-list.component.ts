@@ -26,6 +26,7 @@ import { describeApiError } from 'app/core/api/error-codes';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import { RestaurantsAdminComponent } from '../restaurants/restaurants-admin.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
@@ -36,6 +37,7 @@ import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
+const RESTAURANT_ROLE = 'restaurant';
 
 /**
  * Admin ▸ Users — Fuse ecommerce inventory pattern: searchable list with an
@@ -61,6 +63,7 @@ const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
         MatSnackBarModule,
         MatTabsModule,
         ReactiveFormsModule,
+        RestaurantsAdminComponent,
         TranslocoModule,
     ],
     styles: [
@@ -124,6 +127,20 @@ export class UsersListComponent implements OnInit {
      * the one reload path (page reset, detail panel closed, server-side filter).
      */
     readonly activeRole = computed(() => this._filterValues().role ?? '');
+
+    /**
+     * The restaurant tab hands the list over to the Restaurants screen, which
+     * carries the columns and actions this table has no room for (approval
+     * lifecycle, approve, unlock, profile detail). It fetches its own rows, so
+     * this component's loader stands down while that tab is up.
+     */
+    readonly showRestaurants = computed(
+        () => this.activeRole() === RESTAURANT_ROLE
+    );
+
+    /** The header filters, handed to the embedded restaurants list. */
+    readonly searchTerm = computed(() => this._filterValues().search ?? '');
+    readonly statusFilter = computed(() => this._filterValues().isActive ?? '');
 
     /**
      * True when search / status is non-empty. The role tab is deliberately left
@@ -247,6 +264,12 @@ export class UsersListComponent implements OnInit {
     }
 
     private readonly _loadTask = new CoalescedTask(async () => {
+        if (this.showRestaurants()) {
+            this.users.set([]);
+            this.totalCount.set(0);
+            this.closeDetails();
+            return;
+        }
         this.loading.set(true);
         const raw = this.filterForm.getRawValue();
         try {

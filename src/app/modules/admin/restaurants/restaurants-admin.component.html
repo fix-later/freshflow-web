@@ -1,78 +1,112 @@
-<div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
-    *transloco="let t"
->
-    <!-- Header -->
-    <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+@if (!embedded()) {
+    <div
+        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+        *transloco="let t"
+    >
+        <ng-container
+            *ngTemplateOutlet="pageHeader; context: { t: t }"
+        ></ng-container>
+        <ng-container
+            *ngTemplateOutlet="mainList; context: { t: t }"
+        ></ng-container>
+    </div>
+} @else {
+    <div class="flex min-h-0 flex-auto flex-col" *transloco="let t">
+        <ng-container
+            *ngTemplateOutlet="pageHeader; context: { t: t }"
+        ></ng-container>
+        <ng-container
+            *ngTemplateOutlet="mainList; context: { t: t }"
+        ></ng-container>
+    </div>
+}
+
+<ng-template #pageHeader let-t="t">
+    <div
+        class="relative flex flex-0 flex-col border-b px-6 md:px-8"
+        [class.py-4]="embedded()"
+        [class.py-8]="!embedded()"
+    >
         @if (loading()) {
             <div class="absolute inset-x-0 bottom-0">
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
         <form [formGroup]="filterForm">
-            <div
-                class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
-            >
-                <div class="min-w-0">
-                    <div class="text-4xl font-extrabold tracking-tight">
-                        {{ t('admin.restaurants.title') }}
+            @if (!embedded()) {
+                <div
+                    class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                    <div class="min-w-0">
+                        <div class="text-4xl font-extrabold tracking-tight">
+                            {{ t('admin.restaurants.title') }}
+                        </div>
+                    </div>
+                    <div class="flex min-w-0 flex-wrap items-center gap-3">
+                        <mat-form-field
+                            class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                matPrefix
+                                svgIcon="heroicons_solid:magnifying-glass"
+                            ></mat-icon>
+                            <input
+                                matInput
+                                class="overflow-hidden text-ellipsis whitespace-nowrap"
+                                autocomplete="off"
+                                formControlName="search"
+                                [placeholder]="
+                                    t(
+                                        'admin.restaurants.filters.searchPlaceholder'
+                                    )
+                                "
+                            />
+                        </mat-form-field>
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            class="shrink-0"
+                            type="button"
+                            (click)="openCreatePanel()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:plus"
+                            ></mat-icon>
+                            <span class="ml-2 mr-1">{{
+                                t('admin.restaurants.create.trigger')
+                            }}</span>
+                        </button>
                     </div>
                 </div>
-                <div class="flex min-w-0 flex-wrap items-center gap-3">
+            }
+
+            <div
+                class="flex flex-wrap items-end gap-3"
+                [class.mt-4]="!embedded()"
+            >
+                @if (!embedded()) {
                     <mat-form-field
-                        class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                        class="fuse-mat-dense w-48"
                         subscriptSizing="dynamic"
                     >
-                        <mat-icon
-                            class="icon-size-5"
-                            matPrefix
-                            svgIcon="heroicons_solid:magnifying-glass"
-                        ></mat-icon>
-                        <input
-                            matInput
-                            class="overflow-hidden text-ellipsis whitespace-nowrap"
-                            autocomplete="off"
-                            formControlName="search"
-                            [placeholder]="
-                                t('admin.restaurants.filters.searchPlaceholder')
-                            "
-                        />
+                        <mat-label>{{
+                            t('admin.restaurants.filters.status')
+                        }}</mat-label>
+                        <mat-select formControlName="isActive">
+                            <mat-option value="">{{
+                                t('admin.restaurants.filters.allStatuses')
+                            }}</mat-option>
+                            <mat-option value="true">{{
+                                t('admin.users.filters.active')
+                            }}</mat-option>
+                            <mat-option value="false">{{
+                                t('admin.users.filters.inactive')
+                            }}</mat-option>
+                        </mat-select>
                     </mat-form-field>
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        class="shrink-0"
-                        type="button"
-                        (click)="openCreatePanel()"
-                    >
-                        <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-                        <span class="ml-2 mr-1">{{
-                            t('admin.restaurants.create.trigger')
-                        }}</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="mt-4 flex flex-wrap items-end gap-3">
-                <mat-form-field
-                    class="fuse-mat-dense w-48"
-                    subscriptSizing="dynamic"
-                >
-                    <mat-label>{{
-                        t('admin.restaurants.filters.status')
-                    }}</mat-label>
-                    <mat-select formControlName="isActive">
-                        <mat-option value="">{{
-                            t('admin.restaurants.filters.allStatuses')
-                        }}</mat-option>
-                        <mat-option value="true">{{
-                            t('admin.users.filters.active')
-                        }}</mat-option>
-                        <mat-option value="false">{{
-                            t('admin.users.filters.inactive')
-                        }}</mat-option>
-                    </mat-select>
-                </mat-form-field>
+                }
 
                 <mat-form-field
                     class="fuse-mat-dense w-48"
@@ -108,8 +142,9 @@
             </div>
         </form>
     </div>
+</ng-template>
 
-    <!-- Main -->
+<ng-template #mainList let-t="t">
     <div class="flex flex-auto overflow-hidden">
         <div
             class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
@@ -306,4 +341,4 @@
             }
         </div>
     </div>
-</div>
+</ng-template>
