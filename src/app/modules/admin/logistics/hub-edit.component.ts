@@ -5,6 +5,8 @@ import {
     ViewEncapsulation,
     computed,
     inject,
+    input,
+    output,
     signal,
 } from '@angular/core';
 import {
@@ -14,7 +16,6 @@ import {
     Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -31,28 +32,18 @@ import { AdminLoadingStateComponent } from '../shared/admin-loading-state.compon
 import { CrudOption, CrudRow } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 
-/** Read-only meta keys shown in the hub detail grid (API HubDto fields). */
-const META_FIELDS: {
+interface MetaField {
     key: string;
     label: string;
     kind?: 'date' | 'kg' | '%';
-}[] = [
-    { key: 'id', label: 'admin.crud.id' },
-    {
-        key: 'occupiedCapacityKg',
-        label: 'admin.hubs.occupiedCapacityKg',
-        kind: 'kg',
-    },
-    {
-        key: 'availableCapacityKg',
-        label: 'admin.hubs.availableCapacityKg',
-        kind: 'kg',
-    },
-    {
-        key: 'utilizationPercent',
-        label: 'admin.hubs.utilizationPercent',
-        kind: '%',
-    },
+}
+
+/**
+ * Read-only fields for the side column. Occupancy is not among them — it is
+ * drawn as a meter instead — and neither is the id: a database key nobody reads
+ * off the screen, which only crowded the panel.
+ */
+const TIMESTAMP_FIELDS: MetaField[] = [
     { key: 'createdAt', label: 'admin.crud.createdAt', kind: 'date' },
     { key: 'updatedAt', label: 'admin.crud.updatedAt', kind: 'date' },
 ];
@@ -71,7 +62,6 @@ const META_FIELDS: {
     imports: [
         AdminLoadingStateComponent,
         MatButtonModule,
-        MatCheckboxModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -84,6 +74,39 @@ const META_FIELDS: {
         LocationPickerComponent,
     ],
     templateUrl: './hub-edit.component.html',
+    styles: [
+        `
+            /* The track needs its own outline: the hover token alone is a few
+               percent of ink, which reads as nothing on the card. A border-width
+               with no color picks up the themed border set globally. */
+            .hub-meter {
+                height: 0.75rem;
+                width: 100%;
+                overflow: hidden;
+                border-radius: 9999px;
+                border-width: 1px;
+                background-color: var(--fuse-bg-hover);
+            }
+
+            .hub-meter-fill {
+                height: 100%;
+                border-radius: 9999px;
+                transition: width 200ms ease;
+            }
+
+            .hub-meter-ok {
+                background-color: var(--fuse-accent);
+            }
+
+            .hub-meter-tight {
+                background-color: #b45309; /* amber-700 — the warning pill fill */
+            }
+
+            .hub-meter-full {
+                background-color: #dc2626; /* red-600 — the danger pill fill */
+            }
+        `,
+    ],
 })
 export class HubEditComponent implements OnInit {
     private readonly _logistics = inject(LogisticsAdminService);
@@ -93,67 +116,68 @@ export class HubEditComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
     private readonly _confirmation = inject(FuseConfirmationService);
 
+    /**
+     * Rendered inside a chợ's hub tab: no page shell, and "back" hands control
+     * to the host instead of navigating, so the chợ page and its tabs stay put.
+     */
+    readonly embedded = input(false);
+    /** The hub to show when embedded; routed mode reads the URL instead. */
+    readonly hubId = input('');
+    readonly closed = output<void>();
+
     readonly hub = signal<CrudRow | null>(null);
     readonly loading = signal(false);
     readonly saving = signal(false);
     readonly notFound = signal(false);
-    readonly managerOptions = signal<CrudOption[]>([]);
     readonly marketOptions = signal<CrudOption[]>([]);
     readonly hubName = computed(() => String(this.hub()?.['name'] ?? ''));
     readonly isActive = computed(() => this.hub()?.isActive !== false);
 
-    /** M8 Hub management (admin = Full): who currently works this hub. */
-    readonly staffOptions = signal<CrudOption[]>([]);
-    readonly assignedStaffIds = signal<Set<string>>(new Set());
-    readonly loadingStaff = signal(false);
-    readonly savingStaff = signal(false);
-
     /**
-     * M8 Hub inbound oversight. Read-only except for discrepancies: signing one
-     * off is `admin,operations_manager` and explicitly not `hub_staff`.
+     * Capacity as a meter. `utilizationPercent` is what the API reports; it is
+     * recomputed from occupied/capacity only when the field is missing, and
+     * clamped so a hub loaded past its rating still draws a full bar rather
+     * than overflowing its track.
      */
-    readonly pendingInbound = signal<CrudRow[]>([]);
-    /** Goods actually received today — the counterpart to `pendingInbound`. */
-    readonly inboundHistory = signal<CrudRow[]>([]);
-    readonly openDiscrepancies = signal<CrudRow[]>([]);
-    readonly crossDock = signal<CrudRow[]>([]);
-    readonly outbound = signal<CrudRow[]>([]);
-    readonly procurementPlan = signal<CrudRow[]>([]);
-    readonly ordersByRestaurant = signal<CrudRow[]>([]);
-    /** Who took which route out of this hub, and whether they left yet. */
-    readonly handovers = signal<CrudRow[]>([]);
-    /** Drivers available to take a load out (fleet-wide, not hub-filtered). */
-    readonly eligibleDrivers = signal<CrudRow[]>([]);
-    readonly loadingOversight = signal(false);
-
-    /** Discrepancy id currently being signed off, so only its button spins. */
-    readonly acknowledgingId = signal<string | null>(null);
-
-    /**
-     * Localized reason the last acknowledge was refused, kept next to the list
-     * rather than only in a toast — `DISCREPANCY_ALREADY_ACKNOWLEDGED` and a
-     * concurrency conflict both mean "reload", which the user must be able to
-     * read before acting.
-     */
-    readonly acknowledgeError = signal<string | null>(null);
-    /**
-     * Localized reason the oversight read failed. Every tile showing 0 after a
-     * failed call reads as "nothing is happening at this hub", which is the
-     * opposite of what an operator needs to know.
-     */
-    readonly oversightError = signal<string | null>(null);
-
-    /** Read-only HubDto fields for the detail grid. */
-    readonly metaEntries = computed(() => {
+    readonly utilizationPercent = computed(() => {
         const row = this.hub();
         if (!row) {
-            return [];
+            return 0;
         }
-        return META_FIELDS.map(({ key, label, kind }) => ({
-            label,
-            value: this._formatMeta(row[key], kind),
-        })).filter((e) => e.value !== '');
+        const reported = this._num(row['utilizationPercent']);
+        const capacity = this._num(row['capacityKg']);
+        const occupied = this._num(row['occupiedCapacityKg']);
+        const percent =
+            reported ??
+            (capacity && capacity > 0 ? ((occupied ?? 0) / capacity) * 100 : 0);
+        return Math.max(0, Math.min(100, Math.round(percent)));
     });
+
+    readonly hasOccupancy = computed(
+        () => this.occupiedLabel() !== '' || this.availableLabel() !== ''
+    );
+
+    readonly occupiedLabel = computed(() =>
+        this._formatMeta(this.hub()?.['occupiedCapacityKg'], 'kg')
+    );
+
+    readonly availableLabel = computed(() =>
+        this._formatMeta(this.hub()?.['availableCapacityKg'], 'kg')
+    );
+
+    /** Green while there is room, amber when tight, red once effectively full. */
+    readonly meterClass = computed(() => {
+        const percent = this.utilizationPercent();
+        if (percent >= 90) {
+            return 'hub-meter-full';
+        }
+        return percent >= 70 ? 'hub-meter-tight' : 'hub-meter-ok';
+    });
+
+    /** Created / updated, under the occupancy figures. */
+    readonly timestampEntries = computed(() =>
+        this._metaEntries(TIMESTAMP_FIELDS)
+    );
 
     readonly form = new FormGroup({
         marketId: new FormControl('', {
@@ -175,36 +199,41 @@ export class HubEditComponent implements OnInit {
 
     ngOnInit(): void {
         void this._logistics
-            .hubManagerOptions()
-            .then((opts) => this.managerOptions.set(opts));
-        void this._logistics
-            .hubManagerOptions()
-            .then((opts) => this.staffOptions.set(opts));
-        void this._logistics
             .marketOptions()
             .then((opts) => this.marketOptions.set(opts));
 
-        const id = this._route.snapshot.paramMap.get('hubId') ?? '';
+        // Embedded in a chợ's hub tab, the id arrives as an input; routed, it
+        // comes from the URL.
+        const id =
+            this.hubId() || (this._route.snapshot.paramMap.get('hubId') ?? '');
         const passed = (history.state?.hub ?? null) as CrudRow | null;
         if (passed && passed.id === id) {
             this._apply(passed);
             // Refresh so capacity utilization / timestamps stay current.
             this._fetch(id, /* keepVisible */ true);
-            this._loadStaff(id);
-            this._loadOversight(id);
             return;
         }
         if (id) {
             this._fetch(id);
-            this._loadStaff(id);
-            this._loadOversight(id);
             return;
         }
         this.notFound.set(true);
     }
 
+    /**
+     * Back to the chợ this hub belongs to — hubs are configured from a market's
+     * hub tab, and there is no hub list to return to. Falls back to the market
+     * list if the hub has not loaded yet, or carries no market.
+     */
     goBack(): void {
-        void this._router.navigate(['/admin/hubs']);
+        if (this.embedded()) {
+            this.closed.emit();
+            return;
+        }
+        const marketId = String(this.hub()?.['marketId'] ?? '');
+        void this._router.navigate(
+            marketId ? ['/admin/markets', marketId] : ['/admin/markets']
+        );
     }
 
     save(): void {
@@ -266,150 +295,6 @@ export class HubEditComponent implements OnInit {
                 )
                 .finally(() => this.saving.set(false));
         });
-    }
-
-    isStaffAssigned(userId: string): boolean {
-        return this.assignedStaffIds().has(userId);
-    }
-
-    toggleStaff(userId: string, checked: boolean): void {
-        const next = new Set(this.assignedStaffIds());
-        if (checked) {
-            next.add(userId);
-        } else {
-            next.delete(userId);
-        }
-        this.assignedStaffIds.set(next);
-    }
-
-    saveStaffAssignments(): void {
-        const row = this.hub();
-        if (!row || this.savingStaff()) {
-            return;
-        }
-        this.savingStaff.set(true);
-        void this._logistics
-            .replaceHubStaffAssignments(row.id, [...this.assignedStaffIds()])
-            .then(() => this._notify('admin.hubs.staff.success'))
-            .catch((err) => void this._notifyError(err, 'admin.crud.saveError'))
-            .finally(() => this.savingStaff.set(false));
-    }
-
-    private _loadStaff(hubId: string): void {
-        this.loadingStaff.set(true);
-        void this._logistics
-            .getHubStaffAssignments(hubId)
-            .then((ids) => this.assignedStaffIds.set(new Set(ids)))
-            .catch(() => this.assignedStaffIds.set(new Set()))
-            .finally(() => this.loadingStaff.set(false));
-    }
-
-    /** Re-reads the oversight tiles; also the retry action on failure. */
-    reloadOversight(): void {
-        const id = this.hub()?.id;
-        if (id) {
-            this._loadOversight(id);
-        }
-    }
-
-    private _loadOversight(hubId: string): void {
-        this.loadingOversight.set(true);
-        this.oversightError.set(null);
-        this.acknowledgeError.set(null);
-        Promise.all([
-            this._logistics.getPendingInbound(hubId),
-            this._logistics.getInboundHistory(hubId),
-            // Only the OPEN ones: an acknowledged discrepancy no longer blocks
-            // dispatch (BR-HUB-2), so counting it would overstate what is stuck.
-            this._logistics.getDiscrepancies(hubId, 'OPEN'),
-            this._logistics.getCrossDock(hubId),
-            this._logistics.getOutbound(hubId),
-            this._logistics.getProcurementPlan(hubId),
-            this._logistics.getOrdersByRestaurant(hubId),
-            this._logistics.getHandovers(hubId),
-            this._logistics.getEligibleDrivers(hubId),
-        ])
-            .then(
-                ([
-                    pending,
-                    inbound,
-                    discrepancies,
-                    crossDock,
-                    outbound,
-                    procurementPlan,
-                    ordersByRestaurant,
-                    handovers,
-                    eligibleDrivers,
-                ]) => {
-                    this.pendingInbound.set(pending);
-                    this.inboundHistory.set(inbound);
-                    this.openDiscrepancies.set(discrepancies);
-                    this.crossDock.set(crossDock);
-                    this.outbound.set(outbound);
-                    this.procurementPlan.set(procurementPlan);
-                    this.ordersByRestaurant.set(ordersByRestaurant);
-                    this.handovers.set(handovers);
-                    this.eligibleDrivers.set(eligibleDrivers);
-                }
-            )
-            .catch(async (err) => {
-                this.pendingInbound.set([]);
-                this.inboundHistory.set([]);
-                this.openDiscrepancies.set([]);
-                this.crossDock.set([]);
-                this.outbound.set([]);
-                this.procurementPlan.set([]);
-                this.ordersByRestaurant.set([]);
-                this.handovers.set([]);
-                this.eligibleDrivers.set([]);
-                this.oversightError.set(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.hubs.oversight.loadError'
-                    )
-                );
-            })
-            .finally(() => this.loadingOversight.set(false));
-    }
-
-    // ---- Discrepancy sign-off (admin,operations_manager) ------------------
-
-    /**
-     * Whether `row` may still be signed off. The backend only accepts a
-     * discrepancy in `OPEN` (`HubDiscrepancy.Acknowledge` throws otherwise →
-     * 409), so an already-acknowledged row shows its state instead of a button
-     * that is guaranteed to fail.
-     */
-    canAcknowledge(row: CrudRow): boolean {
-        return String(row['status'] ?? '').toUpperCase() === 'OPEN' && !!row.id;
-    }
-
-    acknowledgeDiscrepancy(row: CrudRow): void {
-        const hubId = this.hub()?.id;
-        if (!hubId || !this.canAcknowledge(row) || this.acknowledgingId()) {
-            return;
-        }
-        this.acknowledgeError.set(null);
-        this.acknowledgingId.set(row.id);
-        void this._logistics
-            .acknowledgeDiscrepancy(hubId, row.id)
-            .then(() => {
-                this._notify('admin.hubs.discrepancies.acknowledgeSuccess');
-                // Re-read rather than dropping the row locally: the count tile,
-                // and whether the hub can dispatch at all, both depend on it.
-                this._loadOversight(hubId);
-            })
-            .catch(async (err) => {
-                this.acknowledgeError.set(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.hubs.discrepancies.acknowledgeError'
-                    )
-                );
-            })
-            .finally(() => this.acknowledgingId.set(null));
     }
 
     private _fetch(id: string, keepVisible = false): void {
@@ -498,6 +383,31 @@ export class HubEditComponent implements OnInit {
             }
         }
         return String(value);
+    }
+
+    /** A finite number, or `null` for anything the API left blank. */
+    private _num(value: unknown): number | null {
+        if (value === null || value === undefined || value === '') {
+            return null;
+        }
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+    }
+
+    /** Formats one group of read-only fields, dropping the empty ones. */
+    private _metaEntries(
+        fields: MetaField[]
+    ): { label: string; value: string }[] {
+        const row = this.hub();
+        if (!row) {
+            return [];
+        }
+        return fields
+            .map(({ key, label, kind }) => ({
+                label,
+                value: this._formatMeta(row[key], kind),
+            }))
+            .filter((entry) => entry.value !== '');
     }
 
     private _formatMeta(value: unknown, kind?: 'date' | 'kg' | '%'): string {

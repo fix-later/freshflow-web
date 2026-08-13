@@ -217,9 +217,12 @@ export class RouteCreateComponent implements OnInit {
         void this._router.navigate(['/admin/routes']);
     }
 
-    /** No hub configured is the one blocker fixed on another screen. */
+    /**
+     * No hub configured is the one blocker fixed on another screen — the chợ
+     * list, since a hub is created from its market's hub tab.
+     */
     goToHubs(): void {
-        void this._router.navigate(['/admin/hubs']);
+        void this._router.navigate(['/admin/markets']);
     }
 
     isRestaurantSelected(id: string): boolean {

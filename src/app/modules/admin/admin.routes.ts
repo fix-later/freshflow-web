@@ -7,7 +7,6 @@ import { MarketEditComponent } from './catalog/market-edit.component';
 import { MarketProductPriceHistoryComponent } from './catalog/market-product-price-history.component';
 import { MarketsComponent } from './catalog/markets.component';
 import { PackingCodesComponent } from './catalog/packing-codes.component';
-import { ProductCreateComponent } from './catalog/product-create.component';
 import { ProductsComponent } from './catalog/products.component';
 import { TagsComponent } from './catalog/tags.component';
 import { UnitsComponent } from './catalog/units.component';
@@ -16,7 +15,6 @@ import { FinanceComponent } from './finance/finance.component';
 import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
 import { InvoicesListComponent } from './invoices/invoices-list.component';
 import { HubEditComponent } from './logistics/hub-edit.component';
-import { HubsComponent } from './logistics/hubs.component';
 import { RouteCreateComponent } from './logistics/route-create.component';
 import { RouteDetailComponent } from './logistics/route-detail.component';
 import { RoutesListComponent } from './logistics/routes-list.component';
@@ -70,10 +68,6 @@ export default [
         component: UnitsComponent,
     },
     {
-        path: 'products/new',
-        component: ProductCreateComponent,
-    },
-    {
         path: 'products',
         component: ProductsComponent,
     },
@@ -110,11 +104,11 @@ export default [
         path: 'markets/:marketId',
         component: MarketEditComponent,
     },
-    // Logistics configuration (M8 / M9)
-    {
-        path: 'hubs',
-        component: HubsComponent,
-    },
+    // Logistics configuration (M8 / M9).
+    //
+    // Hubs have no list screen: they are created and listed inside their chợ's
+    // hub tab. A hub's own page stays, for the staff roster and the
+    // inbound/discrepancy oversight the tab has no room for.
     {
         path: 'hubs/:hubId',
         component: HubEditComponent,
