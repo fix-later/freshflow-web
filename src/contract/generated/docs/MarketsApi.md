@@ -16,6 +16,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1MarketsMarketIdProductsProductIdPriceHistoryGet**](MarketsApi.md#apiv1marketsmarketidproductsproductidpricehistoryget) | **GET** /api/v1/markets/{marketId}/products/{productId}/price-history |  |
 | [**apiV1MarketsMarketIdProductsProductIdPricePatch**](MarketsApi.md#apiv1marketsmarketidproductsproductidpricepatch) | **PATCH** /api/v1/markets/{marketId}/products/{productId}/price |  |
 | [**apiV1MarketsMarketIdProductsProductIdQuantityPatch**](MarketsApi.md#apiv1marketsmarketidproductsproductidquantitypatch) | **PATCH** /api/v1/markets/{marketId}/products/{productId}/quantity |  |
+| [**apiV1MarketsMarketIdProductsProductIdTagsPut**](MarketsApi.md#apiv1marketsmarketidproductsproductidtagsput) | **PUT** /api/v1/markets/{marketId}/products/{productId}/tags |  |
 | [**apiV1MarketsPost**](MarketsApi.md#apiv1marketspost) | **POST** /api/v1/markets |  |
 
 
@@ -431,7 +432,7 @@ This endpoint does not need any parameter.
 
 ## apiV1MarketsMarketIdProductsGet
 
-> apiV1MarketsMarketIdProductsGet(marketId, category, cursor, pageSize)
+> apiV1MarketsMarketIdProductsGet(marketId, category, cursor, pageSize, tag)
 
 
 
@@ -461,6 +462,8 @@ async function example() {
     cursor: cursor_example,
     // number (optional)
     pageSize: 56,
+    // string (optional)
+    tag: tag_example,
   } satisfies ApiV1MarketsMarketIdProductsGetRequest;
 
   try {
@@ -484,6 +487,7 @@ example().catch(console.error);
 | **category** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **cursor** | `string` |  | [Optional] [Defaults to `undefined`] |
 | **pageSize** | `number` |  | [Optional] [Defaults to `20`] |
+| **tag** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 
@@ -503,7 +507,6 @@ example().catch(console.error);
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | OK |  -  |
-| **401** | Unauthorized |  -  |
 | **404** | Not Found |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
@@ -907,6 +910,85 @@ example().catch(console.error);
 | **404** | Not Found |  -  |
 | **409** | Conflict |  -  |
 | **422** | Unprocessable Content |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1MarketsMarketIdProductsProductIdTagsPut
+
+> apiV1MarketsMarketIdProductsProductIdTagsPut(marketId, productId, setMarketProductTagsRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  MarketsApi,
+} from '';
+import type { ApiV1MarketsMarketIdProductsProductIdTagsPutRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new MarketsApi(config);
+
+  const body = {
+    // string
+    marketId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // string
+    productId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // SetMarketProductTagsRequest (optional)
+    setMarketProductTagsRequest: ...,
+  } satisfies ApiV1MarketsMarketIdProductsProductIdTagsPutRequest;
+
+  try {
+    const data = await api.apiV1MarketsMarketIdProductsProductIdTagsPut(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **marketId** | `string` |  | [Defaults to `undefined`] |
+| **productId** | `string` |  | [Defaults to `undefined`] |
+| **setMarketProductTagsRequest** | [SetMarketProductTagsRequest](SetMarketProductTagsRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: `text/plain`, `application/json`, `text/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **204** | No Content |  -  |
+| **400** | Bad Request |  -  |
+| **401** | Unauthorized |  -  |
+| **403** | Forbidden |  -  |
+| **404** | Not Found |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

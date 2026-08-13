@@ -21,6 +21,10 @@ export interface ApiV1InvoicesGetRequest {
     pageSize?: number;
 }
 
+export interface ApiV1InvoicesInvoiceIdExportGetRequest {
+    invoiceId: string;
+}
+
 export interface ApiV1InvoicesInvoiceIdGetRequest {
     invoiceId: string;
 }
@@ -86,6 +90,56 @@ export class InvoicesApi extends runtime.BaseAPI {
      */
     async apiV1InvoicesGet(requestParameters: ApiV1InvoicesGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1InvoicesGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1InvoicesInvoiceIdExportGet without sending the request
+     */
+    async apiV1InvoicesInvoiceIdExportGetRequestOpts(requestParameters: ApiV1InvoicesInvoiceIdExportGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['invoiceId'] == null) {
+            throw new runtime.RequiredError(
+                'invoiceId',
+                'Required parameter "invoiceId" was null or undefined when calling apiV1InvoicesInvoiceIdExportGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/invoices/{invoiceId}/export`;
+        urlPath = urlPath.replace('{invoiceId}', encodeURIComponent(String(requestParameters['invoiceId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1InvoicesInvoiceIdExportGetRaw(requestParameters: ApiV1InvoicesInvoiceIdExportGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1InvoicesInvoiceIdExportGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1InvoicesInvoiceIdExportGet(requestParameters: ApiV1InvoicesInvoiceIdExportGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1InvoicesInvoiceIdExportGetRaw(requestParameters, initOverrides);
     }
 
     /**

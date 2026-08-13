@@ -9,6 +9,8 @@ Name | Type
 `recurrenceType` | string
 `firstRunAt` | Date
 `notes` | string
+`deliveryAddressId` | string
+`items` | [Array&lt;DraftOrderItemRequest&gt;](DraftOrderItemRequest.md)
 
 ## Example
 
@@ -20,6 +22,8 @@ const example = {
   "recurrenceType": null,
   "firstRunAt": null,
   "notes": null,
+  "deliveryAddressId": null,
+  "items": null,
 } satisfies CreateScheduledOrderRequest
 
 console.log(example)

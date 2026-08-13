@@ -1,5 +1,5 @@
 
-# CreateProductRequest
+# UpdateTagRequest
 
 
 ## Properties
@@ -7,28 +7,18 @@
 Name | Type
 ------------ | -------------
 `name` | string
-`unitId` | string
-`categoryId` | string
-`description` | string
-`packingCodeId` | string
-`vatRate` | string
-`minimumOrderQuantity` | number
+`pinsToTop` | boolean
 
 ## Example
 
 ```typescript
-import type { CreateProductRequest } from ''
+import type { UpdateTagRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
   "name": null,
-  "unitId": null,
-  "categoryId": null,
-  "description": null,
-  "packingCodeId": null,
-  "vatRate": null,
-  "minimumOrderQuantity": null,
-} satisfies CreateProductRequest
+  "pinsToTop": null,
+} satisfies UpdateTagRequest
 
 console.log(example)
 
@@ -37,7 +27,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as CreateProductRequest
+const exampleParsed = JSON.parse(exampleJSON) as UpdateTagRequest
 console.log(exampleParsed)
 ```
 

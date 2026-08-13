@@ -29,6 +29,11 @@ import {
     CancelOrderRequestToJSON,
 } from '../models/CancelOrderRequest';
 import {
+    type ConfirmOrderRequest,
+    ConfirmOrderRequestFromJSON,
+    ConfirmOrderRequestToJSON,
+} from '../models/ConfirmOrderRequest';
+import {
     type CreateDraftOrderRequest,
     CreateDraftOrderRequestFromJSON,
     CreateDraftOrderRequestToJSON,
@@ -101,10 +106,12 @@ export interface ApiV1OrdersOrderIdCancelPatchRequest {
 
 export interface ApiV1OrdersOrderIdConfirmPostRequest {
     orderId: string;
+    confirmOrderRequest?: ConfirmOrderRequest;
 }
 
 export interface ApiV1OrdersOrderIdConfirmPreviewGetRequest {
     orderId: string;
+    deliveryAddressId?: string;
 }
 
 export interface ApiV1OrdersOrderIdGetRequest {
@@ -447,6 +454,8 @@ export class OrdersApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
+        headerParameters['Content-Type'] = 'application/json';
+
         if (this.configuration && this.configuration.accessToken) {
             const token = this.configuration.accessToken;
             const tokenString = await token("Bearer", []);
@@ -464,6 +473,7 @@ export class OrdersApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
+            body: ConfirmOrderRequestToJSON(requestParameters['confirmOrderRequest']),
         };
     }
 
@@ -494,6 +504,10 @@ export class OrdersApi extends runtime.BaseAPI {
         }
 
         const queryParameters: any = {};
+
+        if (requestParameters['deliveryAddressId'] != null) {
+            queryParameters['deliveryAddressId'] = requestParameters['deliveryAddressId'];
+        }
 
         const headerParameters: runtime.HTTPHeaders = {};
 

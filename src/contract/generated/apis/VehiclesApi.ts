@@ -14,6 +14,11 @@
 
 import * as runtime from '../runtime';
 import {
+    type AssignVehicleToHubRequest,
+    AssignVehicleToHubRequestFromJSON,
+    AssignVehicleToHubRequestToJSON,
+} from '../models/AssignVehicleToHubRequest';
+import {
     type RegisterVehicleRequest,
     RegisterVehicleRequestFromJSON,
     RegisterVehicleRequestToJSON,
@@ -28,6 +33,7 @@ export interface ApiV1LogisticsVehiclesGetRequest {
     cursor?: string;
     pageSize?: number;
     isActive?: boolean;
+    hubId?: string;
 }
 
 export interface ApiV1LogisticsVehiclesIdDeleteRequest {
@@ -36,6 +42,11 @@ export interface ApiV1LogisticsVehiclesIdDeleteRequest {
 
 export interface ApiV1LogisticsVehiclesIdGetRequest {
     id: string;
+}
+
+export interface ApiV1LogisticsVehiclesIdHubPutRequest {
+    id: string;
+    assignVehicleToHubRequest?: AssignVehicleToHubRequest;
 }
 
 export interface ApiV1LogisticsVehiclesIdPutRequest {
@@ -68,6 +79,10 @@ export class VehiclesApi extends runtime.BaseAPI {
 
         if (requestParameters['isActive'] != null) {
             queryParameters['is_active'] = requestParameters['isActive'];
+        }
+
+        if (requestParameters['hubId'] != null) {
+            queryParameters['hub_id'] = requestParameters['hubId'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -204,6 +219,59 @@ export class VehiclesApi extends runtime.BaseAPI {
      */
     async apiV1LogisticsVehiclesIdGet(requestParameters: ApiV1LogisticsVehiclesIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1LogisticsVehiclesIdGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1LogisticsVehiclesIdHubPut without sending the request
+     */
+    async apiV1LogisticsVehiclesIdHubPutRequestOpts(requestParameters: ApiV1LogisticsVehiclesIdHubPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1LogisticsVehiclesIdHubPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/logistics/vehicles/{id}/hub`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: AssignVehicleToHubRequestToJSON(requestParameters['assignVehicleToHubRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1LogisticsVehiclesIdHubPutRaw(requestParameters: ApiV1LogisticsVehiclesIdHubPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1LogisticsVehiclesIdHubPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1LogisticsVehiclesIdHubPut(requestParameters: ApiV1LogisticsVehiclesIdHubPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1LogisticsVehiclesIdHubPutRaw(requestParameters, initOverrides);
     }
 
     /**

@@ -4,6 +4,7 @@ apis/AnalyticsApi.ts
 apis/AssistantApi.ts
 apis/AuthApi.ts
 apis/CategoriesApi.ts
+apis/ClaimsApi.ts
 apis/DriverApi.ts
 apis/HubHandoverApi.ts
 apis/HubInboundApi.ts
@@ -24,6 +25,7 @@ apis/RestaurantFavoritesApi.ts
 apis/RestaurantProfileApi.ts
 apis/RoutesApi.ts
 apis/ShippingApi.ts
+apis/TagsApi.ts
 apis/UnitsApi.ts
 apis/VehiclesApi.ts
 apis/index.ts
@@ -33,9 +35,11 @@ docs/AddOrderItemRequest.md
 docs/AdminApi.md
 docs/AdvanceOrderStatusRequest.md
 docs/AnalyticsApi.md
+docs/ApproveClaimRequest.md
 docs/AssignAgentRequest.md
 docs/AssignRoleRequest.md
 docs/AssignVehicleRequest.md
+docs/AssignVehicleToHubRequest.md
 docs/AssistantApi.md
 docs/AssistantChatRequest.md
 docs/AttachProofOfDeliveryRequest.md
@@ -45,6 +49,8 @@ docs/CancelOrderGroupRequest.md
 docs/CancelOrderRequest.md
 docs/CategoriesApi.md
 docs/ChangePasswordRequest.md
+docs/ClaimsApi.md
+docs/ConfirmOrderRequest.md
 docs/ConfirmPickupRequest.md
 docs/ConfirmPurchaseRequest.md
 docs/CreateCategoryRequest.md
@@ -57,11 +63,13 @@ docs/CreateMarketRequest.md
 docs/CreatePackingCodeRequest.md
 docs/CreateProductRequest.md
 docs/CreateScheduledOrderRequest.md
+docs/CreateTagRequest.md
 docs/CreateUnitRequest.md
 docs/CreateUserCommand.md
 docs/DeliveryAddressRequest.md
 docs/DraftOrderItemRequest.md
 docs/DriverApi.md
+docs/FileClaimRequest.md
 docs/ForgotPasswordRequest.md
 docs/GenerateStatementRequest.md
 docs/HubHandoverApi.md
@@ -97,6 +105,7 @@ docs/RefreshRequest.md
 docs/RegisterNotificationDeviceRequest.md
 docs/RegisterRestaurantRequest.md
 docs/RegisterVehicleRequest.md
+docs/RejectClaimRequest.md
 docs/ReorderFromHistoryRequest.md
 docs/ReorderRouteRequest.md
 docs/ReplaceHubStaffAssignmentsRequest.md
@@ -115,8 +124,10 @@ docs/RoutesApi.md
 docs/RunAutoBatchRequest.md
 docs/ScanInboundRequest.md
 docs/SetCreditLimitRequest.md
+docs/SetMarketProductTagsRequest.md
 docs/SettleCreditRequest.md
 docs/ShippingApi.md
+docs/TagsApi.md
 docs/UnitsApi.md
 docs/UnregisterNotificationDeviceRequest.md
 docs/UpdateAvailableQuantityRequest.md
@@ -133,6 +144,7 @@ docs/UpdateProductPriceRequest.md
 docs/UpdateProductRequest.md
 docs/UpdateRestaurantProfileRequest.md
 docs/UpdateScheduledOrderRequest.md
+docs/UpdateTagRequest.md
 docs/UpdateTaxProfileRequest.md
 docs/UpdateUnitRequest.md
 docs/UpdateVehicleRequest.md
@@ -143,15 +155,18 @@ models/ActivateRequest.ts
 models/AddFavoriteRequest.ts
 models/AddOrderItemRequest.ts
 models/AdvanceOrderStatusRequest.ts
+models/ApproveClaimRequest.ts
 models/AssignAgentRequest.ts
 models/AssignRoleRequest.ts
 models/AssignVehicleRequest.ts
+models/AssignVehicleToHubRequest.ts
 models/AssistantChatRequest.ts
 models/AttachProofOfDeliveryRequest.ts
 models/CalculateRouteRequest.ts
 models/CancelOrderGroupRequest.ts
 models/CancelOrderRequest.ts
 models/ChangePasswordRequest.ts
+models/ConfirmOrderRequest.ts
 models/ConfirmPickupRequest.ts
 models/ConfirmPurchaseRequest.ts
 models/CreateCategoryRequest.ts
@@ -164,10 +179,12 @@ models/CreateMarketRequest.ts
 models/CreatePackingCodeRequest.ts
 models/CreateProductRequest.ts
 models/CreateScheduledOrderRequest.ts
+models/CreateTagRequest.ts
 models/CreateUnitRequest.ts
 models/CreateUserCommand.ts
 models/DeliveryAddressRequest.ts
 models/DraftOrderItemRequest.ts
+models/FileClaimRequest.ts
 models/ForgotPasswordRequest.ts
 models/GenerateStatementRequest.ts
 models/HubInboundItemCommand.ts
@@ -189,6 +206,7 @@ models/RefreshRequest.ts
 models/RegisterNotificationDeviceRequest.ts
 models/RegisterRestaurantRequest.ts
 models/RegisterVehicleRequest.ts
+models/RejectClaimRequest.ts
 models/ReorderFromHistoryRequest.ts
 models/ReorderRouteRequest.ts
 models/ReplaceHubStaffAssignmentsRequest.ts
@@ -203,6 +221,7 @@ models/ReviewRouteRequest.ts
 models/RunAutoBatchRequest.ts
 models/ScanInboundRequest.ts
 models/SetCreditLimitRequest.ts
+models/SetMarketProductTagsRequest.ts
 models/SettleCreditRequest.ts
 models/UnregisterNotificationDeviceRequest.ts
 models/UpdateAvailableQuantityRequest.ts
@@ -219,6 +238,7 @@ models/UpdateProductPriceRequest.ts
 models/UpdateProductRequest.ts
 models/UpdateRestaurantProfileRequest.ts
 models/UpdateScheduledOrderRequest.ts
+models/UpdateTagRequest.ts
 models/UpdateTaxProfileRequest.ts
 models/UpdateUnitRequest.ts
 models/UpdateVehicleRequest.ts

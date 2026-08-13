@@ -360,7 +360,7 @@ example().catch(console.error);
 
 ## apiV1OrdersOrderIdConfirmPost
 
-> apiV1OrdersOrderIdConfirmPost(orderId)
+> apiV1OrdersOrderIdConfirmPost(orderId, confirmOrderRequest)
 
 
 
@@ -384,6 +384,8 @@ async function example() {
   const body = {
     // string
     orderId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // ConfirmOrderRequest (optional)
+    confirmOrderRequest: ...,
   } satisfies ApiV1OrdersOrderIdConfirmPostRequest;
 
   try {
@@ -404,6 +406,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **orderId** | `string` |  | [Defaults to `undefined`] |
+| **confirmOrderRequest** | [ConfirmOrderRequest](ConfirmOrderRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -415,7 +418,7 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: Not defined
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
 - **Accept**: `text/plain`, `application/json`, `text/json`
 
 
@@ -433,7 +436,7 @@ example().catch(console.error);
 
 ## apiV1OrdersOrderIdConfirmPreviewGet
 
-> apiV1OrdersOrderIdConfirmPreviewGet(orderId)
+> apiV1OrdersOrderIdConfirmPreviewGet(orderId, deliveryAddressId)
 
 
 
@@ -457,6 +460,8 @@ async function example() {
   const body = {
     // string
     orderId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // string (optional)
+    deliveryAddressId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
   } satisfies ApiV1OrdersOrderIdConfirmPreviewGetRequest;
 
   try {
@@ -477,6 +482,7 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **orderId** | `string` |  | [Defaults to `undefined`] |
+| **deliveryAddressId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 

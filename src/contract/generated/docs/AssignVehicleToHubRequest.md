@@ -1,34 +1,22 @@
 
-# CreateProductRequest
+# AssignVehicleToHubRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`name` | string
-`unitId` | string
-`categoryId` | string
-`description` | string
-`packingCodeId` | string
-`vatRate` | string
-`minimumOrderQuantity` | number
+`hubId` | string
 
 ## Example
 
 ```typescript
-import type { CreateProductRequest } from ''
+import type { AssignVehicleToHubRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "name": null,
-  "unitId": null,
-  "categoryId": null,
-  "description": null,
-  "packingCodeId": null,
-  "vatRate": null,
-  "minimumOrderQuantity": null,
-} satisfies CreateProductRequest
+  "hubId": null,
+} satisfies AssignVehicleToHubRequest
 
 console.log(example)
 
@@ -37,7 +25,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as CreateProductRequest
+const exampleParsed = JSON.parse(exampleJSON) as AssignVehicleToHubRequest
 console.log(exampleParsed)
 ```
 

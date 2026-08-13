@@ -10,6 +10,7 @@ Name | Type
 `affectedQuantity` | number
 `conditionStatus` | string
 `notes` | string
+`proofImageUrl` | string
 
 ## Example
 
@@ -22,6 +23,7 @@ const example = {
   "affectedQuantity": null,
   "conditionStatus": null,
   "notes": null,
+  "proofImageUrl": null,
 } satisfies RecordDiscrepancyRequest
 
 console.log(example)

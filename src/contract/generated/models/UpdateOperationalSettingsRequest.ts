@@ -43,6 +43,30 @@ export interface UpdateOperationalSettingsRequest {
      * @memberof UpdateOperationalSettingsRequest
      */
     deliveryWindowDays?: number;
+    /**
+     * 
+     * @type {number}
+     * @memberof UpdateOperationalSettingsRequest
+     */
+    deliveryFeePerKm?: number | null;
+    /**
+     * 
+     * @type {number}
+     * @memberof UpdateOperationalSettingsRequest
+     */
+    baseFee?: number | null;
+    /**
+     * 
+     * @type {number}
+     * @memberof UpdateOperationalSettingsRequest
+     */
+    minimumFee?: number | null;
+    /**
+     * 
+     * @type {number}
+     * @memberof UpdateOperationalSettingsRequest
+     */
+    roundingUnit?: number | null;
 }
 
 /**
@@ -66,6 +90,10 @@ export function UpdateOperationalSettingsRequestFromJSONTyped(json: any, ignoreD
         'batchingEnabled': json['batchingEnabled'] == null ? undefined : json['batchingEnabled'],
         'defaultRouteType': json['defaultRouteType'] == null ? undefined : json['defaultRouteType'],
         'deliveryWindowDays': json['deliveryWindowDays'] == null ? undefined : json['deliveryWindowDays'],
+        'deliveryFeePerKm': json['deliveryFeePerKm'] == null ? undefined : json['deliveryFeePerKm'],
+        'baseFee': json['baseFee'] == null ? undefined : json['baseFee'],
+        'minimumFee': json['minimumFee'] == null ? undefined : json['minimumFee'],
+        'roundingUnit': json['roundingUnit'] == null ? undefined : json['roundingUnit'],
     };
 }
 
@@ -84,6 +112,10 @@ export function UpdateOperationalSettingsRequestToJSONTyped(value?: UpdateOperat
         'batchingEnabled': value['batchingEnabled'],
         'defaultRouteType': value['defaultRouteType'],
         'deliveryWindowDays': value['deliveryWindowDays'],
+        'deliveryFeePerKm': value['deliveryFeePerKm'],
+        'baseFee': value['baseFee'],
+        'minimumFee': value['minimumFee'],
+        'roundingUnit': value['roundingUnit'],
     };
 }
 

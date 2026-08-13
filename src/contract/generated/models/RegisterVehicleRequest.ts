@@ -37,6 +37,12 @@ export interface RegisterVehicleRequest {
      * @memberof RegisterVehicleRequest
      */
     vehicleType?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof RegisterVehicleRequest
+     */
+    hubId?: string | null;
 }
 
 /**
@@ -60,6 +66,7 @@ export function RegisterVehicleRequestFromJSONTyped(json: any, ignoreDiscriminat
         'plateNumber': json['plateNumber'],
         'capacityKg': json['capacityKg'] == null ? undefined : json['capacityKg'],
         'vehicleType': json['vehicleType'] == null ? undefined : json['vehicleType'],
+        'hubId': json['hubId'] == null ? undefined : json['hubId'],
     };
 }
 
@@ -77,6 +84,7 @@ export function RegisterVehicleRequestToJSONTyped(value?: RegisterVehicleRequest
         'plateNumber': value['plateNumber'],
         'capacityKg': value['capacityKg'],
         'vehicleType': value['vehicleType'],
+        'hubId': value['hubId'],
     };
 }
 

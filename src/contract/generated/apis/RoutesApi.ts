@@ -82,6 +82,18 @@ export interface ApiV1LogisticsRoutesPlanPostRequest {
     planRoutesRequest?: PlanRoutesRequest;
 }
 
+export interface ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest {
+    planId: string;
+}
+
+export interface ApiV1LogisticsRoutesPlansPlanIdGetRequest {
+    planId: string;
+}
+
+export interface ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest {
+    routeId: string;
+}
+
 export interface ApiV1LogisticsRoutesRouteIdEligibilityGetRequest {
     routeId: string;
     vehicleId?: string;
@@ -557,6 +569,156 @@ export class RoutesApi extends runtime.BaseAPI {
      */
     async apiV1LogisticsRoutesPlanPost(requestParameters: ApiV1LogisticsRoutesPlanPostRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1LogisticsRoutesPlanPostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1LogisticsRoutesPlansPlanIdApprovePost without sending the request
+     */
+    async apiV1LogisticsRoutesPlansPlanIdApprovePostRequestOpts(requestParameters: ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['planId'] == null) {
+            throw new runtime.RequiredError(
+                'planId',
+                'Required parameter "planId" was null or undefined when calling apiV1LogisticsRoutesPlansPlanIdApprovePost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/logistics/routes/plans/{planId}/approve`;
+        urlPath = urlPath.replace('{planId}', encodeURIComponent(String(requestParameters['planId'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesPlansPlanIdApprovePostRaw(requestParameters: ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1LogisticsRoutesPlansPlanIdApprovePostRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesPlansPlanIdApprovePost(requestParameters: ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1LogisticsRoutesPlansPlanIdApprovePostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1LogisticsRoutesPlansPlanIdGet without sending the request
+     */
+    async apiV1LogisticsRoutesPlansPlanIdGetRequestOpts(requestParameters: ApiV1LogisticsRoutesPlansPlanIdGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['planId'] == null) {
+            throw new runtime.RequiredError(
+                'planId',
+                'Required parameter "planId" was null or undefined when calling apiV1LogisticsRoutesPlansPlanIdGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/logistics/routes/plans/{planId}`;
+        urlPath = urlPath.replace('{planId}', encodeURIComponent(String(requestParameters['planId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesPlansPlanIdGetRaw(requestParameters: ApiV1LogisticsRoutesPlansPlanIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1LogisticsRoutesPlansPlanIdGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesPlansPlanIdGet(requestParameters: ApiV1LogisticsRoutesPlansPlanIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1LogisticsRoutesPlansPlanIdGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1LogisticsRoutesRouteIdDeliveriesGet without sending the request
+     */
+    async apiV1LogisticsRoutesRouteIdDeliveriesGetRequestOpts(requestParameters: ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['routeId'] == null) {
+            throw new runtime.RequiredError(
+                'routeId',
+                'Required parameter "routeId" was null or undefined when calling apiV1LogisticsRoutesRouteIdDeliveriesGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/logistics/routes/{routeId}/deliveries`;
+        urlPath = urlPath.replace('{routeId}', encodeURIComponent(String(requestParameters['routeId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesRouteIdDeliveriesGetRaw(requestParameters: ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1LogisticsRoutesRouteIdDeliveriesGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1LogisticsRoutesRouteIdDeliveriesGet(requestParameters: ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1LogisticsRoutesRouteIdDeliveriesGetRaw(requestParameters, initOverrides);
     }
 
     /**

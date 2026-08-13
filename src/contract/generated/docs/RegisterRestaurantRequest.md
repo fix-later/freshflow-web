@@ -10,6 +10,7 @@ Name | Type
 `password` | string
 `restaurantName` | string
 `phone` | string
+`taxCode` | string
 
 ## Example
 
@@ -22,6 +23,7 @@ const example = {
   "password": null,
   "restaurantName": null,
   "phone": null,
+  "taxCode": null,
 } satisfies RegisterRestaurantRequest
 
 console.log(example)

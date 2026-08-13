@@ -12,6 +12,8 @@ Name | Type
 `description` | string
 `imageUrl` | string
 `packingCodeId` | string
+`vatRate` | string
+`minimumOrderQuantity` | number
 
 ## Example
 
@@ -26,6 +28,8 @@ const example = {
   "description": null,
   "imageUrl": null,
   "packingCodeId": null,
+  "vatRate": null,
+  "minimumOrderQuantity": null,
 } satisfies UpdateProductRequest
 
 console.log(example)

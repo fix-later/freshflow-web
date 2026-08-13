@@ -13,6 +13,9 @@ All URIs are relative to *http://localhost*
 | [**apiV1LogisticsRoutesIdReviewPost**](RoutesApi.md#apiv1logisticsroutesidreviewpost) | **POST** /api/v1/logistics/routes/{id}/review |  |
 | [**apiV1LogisticsRoutesIdSelectPost**](RoutesApi.md#apiv1logisticsroutesidselectpost) | **POST** /api/v1/logistics/routes/{id}/select |  |
 | [**apiV1LogisticsRoutesPlanPost**](RoutesApi.md#apiv1logisticsroutesplanpost) | **POST** /api/v1/logistics/routes/plan |  |
+| [**apiV1LogisticsRoutesPlansPlanIdApprovePost**](RoutesApi.md#apiv1logisticsroutesplansplanidapprovepost) | **POST** /api/v1/logistics/routes/plans/{planId}/approve |  |
+| [**apiV1LogisticsRoutesPlansPlanIdGet**](RoutesApi.md#apiv1logisticsroutesplansplanidget) | **GET** /api/v1/logistics/routes/plans/{planId} |  |
+| [**apiV1LogisticsRoutesRouteIdDeliveriesGet**](RoutesApi.md#apiv1logisticsroutesrouteiddeliveriesget) | **GET** /api/v1/logistics/routes/{routeId}/deliveries |  |
 | [**apiV1LogisticsRoutesRouteIdEligibilityGet**](RoutesApi.md#apiv1logisticsroutesrouteideligibilityget) | **GET** /api/v1/logistics/routes/{routeId}/eligibility |  |
 | [**apiV1LogisticsRoutesSuggestionsGet**](RoutesApi.md#apiv1logisticsroutessuggestionsget) | **GET** /api/v1/logistics/routes/suggestions |  |
 
@@ -649,6 +652,213 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1LogisticsRoutesPlansPlanIdApprovePost
+
+> apiV1LogisticsRoutesPlansPlanIdApprovePost(planId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  RoutesApi,
+} from '';
+import type { ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new RoutesApi(config);
+
+  const body = {
+    // string
+    planId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1LogisticsRoutesPlansPlanIdApprovePostRequest;
+
+  try {
+    const data = await api.apiV1LogisticsRoutesPlansPlanIdApprovePost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **planId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1LogisticsRoutesPlansPlanIdGet
+
+> apiV1LogisticsRoutesPlansPlanIdGet(planId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  RoutesApi,
+} from '';
+import type { ApiV1LogisticsRoutesPlansPlanIdGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new RoutesApi(config);
+
+  const body = {
+    // string
+    planId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1LogisticsRoutesPlansPlanIdGetRequest;
+
+  try {
+    const data = await api.apiV1LogisticsRoutesPlansPlanIdGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **planId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1LogisticsRoutesRouteIdDeliveriesGet
+
+> apiV1LogisticsRoutesRouteIdDeliveriesGet(routeId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  RoutesApi,
+} from '';
+import type { ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new RoutesApi(config);
+
+  const body = {
+    // string
+    routeId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1LogisticsRoutesRouteIdDeliveriesGetRequest;
+
+  try {
+    const data = await api.apiV1LogisticsRoutesRouteIdDeliveriesGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **routeId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
 - **Accept**: Not defined
 
 

@@ -1,18 +1,19 @@
-# InvoicesApi
+# TagsApi
 
 All URIs are relative to *http://localhost*
 
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
-| [**apiV1InvoicesGet**](InvoicesApi.md#apiv1invoicesget) | **GET** /api/v1/invoices |  |
-| [**apiV1InvoicesInvoiceIdExportGet**](InvoicesApi.md#apiv1invoicesinvoiceidexportget) | **GET** /api/v1/invoices/{invoiceId}/export |  |
-| [**apiV1InvoicesInvoiceIdGet**](InvoicesApi.md#apiv1invoicesinvoiceidget) | **GET** /api/v1/invoices/{invoiceId} |  |
+| [**apiV1TagsGet**](TagsApi.md#apiv1tagsget) | **GET** /api/v1/tags |  |
+| [**apiV1TagsIdDelete**](TagsApi.md#apiv1tagsiddelete) | **DELETE** /api/v1/tags/{id} |  |
+| [**apiV1TagsIdPut**](TagsApi.md#apiv1tagsidput) | **PUT** /api/v1/tags/{id} |  |
+| [**apiV1TagsPost**](TagsApi.md#apiv1tagspost) | **POST** /api/v1/tags |  |
 
 
 
-## apiV1InvoicesGet
+## apiV1TagsGet
 
-> apiV1InvoicesGet(restaurantId, status, page, pageSize)
+> apiV1TagsGet()
 
 
 
@@ -21,9 +22,9 @@ All URIs are relative to *http://localhost*
 ```ts
 import {
   Configuration,
-  InvoicesApi,
+  TagsApi,
 } from '';
-import type { ApiV1InvoicesGetRequest } from '';
+import type { ApiV1TagsGetRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -31,21 +32,10 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new InvoicesApi(config);
-
-  const body = {
-    // string (optional)
-    restaurantId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-    // string (optional)
-    status: status_example,
-    // number (optional)
-    page: 56,
-    // number (optional)
-    pageSize: 56,
-  } satisfies ApiV1InvoicesGetRequest;
+  const api = new TagsApi(config);
 
   try {
-    const data = await api.apiV1InvoicesGet(body);
+    const data = await api.apiV1TagsGet();
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -58,13 +48,7 @@ example().catch(console.error);
 
 ### Parameters
 
-
-| Name | Type | Description  | Notes |
-|------------- | ------------- | ------------- | -------------|
-| **restaurantId** | `string` |  | [Optional] [Defaults to `undefined`] |
-| **status** | `string` |  | [Optional] [Defaults to `undefined`] |
-| **page** | `number` |  | [Optional] [Defaults to `1`] |
-| **pageSize** | `number` |  | [Optional] [Defaults to `20`] |
+This endpoint does not need any parameter.
 
 ### Return type
 
@@ -88,9 +72,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1InvoicesInvoiceIdExportGet
+## apiV1TagsIdDelete
 
-> apiV1InvoicesInvoiceIdExportGet(invoiceId)
+> apiV1TagsIdDelete(id)
 
 
 
@@ -99,9 +83,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  InvoicesApi,
+  TagsApi,
 } from '';
-import type { ApiV1InvoicesInvoiceIdExportGetRequest } from '';
+import type { ApiV1TagsIdDeleteRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -109,15 +93,15 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new InvoicesApi(config);
+  const api = new TagsApi(config);
 
   const body = {
     // string
-    invoiceId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-  } satisfies ApiV1InvoicesInvoiceIdExportGetRequest;
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1TagsIdDeleteRequest;
 
   try {
-    const data = await api.apiV1InvoicesInvoiceIdExportGet(body);
+    const data = await api.apiV1TagsIdDelete(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -133,7 +117,7 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **invoiceId** | `string` |  | [Defaults to `undefined`] |
+| **id** | `string` |  | [Defaults to `undefined`] |
 
 ### Return type
 
@@ -157,9 +141,9 @@ example().catch(console.error);
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 
 
-## apiV1InvoicesInvoiceIdGet
+## apiV1TagsIdPut
 
-> apiV1InvoicesInvoiceIdGet(invoiceId)
+> apiV1TagsIdPut(id, updateTagRequest)
 
 
 
@@ -168,9 +152,9 @@ example().catch(console.error);
 ```ts
 import {
   Configuration,
-  InvoicesApi,
+  TagsApi,
 } from '';
-import type { ApiV1InvoicesInvoiceIdGetRequest } from '';
+import type { ApiV1TagsIdPutRequest } from '';
 
 async function example() {
   console.log("🚀 Testing  SDK...");
@@ -178,15 +162,17 @@ async function example() {
     // Configure HTTP bearer authorization: Bearer
     accessToken: "YOUR BEARER TOKEN",
   });
-  const api = new InvoicesApi(config);
+  const api = new TagsApi(config);
 
   const body = {
     // string
-    invoiceId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-  } satisfies ApiV1InvoicesInvoiceIdGetRequest;
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // UpdateTagRequest (optional)
+    updateTagRequest: ...,
+  } satisfies ApiV1TagsIdPutRequest;
 
   try {
-    const data = await api.apiV1InvoicesInvoiceIdGet(body);
+    const data = await api.apiV1TagsIdPut(body);
     console.log(data);
   } catch (error) {
     console.error(error);
@@ -202,7 +188,8 @@ example().catch(console.error);
 
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
-| **invoiceId** | `string` |  | [Defaults to `undefined`] |
+| **id** | `string` |  | [Defaults to `undefined`] |
+| **updateTagRequest** | [UpdateTagRequest](UpdateTagRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -214,7 +201,76 @@ example().catch(console.error);
 
 ### HTTP request headers
 
-- **Content-Type**: Not defined
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1TagsPost
+
+> apiV1TagsPost(createTagRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  TagsApi,
+} from '';
+import type { ApiV1TagsPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new TagsApi(config);
+
+  const body = {
+    // CreateTagRequest (optional)
+    createTagRequest: ...,
+  } satisfies ApiV1TagsPostRequest;
+
+  try {
+    const data = await api.apiV1TagsPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **createTagRequest** | [CreateTagRequest](CreateTagRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
 - **Accept**: Not defined
 
 

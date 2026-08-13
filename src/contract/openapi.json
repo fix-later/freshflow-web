@@ -214,6 +214,29 @@
         }
       }
     },
+    "/api/v1/admin/restaurants/{restaurantId}/profile": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/restaurants/{restaurantId}/approve": {
       "patch": {
         "tags": [
@@ -324,6 +347,26 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "text/plain": {
                 "schema": {
@@ -1815,10 +1858,226 @@
         }
       }
     },
+    "/api/v1/orders/{orderId}/claims": {
+      "post": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "orderId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileClaimRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileClaimRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/FileClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/claims/{claimId}/approve": {
+      "patch": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveClaimRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveClaimRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApproveClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/claims/{claimId}/reject": {
+      "patch": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectClaimRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectClaimRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectClaimRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/claims/{claimId}": {
+      "get": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "claimId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/claims": {
+      "get": {
+        "tags": [
+          "Claims"
+        ],
+        "parameters": [
+          {
+            "name": "restaurantId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/driver/routes/today": {
       "get": {
         "tags": [
           "Driver"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/driver/routes": {
+      "get": {
+        "tags": [
+          "Driver"
+        ],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -2497,6 +2756,38 @@
         }
       }
     },
+    "/api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy/upload-signature": {
+      "post": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "inboundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/hubs/{hubId}/discrepancies": {
       "get": {
         "tags": [
@@ -3116,6 +3407,29 @@
         }
       }
     },
+    "/api/v1/invoices/{invoiceId}/export": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/markets": {
       "get": {
         "tags": [
@@ -3323,31 +3637,18 @@
               "format": "int32",
               "default": 20
             }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "OK"
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "text/plain": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemDetails"
-                }
-              }
-            }
           },
           "404": {
             "description": "Not Found",
@@ -4067,6 +4368,137 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/markets/{marketId}/products/{productId}/tags": {
+      "put": {
+        "tags": [
+          "Markets"
+        ],
+        "parameters": [
+          {
+            "name": "marketId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "productId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMarketProductTagsRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMarketProductTagsRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetMarketProductTagsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "text/plain": {
                 "schema": {
@@ -5514,6 +5946,25 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOrderRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOrderRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmOrderRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -5611,6 +6062,14 @@
             "name": "orderId",
             "in": "path",
             "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "deliveryAddressId",
+            "in": "query",
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -7883,6 +8342,52 @@
         }
       }
     },
+    "/api/v1/logistics/routes/plans/{planId}/approve": {
+      "post": {
+        "tags": [
+          "Routes"
+        ],
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/logistics/routes/plans/{planId}": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "parameters": [
+          {
+            "name": "planId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/logistics/routes/{id}/select": {
       "post": {
         "tags": [
@@ -8177,6 +8682,29 @@
         }
       }
     },
+    "/api/v1/logistics/routes/{routeId}/deliveries": {
+      "get": {
+        "tags": [
+          "Routes"
+        ],
+        "parameters": [
+          {
+            "name": "routeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/logistics/routes/{id}/loading-manifest": {
       "get": {
         "tags": [
@@ -8218,6 +8746,110 @@
           {
             "name": "vehicle_id",
             "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tags": {
+      "get": {
+        "tags": [
+          "Tags"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tags"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/tags/{id}": {
+      "put": {
+        "tags": [
+          "Tags"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTagRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTagRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTagRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Tags"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "string",
               "format": "uuid"
@@ -8425,6 +9057,14 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "name": "hub_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -8517,6 +9157,48 @@
           }
         }
       }
+    },
+    "/api/v1/logistics/vehicles/{id}/hub": {
+      "put": {
+        "tags": [
+          "Vehicles"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignVehicleToHubRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignVehicleToHubRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignVehicleToHubRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8574,6 +9256,17 @@
         },
         "additionalProperties": false
       },
+      "ApproveClaimRequest": {
+        "type": "object",
+        "properties": {
+          "decisionNote": {
+            "maxLength": 1000,
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "AssignAgentRequest": {
         "required": [
           "agentUserId"
@@ -8621,6 +9314,20 @@
         },
         "additionalProperties": false
       },
+      "AssignVehicleToHubRequest": {
+        "required": [
+          "hubId"
+        ],
+        "type": "object",
+        "properties": {
+          "hubId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "additionalProperties": false
+      },
       "AssistantChatRequest": {
         "required": [
           "message",
@@ -8639,6 +9346,11 @@
             "type": "string"
           },
           "marketId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "deliveryAddressId": {
             "type": "string",
             "format": "uuid",
             "nullable": true
@@ -8732,6 +9444,20 @@
             "minLength": 8,
             "pattern": "(?=[\\s\\S]*(?:[A-Z]))(?=[\\s\\S]*(?:[0-9]))(?=[\\s\\S]*(?:[^a-zA-Z0-9]))",
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfirmOrderRequest": {
+        "required": [
+          "deliveryAddressId"
+        ],
+        "type": "object",
+        "properties": {
+          "deliveryAddressId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -8977,6 +9703,12 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "code": {
+            "maxLength": 8,
+            "pattern": "^[A-Z]+$",
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9036,13 +9768,25 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "vatRate": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimumOrderQuantity": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
       },
       "CreateScheduledOrderRequest": {
         "required": [
+          "deliveryAddressId",
           "firstRunAt",
+          "items",
           "recurrenceType"
         ],
         "type": "object",
@@ -9060,6 +9804,35 @@
             "maxLength": 500,
             "type": "string",
             "nullable": true
+          },
+          "deliveryAddressId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
+          "items": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DraftOrderItemRequest"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CreateTagRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "pinsToTop": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -9172,6 +9945,26 @@
             "exclusiveMinimum": true,
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "FileClaimRequest": {
+        "required": [
+          "reason"
+        ],
+        "type": "object",
+        "properties": {
+          "amount": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "number",
+            "format": "double"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -9442,6 +10235,10 @@
             "maxLength": 1000,
             "type": "string",
             "nullable": true
+          },
+          "proofImageUrl": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9602,6 +10399,10 @@
           "phone": {
             "type": "string",
             "nullable": true
+          },
+          "taxCode": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9626,6 +10427,25 @@
           "vehicleType": {
             "type": "string",
             "nullable": true
+          },
+          "hubId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "RejectClaimRequest": {
+        "required": [
+          "decisionNote"
+        ],
+        "type": "object",
+        "properties": {
+          "decisionNote": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -9869,7 +10689,27 @@
         },
         "additionalProperties": false
       },
+      "SetMarketProductTagsRequest": {
+        "required": [
+          "tagIds"
+        ],
+        "type": "object",
+        "properties": {
+          "tagIds": {
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "SettleCreditRequest": {
+        "required": [
+          "reference"
+        ],
         "type": "object",
         "properties": {
           "amount": {
@@ -9884,8 +10724,8 @@
           },
           "reference": {
             "maxLength": 200,
-            "type": "string",
-            "nullable": true
+            "minLength": 1,
+            "type": "string"
           },
           "note": {
             "maxLength": 500,
@@ -10041,6 +10881,12 @@
           "description": {
             "type": "string",
             "nullable": true
+          },
+          "code": {
+            "maxLength": 8,
+            "pattern": "^[A-Z]+$",
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10082,6 +10928,34 @@
             "minimum": 1,
             "type": "integer",
             "format": "int32"
+          },
+          "deliveryFeePerKm": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "baseFee": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "minimumFee": {
+            "maximum": 10000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "roundingUnit": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10190,6 +11064,16 @@
             "type": "string",
             "format": "uuid",
             "nullable": true
+          },
+          "vatRate": {
+            "type": "string",
+            "nullable": true
+          },
+          "minimumOrderQuantity": {
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -10246,6 +11130,35 @@
             "maxLength": 500,
             "type": "string",
             "nullable": true
+          },
+          "deliveryAddressId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DraftOrderItemRequest"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "UpdateTagRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "maxLength": 30,
+            "minLength": 1,
+            "type": "string"
+          },
+          "pinsToTop": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -10310,6 +11223,11 @@
           "vehicleType": {
             "type": "string",
             "nullable": true
+          },
+          "hubId": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10370,6 +11288,9 @@
       "name": "Categories"
     },
     {
+      "name": "Claims"
+    },
+    {
       "name": "Driver"
     },
     {
@@ -10428,6 +11349,9 @@
     },
     {
       "name": "Shipping"
+    },
+    {
+      "name": "Tags"
     },
     {
       "name": "Units"

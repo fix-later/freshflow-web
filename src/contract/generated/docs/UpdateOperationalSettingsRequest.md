@@ -10,6 +10,10 @@ Name | Type
 `batchingEnabled` | boolean
 `defaultRouteType` | string
 `deliveryWindowDays` | number
+`deliveryFeePerKm` | number
+`baseFee` | number
+`minimumFee` | number
+`roundingUnit` | number
 
 ## Example
 
@@ -22,6 +26,10 @@ const example = {
   "batchingEnabled": null,
   "defaultRouteType": null,
   "deliveryWindowDays": null,
+  "deliveryFeePerKm": null,
+  "baseFee": null,
+  "minimumFee": null,
+  "roundingUnit": null,
 } satisfies UpdateOperationalSettingsRequest
 
 console.log(example)

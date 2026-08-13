@@ -43,6 +43,12 @@ export interface RecordDiscrepancyRequest {
      * @memberof RecordDiscrepancyRequest
      */
     notes?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof RecordDiscrepancyRequest
+     */
+    proofImageUrl?: string | null;
 }
 
 /**
@@ -67,6 +73,7 @@ export function RecordDiscrepancyRequestFromJSONTyped(json: any, ignoreDiscrimin
         'affectedQuantity': json['affectedQuantity'] == null ? undefined : json['affectedQuantity'],
         'conditionStatus': json['conditionStatus'] == null ? undefined : json['conditionStatus'],
         'notes': json['notes'] == null ? undefined : json['notes'],
+        'proofImageUrl': json['proofImageUrl'] == null ? undefined : json['proofImageUrl'],
     };
 }
 
@@ -85,6 +92,7 @@ export function RecordDiscrepancyRequestToJSONTyped(value?: RecordDiscrepancyReq
         'affectedQuantity': value['affectedQuantity'],
         'conditionStatus': value['conditionStatus'],
         'notes': value['notes'],
+        'proofImageUrl': value['proofImageUrl'],
     };
 }
 
