@@ -457,8 +457,12 @@ export class LogisticsAdminService {
     /**
      * Drivers currently eligible to take a load out of `hubId`.
      *
-     * `hubId` is RBAC scoping only — the fleet is shared across hubs (no
-     * `Vehicle.HubId`), so the backend does **not** filter the result by hub.
+     * `hubId` is RBAC scoping only: `ListEligibleDriversQueryHandler` reads
+     * every active `driver` account and never looks at the hub, because no
+     * driver↔hub relation exists — a driver only meets a hub through a
+     * delivery route (`DeliveryRoute.HubId` + `DriverUserId`). Callers pass the
+     * hub they are working from, so the result narrows on its own the day the
+     * backend does filter.
      */
     async getEligibleDrivers(hubId: string): Promise<CrudRow[]> {
         const res = await hubHandoverApi.apiV1HubsHubIdDriversEligibleGetRaw({

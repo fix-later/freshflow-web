@@ -138,7 +138,7 @@
                         <mat-select formControlName="role" required>
                             @for (role of roles(); track role) {
                                 <mat-option [value]="role">{{
-                                    role
+                                    role | roleLabel
                                 }}</mat-option>
                             }
                         </mat-select>

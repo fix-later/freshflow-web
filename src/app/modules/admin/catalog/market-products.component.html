@@ -295,6 +295,7 @@
                     <div
                         class="market-products-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                     >
+                        <div>{{ t('admin.products.image') }}</div>
                         <div [attr.aria-sort]="sort.ariaSort('name')">
                             <button
                                 type="button"
@@ -307,6 +308,47 @@
                                     [class.text-accent]="sort.key() === 'name'"
                                     [svgIcon]="
                                         'heroicons_outline:' + sort.icon('name')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden lg:block"
+                            [attr.aria-sort]="sort.ariaSort('category')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle('category')"
+                            >
+                                {{ t('admin.products.category') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'category'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('category')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
+                        <div
+                            class="hidden lg:block"
+                            [attr.aria-sort]="sort.ariaSort('unit')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="sort.toggle('unit')"
+                            >
+                                {{ t('admin.products.unit') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="sort.key() === 'unit'"
+                                    [svgIcon]="
+                                        'heroicons_outline:' + sort.icon('unit')
                                     "
                                 ></mat-icon>
                             </button>
@@ -357,8 +399,42 @@
                         <div
                             class="market-products-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
                         >
+                            <div>
+                                @if (row.imageUrl) {
+                                    <img
+                                        class="product-thumb"
+                                        loading="lazy"
+                                        alt=""
+                                        [src]="row.imageUrl"
+                                    />
+                                } @else {
+                                    <div
+                                        class="product-thumb text-secondary bg-hover flex items-center justify-center"
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:photo"
+                                        ></mat-icon>
+                                    </div>
+                                }
+                            </div>
                             <div class="min-w-0 truncate font-medium">
                                 {{ row.name || '—' }}
+                            </div>
+                            <div class="hidden min-w-0 lg:block">
+                                @if (categoryParent(row); as parent) {
+                                    <div
+                                        class="text-secondary truncate text-xs"
+                                    >
+                                        {{ parent }}
+                                    </div>
+                                }
+                                <div class="truncate">
+                                    {{ row.category || '—' }}
+                                </div>
+                            </div>
+                            <div class="hidden min-w-0 truncate lg:block">
+                                {{ row.unit || '—' }}
                             </div>
                             <div>
                                 <mat-form-field

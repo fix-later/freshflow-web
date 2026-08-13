@@ -103,7 +103,7 @@
                 [active]="activeRole() === role"
                 (click)="selectRole(role)"
             >
-                {{ role }}
+                {{ role | roleLabel }}
             </a>
         }
     </nav>
@@ -182,7 +182,7 @@
                                     {{ user.email || user.id }}
                                 </div>
                                 <div class="truncate">
-                                    {{ user.role || '—' }}
+                                    {{ (user.role | roleLabel) || '—' }}
                                 </div>
                                 <div class="truncate">
                                     {{ user.restaurantName || '—' }}
@@ -370,6 +370,7 @@
                                                                 [value]="role"
                                                                 >{{
                                                                     role
+                                                                        | roleLabel
                                                                 }}</mat-option
                                                             >
                                                         }

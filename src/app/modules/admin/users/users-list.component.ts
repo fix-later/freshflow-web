@@ -23,6 +23,7 @@ import { Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { RoleLabelPipe } from 'app/core/i18n/role-label.pipe';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
@@ -64,6 +65,7 @@ const RESTAURANT_ROLE = 'restaurant';
         MatTabsModule,
         ReactiveFormsModule,
         RestaurantsAdminComponent,
+        RoleLabelPipe,
         TranslocoModule,
     ],
     styles: [

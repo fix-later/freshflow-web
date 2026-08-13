@@ -79,172 +79,176 @@
                 class="flex min-h-0 flex-auto flex-col overflow-y-auto"
             >
                 @if (selectedTab() === 0) {
-                    <div class="flex flex-col gap-8 p-6 md:p-8">
-                        @if (metaEntries().length) {
-                            <section>
-                                <div class="mb-3 text-lg font-semibold">
-                                    {{ t('admin.markets.editPage.info') }}
-                                </div>
-                                <div
-                                    class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"
-                                >
-                                    @for (
-                                        field of metaEntries();
-                                        track field.label
-                                    ) {
-                                        <div
-                                            class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
-                                        >
-                                            <span
-                                                class="text-secondary text-xs font-medium uppercase tracking-wider"
-                                                >{{ t(field.label) }}</span
-                                            >
-                                            <span
-                                                class="min-w-0 break-words font-medium"
-                                                >{{ field.value }}</span
-                                            >
-                                        </div>
-                                    }
-                                </div>
-                            </section>
-                        }
-
+                    <div class="p-6 md:p-8">
                         <form
                             class="flex flex-col gap-6"
                             [formGroup]="form"
                             (ngSubmit)="save()"
                         >
-                            <div class="text-lg font-semibold">
-                                {{ t('admin.markets.editPage.editSection') }}
-                            </div>
-
-                            <div
-                                class="flex flex-col gap-0 sm:flex-row sm:gap-4"
-                            >
-                                <mat-form-field class="w-full sm:w-1/3">
-                                    <mat-label>{{
-                                        t('admin.markets.name')
-                                    }}</mat-label>
-                                    <input matInput formControlName="name" />
-                                    @if (
-                                        form.controls.name.touched &&
-                                        form.controls.name.hasError('required')
-                                    ) {
-                                        <mat-error>{{
-                                            t('admin.crud.errors.required')
-                                        }}</mat-error>
-                                    }
-                                </mat-form-field>
-                                <mat-form-field class="w-full sm:w-1/3">
-                                    <mat-label>{{
-                                        t('admin.markets.location')
-                                    }}</mat-label>
-                                    <input
-                                        matInput
-                                        formControlName="location"
-                                    />
-                                </mat-form-field>
-                                <mat-form-field class="w-full sm:w-1/3">
-                                    <mat-label>{{
-                                        t('admin.markets.agent')
-                                    }}</mat-label>
-                                    <mat-select
-                                        formControlName="agentUserIds"
-                                        multiple
+                            <!-- Details two thirds, the market's own picture and
+                                 timestamps one third. -->
+                            <div class="grid gap-6 lg:grid-cols-3">
+                                <div class="flex flex-col gap-6 lg:col-span-2">
+                                    <div
+                                        class="flex flex-col gap-0 sm:flex-row sm:gap-4"
                                     >
-                                        @for (
-                                            agent of agentOptions();
-                                            track agent.id
-                                        ) {
-                                            <mat-option [value]="agent.id">{{
-                                                agentLabel(agent)
-                                            }}</mat-option>
-                                        }
-                                    </mat-select>
-                                    @if (
-                                        !form.controls.agentUserIds.value.length
-                                    ) {
-                                        <mat-hint>{{
-                                            t('admin.markets.agentNone')
-                                        }}</mat-hint>
-                                    }
-                                </mat-form-field>
-                            </div>
+                                        <mat-form-field class="w-full sm:w-1/2">
+                                            <mat-label>{{
+                                                t('admin.markets.name')
+                                            }}</mat-label>
+                                            <input
+                                                matInput
+                                                formControlName="name"
+                                            />
+                                            @if (
+                                                form.controls.name.touched &&
+                                                form.controls.name.hasError(
+                                                    'required'
+                                                )
+                                            ) {
+                                                <mat-error>{{
+                                                    t(
+                                                        'admin.crud.errors.required'
+                                                    )
+                                                }}</mat-error>
+                                            }
+                                        </mat-form-field>
+                                        <mat-form-field class="w-full sm:w-1/2">
+                                            <mat-label>{{
+                                                t('admin.markets.location')
+                                            }}</mat-label>
+                                            <input
+                                                matInput
+                                                formControlName="location"
+                                            />
+                                        </mat-form-field>
+                                    </div>
 
-                            <mat-form-field class="w-full">
-                                <mat-label>{{
-                                    t('admin.markets.description')
-                                }}</mat-label>
-                                <textarea
-                                    matInput
-                                    rows="3"
-                                    formControlName="description"
-                                ></textarea>
-                            </mat-form-field>
+                                    <mat-form-field class="w-full">
+                                        <mat-label>{{
+                                            t('admin.markets.description')
+                                        }}</mat-label>
+                                        <textarea
+                                            matInput
+                                            rows="3"
+                                            formControlName="description"
+                                        ></textarea>
+                                    </mat-form-field>
 
-                            <div class="flex flex-col gap-2">
-                                <span
-                                    class="text-secondary text-sm font-medium"
-                                    >{{ t('admin.markets.image') }}</span
-                                >
-                                <div class="flex items-center gap-4">
-                                    @if (form.controls.imageUrl.value) {
-                                        <img
-                                            class="h-24 w-24 rounded-lg border object-cover"
-                                            [src]="form.controls.imageUrl.value"
-                                            [alt]="t('admin.markets.image')"
-                                        />
-                                    }
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="uploading()"
-                                        (click)="marketImageInput.click()"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:cloud-arrow-up"
-                                        ></mat-icon>
-                                        <span class="ml-2">{{
-                                            uploading()
-                                                ? t(
-                                                      'admin.crud.image.uploading'
-                                                  )
-                                                : t('admin.crud.image.upload')
-                                        }}</span>
-                                    </button>
-                                    @if (form.controls.imageUrl.value) {
-                                        <button
-                                            mat-icon-button
-                                            type="button"
-                                            [disabled]="uploading()"
-                                            [matTooltip]="
-                                                t('admin.crud.image.remove')
-                                            "
-                                            (click)="clearImage()"
+                                    <!-- The address search fills latitude and
+                                         longitude, so the two number fields are
+                                         hidden rather than removed. -->
+                                    <app-location-picker
+                                        [latControl]="form.controls.latitude"
+                                        [lngControl]="form.controls.longitude"
+                                        [queryControl]="form.controls.address"
+                                        [showManualCoords]="false"
+                                        searchLabelKey="admin.markets.address"
+                                        mapHeightClass="h-[26rem]"
+                                    ></app-location-picker>
+                                </div>
+
+                                <div class="flex flex-col gap-6">
+                                    <div class="flex flex-col gap-2">
+                                        <span
+                                            class="text-secondary text-sm font-medium"
+                                            >{{
+                                                t('admin.markets.image')
+                                            }}</span
                                         >
-                                            <mat-icon
-                                                svgIcon="heroicons_outline:trash"
-                                            ></mat-icon>
-                                        </button>
+                                        @if (form.controls.imageUrl.value) {
+                                            <img
+                                                class="aspect-[4/3] w-full rounded-xl border object-cover"
+                                                [src]="
+                                                    form.controls.imageUrl.value
+                                                "
+                                                [alt]="t('admin.markets.image')"
+                                            />
+                                        } @else {
+                                            <div
+                                                class="text-secondary bg-hover flex aspect-[4/3] w-full items-center justify-center rounded-xl border border-dashed"
+                                            >
+                                                <mat-icon
+                                                    svgIcon="heroicons_outline:photo"
+                                                ></mat-icon>
+                                            </div>
+                                        }
+                                        <div class="flex items-center gap-2">
+                                            <button
+                                                class="flex-auto"
+                                                mat-stroked-button
+                                                type="button"
+                                                [disabled]="uploading()"
+                                                (click)="
+                                                    marketImageInput.click()
+                                                "
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-5"
+                                                    svgIcon="heroicons_outline:cloud-arrow-up"
+                                                ></mat-icon>
+                                                <span class="ml-2">{{
+                                                    uploading()
+                                                        ? t(
+                                                              'admin.crud.image.uploading'
+                                                          )
+                                                        : t(
+                                                              'admin.crud.image.upload'
+                                                          )
+                                                }}</span>
+                                            </button>
+                                            @if (form.controls.imageUrl.value) {
+                                                <button
+                                                    mat-icon-button
+                                                    type="button"
+                                                    [disabled]="uploading()"
+                                                    [matTooltip]="
+                                                        t(
+                                                            'admin.crud.image.remove'
+                                                        )
+                                                    "
+                                                    (click)="clearImage()"
+                                                >
+                                                    <mat-icon
+                                                        svgIcon="heroicons_outline:trash"
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                        </div>
+                                        <input
+                                            #marketImageInput
+                                            class="hidden"
+                                            type="file"
+                                            accept="image/*"
+                                            (change)="onImagePicked($event)"
+                                        />
+                                    </div>
+
+                                    @if (metaEntries().length) {
+                                        <div class="flex flex-col gap-3">
+                                            @for (
+                                                field of metaEntries();
+                                                track field.label
+                                            ) {
+                                                <div
+                                                    class="flex min-w-0 flex-col gap-0.5 border-b py-1.5"
+                                                >
+                                                    <span
+                                                        class="text-secondary text-xs font-medium uppercase tracking-wider"
+                                                        >{{
+                                                            t(field.label)
+                                                        }}</span
+                                                    >
+                                                    <span
+                                                        class="min-w-0 break-words font-medium"
+                                                        >{{ field.value }}</span
+                                                    >
+                                                </div>
+                                            }
+                                        </div>
                                     }
                                 </div>
-                                <input
-                                    #marketImageInput
-                                    class="hidden"
-                                    type="file"
-                                    accept="image/*"
-                                    (change)="onImagePicked($event)"
-                                />
                             </div>
-
-                            <app-location-picker
-                                [latControl]="form.controls.latitude"
-                                [lngControl]="form.controls.longitude"
-                                [queryControl]="form.controls.address"
-                                searchLabelKey="admin.markets.address"
-                                mapHeightClass="h-[32rem]"
-                            ></app-location-picker>
 
                             <div
                                 class="flex w-full flex-wrap items-center justify-between gap-3 border-t pt-4"
@@ -295,27 +299,33 @@
                         </form>
                     </div>
                 } @else if (selectedTab() === 1) {
-                    @if (hubResource(); as hubs) {
-                        <admin-resource-crud
-                            [resource]="hubs"
-                            [embedded]="true"
-                        ></admin-resource-crud>
-                    }
+                    <admin-market-staff-panel [marketId]="currentMarket.id" />
                 } @else if (selectedTab() === 2) {
-                    @if (vehicleResource(); as vehicles) {
-                        <admin-resource-crud
-                            [resource]="vehicles"
-                            [embedded]="true"
-                        ></admin-resource-crud>
-                    }
-                } @else if (selectedTab() === 3) {
-                    <admin-market-fleet-panel />
-                } @else {
                     @if (pricingTabLoaded()) {
                         <admin-market-products
                             [marketId]="currentMarket.id"
                             [embedded]="true"
                         ></admin-market-products>
+                    }
+                } @else if (selectedTab() === 3) {
+                    @if (openHubId(); as hubId) {
+                        <admin-hub-edit
+                            [embedded]="true"
+                            [hubId]="hubId"
+                            (closed)="onHubClosed()"
+                        />
+                    } @else if (hubResource(); as hubs) {
+                        <admin-resource-crud
+                            [resource]="hubs"
+                            [embedded]="true"
+                        ></admin-resource-crud>
+                    }
+                } @else {
+                    @if (vehicleResource(); as vehicles) {
+                        <admin-resource-crud
+                            [resource]="vehicles"
+                            [embedded]="true"
+                        ></admin-resource-crud>
                     }
                 }
             </mat-tab-nav-panel>

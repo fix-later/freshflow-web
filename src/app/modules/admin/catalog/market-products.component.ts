@@ -35,6 +35,10 @@ import { CatalogAdminService } from './catalog-admin.service';
 interface MarketProductRow {
     productId: string;
     name: string;
+    /** Product photo (`MarketProductItemDto.ImageUrl`), may be empty. */
+    imageUrl: string;
+    /** The product's own category — a name, denormalised on the product row. */
+    category: string;
     /** Selling unit, for labelling the quantity on the price-history screen. */
     unit: string;
     price: number | null;
@@ -124,9 +128,25 @@ function decimalPlaces(value: number): number {
         `
             /* Actions column carries the pin indicator + history + save. */
             .market-products-grid {
+                /* thumb | product | price | quantity | tags | actions */
                 grid-template-columns:
-                    minmax(0, 1.2fr) 8.5rem 8.5rem minmax(0, 1fr)
+                    3.25rem minmax(0, 1.2fr) 8.5rem 8.5rem minmax(0, 1fr)
                     9.5rem;
+
+                @screen lg {
+                    /* … + category and unit, which need the room to earn a column */
+                    grid-template-columns:
+                        3.25rem minmax(0, 1.2fr) minmax(0, 1fr) 7rem 8.5rem
+                        8.5rem minmax(0, 1fr) 9.5rem;
+                }
+            }
+
+            .market-products-grid .product-thumb {
+                width: 2.5rem;
+                height: 2.5rem;
+                flex: 0 0 auto;
+                border-radius: 0.5rem;
+                object-fit: cover;
             }
 
             .product-picker-grid {
@@ -219,6 +239,11 @@ export class MarketProductsComponent implements OnInit {
             switch (key) {
                 case 'name':
                     return row.name;
+                case 'category':
+                    // Parent first, so a sort groups the children under it.
+                    return `${this.categoryParent(row)} ${row.category}`.trim();
+                case 'unit':
+                    return row.unit;
                 case 'price':
                     return row.price;
                 case 'quantity':
@@ -245,6 +270,8 @@ export class MarketProductsComponent implements OnInit {
 
     /** The tag catalog, loaded once — the source for every row's picker. */
     readonly tagCatalog = signal<CatalogTag[]>([]);
+    /** category name → parent category name, for the two-line category cell. */
+    readonly parentByCategory = signal<Map<string, string>>(new Map());
     readonly loadingTags = signal(false);
 
     readonly maxTags = MAX_MARKET_PRODUCT_TAGS;
@@ -285,6 +312,16 @@ export class MarketProductsComponent implements OnInit {
         this.load();
         this._loadPickerProducts();
         this._loadTagCatalog();
+        this._loadCategoryParents();
+    }
+
+    /**
+     * Parent of a product's category, or '' when the category is top-level or
+     * unknown. The listing carries the category as a **name**, so the lookup is
+     * by name; the catalog is small and loaded once.
+     */
+    categoryParent(row: MarketProductRow): string {
+        return this.parentByCategory().get(row.category) ?? '';
     }
 
     goBack(): void {
@@ -632,11 +669,31 @@ export class MarketProductsComponent implements OnInit {
         return {
             productId: String(row['productId'] ?? row.id ?? ''),
             name: String(row['productName'] ?? row['name'] ?? ''),
+            imageUrl: String(row['imageUrl'] ?? ''),
+            category: String(row['category'] ?? row['categoryName'] ?? ''),
             unit: String(row['unit'] ?? sellingUnit?.['unitName'] ?? ''),
             price: num(row['price'] ?? row['currentPrice']),
             quantity: num(row['availableQuantity'] ?? row['quantity']),
             tags: readTagList(row['tags']),
         };
+    }
+
+    private _loadCategoryParents(): void {
+        void this._catalog
+            .listCategories()
+            .then((rows) =>
+                this.parentByCategory.set(
+                    new Map(
+                        rows.map((row): [string, string] => [
+                            String(row['name'] ?? ''),
+                            String(row['parentName'] ?? '').trim(),
+                        ])
+                    )
+                )
+            )
+            // Without it the cell shows the leaf category alone, which is still
+            // correct — just less context.
+            .catch(() => this.parentByCategory.set(new Map()));
     }
 
     private _loadTagCatalog(): void {

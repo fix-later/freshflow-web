@@ -31,7 +31,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
@@ -106,7 +105,6 @@ import {
 export class ProductsComponent implements OnInit {
     private readonly _catalog = inject(CatalogAdminService);
     private readonly _dialog = inject(MatDialog);
-    private readonly _router = inject(Router);
     private readonly _confirmation = inject(FuseConfirmationService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
@@ -329,8 +327,69 @@ export class ProductsComponent implements OnInit {
         });
     }
 
-    openCreate(): void {
-        void this._router.navigate(['/admin/products/new']);
+    /**
+     * Creating and editing share one dialog: the fields are the same, and a
+     * separate page for the same form was one more place for the two to drift.
+     * `selectedId() === null` is what tells them apart — the image and the
+     * read-only metadata belong to a product that already exists.
+     */
+    openCreate(template: TemplateRef<unknown>): void {
+        this.selectedId.set(null);
+        this.selectedRow.set(null);
+        this.editParentId.set('');
+        this.editChildSearch.set('');
+        this.flashMessage.set(null);
+        this.selectedForm.reset({
+            name: '',
+            unitId: '',
+            categoryId: '',
+            description: '',
+            imageUrl: '',
+            packingCodeId: '',
+        });
+        this._editDialogRef = this._dialog.open(template, {
+            width: '720px',
+            maxWidth: '95vw',
+            autoFocus: 'first-tabbable',
+        });
+    }
+
+    /** Saves the dialog — create when there is no row behind it, else update. */
+    submitSelected(): void {
+        if (this.selectedId()) {
+            this.updateSelected();
+            return;
+        }
+        if (this.selectedForm.invalid) {
+            this.selectedForm.markAllAsTouched();
+            return;
+        }
+        const value = this.selectedForm.getRawValue();
+        const payload = {
+            ...value,
+            categoryId: value.categoryId || this.editParentId(),
+        };
+        this.saving.set(true);
+        this._catalog
+            .createProduct(payload)
+            // `CreateProductRequest` carries no image, so a picture chosen in
+            // the dialog is written straight after, with the id the create just
+            // handed back. Without an id there is nothing to attach it to.
+            .then((productId) =>
+                productId && payload.imageUrl
+                    ? this._catalog.updateProduct(productId, payload)
+                    : undefined
+            )
+            .then(() => {
+                this._notify('admin.crud.createSuccess');
+                this.closeDetails();
+                this.load();
+            })
+            .catch((err) => {
+                this.showFlashMessage('error');
+                void this._notifyError(err, 'admin.crud.saveError');
+            })
+            .finally(() => this.saving.set(false));
     }
 
     onEditParentChange(parentId: string): void {

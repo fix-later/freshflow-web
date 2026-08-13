@@ -193,15 +193,15 @@ const NAVIGATION: AreaNavItem[] = [
         link: '/admin/markets',
         area: 'admin',
     },
-    // Sản phẩm is both: clicking it opens the product list and expands the
-    // reference data behind it (categories, units, packing codes, tags — the
-    // "chưa gộp" set, until the product config tabs absorb them).
+    // Sản phẩm only opens its branch — the list is the first child, so the
+    // parent stays a heading over the reference data behind it (categories,
+    // units, packing codes, tags — the "chưa gộp" set, until the product config
+    // tabs absorb them).
     {
         id: 'admin.products',
         title: 'nav.admin.products',
         type: 'collapsable',
         icon: 'heroicons_outline:cube',
-        link: '/admin/products',
         area: 'admin',
         children: [
             {

@@ -43,7 +43,7 @@ import {
     MARKET_LOCATION_MAX_LENGTH,
     MARKET_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
-import { MarketFleetPanelComponent } from './market-fleet-panel.component';
+import { MarketStaffPanelComponent } from './market-staff-panel.component';
 import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
 
 /** Admin ▸ Catalog ▸ Markets ▸ New — full-page create form. */
@@ -67,7 +67,7 @@ import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
         ReactiveFormsModule,
         TranslocoModule,
         LocationPickerComponent,
-        MarketFleetPanelComponent,
+        MarketStaffPanelComponent,
         ResourceCrudComponent,
     ],
     // No tab overrides — stock Material metrics, so the ink bar slides.

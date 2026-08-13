@@ -1,0 +1,287 @@
+<div class="flex min-h-0 flex-auto flex-col" *transloco="let t">
+    <div
+        class="flex flex-0 flex-wrap items-center justify-between gap-3 border-b px-6 py-4 md:px-8"
+    >
+        <div class="text-lg font-semibold tracking-tight">
+            {{ t('admin.markets.staff.title') }}
+        </div>
+        <button
+            mat-flat-button
+            color="primary"
+            type="button"
+            [disabled]="!marketId() || saving()"
+            (click)="openAdd(addDialog)"
+        >
+            <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+            <span class="ml-2 mr-1">{{ t('admin.markets.staff.add') }}</span>
+        </button>
+    </div>
+
+    <div class="flex min-h-0 flex-auto flex-col overflow-y-auto">
+        @if (loading()) {
+            <admin-loading-state />
+        } @else if (rows().length === 0) {
+            <div class="text-secondary p-6 md:p-8">
+                {{ t('admin.crud.empty') }}
+            </div>
+        } @else {
+            <div class="grid">
+                <div
+                    class="market-staff-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                >
+                    <div>{{ t('admin.products.image') }}</div>
+                    <div>{{ t('admin.userDetail.profile.email') }}</div>
+                    <div>{{ t('admin.userDetail.profile.phone') }}</div>
+                    <div>{{ t('admin.markets.staff.position') }}</div>
+                    <div>{{ t('admin.users.table.role') }}</div>
+                    <div class="text-right">{{ t('admin.crud.actions') }}</div>
+                </div>
+
+                @for (row of rows(); track row.role + row.id + row.hubId) {
+                    <div
+                        class="market-staff-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
+                    >
+                        <div>
+                            @if (row.avatarUrl) {
+                                <img
+                                    class="market-staff-avatar"
+                                    loading="lazy"
+                                    alt=""
+                                    [src]="row.avatarUrl"
+                                />
+                            } @else {
+                                <div
+                                    class="market-staff-avatar text-secondary bg-hover flex items-center justify-center text-sm font-semibold"
+                                >
+                                    {{ initial(row) }}
+                                </div>
+                            }
+                        </div>
+                        <div class="min-w-0 truncate font-medium">
+                            {{ row.email }}
+                        </div>
+                        <div class="min-w-0 truncate">
+                            {{ row.phone || '—' }}
+                        </div>
+                        <div class="min-w-0 truncate">
+                            {{ row.position || '—' }}
+                        </div>
+                        <div>
+                            <span [class]="rolePillClass(row.role)">{{
+                                row.role | roleLabel
+                            }}</span>
+                        </div>
+                        <div class="flex justify-end">
+                            @if (row.removable) {
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="saving()"
+                                    [matTooltip]="t('admin.crud.remove')"
+                                    (click)="remove(row)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        svgIcon="heroicons_outline:trash"
+                                    ></mat-icon>
+                                </button>
+                            } @else {
+                                <span
+                                    class="text-secondary"
+                                    [matTooltip]="
+                                        t('admin.markets.staff.driverReadOnly')
+                                    "
+                                    >—</span
+                                >
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+<!-- Pick people to add to this chợ (or to one of its hubs) -->
+<ng-template #addDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col md:w-160 md:min-w-160"
+        *transloco="let t"
+    >
+        <div
+            class="flex items-center justify-between bg-primary px-6 py-4 text-on-primary"
+        >
+            <div class="text-lg font-medium">
+                {{ t('admin.markets.staff.add') }}
+            </div>
+            <button mat-icon-button type="button" (click)="closeAdd()">
+                <mat-icon
+                    class="text-current"
+                    svgIcon="heroicons_outline:x-mark"
+                ></mat-icon>
+            </button>
+        </div>
+
+        <form class="flex flex-col gap-4 p-6" [formGroup]="addForm">
+            <div class="flex flex-col gap-4 sm:flex-row">
+                <mat-form-field
+                    class="w-full sm:w-1/2"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('admin.users.table.role') }}</mat-label>
+                    <mat-select
+                        formControlName="role"
+                        (selectionChange)="onRoleChange($event.value)"
+                    >
+                        @for (role of pickerRoles; track role) {
+                            <mat-option [value]="role">{{
+                                role | roleLabel
+                            }}</mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+
+                @if (needsHub()) {
+                    <mat-form-field
+                        class="w-full sm:w-1/2"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{ t('admin.hubs.title') }}</mat-label>
+                        <mat-select formControlName="hubId">
+                            @for (hub of hubs(); track hub.id) {
+                                <mat-option [value]="hub.id">{{
+                                    hub.name
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                        @if (hubs().length === 0) {
+                            <mat-hint>{{
+                                t('admin.markets.editPage.hubs.empty')
+                            }}</mat-hint>
+                        }
+                    </mat-form-field>
+                }
+            </div>
+
+            <mat-form-field
+                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    autocomplete="off"
+                    [value]="candidateSearch()"
+                    [placeholder]="t('admin.markets.staff.searchPlaceholder')"
+                    (input)="candidateSearch.set($any($event.target).value)"
+                />
+            </mat-form-field>
+
+            @if (readOnlyRole()) {
+                <div
+                    class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                    role="note"
+                >
+                    <mat-icon
+                        class="shrink-0 text-amber-500 icon-size-5"
+                        svgIcon="heroicons_outline:information-circle"
+                    ></mat-icon>
+                    <span class="min-w-0">{{
+                        t('admin.markets.staff.driverReadOnly')
+                    }}</span>
+                </div>
+            }
+
+            <div class="max-h-96 overflow-y-auto rounded-xl border">
+                @if (loadingCandidates()) {
+                    <admin-loading-state />
+                } @else if (visibleCandidates().length === 0) {
+                    <div class="text-secondary p-4 text-sm">
+                        {{ t('admin.markets.staff.noCandidates') }}
+                    </div>
+                } @else {
+                    <div
+                        class="market-staff-picker-grid text-secondary grid items-center gap-x-4 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wider"
+                    >
+                        <div></div>
+                        <div>{{ t('admin.products.image') }}</div>
+                        <div>{{ t('admin.userDetail.profile.email') }}</div>
+                        <div>{{ t('admin.markets.staff.position') }}</div>
+                    </div>
+                    @for (person of visibleCandidates(); track person.id) {
+                        <div
+                            class="market-staff-picker-grid grid items-center gap-x-4 border-b px-4 py-2 hover:bg-hover last:border-b-0"
+                            [class.opacity-60]="person.alreadyHere"
+                        >
+                            <mat-checkbox
+                                [checked]="isPicked(person.id)"
+                                [disabled]="
+                                    person.alreadyHere || readOnlyRole()
+                                "
+                                [matTooltip]="
+                                    person.alreadyHere
+                                        ? t('admin.markets.staff.alreadyHere')
+                                        : ''
+                                "
+                                (change)="togglePick(person.id, $event.checked)"
+                            ></mat-checkbox>
+                            <div>
+                                @if (person.avatarUrl) {
+                                    <img
+                                        class="market-staff-avatar"
+                                        loading="lazy"
+                                        alt=""
+                                        [src]="person.avatarUrl"
+                                    />
+                                } @else {
+                                    <div
+                                        class="market-staff-avatar text-secondary bg-hover flex items-center justify-center text-sm font-semibold"
+                                    >
+                                        {{ initial(person) }}
+                                    </div>
+                                }
+                            </div>
+                            <div class="min-w-0 truncate">
+                                {{ person.email }}
+                            </div>
+                            <div class="text-secondary min-w-0 truncate">
+                                {{ person.position || '—' }}
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <span class="text-secondary text-sm">{{
+                    t('admin.markets.staff.pickedCount', {
+                        count: pickedCount(),
+                    })
+                }}</span>
+                <div class="flex items-center gap-3">
+                    <button
+                        mat-stroked-button
+                        type="button"
+                        (click)="closeAdd()"
+                    >
+                        {{ t('admin.crud.cancel') }}
+                    </button>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="button"
+                        [disabled]="!canSave()"
+                        (click)="save()"
+                    >
+                        {{ t('admin.crud.save') }}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</ng-template>

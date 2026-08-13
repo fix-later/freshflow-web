@@ -1,14 +1,10 @@
 import { Router } from '@angular/router';
-import { AdminService } from '../admin.service';
 import {
     CrudFormValue,
     CrudResource,
     CrudRow,
 } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
-
-/** Enough rows to cover a hub-staff roster of any realistic size. */
-const STAFF_PAGE_SIZE = 200;
 
 interface HubResourceOptions {
     /**
@@ -18,11 +14,11 @@ interface HubResourceOptions {
      */
     marketId?: string;
     /**
-     * When given, each row is enriched with its full staff roster so the table
-     * can name everyone assigned, not just the manager. Costs one request per
-     * hub, which is why it is opt-in — the market tab lists a handful.
+     * Handles a row click instead of routing to the hub's own page. The market
+     * tab uses it to open the hub in place, keeping the chợ page and its tabs
+     * on screen.
      */
-    admin?: AdminService;
+    openDetail?: (hubId: string) => void;
 }
 
 /**
@@ -38,63 +34,7 @@ export function createHubResource(
     router: Router,
     options: HubResourceOptions = {}
 ): CrudResource {
-    const { marketId, admin } = options;
-
-    /**
-     * Resolves every hub's staff ids to accounts, in one pass: the roster call
-     * is per hub, but the account lookup is shared across them.
-     */
-    const withStaffNames = async (rows: CrudRow[]): Promise<CrudRow[]> => {
-        if (!admin) {
-            return rows;
-        }
-        const people = await admin
-            .getUsers({ role: 'hub_staff', pageSize: STAFF_PAGE_SIZE })
-            .then((page) => page.users)
-            .catch(() => []);
-        const nameById = new Map<string, string>(
-            people.map((person): [string, string] => [
-                person.id,
-                person.email || String(person['name'] ?? person.id),
-            ])
-        );
-        return Promise.all(
-            rows.map(async (row) => ({
-                ...row,
-                staffNames: (
-                    await logistics
-                        .getHubStaffAssignments(row.id)
-                        .catch(() => [])
-                )
-                    .map((id) => nameById.get(id) ?? id)
-                    .join(', '),
-            }))
-        );
-    };
-
-    /** PATCH managedBy while keeping the rest of the hub payload intact. */
-    const saveManager = (row: CrudRow, userId: string | null): Promise<void> =>
-        logistics.updateHub(row.id, {
-            name: String(row['name'] ?? ''),
-            address:
-                row['address'] == null || row['address'] === ''
-                    ? null
-                    : String(row['address']),
-            latitude:
-                row['latitude'] == null || row['latitude'] === ''
-                    ? null
-                    : Number(row['latitude']),
-            longitude:
-                row['longitude'] == null || row['longitude'] === ''
-                    ? null
-                    : Number(row['longitude']),
-            capacityKg:
-                row['capacityKg'] == null || row['capacityKg'] === ''
-                    ? null
-                    : Number(row['capacityKg']),
-            managedBy: userId,
-            marketId: row['marketId'] == null ? null : String(row['marketId']),
-        });
+    const { marketId, openDetail } = options;
 
     /** Scoped forms carry the market implicitly; the field is dropped. */
     const withMarket = (value: CrudFormValue): CrudFormValue =>
@@ -103,17 +43,24 @@ export function createHubResource(
     return {
         title: 'admin.hubs.title',
         openDetail: (row) => {
+            if (openDetail) {
+                openDetail(row.id);
+                return;
+            }
             void router.navigate(['/admin/hubs', row.id]);
         },
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
         searchKeys: ['name', 'address', 'managedByName', 'marketName'],
         searchPlaceholder: 'admin.hubs.searchPlaceholder',
+        // Name and capacity are sized to their content — a hub name is a couple
+        // of words, a capacity never longer than "1.000 kg" — so the room goes
+        // to chợ and address, which actually use it.
         columns: [
             {
                 label: 'admin.hubs.name',
                 sortable: true,
-                width: 'minmax(0, 1.2fr)',
+                width: '14rem',
                 cell: (row) => String(row['name'] ?? ''),
             },
             ...(marketId
@@ -130,13 +77,13 @@ export function createHubResource(
             {
                 label: 'admin.hubs.address',
                 sortable: true,
-                width: 'minmax(0, 1.4fr)',
+                width: 'minmax(0, 1fr)',
                 cell: (row) => String(row['address'] ?? ''),
             },
             {
                 label: 'admin.hubs.capacityKg',
                 sortable: true,
-                width: '7.5rem',
+                width: '9rem',
                 // `cell` renders "500 kg"; sort on the bare number.
                 sortValue: (row) =>
                     row['capacityKg'] == null || row['capacityKg'] === ''
@@ -147,37 +94,10 @@ export function createHubResource(
                         ? `${row['capacityKg']} kg`
                         : '',
             },
-            ...(admin
-                ? [
-                      {
-                          label: 'admin.markets.editPage.hubs.staff',
-                          sortable: true,
-                          width: 'minmax(0, 1.2fr)',
-                          cell: (row: CrudRow) =>
-                              String(row['staffNames'] ?? ''),
-                      },
-                  ]
-                : []),
-            {
-                label: 'admin.hubs.managedBy',
-                sortable: true,
-                width: 'minmax(0, 1fr)',
-                cell: (row) => String(row['managedByName'] ?? ''),
-                // Same assignable-user button + dialog as markets' agent.
-                assign: {
-                    idKey: 'managedBy',
-                    noneLabel: 'admin.hubs.managerNone',
-                    dialogTitle: 'admin.hubs.managerDialog.title',
-                    dialogCurrent: 'admin.hubs.managerDialog.current',
-                    dialogSelect: 'admin.hubs.managerDialog.select',
-                    dialogClear: 'admin.hubs.managerDialog.clear',
-                    dialogSave: 'admin.hubs.managerDialog.save',
-                    dialogSuccess: 'admin.hubs.managerDialog.success',
-                    dialogError: 'admin.hubs.managerDialog.error',
-                    options: () => logistics.hubManagerOptions(),
-                    save: (row, userId) => saveManager(row, userId),
-                },
-            },
+            // The manager column is off the table: a hub's people are the staff
+            // roster, and a second "who runs it" field next to it only invited
+            // the question of which one matters. `managedBy` is still stored and
+            // still round-tripped on save — only its UI is gone.
         ],
         fields: [
             ...(marketId
@@ -220,12 +140,11 @@ export function createHubResource(
         ],
         list: async () => {
             const all = await logistics.listHubs();
-            const rows = marketId
+            return marketId
                 ? all.filter(
                       (row) => String(row['marketId'] ?? '') === marketId
                   )
                 : all;
-            return withStaffNames(rows);
         },
         create: (value) => logistics.createHub(withMarket(value)),
         update: (id, value) => logistics.updateHub(id, withMarket(value)),

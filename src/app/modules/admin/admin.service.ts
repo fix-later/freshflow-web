@@ -59,6 +59,12 @@ import {
 /** Role eligible to be assigned a procurement batch (see ROLE_MATRIX). */
 const MARKET_AGENT_ROLE = 'market_agent';
 
+/** `GetUsersQueryValidator` rejects anything above this (400). */
+const MAX_USER_PAGE_SIZE = 100;
+
+/** Stops a broken `total` from turning the walk into an endless loop. */
+const MAX_USER_PAGES = 50;
+
 /**
  * The zone statement period boundaries are computed in server-side
  * (`CreditStatementPeriodCalculator.VietnamTimeZone`, DEC-CRE-03). Reading a
@@ -102,6 +108,30 @@ export class AdminService {
             page: p?.page,
             pageSize: p?.pageSize,
         };
+    }
+
+    /**
+     * Every user holding `role`, walking the pages.
+     *
+     * `GetUsersQueryValidator` caps `pageSize` at **100** and answers 400 for
+     * anything larger, so a roster is read a page at a time rather than asked
+     * for in one oversized call — which is what silently emptied the hub-staff
+     * and driver lists.
+     */
+    async listUsersByRole(role: string): Promise<AdminUserRow[]> {
+        const all: AdminUserRow[] = [];
+        for (let page = 1; page <= MAX_USER_PAGES; page++) {
+            const { users } = await this.getUsers({
+                role,
+                page,
+                pageSize: MAX_USER_PAGE_SIZE,
+            });
+            all.push(...users);
+            if (users.length < MAX_USER_PAGE_SIZE) {
+                break;
+            }
+        }
+        return all;
     }
 
     /**
