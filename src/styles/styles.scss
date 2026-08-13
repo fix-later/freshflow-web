@@ -154,14 +154,13 @@ empty-layout {
 /**
  * Admin status pills.
  *
- * Per `specs/design/TOKENS.md`, status colors are semantic (success → primary
- * green, warning → amber, error → warn red) and must resolve per theme — the
- * admin tables previously hardcoded light-only Tailwind steps (`bg-green-100` +
- * `text-green-700`), which washed out on the dark card surface. These bind to
- * the theme palettes and carry their own dark steps.
+ * Per `specs/design/TOKENS.md`, status colors are semantic (success → brand
+ * accent, warning → amber, error → warn red). Success binds to the theme's
+ * accent/on-accent pair so it follows the brand; the rest are fixed fills that
+ * hold on either theme (see the note on the fills below).
  */
 .admin-pill {
-    @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
 }
 
 /** Larger status badge for detail headers (batch title row). */
@@ -169,88 +168,61 @@ empty-layout {
     @apply px-4 py-1.5 text-sm font-semibold tracking-wide;
 }
 
+/**
+ * Filled, not tinted. A status is the column the eye goes to first, and the old
+ * 100/800 tints read as grey-ish at a glance in a dense table — several rows of
+ * pale chips look alike until you read them. Each fill is the darkest step that
+ * still clears WCAG AA (4.5:1) against white text, verified per hue:
+ * amber/cyan/teal/lime need 700, the rest carry at 600.
+ *
+ * One definition for both themes: a filled chip is its own surface, so it reads
+ * the same on the light card and the dark one, and there is no muted dark
+ * variant to keep in step.
+ */
 .admin-pill-success {
-    @apply bg-primary-100 text-primary-800;
+    background-color: var(--fuse-accent);
+    color: var(--fuse-on-accent);
 }
 
-.dark .admin-pill-success {
-    @apply bg-primary-900 text-primary-100;
-}
-
+/** Stays quiet on purpose: "none" / "unknown" is not a state to shout about. */
 .admin-pill-neutral {
     @apply text-secondary bg-hover;
 }
 
 .admin-pill-warning {
-    @apply bg-amber-100 text-amber-800;
-}
-
-.dark .admin-pill-warning {
-    @apply bg-amber-900 text-amber-100;
+    @apply bg-amber-700 text-white;
 }
 
 .admin-pill-info {
-    @apply bg-blue-100 text-blue-800;
-}
-
-.dark .admin-pill-info {
-    @apply bg-blue-900 text-blue-100;
+    @apply bg-blue-600 text-white;
 }
 
 .admin-pill-purple {
-    @apply bg-violet-100 text-violet-800;
-}
-
-.dark .admin-pill-purple {
-    @apply bg-violet-900 text-violet-100;
+    @apply bg-violet-600 text-white;
 }
 
 .admin-pill-cyan {
-    @apply bg-cyan-100 text-cyan-800;
-}
-
-.dark .admin-pill-cyan {
-    @apply bg-cyan-900 text-cyan-100;
+    @apply bg-cyan-700 text-white;
 }
 
 .admin-pill-danger {
-    @apply bg-red-100 text-red-800;
-}
-
-.dark .admin-pill-danger {
-    @apply bg-red-900 text-red-100;
+    @apply bg-red-600 text-white;
 }
 
 .admin-pill-indigo {
-    @apply bg-indigo-100 text-indigo-800;
-}
-
-.dark .admin-pill-indigo {
-    @apply bg-indigo-900 text-indigo-100;
+    @apply bg-indigo-600 text-white;
 }
 
 .admin-pill-teal {
-    @apply bg-teal-100 text-teal-800;
-}
-
-.dark .admin-pill-teal {
-    @apply bg-teal-900 text-teal-100;
+    @apply bg-teal-700 text-white;
 }
 
 .admin-pill-pink {
-    @apply bg-pink-100 text-pink-800;
-}
-
-.dark .admin-pill-pink {
-    @apply bg-pink-900 text-pink-100;
+    @apply bg-pink-600 text-white;
 }
 
 .admin-pill-lime {
-    @apply bg-lime-100 text-lime-800;
-}
-
-.dark .admin-pill-lime {
-    @apply bg-lime-900 text-lime-100;
+    @apply bg-lime-700 text-white;
 }
 
 /**
