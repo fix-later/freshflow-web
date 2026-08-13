@@ -357,8 +357,14 @@ export class CatalogAdminService {
         return row?.id ? row : null;
     }
 
-    async createProduct(value: CrudFormValue): Promise<void> {
-        await productsApi.apiV1ProductsPost({
+    /**
+     * Creates the product and answers its new id.
+     *
+     * `CreateProductRequest` has no image field, so a caller that collected one
+     * needs the id to follow up with an update — see `products.component`.
+     */
+    async createProduct(value: CrudFormValue): Promise<string | null> {
+        const res = await productsApi.apiV1ProductsPostRaw({
             createProductRequest: {
                 name: str(value['name']),
                 unitId: str(value['unitId']),
@@ -367,6 +373,11 @@ export class CatalogAdminService {
                 packingCodeId: optStr(value['packingCodeId']),
             },
         });
+        const created = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        const id = created?.['productId'] ?? created?.['id'];
+        return id ? String(id) : null;
     }
 
     async updateProduct(id: string, value: CrudFormValue): Promise<void> {
