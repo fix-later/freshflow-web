@@ -55,6 +55,18 @@ export interface UpdateProductRequest {
      * @memberof UpdateProductRequest
      */
     packingCodeId?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof UpdateProductRequest
+     */
+    vatRate?: string | null;
+    /**
+     * 
+     * @type {number}
+     * @memberof UpdateProductRequest
+     */
+    minimumOrderQuantity?: number;
 }
 
 /**
@@ -82,6 +94,8 @@ export function UpdateProductRequestFromJSONTyped(json: any, ignoreDiscriminator
         'description': json['description'] == null ? undefined : json['description'],
         'imageUrl': json['imageUrl'] == null ? undefined : json['imageUrl'],
         'packingCodeId': json['packingCodeId'] == null ? undefined : json['packingCodeId'],
+        'vatRate': json['vatRate'] == null ? undefined : json['vatRate'],
+        'minimumOrderQuantity': json['minimumOrderQuantity'] == null ? undefined : json['minimumOrderQuantity'],
     };
 }
 
@@ -102,6 +116,8 @@ export function UpdateProductRequestToJSONTyped(value?: UpdateProductRequest | n
         'description': value['description'],
         'imageUrl': value['imageUrl'],
         'packingCodeId': value['packingCodeId'],
+        'vatRate': value['vatRate'],
+        'minimumOrderQuantity': value['minimumOrderQuantity'],
     };
 }
 

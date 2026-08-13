@@ -9,6 +9,7 @@ Name | Type
 `sessionId` | string
 `message` | string
 `marketId` | string
+`deliveryAddressId` | string
 `confirmOrderId` | string
 
 ## Example
@@ -21,6 +22,7 @@ const example = {
   "sessionId": null,
   "message": null,
   "marketId": null,
+  "deliveryAddressId": null,
   "confirmOrderId": null,
 } satisfies AssistantChatRequest
 

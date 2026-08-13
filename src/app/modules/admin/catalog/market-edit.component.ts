@@ -35,9 +35,12 @@ import {
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import { createHubResource } from '../logistics/hub-resource';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
+import { createVehicleResource } from '../logistics/vehicle-resource';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import { CrudRow } from '../shared/resource-crud.types';
+import { ResourceCrudComponent } from '../shared/resource-crud.component';
+import { CrudResource, CrudRow } from '../shared/resource-crud.types';
 import {
     CatalogAdminService,
     MARKET_ADDRESS_MAX_LENGTH,
@@ -45,29 +48,16 @@ import {
     MARKET_LOCATION_MAX_LENGTH,
     MARKET_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
+import { MarketFleetPanelComponent } from './market-fleet-panel.component';
 import { MarketProductsComponent } from './market-products.component';
+import {
+    MARKET_PRODUCTS_TAB,
+    MARKET_TABS,
+    MARKET_VEHICLES_TAB,
+} from './market-tabs';
 
-/** The config sections, in tab order. */
-const TABS = [
-    { index: 0, label: 'admin.markets.editPage.tabs.details' },
-    { index: 1, label: 'admin.markets.editPage.tabs.hubs' },
-    { index: 2, label: 'admin.markets.editPage.tabs.vehicles' },
-    { index: 3, label: 'admin.markets.editPage.tabs.drivers' },
-    { index: 4, label: 'admin.markets.editPage.tabs.pricing' },
-] as const;
-
-const HUBS_TAB = 1;
-const VEHICLES_TAB = 2;
-const DRIVERS_TAB = 3;
-const PRICING_TAB = 4;
-
-/** A hub of this market, with the staff roster resolved to people. */
-interface MarketHubRow {
-    id: string;
-    name: string;
-    address: string;
-    staff: AdminUserRow[];
-}
+const PRICING_TAB = MARKET_PRODUCTS_TAB;
+const VEHICLES_TAB = MARKET_VEHICLES_TAB;
 
 /** Read-only MarketDto fields for the detail grid. */
 const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
@@ -100,7 +90,9 @@ const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
         ReactiveFormsModule,
         TranslocoModule,
         LocationPickerComponent,
+        MarketFleetPanelComponent,
         MarketProductsComponent,
+        ResourceCrudComponent,
     ],
     templateUrl: './market-edit.component.html',
     // No tab overrides: the stock Material tab bar keeps its own metrics, and
@@ -122,22 +114,39 @@ export class MarketEditComponent implements OnInit {
     readonly saving = signal(false);
     readonly notFound = signal(false);
     readonly agentOptions = signal<AdminUserRow[]>([]);
-    /** Agent assigned when the page loaded (for setMarketAgent previous id). */
-    readonly previousAgentId = signal<string | null>(null);
-    readonly tabs = TABS;
+    /** Agents assigned when the page loaded — the baseline `save()` diffs against. */
+    readonly previousAgentIds = signal<string[]>([]);
+    readonly tabs = MARKET_TABS;
     readonly selectedTab = signal(0);
     readonly pricingTabLoaded = signal(false);
 
-    // Hub / xe / tài xế — each tab fetches once, the first time it is opened.
-    readonly hubs = signal<MarketHubRow[]>([]);
-    readonly hubsLoading = signal(false);
-    readonly hubsLoaded = signal(false);
-    readonly vehicles = signal<CrudRow[]>([]);
-    readonly vehiclesLoading = signal(false);
-    readonly vehiclesLoaded = signal(false);
-    readonly drivers = signal<AdminUserRow[]>([]);
-    readonly driversLoading = signal(false);
-    readonly driversLoaded = signal(false);
+    /**
+     * Hubs and vehicles are managed right here — neither has a nav entry of its
+     * own any more. The hub list is scoped to this market and pins new hubs to
+     * it; the fleet is platform-wide, so its tab edits the same rows the
+     * standalone screen does. Both are the same CRUD definition the standalone
+     * screens use, rendered without their page chrome.
+     */
+    readonly hubResource = computed<CrudResource | null>(() => {
+        const marketId = this.market()?.id;
+        return marketId
+            ? createHubResource(this._logistics, this._router, {
+                  marketId,
+                  admin: this._admin,
+              })
+            : null;
+    });
+
+    readonly vehicleResource = computed<CrudResource | null>(() => {
+        const marketId = this.market()?.id;
+        return marketId
+            ? createVehicleResource(
+                  this._logistics,
+                  (key) => this._transloco.translate(key),
+                  { marketId }
+              )
+            : null;
+    });
 
     readonly marketName = computed(() => String(this.market()?.['name'] ?? ''));
     readonly isActive = computed(() => this.market()?.isActive !== false);
@@ -168,7 +177,7 @@ export class MarketEditComponent implements OnInit {
             nonNullable: true,
             validators: [trimmedMaxLengthValidator(MARKET_LOCATION_MAX_LENGTH)],
         }),
-        agentUserId: new FormControl('', { nonNullable: true }),
+        agentUserIds: new FormControl<string[]>([], { nonNullable: true }),
         description: new FormControl('', {
             nonNullable: true,
             validators: [
@@ -234,116 +243,8 @@ export class MarketEditComponent implements OnInit {
 
     onTabChange(index: number): void {
         this.selectedTab.set(index);
-        if (index === HUBS_TAB) {
-            void this._loadHubs();
-        }
-        if (index === VEHICLES_TAB) {
-            void this._loadVehicles();
-        }
-        if (index === DRIVERS_TAB) {
-            void this._loadDrivers();
-        }
         if (index === PRICING_TAB) {
             this.pricingTabLoaded.set(true);
-        }
-    }
-
-    /** Opens the hub's own editor, where its staff roster is editable. */
-    openHub(hubId: string): void {
-        void this._router.navigate(['/admin/hubs', hubId]);
-    }
-
-    /**
-     * Hands hub creation to the hubs screen, which owns the form, and asks it
-     * to open the create dialog straight away. The market still has to be
-     * picked there — the form takes no prefill.
-     */
-    createHub(): void {
-        void this._router.navigate(['/admin/hubs'], {
-            queryParams: { create: 1 },
-        });
-    }
-
-    /**
-     * Hubs that belong to this market, each with its staff resolved from ids to
-     * accounts. `GET /hubs` carries `marketId`, so the filter is client-side —
-     * there is no per-market hub endpoint.
-     */
-    private async _loadHubs(): Promise<void> {
-        const marketId = this.market()?.id;
-        if (!marketId || this.hubsLoaded() || this.hubsLoading()) {
-            return;
-        }
-        this.hubsLoading.set(true);
-        try {
-            const [allHubs, staffUsers] = await Promise.all([
-                this._logistics.listHubs(),
-                this._admin
-                    .getUsers({ role: 'hub_staff', pageSize: 200 })
-                    .then((page) => page.users)
-                    .catch(() => [] as AdminUserRow[]),
-            ]);
-            const staffById = new Map(staffUsers.map((u) => [u.id, u]));
-            const mine = allHubs.filter(
-                (hub) => String(hub['marketId'] ?? '') === marketId
-            );
-            const rows = await Promise.all(
-                mine.map(async (hub) => ({
-                    id: hub.id,
-                    name: String(hub['name'] ?? ''),
-                    address: String(hub['address'] ?? ''),
-                    staff: (
-                        await this._logistics
-                            .getHubStaffAssignments(hub.id)
-                            .catch(() => [] as string[])
-                    )
-                        .map((userId) => staffById.get(userId))
-                        .filter((user): user is AdminUserRow => !!user),
-                }))
-            );
-            this.hubs.set(rows);
-            this.hubsLoaded.set(true);
-        } catch (err) {
-            void this._notifyError(err, 'admin.crud.loadError');
-        } finally {
-            this.hubsLoading.set(false);
-        }
-    }
-
-    /**
-     * Vehicles carry neither a market nor a hub, so this is the platform-wide
-     * fleet — the tab says so rather than implying the list belongs to this
-     * market.
-     */
-    private async _loadVehicles(): Promise<void> {
-        if (this.vehiclesLoaded() || this.vehiclesLoading()) {
-            return;
-        }
-        this.vehiclesLoading.set(true);
-        try {
-            this.vehicles.set(
-                await this._logistics.listVehicles().catch(() => [])
-            );
-            this.vehiclesLoaded.set(true);
-        } finally {
-            this.vehiclesLoading.set(false);
-        }
-    }
-
-    /** Drivers are eligible across hubs, so this list is platform-wide too. */
-    private async _loadDrivers(): Promise<void> {
-        if (this.driversLoaded() || this.driversLoading()) {
-            return;
-        }
-        this.driversLoading.set(true);
-        try {
-            const page = await this._admin
-                .getUsers({ role: 'driver', pageSize: 200 })
-                .catch(() => ({ users: [] as AdminUserRow[], totalCount: 0 }));
-            this.drivers.set(page.users);
-            this.driversLoaded.set(true);
-        } finally {
-            this.driversLoading.set(false);
         }
     }
 
@@ -355,7 +256,7 @@ export class MarketEditComponent implements OnInit {
         }
         this.saving.set(true);
         const value = this.form.getRawValue();
-        const agentUserId = value.agentUserId || null;
+        const agentUserIds = value.agentUserIds ?? [];
         void this._catalog
             .updateMarket(row.id, {
                 name: value.name,
@@ -367,10 +268,10 @@ export class MarketEditComponent implements OnInit {
                 longitude: value.longitude,
             })
             .then(() =>
-                this._admin.setMarketAgent(
+                this._admin.setMarketAgents(
                     row.id,
-                    agentUserId,
-                    this.previousAgentId()
+                    agentUserIds,
+                    this.previousAgentIds()
                 )
             )
             .then(() => {
@@ -504,10 +405,11 @@ export class MarketEditComponent implements OnInit {
             const { agents, agentsByMarket } =
                 await this._admin.getMarketAgentsWithAssignments();
             this.agentOptions.set(agents);
-            const current = agentsByMarket.get(marketId);
-            const agentId = current?.id ?? '';
-            this.previousAgentId.set(agentId || null);
-            this.form.controls.agentUserId.setValue(agentId);
+            const assigned = (agentsByMarket.get(marketId) ?? []).map(
+                (agent) => agent.id
+            );
+            this.previousAgentIds.set(assigned);
+            this.form.controls.agentUserIds.setValue(assigned);
         } catch {
             this.agentOptions.set([]);
         }

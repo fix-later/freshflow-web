@@ -145,6 +145,10 @@ export interface ApiV1AdminRestaurantsRestaurantIdCreditSettlePostRequest {
     settleCreditRequest?: SettleCreditRequest;
 }
 
+export interface ApiV1AdminRestaurantsRestaurantIdProfileGetRequest {
+    restaurantId: string;
+}
+
 export interface ApiV1AdminRestaurantsRestaurantIdReactivatePatchRequest {
     restaurantId: string;
 }
@@ -946,6 +950,56 @@ export class AdminApi extends runtime.BaseAPI {
      */
     async apiV1AdminRestaurantsRestaurantIdCreditSettlePost(requestParameters: ApiV1AdminRestaurantsRestaurantIdCreditSettlePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1AdminRestaurantsRestaurantIdCreditSettlePostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminRestaurantsRestaurantIdProfileGet without sending the request
+     */
+    async apiV1AdminRestaurantsRestaurantIdProfileGetRequestOpts(requestParameters: ApiV1AdminRestaurantsRestaurantIdProfileGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['restaurantId'] == null) {
+            throw new runtime.RequiredError(
+                'restaurantId',
+                'Required parameter "restaurantId" was null or undefined when calling apiV1AdminRestaurantsRestaurantIdProfileGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/restaurants/{restaurantId}/profile`;
+        urlPath = urlPath.replace('{restaurantId}', encodeURIComponent(String(requestParameters['restaurantId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminRestaurantsRestaurantIdProfileGetRaw(requestParameters: ApiV1AdminRestaurantsRestaurantIdProfileGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminRestaurantsRestaurantIdProfileGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminRestaurantsRestaurantIdProfileGet(requestParameters: ApiV1AdminRestaurantsRestaurantIdProfileGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminRestaurantsRestaurantIdProfileGetRaw(requestParameters, initOverrides);
     }
 
     /**

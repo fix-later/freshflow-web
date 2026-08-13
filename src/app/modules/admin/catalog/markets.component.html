@@ -119,19 +119,18 @@
                                 ></mat-icon>
                             </button>
                         </div>
-                        <div [attr.aria-sort]="sort.ariaSort('agent')">
+                        <div [attr.aria-sort]="sort.ariaSort('hubs')">
                             <button
                                 type="button"
                                 class="admin-sort-header"
-                                (click)="onSort('agent')"
+                                (click)="onSort('hubs')"
                             >
-                                {{ t('admin.markets.agent') }}
+                                {{ t('admin.markets.hubs') }}
                                 <mat-icon
                                     class="icon-size-4"
-                                    [class.text-accent]="sort.key() === 'agent'"
+                                    [class.text-accent]="sort.key() === 'hubs'"
                                     [svgIcon]="
-                                        'heroicons_outline:' +
-                                        sort.icon('agent')
+                                        'heroicons_outline:' + sort.icon('hubs')
                                     "
                                 ></mat-icon>
                             </button>
@@ -146,15 +145,40 @@
                         <div
                             class="markets-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
                         >
-                            <div class="min-w-0 truncate font-medium">
-                                {{ row['name'] || '—' }}
-                                @if (isInactive(row)) {
-                                    <span
-                                        class="admin-pill admin-pill-neutral ml-2"
+                            <div class="flex min-w-0 items-center gap-3">
+                                @if (imageUrl(row)) {
+                                    <img
+                                        class="market-thumb"
+                                        loading="lazy"
+                                        alt=""
+                                        [src]="imageUrl(row)"
+                                    />
+                                } @else {
+                                    <div
+                                        class="market-thumb text-secondary bg-hover flex items-center justify-center"
                                     >
-                                        {{ t('admin.users.filters.inactive') }}
-                                    </span>
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:building-storefront"
+                                        ></mat-icon>
+                                    </div>
                                 }
+                                <div class="min-w-0">
+                                    <div class="truncate font-medium">
+                                        {{ row['name'] || '—' }}
+                                    </div>
+                                    @if (isInactive(row)) {
+                                        <span
+                                            class="admin-pill admin-pill-neutral"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.users.filters.inactive'
+                                                )
+                                            }}
+                                        </span>
+                                    }
+                                </div>
                             </div>
                             <div class="hidden truncate sm:block">
                                 {{ row['location'] || '—' }}
@@ -163,22 +187,21 @@
                                 {{ row['address'] || '—' }}
                             </div>
                             <div class="min-w-0">
-                                <button
-                                    class="agent-btn h-7 min-h-7 w-full min-w-0 justify-start px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    [matTooltip]="agentLabel(row)"
-                                    (click)="openAgentDialog(row, agentDialog)"
-                                >
-                                    <mat-icon
-                                        class="flex-shrink-0 icon-size-5"
-                                        svgIcon="heroicons_outline:user"
-                                    ></mat-icon>
-                                    <span class="agent-label ml-1">{{
-                                        agentLabel(row) ||
-                                            t('admin.markets.agentNone')
-                                    }}</span>
-                                </button>
+                                @if (hubsFor(row).length) {
+                                    <div
+                                        class="flex flex-wrap gap-1"
+                                        [matTooltip]="hubLabel(row)"
+                                    >
+                                        @for (hub of hubsFor(row); track hub) {
+                                            <span
+                                                class="admin-pill admin-pill-info max-w-full truncate"
+                                                >{{ hub }}</span
+                                            >
+                                        }
+                                    </div>
+                                } @else {
+                                    <span class="text-secondary">—</span>
+                                }
                             </div>
                             <div class="flex justify-end">
                                 <button
@@ -220,123 +243,3 @@
         </div>
     </div>
 </div>
-<!-- Assign market agent -->
-<ng-template #agentDialog>
-    <div
-        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
-        *transloco="let t"
-    >
-        <div
-            class="flex h-16 flex-0 items-center justify-between bg-primary pl-6 pr-3 text-on-primary sm:pl-8 sm:pr-5"
-        >
-            <div class="text-lg font-medium">
-                {{ t('admin.markets.agentDialog.title') }}
-            </div>
-            <button
-                mat-icon-button
-                type="button"
-                [tabIndex]="-1"
-                (click)="closeAgentDialog()"
-            >
-                <mat-icon
-                    class="text-current"
-                    svgIcon="heroicons_outline:x-mark"
-                ></mat-icon>
-            </button>
-        </div>
-
-        <form
-            class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8"
-            [formGroup]="agentForm"
-            (ngSubmit)="saveAgentAssignment()"
-        >
-            @if (agentDialogMarket(); as market) {
-                <div class="mb-1 text-base font-medium">
-                    {{ market['name'] || '—' }}
-                </div>
-                <div class="text-secondary mb-6 text-sm">
-                    {{ market['location'] || market['address'] || '' }}
-                </div>
-
-                <div class="mb-6">
-                    <div class="mb-2 text-sm font-medium">
-                        {{ t('admin.markets.agentDialog.current') }}
-                    </div>
-                    @if (agentFor(market); as agent) {
-                        <div
-                            class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm"
-                        >
-                            <span class="text-secondary">{{
-                                t('admin.userDetail.profile.email')
-                            }}</span>
-                            <span class="min-w-0 break-all">{{
-                                agent.email || '—'
-                            }}</span>
-                            <span class="text-secondary">{{
-                                t('admin.userDetail.profile.phone')
-                            }}</span>
-                            <span>{{ agent.phone || '—' }}</span>
-                        </div>
-                    } @else {
-                        <div class="text-secondary text-sm">
-                            {{ t('admin.markets.agentNone') }}
-                        </div>
-                    }
-                </div>
-            }
-
-            <mat-form-field class="w-full" subscriptSizing="dynamic">
-                <mat-label>{{
-                    t('admin.markets.agentDialog.select')
-                }}</mat-label>
-                <mat-select formControlName="agentUserId">
-                    <mat-option value="">{{
-                        t('admin.markets.agentNone')
-                    }}</mat-option>
-                    @for (agent of agentOptions(); track agent.id) {
-                        <mat-option [value]="agent.id">{{
-                            agent.email || agent.id
-                        }}</mat-option>
-                    }
-                </mat-select>
-            </mat-form-field>
-
-            <div class="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <button
-                    class="-ml-2"
-                    mat-button
-                    color="warn"
-                    type="button"
-                    [disabled]="
-                        agentDialogSaving() ||
-                        (!agentForm.controls.agentUserId.value &&
-                            !(
-                                agentDialogMarket() &&
-                                agentFor(agentDialogMarket()!)
-                            ))
-                    "
-                    (click)="clearAgentAssignment()"
-                >
-                    {{ t('admin.markets.agentDialog.clear') }}
-                </button>
-                <div class="flex items-center gap-3">
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        (click)="closeAgentDialog()"
-                    >
-                        {{ t('admin.crud.cancel') }}
-                    </button>
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="submit"
-                        [disabled]="agentDialogSaving()"
-                    >
-                        {{ t('admin.markets.agentDialog.save') }}
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-</ng-template>

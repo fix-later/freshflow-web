@@ -8,6 +8,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1DriverDeliveriesDeliveryIdProofOfDeliveryPut**](DriverApi.md#apiv1driverdeliveriesdeliveryidproofofdeliveryput) | **PUT** /api/v1/driver/deliveries/{deliveryId}/proof-of-delivery |  |
 | [**apiV1DriverDeliveriesDeliveryIdProofOfDeliveryUploadSignaturePost**](DriverApi.md#apiv1driverdeliveriesdeliveryidproofofdeliveryuploadsignaturepost) | **POST** /api/v1/driver/deliveries/{deliveryId}/proof-of-delivery/upload-signature |  |
 | [**apiV1DriverDeliveriesDeliveryIdStatusPatch**](DriverApi.md#apiv1driverdeliveriesdeliveryidstatuspatch) | **PATCH** /api/v1/driver/deliveries/{deliveryId}/status |  |
+| [**apiV1DriverRoutesGet**](DriverApi.md#apiv1driverroutesget) | **GET** /api/v1/driver/routes |  |
 | [**apiV1DriverRoutesRouteIdConfirmPickupPost**](DriverApi.md#apiv1driverroutesrouteidconfirmpickuppost) | **POST** /api/v1/driver/routes/{routeId}/confirm-pickup |  |
 | [**apiV1DriverRoutesRouteIdReorderPost**](DriverApi.md#apiv1driverroutesrouteidreorderpost) | **POST** /api/v1/driver/routes/{routeId}/reorder |  |
 | [**apiV1DriverRoutesRouteIdStartPost**](DriverApi.md#apiv1driverroutesrouteidstartpost) | **POST** /api/v1/driver/routes/{routeId}/start |  |
@@ -289,6 +290,75 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1DriverRoutesGet
+
+> apiV1DriverRoutesGet(date)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  DriverApi,
+} from '';
+import type { ApiV1DriverRoutesGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new DriverApi(config);
+
+  const body = {
+    // Date (optional)
+    date: 2013-10-20,
+  } satisfies ApiV1DriverRoutesGetRequest;
+
+  try {
+    const data = await api.apiV1DriverRoutesGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **date** | `Date` |  | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
 - **Accept**: Not defined
 
 

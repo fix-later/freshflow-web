@@ -36,7 +36,7 @@ export interface SettleCreditRequest {
      * @type {string}
      * @memberof SettleCreditRequest
      */
-    reference?: string | null;
+    reference: string;
     /**
      * 
      * @type {string}
@@ -49,6 +49,7 @@ export interface SettleCreditRequest {
  * Check if a given object implements the SettleCreditRequest interface.
  */
 export function instanceOfSettleCreditRequest(value: object): value is SettleCreditRequest {
+    if (!('reference' in value) || value['reference'] === undefined) return false;
     return true;
 }
 
@@ -64,7 +65,7 @@ export function SettleCreditRequestFromJSONTyped(json: any, ignoreDiscriminator:
         
         'amount': json['amount'] == null ? undefined : json['amount'],
         'paymentMethod': json['paymentMethod'] == null ? undefined : json['paymentMethod'],
-        'reference': json['reference'] == null ? undefined : json['reference'],
+        'reference': json['reference'],
         'note': json['note'] == null ? undefined : json['note'],
     };
 }

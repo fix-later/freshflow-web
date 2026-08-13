@@ -38,13 +38,13 @@ export interface RegisterRestaurantRequest {
      */
     restaurantName: string;
     /**
-     *
+     * 
      * @type {string}
      * @memberof RegisterRestaurantRequest
      */
     phone?: string | null;
     /**
-     *
+     * 
      * @type {string}
      * @memberof RegisterRestaurantRequest
      */
@@ -70,7 +70,7 @@ export function RegisterRestaurantRequestFromJSONTyped(json: any, ignoreDiscrimi
         return json;
     }
     return {
-
+        
         'email': json['email'],
         'password': json['password'],
         'restaurantName': json['restaurantName'],
@@ -89,7 +89,7 @@ export function RegisterRestaurantRequestToJSONTyped(value?: RegisterRestaurantR
     }
 
     return {
-
+        
         'email': value['email'],
         'password': value['password'],
         'restaurantName': value['restaurantName'],

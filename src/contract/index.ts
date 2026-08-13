@@ -36,6 +36,7 @@ import {
     RestaurantProfileApi,
     RoutesApi,
     ShippingApi,
+    TagsApi,
     UnitsApi,
     VehiclesApi,
 } from './generated';
@@ -78,5 +79,6 @@ export const restaurantFavoritesApi = new RestaurantFavoritesApi(
 export const restaurantProfileApi = new RestaurantProfileApi(apiConfiguration);
 export const routesApi = new RoutesApi(apiConfiguration);
 export const shippingApi = new ShippingApi(apiConfiguration);
+export const tagsApi = new TagsApi(apiConfiguration);
 export const unitsApi = new UnitsApi(apiConfiguration);
 export const vehiclesApi = new VehiclesApi(apiConfiguration);

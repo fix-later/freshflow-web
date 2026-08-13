@@ -81,6 +81,11 @@ export interface ApiV1HubsHubIdInboundInboundIdDiscrepancyPostRequest {
     recordDiscrepancyRequest?: RecordDiscrepancyRequest;
 }
 
+export interface ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequest {
+    hubId: string;
+    inboundId: string;
+}
+
 export interface ApiV1HubsHubIdInboundPostRequest {
     hubId: string;
     recordInboundRequest?: RecordInboundRequest;
@@ -490,6 +495,64 @@ export class HubInboundApi extends runtime.BaseAPI {
      */
     async apiV1HubsHubIdInboundInboundIdDiscrepancyPost(requestParameters: ApiV1HubsHubIdInboundInboundIdDiscrepancyPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1HubsHubIdInboundInboundIdDiscrepancyPostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost without sending the request
+     */
+    async apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequestOpts(requestParameters: ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost().'
+            );
+        }
+
+        if (requestParameters['inboundId'] == null) {
+            throw new runtime.RequiredError(
+                'inboundId',
+                'Required parameter "inboundId" was null or undefined when calling apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy/upload-signature`;
+        urlPath = urlPath.replace('{hubId}', encodeURIComponent(String(requestParameters['hubId'])));
+        urlPath = urlPath.replace('{inboundId}', encodeURIComponent(String(requestParameters['inboundId'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRaw(requestParameters: ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost(requestParameters: ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRaw(requestParameters, initOverrides);
     }
 
     /**

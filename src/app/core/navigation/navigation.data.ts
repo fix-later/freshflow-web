@@ -179,54 +179,31 @@ const NAVIGATION: AreaNavItem[] = [
             },
         ],
     },
+    // Chợ / sản phẩm / người dùng go straight to their list. Creating one is a
+    // primary button on that list, not a second nav row: the nav says where you
+    // are, and "Tạo X" is an action, not a place.
+    //
+    // No `exactMatch`: the detail and create routes sit under these paths, so
+    // the section stays lit while you are inside one of its records.
     {
-        id: 'admin.markets',
+        id: 'admin-markets',
         title: 'nav.admin.markets',
-        type: 'collapsable',
+        type: 'basic',
         icon: 'heroicons_outline:building-storefront',
+        link: '/admin/markets',
         area: 'admin',
-        children: [
-            {
-                id: 'admin-market-create',
-                title: 'nav.admin.marketCreate',
-                type: 'basic',
-                link: '/admin/markets/new',
-            },
-            {
-                id: 'admin-markets-all',
-                title: 'nav.admin.marketsAll',
-                type: 'basic',
-                link: '/admin/markets',
-                exactMatch: true,
-            },
-            // chưa gộp vào config của chợ
-            {
-                id: 'admin-hubs',
-                title: 'nav.admin.hubs',
-                type: 'basic',
-                link: '/admin/hubs',
-            },
-            {
-                id: 'admin-vehicles',
-                title: 'nav.admin.vehicles',
-                type: 'basic',
-                link: '/admin/vehicles',
-            },
-        ],
     },
+    // Sản phẩm is both: clicking it opens the product list and expands the
+    // reference data behind it (categories, units, packing codes, tags — the
+    // "chưa gộp" set, until the product config tabs absorb them).
     {
         id: 'admin.products',
         title: 'nav.admin.products',
         type: 'collapsable',
         icon: 'heroicons_outline:cube',
+        link: '/admin/products',
         area: 'admin',
         children: [
-            {
-                id: 'admin-product-create',
-                title: 'nav.admin.productCreate',
-                type: 'basic',
-                link: '/admin/products/new',
-            },
             {
                 id: 'admin-products-all',
                 title: 'nav.admin.productsAll',
@@ -234,7 +211,6 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/products',
                 exactMatch: true,
             },
-            // chưa gộp vào config của sản phẩm
             {
                 id: 'admin-categories',
                 title: 'nav.admin.categories',
@@ -262,26 +238,12 @@ const NAVIGATION: AreaNavItem[] = [
         ],
     },
     {
-        id: 'admin.users',
+        id: 'admin-users',
         title: 'nav.admin.users',
-        type: 'collapsable',
+        type: 'basic',
         icon: 'heroicons_outline:users',
+        link: '/admin/users',
         area: 'admin',
-        children: [
-            {
-                id: 'admin-user-create',
-                title: 'nav.admin.userCreate',
-                type: 'basic',
-                link: '/admin/users/new',
-            },
-            {
-                id: 'admin-users-all',
-                title: 'nav.admin.usersAll',
-                type: 'basic',
-                link: '/admin/users',
-                exactMatch: true,
-            },
-        ],
     },
     {
         id: 'admin.links',

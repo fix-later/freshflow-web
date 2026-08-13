@@ -42,6 +42,12 @@ export interface AssistantChatRequest {
      * @type {string}
      * @memberof AssistantChatRequest
      */
+    deliveryAddressId?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssistantChatRequest
+     */
     confirmOrderId?: string | null;
 }
 
@@ -67,6 +73,7 @@ export function AssistantChatRequestFromJSONTyped(json: any, ignoreDiscriminator
         'sessionId': json['sessionId'],
         'message': json['message'],
         'marketId': json['marketId'] == null ? undefined : json['marketId'],
+        'deliveryAddressId': json['deliveryAddressId'] == null ? undefined : json['deliveryAddressId'],
         'confirmOrderId': json['confirmOrderId'] == null ? undefined : json['confirmOrderId'],
     };
 }
@@ -85,6 +92,7 @@ export function AssistantChatRequestToJSONTyped(value?: AssistantChatRequest | n
         'sessionId': value['sessionId'],
         'message': value['message'],
         'marketId': value['marketId'],
+        'deliveryAddressId': value['deliveryAddressId'],
         'confirmOrderId': value['confirmOrderId'],
     };
 }

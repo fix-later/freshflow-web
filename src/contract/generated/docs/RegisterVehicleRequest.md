@@ -9,6 +9,7 @@ Name | Type
 `plateNumber` | string
 `capacityKg` | number
 `vehicleType` | string
+`hubId` | string
 
 ## Example
 
@@ -20,6 +21,7 @@ const example = {
   "plateNumber": null,
   "capacityKg": null,
   "vehicleType": null,
+  "hubId": null,
 } satisfies RegisterVehicleRequest
 
 console.log(example)

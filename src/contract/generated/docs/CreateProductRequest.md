@@ -11,6 +11,8 @@ Name | Type
 `categoryId` | string
 `description` | string
 `packingCodeId` | string
+`vatRate` | string
+`minimumOrderQuantity` | number
 
 ## Example
 
@@ -24,6 +26,8 @@ const example = {
   "categoryId": null,
   "description": null,
   "packingCodeId": null,
+  "vatRate": null,
+  "minimumOrderQuantity": null,
 } satisfies CreateProductRequest
 
 console.log(example)

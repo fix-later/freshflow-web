@@ -37,6 +37,12 @@ export interface UpdateVehicleRequest {
      * @memberof UpdateVehicleRequest
      */
     vehicleType?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof UpdateVehicleRequest
+     */
+    hubId?: string | null;
 }
 
 /**
@@ -60,6 +66,7 @@ export function UpdateVehicleRequestFromJSONTyped(json: any, ignoreDiscriminator
         'plateNumber': json['plateNumber'],
         'capacityKg': json['capacityKg'] == null ? undefined : json['capacityKg'],
         'vehicleType': json['vehicleType'] == null ? undefined : json['vehicleType'],
+        'hubId': json['hubId'] == null ? undefined : json['hubId'],
     };
 }
 
@@ -77,6 +84,7 @@ export function UpdateVehicleRequestToJSONTyped(value?: UpdateVehicleRequest | n
         'plateNumber': value['plateNumber'],
         'capacityKg': value['capacityKg'],
         'vehicleType': value['vehicleType'],
+        'hubId': value['hubId'],
     };
 }
 

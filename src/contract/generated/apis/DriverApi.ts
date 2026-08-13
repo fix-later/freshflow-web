@@ -58,6 +58,10 @@ export interface ApiV1DriverDeliveriesDeliveryIdStatusPatchRequest {
     updateDeliveryStatusRequest?: UpdateDeliveryStatusRequest;
 }
 
+export interface ApiV1DriverRoutesGetRequest {
+    date?: Date;
+}
+
 export interface ApiV1DriverRoutesRouteIdConfirmPickupPostRequest {
     routeId: string;
     confirmPickupRequest?: ConfirmPickupRequest;
@@ -284,6 +288,52 @@ export class DriverApi extends runtime.BaseAPI {
      */
     async apiV1DriverDeliveriesDeliveryIdStatusPatch(requestParameters: ApiV1DriverDeliveriesDeliveryIdStatusPatchRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1DriverDeliveriesDeliveryIdStatusPatchRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1DriverRoutesGet without sending the request
+     */
+    async apiV1DriverRoutesGetRequestOpts(requestParameters: ApiV1DriverRoutesGetRequest): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        if (requestParameters['date'] != null) {
+            queryParameters['date'] = (requestParameters['date'] as any).toISOString().substring(0,10);
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/driver/routes`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1DriverRoutesGetRaw(requestParameters: ApiV1DriverRoutesGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1DriverRoutesGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1DriverRoutesGet(requestParameters: ApiV1DriverRoutesGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1DriverRoutesGetRaw(requestParameters, initOverrides);
     }
 
     /**

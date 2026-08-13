@@ -148,10 +148,10 @@
                                     <mat-label>{{
                                         t('admin.markets.agent')
                                     }}</mat-label>
-                                    <mat-select formControlName="agentUserId">
-                                        <mat-option [value]="''">{{
-                                            t('admin.markets.agentNone')
-                                        }}</mat-option>
+                                    <mat-select
+                                        formControlName="agentUserIds"
+                                        multiple
+                                    >
                                         @for (
                                             agent of agentOptions();
                                             track agent.id
@@ -161,6 +161,13 @@
                                             }}</mat-option>
                                         }
                                     </mat-select>
+                                    @if (
+                                        !form.controls.agentUserIds.value.length
+                                    ) {
+                                        <mat-hint>{{
+                                            t('admin.markets.agentNone')
+                                        }}</mat-hint>
+                                    }
                                 </mat-form-field>
                             </div>
 
@@ -288,167 +295,21 @@
                         </form>
                     </div>
                 } @else if (selectedTab() === 1) {
-                    <div class="flex flex-col gap-4 p-6 md:p-8">
-                        @if (hubsLoading()) {
-                            <admin-loading-state />
-                        } @else if (hubs().length === 0) {
-                            <div
-                                class="flex flex-col items-start gap-3 py-6 sm:items-center sm:py-10"
-                            >
-                                <div class="text-secondary">
-                                    {{ t('admin.markets.editPage.hubs.empty') }}
-                                </div>
-                                <button
-                                    mat-flat-button
-                                    color="primary"
-                                    type="button"
-                                    (click)="createHub()"
-                                >
-                                    <mat-icon
-                                        svgIcon="heroicons_outline:plus"
-                                    ></mat-icon>
-                                    <span class="ml-2 mr-1">{{
-                                        t('admin.hubs.create')
-                                    }}</span>
-                                </button>
-                            </div>
-                        } @else {
-                            @for (hub of hubs(); track hub.id) {
-                                <section
-                                    class="bg-card flex flex-col gap-3 rounded-2xl p-5 shadow"
-                                >
-                                    <div
-                                        class="flex flex-wrap items-start justify-between gap-3"
-                                    >
-                                        <div class="min-w-0">
-                                            <div
-                                                class="truncate text-lg font-semibold"
-                                            >
-                                                {{ hub.name || '—' }}
-                                            </div>
-                                            @if (hub.address) {
-                                                <div
-                                                    class="text-secondary truncate text-sm"
-                                                >
-                                                    {{ hub.address }}
-                                                </div>
-                                            }
-                                        </div>
-                                        <button
-                                            mat-stroked-button
-                                            type="button"
-                                            (click)="openHub(hub.id)"
-                                        >
-                                            {{ t('admin.crud.edit') }}
-                                        </button>
-                                    </div>
-                                    <div>
-                                        <div
-                                            class="text-secondary mb-1 text-sm font-medium"
-                                        >
-                                            {{
-                                                t(
-                                                    'admin.markets.editPage.hubs.staff'
-                                                )
-                                            }}
-                                        </div>
-                                        @if (hub.staff.length === 0) {
-                                            <div class="text-secondary text-sm">
-                                                {{
-                                                    t(
-                                                        'admin.markets.editPage.hubs.noStaff'
-                                                    )
-                                                }}
-                                            </div>
-                                        } @else {
-                                            <div class="flex flex-wrap gap-2">
-                                                @for (
-                                                    person of hub.staff;
-                                                    track person.id
-                                                ) {
-                                                    <span
-                                                        class="admin-pill admin-pill-neutral"
-                                                        >{{
-                                                            person.email ||
-                                                                person.id
-                                                        }}</span
-                                                    >
-                                                }
-                                            </div>
-                                        }
-                                    </div>
-                                </section>
-                            }
-                        }
-                    </div>
+                    @if (hubResource(); as hubs) {
+                        <admin-resource-crud
+                            [resource]="hubs"
+                            [embedded]="true"
+                        ></admin-resource-crud>
+                    }
                 } @else if (selectedTab() === 2) {
-                    <div class="flex flex-col gap-4 p-6 md:p-8">
-                        <div class="text-secondary text-sm">
-                            {{ t('admin.markets.editPage.fleet.shared') }}
-                        </div>
-                        @if (vehiclesLoading()) {
-                            <admin-loading-state />
-                        } @else if (vehicles().length === 0) {
-                            <div class="text-secondary">
-                                {{ t('admin.crud.empty') }}
-                            </div>
-                        } @else {
-                            <div
-                                class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                            >
-                                @for (vehicle of vehicles(); track vehicle.id) {
-                                    <div
-                                        class="bg-card flex flex-col gap-1 rounded-2xl p-4 shadow"
-                                    >
-                                        <div
-                                            class="truncate text-lg font-semibold"
-                                        >
-                                            {{
-                                                vehicle['plateNumber'] ||
-                                                    vehicle.id
-                                            }}
-                                        </div>
-                                        <div class="text-secondary text-sm">
-                                            {{ vehicle['vehicleType'] || '—' }}
-                                            @if (vehicle['capacityKg']) {
-                                                · {{ vehicle['capacityKg'] }} kg
-                                            }
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
+                    @if (vehicleResource(); as vehicles) {
+                        <admin-resource-crud
+                            [resource]="vehicles"
+                            [embedded]="true"
+                        ></admin-resource-crud>
+                    }
                 } @else if (selectedTab() === 3) {
-                    <div class="flex flex-col gap-4 p-6 md:p-8">
-                        <div class="text-secondary text-sm">
-                            {{ t('admin.markets.editPage.fleet.shared') }}
-                        </div>
-                        @if (driversLoading()) {
-                            <admin-loading-state />
-                        } @else if (drivers().length === 0) {
-                            <div class="text-secondary">
-                                {{ t('admin.crud.empty') }}
-                            </div>
-                        } @else {
-                            <div
-                                class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
-                            >
-                                @for (driver of drivers(); track driver.id) {
-                                    <div
-                                        class="bg-card flex flex-col gap-1 rounded-2xl p-4 shadow"
-                                    >
-                                        <div class="truncate font-semibold">
-                                            {{ driver.email || driver.id }}
-                                        </div>
-                                        <div class="text-secondary text-sm">
-                                            {{ driver.phone || '—' }}
-                                        </div>
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
+                    <admin-market-fleet-panel />
                 } @else {
                     @if (pricingTabLoaded()) {
                         <admin-market-products

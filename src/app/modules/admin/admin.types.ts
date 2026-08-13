@@ -101,7 +101,8 @@ export interface AdminSetCreditLimitPayload {
 export interface AdminSettleCreditPayload {
     amount?: number;
     paymentMethod?: string | null;
-    reference?: string | null;
+    /** Required by `SettleCreditRequest` (1–200 chars) — a payment reference. */
+    reference: string;
     note?: string | null;
 }
 

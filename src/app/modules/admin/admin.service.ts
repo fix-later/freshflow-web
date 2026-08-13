@@ -14,7 +14,6 @@ import {
     invoicesApi,
     marketsApi,
     ordersApi,
-    rawApi,
     restaurantCreditApi,
 } from 'contract';
 import { DateTime } from 'luxon';
@@ -205,11 +204,12 @@ export class AdminService {
 
     /**
      * Loads every `market_agent` user and their market-assignments, then
-     * builds marketId → agent for the markets table.
+     * builds marketId → agents. A market can be worked by several agents, so
+     * each entry is a list; the order follows the agent list itself.
      */
     async getMarketAgentsWithAssignments(): Promise<{
         agents: AdminUserRow[];
-        agentsByMarket: Map<string, AdminUserRow>;
+        agentsByMarket: Map<string, AdminUserRow[]>;
     }> {
         const { users } = await this.getUsers({ role: MARKET_AGENT_ROLE });
         const agents = users.filter((u) => !!u.id);
@@ -219,58 +219,62 @@ export class AdminService {
                 markets: await this.getMarketAssignments(agent.id),
             }))
         );
-        const agentsByMarket = new Map<string, AdminUserRow>();
+        const agentsByMarket = new Map<string, AdminUserRow[]>();
         for (const { agent, markets } of pairs) {
             for (const marketId of markets) {
-                agentsByMarket.set(marketId, agent);
+                agentsByMarket.set(marketId, [
+                    ...(agentsByMarket.get(marketId) ?? []),
+                    agent,
+                ]);
             }
         }
         return { agents, agentsByMarket };
     }
 
     /**
-     * Resolves which market-agent (if any) currently holds each market, by
-     * reading every agent's assignment list. There is no market→agent GET.
+     * Resolves which market-agents hold each market, by reading every agent's
+     * assignment list. There is no market→agents GET.
      */
-    async getAgentsByMarketId(): Promise<Map<string, AdminUserRow>> {
+    async getAgentsByMarketId(): Promise<Map<string, AdminUserRow[]>> {
         const { agentsByMarket } = await this.getMarketAgentsWithAssignments();
         return agentsByMarket;
     }
 
     /**
-     * Makes `agentUserId` the sole agent for `marketId` (or clears the
-     * assignment when `agentUserId` is null) via market-assignments PUT.
-     * Other agents that held this market lose it; the chosen agent keeps
-     * their other markets.
+     * Makes exactly `agentUserIds` the agents of `marketId`.
+     *
+     * Assignments are stored per user (`PUT /admin/users/{id}/market-assignments`
+     * replaces one agent's whole market list), so a market-side change is a diff:
+     * each newly picked agent gains this market, each dropped agent loses it, and
+     * everybody keeps the other markets they cover. Untouched agents are not
+     * written at all.
      */
-    async setMarketAgent(
+    async setMarketAgents(
         marketId: string,
-        agentUserId: string | null,
-        previousAgentId: string | null = null
+        agentUserIds: string[],
+        previousAgentIds: string[] = []
     ): Promise<void> {
-        const previous = previousAgentId || null;
-        if (previous === (agentUserId || null)) {
-            return;
-        }
+        const next = new Set(agentUserIds);
+        const previous = new Set(previousAgentIds);
+        const added = [...next].filter((id) => !previous.has(id));
+        const removed = [...previous].filter((id) => !next.has(id));
 
-        // Drop the market from the previous agent's assignment list.
-        if (previous) {
-            const markets = await this.getMarketAssignments(previous);
-            await this.replaceMarketAssignments(
-                previous,
-                markets.filter((id) => id !== marketId)
-            );
-        }
-
-        // Add the market to the new agent's assignment list.
-        if (agentUserId) {
-            const markets = await this.getMarketAssignments(agentUserId);
+        for (const userId of added) {
+            const markets = await this.getMarketAssignments(userId);
             if (!markets.includes(marketId)) {
-                await this.replaceMarketAssignments(agentUserId, [
+                await this.replaceMarketAssignments(userId, [
                     ...markets,
                     marketId,
                 ]);
             }
+        }
+
+        for (const userId of removed) {
+            const markets = await this.getMarketAssignments(userId);
+            await this.replaceMarketAssignments(
+                userId,
+                markets.filter((id) => id !== marketId)
+            );
         }
     }
 
@@ -297,24 +301,18 @@ export class AdminService {
      * The restaurant's full profile, including the legal/e-invoice fields the
      * user list does not carry (`GET /admin/restaurants/{id}/profile`).
      *
-     * Sent through `rawApi`: the route exists on the backend but is absent from
-     * the `openapi.json` snapshot, so there is no generated method for it yet.
-     * Everything else (bearer auth, 401 refresh-and-retry, typed errors) is
-     * identical to a generated call. Drop this once `npm run generate:api`
-     * catches up.
-     *
      * Answers 404 `RESTAURANT_NOT_FOUND` for an id that no longer exists.
      */
     async getRestaurantProfile(
         restaurantId: string
     ): Promise<AdminRestaurantProfile | null> {
-        const res = await rawApi.send(
-            `/api/v1/admin/restaurants/${encodeURIComponent(
-                restaurantId
-            )}/profile`,
-            'GET'
+        const res =
+            await adminApi.apiV1AdminRestaurantsRestaurantIdProfileGetRaw({
+                restaurantId,
+            });
+        return (
+            unwrapData<AdminRestaurantProfile>(await parseJson(res.raw)) ?? null
         );
-        return unwrapData<AdminRestaurantProfile>(await parseJson(res)) ?? null;
     }
 
     async approveRestaurant(restaurantId: string): Promise<void> {
@@ -904,8 +902,7 @@ export class AdminService {
      * Downloads an issued invoice's persisted structured XML document
      * (`GET /invoices/{invoiceId}/export`).
      *
-     * Uses `rawApi` because the checked-in client predates this endpoint, and
-     * reads the body as a blob rather than JSON: the server answers
+     * Reads the raw response rather than the parsed body: the server answers
      * `application/xml` with a `Content-Disposition` filename, which the
      * envelope helpers would mangle into `undefined`.
      *
@@ -915,15 +912,14 @@ export class AdminService {
     async exportInvoice(
         invoiceId: string
     ): Promise<{ blob: Blob; fileName: string }> {
-        const res = await rawApi.send(
-            `/api/v1/invoices/${invoiceId}/export`,
-            'GET'
-        );
+        const { raw } = await invoicesApi.apiV1InvoicesInvoiceIdExportGetRaw({
+            invoiceId,
+        });
         return {
-            blob: await res.blob(),
+            blob: await raw.blob(),
             fileName:
                 fileNameFromContentDisposition(
-                    res.headers.get('content-disposition')
+                    raw.headers.get('content-disposition')
                 ) ?? `invoice-${invoiceId}.xml`,
         };
     }

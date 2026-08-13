@@ -61,6 +61,12 @@ export interface CreateMarketRequest {
      * @memberof CreateMarketRequest
      */
     description?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof CreateMarketRequest
+     */
+    code?: string | null;
 }
 
 /**
@@ -88,6 +94,7 @@ export function CreateMarketRequestFromJSONTyped(json: any, ignoreDiscriminator:
         'longitude': json['longitude'] == null ? undefined : json['longitude'],
         'imageUrl': json['imageUrl'] == null ? undefined : json['imageUrl'],
         'description': json['description'] == null ? undefined : json['description'],
+        'code': json['code'] == null ? undefined : json['code'],
     };
 }
 
@@ -109,6 +116,7 @@ export function CreateMarketRequestToJSONTyped(value?: CreateMarketRequest | nul
         'longitude': value['longitude'],
         'imageUrl': value['imageUrl'],
         'description': value['description'],
+        'code': value['code'],
     };
 }
 

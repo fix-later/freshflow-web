@@ -61,6 +61,12 @@ export interface UpdateMarketRequest {
      * @memberof UpdateMarketRequest
      */
     description?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof UpdateMarketRequest
+     */
+    code?: string | null;
 }
 
 /**
@@ -88,6 +94,7 @@ export function UpdateMarketRequestFromJSONTyped(json: any, ignoreDiscriminator:
         'longitude': json['longitude'] == null ? undefined : json['longitude'],
         'imageUrl': json['imageUrl'] == null ? undefined : json['imageUrl'],
         'description': json['description'] == null ? undefined : json['description'],
+        'code': json['code'] == null ? undefined : json['code'],
     };
 }
 
@@ -109,6 +116,7 @@ export function UpdateMarketRequestToJSONTyped(value?: UpdateMarketRequest | nul
         'longitude': value['longitude'],
         'imageUrl': value['imageUrl'],
         'description': value['description'],
+        'code': value['code'],
     };
 }
 

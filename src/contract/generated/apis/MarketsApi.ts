@@ -29,6 +29,11 @@ import {
     ProblemDetailsToJSON,
 } from '../models/ProblemDetails';
 import {
+    type SetMarketProductTagsRequest,
+    SetMarketProductTagsRequestFromJSON,
+    SetMarketProductTagsRequestToJSON,
+} from '../models/SetMarketProductTagsRequest';
+import {
     type UpdateAvailableQuantityRequest,
     UpdateAvailableQuantityRequestFromJSON,
     UpdateAvailableQuantityRequestToJSON,
@@ -70,6 +75,7 @@ export interface ApiV1MarketsMarketIdProductsGetRequest {
     category?: string;
     cursor?: string;
     pageSize?: number;
+    tag?: string;
 }
 
 export interface ApiV1MarketsMarketIdProductsPostRequest {
@@ -101,6 +107,12 @@ export interface ApiV1MarketsMarketIdProductsProductIdQuantityPatchRequest {
     marketId: string;
     productId: string;
     updateAvailableQuantityRequest?: UpdateAvailableQuantityRequest;
+}
+
+export interface ApiV1MarketsMarketIdProductsProductIdTagsPutRequest {
+    marketId: string;
+    productId: string;
+    setMarketProductTagsRequest?: SetMarketProductTagsRequest;
 }
 
 export interface ApiV1MarketsPostRequest {
@@ -426,6 +438,10 @@ export class MarketsApi extends runtime.BaseAPI {
 
         if (requestParameters['pageSize'] != null) {
             queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        if (requestParameters['tag'] != null) {
+            queryParameters['tag'] = requestParameters['tag'];
         }
 
         const headerParameters: runtime.HTTPHeaders = {};
@@ -770,6 +786,67 @@ export class MarketsApi extends runtime.BaseAPI {
      */
     async apiV1MarketsMarketIdProductsProductIdQuantityPatch(requestParameters: ApiV1MarketsMarketIdProductsProductIdQuantityPatchRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1MarketsMarketIdProductsProductIdQuantityPatchRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1MarketsMarketIdProductsProductIdTagsPut without sending the request
+     */
+    async apiV1MarketsMarketIdProductsProductIdTagsPutRequestOpts(requestParameters: ApiV1MarketsMarketIdProductsProductIdTagsPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['marketId'] == null) {
+            throw new runtime.RequiredError(
+                'marketId',
+                'Required parameter "marketId" was null or undefined when calling apiV1MarketsMarketIdProductsProductIdTagsPut().'
+            );
+        }
+
+        if (requestParameters['productId'] == null) {
+            throw new runtime.RequiredError(
+                'productId',
+                'Required parameter "productId" was null or undefined when calling apiV1MarketsMarketIdProductsProductIdTagsPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/markets/{marketId}/products/{productId}/tags`;
+        urlPath = urlPath.replace('{marketId}', encodeURIComponent(String(requestParameters['marketId'])));
+        urlPath = urlPath.replace('{productId}', encodeURIComponent(String(requestParameters['productId'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: SetMarketProductTagsRequestToJSON(requestParameters['setMarketProductTagsRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1MarketsMarketIdProductsProductIdTagsPutRaw(requestParameters: ApiV1MarketsMarketIdProductsProductIdTagsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1MarketsMarketIdProductsProductIdTagsPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1MarketsMarketIdProductsProductIdTagsPut(requestParameters: ApiV1MarketsMarketIdProductsProductIdTagsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1MarketsMarketIdProductsProductIdTagsPutRaw(requestParameters, initOverrides);
     }
 
     /**

@@ -19,6 +19,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1AdminRestaurantsRestaurantIdApprovePatch**](AdminApi.md#apiv1adminrestaurantsrestaurantidapprovepatch) | **PATCH** /api/v1/admin/restaurants/{restaurantId}/approve |  |
 | [**apiV1AdminRestaurantsRestaurantIdCreditLimitPut**](AdminApi.md#apiv1adminrestaurantsrestaurantidcreditlimitput) | **PUT** /api/v1/admin/restaurants/{restaurantId}/credit/limit |  |
 | [**apiV1AdminRestaurantsRestaurantIdCreditSettlePost**](AdminApi.md#apiv1adminrestaurantsrestaurantidcreditsettlepost) | **POST** /api/v1/admin/restaurants/{restaurantId}/credit/settle |  |
+| [**apiV1AdminRestaurantsRestaurantIdProfileGet**](AdminApi.md#apiv1adminrestaurantsrestaurantidprofileget) | **GET** /api/v1/admin/restaurants/{restaurantId}/profile |  |
 | [**apiV1AdminRestaurantsRestaurantIdReactivatePatch**](AdminApi.md#apiv1adminrestaurantsrestaurantidreactivatepatch) | **PATCH** /api/v1/admin/restaurants/{restaurantId}/reactivate |  |
 | [**apiV1AdminRestaurantsRestaurantIdSuspendPatch**](AdminApi.md#apiv1adminrestaurantsrestaurantidsuspendpatch) | **PATCH** /api/v1/admin/restaurants/{restaurantId}/suspend |  |
 | [**apiV1AdminRolesGet**](AdminApi.md#apiv1adminrolesget) | **GET** /api/v1/admin/roles |  |
@@ -1090,6 +1091,76 @@ example().catch(console.error);
 |-------------|-------------|------------------|
 | **200** | OK |  -  |
 | **400** | Bad Request |  -  |
+| **409** | Conflict |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminRestaurantsRestaurantIdProfileGet
+
+> apiV1AdminRestaurantsRestaurantIdProfileGet(restaurantId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminRestaurantsRestaurantIdProfileGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    restaurantId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1AdminRestaurantsRestaurantIdProfileGetRequest;
+
+  try {
+    const data = await api.apiV1AdminRestaurantsRestaurantIdProfileGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **restaurantId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

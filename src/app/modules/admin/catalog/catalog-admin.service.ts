@@ -15,7 +15,7 @@ import {
     marketsApi,
     packingCodesApi,
     productsApi,
-    rawApi,
+    tagsApi,
     unitsApi,
 } from 'contract';
 import {
@@ -586,21 +586,19 @@ export class CatalogAdminService {
      * request outright. Ids that are not in the live catalog come back as
      * `VALIDATION_ERROR` (400) from the handler's lookup.
      *
-     * Goes through `rawApi` because the checked-in client predates this
-     * endpoint; regenerating needs Docker and a running backend
-     * (`scripts/generate-api.mjs`). Swap it for the generated method once
-     * `npm run generate:api` catches up.
      */
     async setMarketProductTags(
         marketId: string,
         productId: string,
         tagIds: readonly string[]
     ): Promise<void> {
-        await rawApi.send(
-            `/api/v1/markets/${marketId}/products/${productId}/tags`,
-            'PUT',
-            { tagIds: [...new Set(tagIds.filter(Boolean))] }
-        );
+        await marketsApi.apiV1MarketsMarketIdProductsProductIdTagsPut({
+            marketId,
+            productId,
+            setMarketProductTagsRequest: {
+                tagIds: [...new Set(tagIds.filter(Boolean))],
+            },
+        });
     }
 
     // -------------------------------------------------------------------
@@ -612,13 +610,10 @@ export class CatalogAdminService {
      *
      * Readable by any authenticated user, because the storefront needs the
      * names too; only the writes below are admin-only.
-     *
-     * All four tag routes go through `rawApi` — the controller postdates the
-     * `openapi.json` snapshot entirely, so there is no generated client for it.
      */
     async listTags(): Promise<CrudRow[]> {
-        const res = await rawApi.send('/api/v1/tags', 'GET');
-        return withId<CrudRow>(extractList(await parseJson(res)), 'tagId');
+        const res = await tagsApi.apiV1TagsGetRaw();
+        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'tagId');
     }
 
     /** Tag catalog as picker options, label = the tag's (normalized) name. */
@@ -638,17 +633,22 @@ export class CatalogAdminService {
      * CRUD shell surfaces through `describeApiError`.
      */
     async createTag(value: CrudFormValue): Promise<void> {
-        await rawApi.send('/api/v1/tags', 'POST', {
-            name: String(value['name'] ?? '').trim(),
-            pinsToTop: value['pinsToTop'] === PIN_YES,
+        await tagsApi.apiV1TagsPost({
+            createTagRequest: {
+                name: String(value['name'] ?? '').trim(),
+                pinsToTop: value['pinsToTop'] === PIN_YES,
+            },
         });
     }
 
     /** Renames a tag and/or toggles its pin flag (both fields are required). */
     async updateTag(id: string, value: CrudFormValue): Promise<void> {
-        await rawApi.send(`/api/v1/tags/${encodeURIComponent(id)}`, 'PUT', {
-            name: String(value['name'] ?? '').trim(),
-            pinsToTop: value['pinsToTop'] === PIN_YES,
+        await tagsApi.apiV1TagsIdPut({
+            id,
+            updateTagRequest: {
+                name: String(value['name'] ?? '').trim(),
+                pinsToTop: value['pinsToTop'] === PIN_YES,
+            },
         });
     }
 
@@ -658,7 +658,7 @@ export class CatalogAdminService {
      * every listing it was on, which is why the screen asks before running it.
      */
     async deleteTag(id: string): Promise<void> {
-        await rawApi.send(`/api/v1/tags/${encodeURIComponent(id)}`, 'DELETE');
+        await tagsApi.apiV1TagsIdDelete({ id });
     }
 
     /** Delists a product from a market (does not deactivate the base product). */

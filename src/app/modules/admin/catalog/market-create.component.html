@@ -3,7 +3,7 @@
     *transloco="let t"
 >
     <div
-        class="relative flex flex-0 flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
+        class="relative flex flex-0 flex-col gap-4 px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
     >
         @if (saving()) {
             <div class="absolute inset-x-0 bottom-0">
@@ -47,27 +47,24 @@
                 {{ t('admin.crud.save') }}
             </button>
         </div>
-        <nav
-            class="market-create-tabs"
-            mat-tab-nav-bar
-            [tabPanel]="createTabPanel"
-        >
-            <a
-                mat-tab-link
-                [active]="selectedTab() === 0"
-                (click)="onTabChange(0)"
-            >
-                {{ t('admin.markets.editPage.tabs.details') }}
-            </a>
-            <a
-                mat-tab-link
-                [active]="selectedTab() === 1"
-                (click)="onTabChange(1)"
-            >
-                {{ t('admin.markets.editPage.tabs.pricing') }}
-            </a>
-        </nav>
     </div>
+
+    <!-- Same tabs as the detail page, so creating and editing read alike -->
+    <nav
+        class="flex-0 border-b px-6 md:px-8"
+        mat-tab-nav-bar
+        [tabPanel]="createTabPanel"
+    >
+        @for (tab of tabs; track tab.index) {
+            <a
+                mat-tab-link
+                [active]="selectedTab() === tab.index"
+                (click)="onTabChange(tab.index)"
+            >
+                {{ t(tab.label) }}
+            </a>
+        }
+    </nav>
 
     <div class="flex min-h-0 flex-auto overflow-hidden">
         <mat-tab-nav-panel
@@ -181,6 +178,26 @@
                         ></app-location-picker>
                     </form>
                 </div>
+            } @else if (selectedTab() === 1) {
+                <!-- A hub is created against a marketId, which this market does
+                     not have yet — so the tab explains rather than pretending. -->
+                <div
+                    class="flex flex-col items-start gap-2 p-6 sm:items-center sm:py-16 md:p-8"
+                >
+                    <div class="text-lg font-semibold">
+                        {{ t('admin.markets.createPage.afterSave.title') }}
+                    </div>
+                    <div class="text-secondary text-center">
+                        {{ t('admin.markets.createPage.afterSave.hubs') }}
+                    </div>
+                </div>
+            } @else if (selectedTab() === 2) {
+                <admin-resource-crud
+                    [resource]="vehicleResource"
+                    [embedded]="true"
+                ></admin-resource-crud>
+            } @else if (selectedTab() === 3) {
+                <admin-market-fleet-panel />
             } @else {
                 <div class="flex flex-col gap-6 p-6 md:p-8">
                     <div

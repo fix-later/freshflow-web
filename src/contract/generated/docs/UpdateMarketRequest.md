@@ -13,6 +13,7 @@ Name | Type
 `longitude` | number
 `imageUrl` | string
 `description` | string
+`code` | string
 
 ## Example
 
@@ -28,6 +29,7 @@ const example = {
   "longitude": null,
   "imageUrl": null,
   "description": null,
+  "code": null,
 } satisfies UpdateMarketRequest
 
 console.log(example)

@@ -32,7 +32,10 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
-import { CrudOption } from '../shared/resource-crud.types';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
+import { createVehicleResource } from '../logistics/vehicle-resource';
+import { ResourceCrudComponent } from '../shared/resource-crud.component';
+import { CrudOption, CrudResource } from '../shared/resource-crud.types';
 import {
     CatalogAdminService,
     MARKET_ADDRESS_MAX_LENGTH,
@@ -40,6 +43,8 @@ import {
     MARKET_LOCATION_MAX_LENGTH,
     MARKET_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
+import { MarketFleetPanelComponent } from './market-fleet-panel.component';
+import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
 
 /** Admin ▸ Catalog ▸ Markets ▸ New — full-page create form. */
 @Component({
@@ -62,30 +67,10 @@ import {
         ReactiveFormsModule,
         TranslocoModule,
         LocationPickerComponent,
+        MarketFleetPanelComponent,
+        ResourceCrudComponent,
     ],
-    styles: [
-        `
-            .market-create-tabs .mdc-tab {
-                min-width: 0;
-                height: 38px;
-                padding: 0 0.75rem;
-            }
-
-            .market-create-tabs .mdc-tab__text-label {
-                font-size: 1rem;
-                font-weight: 600;
-            }
-
-            .market-create-tabs .mdc-tab-indicator {
-                bottom: -1px;
-            }
-
-            .market-create-tabs .mdc-tab-indicator__content--underline {
-                border-top-width: 3px;
-                transform: translateY(-2px);
-            }
-        `,
-    ],
+    // No tab overrides — stock Material metrics, so the ink bar slides.
 })
 export class MarketCreateComponent implements OnInit {
     private readonly _catalog = inject(CatalogAdminService);
@@ -95,7 +80,15 @@ export class MarketCreateComponent implements OnInit {
 
     readonly saving = signal(false);
     readonly loadingProducts = signal(false);
+    readonly tabs = MARKET_TABS;
     readonly selectedTab = signal(0);
+    readonly productsTab = MARKET_PRODUCTS_TAB;
+
+    /** The fleet is platform-wide, so it is editable before this market exists. */
+    readonly vehicleResource: CrudResource = createVehicleResource(
+        inject(LogisticsAdminService),
+        (key) => this._transloco.translate(key)
+    );
     readonly productOptions = signal<CrudOption[]>([]);
     readonly selectedProductId = signal('');
     readonly pricingRows = signal<

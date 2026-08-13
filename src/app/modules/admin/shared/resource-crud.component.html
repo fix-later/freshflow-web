@@ -75,11 +75,18 @@
     </div>
 } @else {
     <div
-        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+        class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
+        [class.sm:absolute]="!embedded"
+        [class.sm:inset-0]="!embedded"
+        [class.sm:overflow-hidden]="!embedded"
         *transloco="let t"
     >
         <!-- Header -->
-        <div class="relative flex flex-0 flex-col border-b px-6 py-8 md:px-8">
+        <div
+            class="relative flex flex-0 flex-col border-b px-6 md:px-8"
+            [class.py-8]="!embedded"
+            [class.py-4]="embedded"
+        >
             @if (loading()) {
                 <div class="absolute inset-x-0 bottom-0">
                     <mat-progress-bar mode="indeterminate"></mat-progress-bar>
@@ -89,9 +96,11 @@
                 class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
             >
                 <div class="min-w-0">
-                    <div class="text-4xl font-extrabold tracking-tight">
-                        {{ t(resource.title) }}
-                    </div>
+                    @if (!embedded) {
+                        <div class="text-4xl font-extrabold tracking-tight">
+                            {{ t(resource.title) }}
+                        </div>
+                    }
                 </div>
                 <div
                     class="flex min-w-0 shrink flex-wrap items-center gap-2 sm:gap-3"
