@@ -4,33 +4,24 @@ import {
     OnInit,
     ViewEncapsulation,
     inject,
-    input,
     signal,
 } from '@angular/core';
 import { TranslocoModule } from '@jsverse/transloco';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
-import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import { CrudRow } from '../shared/resource-crud.types';
 
 /** How many rows to pull for the driver roster. */
 const DRIVER_PAGE_SIZE = 200;
 
-interface FleetCard {
-    id: string;
-    title: string;
-    detail: string;
-}
-
 /**
- * The vehicle / driver tab shared by the market create and detail pages.
+ * The driver tab shared by the market create and detail pages.
  *
- * Both lists are platform-wide and the panel says so: a `Vehicle` carries
- * neither a market nor a hub, and drivers are eligible across hubs, so there is
- * nothing to filter by. Rendering them here still answers the question the tab
- * asks — which xe and which tài xế exist to serve this chợ — without pretending
- * the rows belong to it.
+ * The roster is platform-wide and the panel says so: a driver is eligible
+ * across hubs, and nothing in the backend ties one to a chợ. Listing them here
+ * still answers the question the tab asks — which tài xế exist to serve this
+ * chợ — without pretending they belong to it. Read-only for the same reason:
+ * there is no assignment to make.
  *
  * Fetches on init, and the host only creates it when its tab is open, so an
  * unopened tab costs nothing.
@@ -49,19 +40,19 @@ interface FleetCard {
             </div>
             @if (loading()) {
                 <admin-loading-state />
-            } @else if (cards().length === 0) {
+            } @else if (drivers().length === 0) {
                 <div class="text-secondary">{{ t('admin.crud.empty') }}</div>
             } @else {
                 <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    @for (card of cards(); track card.id) {
+                    @for (driver of drivers(); track driver.id) {
                         <div
                             class="bg-card flex flex-col gap-1 rounded-2xl p-4 shadow"
                         >
-                            <div class="truncate text-lg font-semibold">
-                                {{ card.title }}
+                            <div class="truncate font-semibold">
+                                {{ driver.email || driver.id }}
                             </div>
                             <div class="text-secondary text-sm">
-                                {{ card.detail }}
+                                {{ driver.phone || '—' }}
                             </div>
                         </div>
                     }
@@ -72,11 +63,8 @@ interface FleetCard {
 })
 export class MarketFleetPanelComponent implements OnInit {
     private readonly _admin = inject(AdminService);
-    private readonly _logistics = inject(LogisticsAdminService);
 
-    readonly kind = input.required<'vehicles' | 'drivers'>();
-
-    readonly cards = signal<FleetCard[]>([]);
+    readonly drivers = signal<AdminUserRow[]>([]);
     readonly loading = signal(false);
 
     ngOnInit(): void {
@@ -86,46 +74,12 @@ export class MarketFleetPanelComponent implements OnInit {
     private async _load(): Promise<void> {
         this.loading.set(true);
         try {
-            this.cards.set(
-                this.kind() === 'vehicles'
-                    ? this._toVehicleCards(
-                          await this._logistics.listVehicles().catch(() => [])
-                      )
-                    : this._toDriverCards(
-                          await this._admin
-                              .getUsers({
-                                  role: 'driver',
-                                  pageSize: DRIVER_PAGE_SIZE,
-                              })
-                              .then((page) => page.users)
-                              .catch(() => [])
-                      )
-            );
+            const page = await this._admin
+                .getUsers({ role: 'driver', pageSize: DRIVER_PAGE_SIZE })
+                .catch(() => ({ users: [] as AdminUserRow[], totalCount: 0 }));
+            this.drivers.set(page.users);
         } finally {
             this.loading.set(false);
         }
-    }
-
-    private _toVehicleCards(rows: CrudRow[]): FleetCard[] {
-        return rows.map((row) => {
-            const type = String(row['vehicleType'] ?? '');
-            const capacity = row['capacityKg'];
-            return {
-                id: row.id,
-                title: String(row['plateNumber'] ?? '') || row.id,
-                detail:
-                    [type, capacity ? `${capacity} kg` : '']
-                        .filter(Boolean)
-                        .join(' · ') || '—',
-            };
-        });
-    }
-
-    private _toDriverCards(rows: AdminUserRow[]): FleetCard[] {
-        return rows.map((row) => ({
-            id: row.id,
-            title: row.email || row.id,
-            detail: row.phone || '—',
-        }));
     }
 }

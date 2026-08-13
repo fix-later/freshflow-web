@@ -192,9 +192,12 @@
                     </div>
                 </div>
             } @else if (selectedTab() === 2) {
-                <admin-market-fleet-panel kind="vehicles" />
+                <admin-resource-crud
+                    [resource]="vehicleResource"
+                    [embedded]="true"
+                ></admin-resource-crud>
             } @else if (selectedTab() === 3) {
-                <admin-market-fleet-panel kind="drivers" />
+                <admin-market-fleet-panel />
             } @else {
                 <div class="flex flex-col gap-6 p-6 md:p-8">
                     <div

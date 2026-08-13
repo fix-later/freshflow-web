@@ -3,19 +3,13 @@ import {
     Component,
     DestroyRef,
     OnInit,
-    TemplateRef,
     ViewEncapsulation,
     computed,
     inject,
     signal,
 } from '@angular/core';
-import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-import {
-    MatDialog,
-    MatDialogModule,
-    MatDialogRef,
-} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -28,8 +22,7 @@ import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
-import { AdminService } from '../admin.service';
-import { AdminUserRow } from '../admin.types';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
     ADMIN_DEFAULT_PAGE_SIZE,
@@ -40,8 +33,9 @@ import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
 
 /**
- * Admin ▸ Catalog ▸ Markets — list + agent dialog. Create and edit are
- * dedicated pages; pricing stays a separate routed screen.
+ * Admin ▸ Catalog ▸ Markets — the list. Create and edit are dedicated pages,
+ * and that is where a market's people are assigned: the agent roster is a
+ * multi-select on the detail page, which has room to show every name.
  */
 @Component({
     selector: 'admin-markets',
@@ -52,7 +46,6 @@ import { CatalogAdminService } from './catalog-admin.service';
     imports: [
         AdminLoadingStateComponent,
         MatButtonModule,
-        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -68,44 +61,48 @@ import { CatalogAdminService } from './catalog-admin.service';
     styles: [
         `
             .markets-grid {
-                /* name | agent | details — fixed action cols so the
-                   header and each row (separate grids) line up. */
-                grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 5rem;
+                /* market (thumb + name) | hubs | details — fixed action col so
+                   the header and each row (separate grids) line up. */
+                grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 5rem;
 
                 @screen sm {
-                    /* name | location | agent | details */
+                    /* market | location | hubs | details */
                     grid-template-columns:
-                        minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1fr)
                         5rem;
                 }
 
                 @screen md {
-                    /* name | location | address | agent | details */
+                    /* market | location | address | hubs | details */
                     grid-template-columns:
-                        minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1.2fr)
-                        minmax(10rem, 1fr) 5rem;
+                        minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr)
+                        minmax(0, 1.2fr) 5rem;
                 }
+            }
+
+            /* Fixed thumbnail box, so rows keep one height whether or not a
+               market has a picture. */
+            .markets-grid .market-thumb {
+                width: 2.75rem;
+                height: 2.75rem;
+                flex: 0 0 auto;
+                border-radius: 0.5rem;
+                object-fit: cover;
             }
         `,
     ],
 })
 export class MarketsComponent implements OnInit {
     private readonly _catalog = inject(CatalogAdminService);
-    private readonly _admin = inject(AdminService);
+    private readonly _logistics = inject(LogisticsAdminService);
     private readonly _router = inject(Router);
-    private readonly _dialog = inject(MatDialog);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _destroyRef = inject(DestroyRef);
 
-    private _agentDialogRef: MatDialogRef<unknown> | null = null;
-
     readonly rows = signal<CrudRow[]>([]);
-    /** marketId → assigned market_agent user */
-    readonly agentsByMarket = signal<Map<string, AdminUserRow>>(new Map());
-    readonly agentOptions = signal<AdminUserRow[]>([]);
-    readonly agentDialogMarket = signal<CrudRow | null>(null);
-    readonly agentDialogSaving = signal(false);
+    /** marketId → its hubs' names. Agents live on the detail page now. */
+    readonly hubsByMarket = signal<Map<string, string[]>>(new Map());
     readonly loading = signal(false);
     readonly search = signal('');
     readonly pageIndex = signal(0);
@@ -113,35 +110,24 @@ export class MarketsComponent implements OnInit {
     readonly pageSizeOptions = ADMIN_PAGE_SIZE_OPTIONS;
     readonly sort = new TableSort<CrudRow>();
 
-    readonly agentForm = new FormGroup({
-        agentUserId: new FormControl('', { nonNullable: true }),
-    });
-
     readonly filteredRows = computed(() => {
         const term = this.search().trim();
         const list = this.rows();
-        const agents = this.agentsByMarket();
         if (!term) {
             return list;
         }
-        return list.filter((row) => {
-            const agent = agents.get(row.id);
-            const agentText = agent
-                ? `${agent.email ?? ''} ${agent.name ?? ''}`
-                : '';
-            return (
+        return list.filter(
+            (row) =>
                 ['name', 'location', 'address'].some((key) =>
                     includesFolded(String(row[key] ?? ''), term)
-                ) || includesFolded(agentText, term)
-            );
-        });
+                ) || includesFolded(this.hubLabel(row), term)
+        );
     });
 
     readonly sortedRows = computed(() =>
         this.sort.apply(this.filteredRows(), (row, key) => {
-            if (key === 'agent') {
-                const agent = this.agentsByMarket().get(row.id);
-                return agent?.email ?? String(agent?.['name'] ?? '');
+            if (key === 'hubs') {
+                return this.hubLabel(row);
             }
             return String(row[key] ?? '');
         })
@@ -164,81 +150,39 @@ export class MarketsComponent implements OnInit {
         this.loading.set(true);
         Promise.all([
             this._catalog.listMarkets(),
-            this._admin.getMarketAgentsWithAssignments().catch(() => ({
-                agents: [] as AdminUserRow[],
-                agentsByMarket: new Map<string, AdminUserRow>(),
-            })),
+            this._logistics.listHubs().catch(() => [] as CrudRow[]),
         ])
-            .then(([rows, { agents, agentsByMarket }]) => {
+            .then(([rows, hubs]) => {
                 this.rows.set(rows);
-                this.agentOptions.set(agents);
-                this.agentsByMarket.set(agentsByMarket);
+                const byMarket = new Map<string, string[]>();
+                for (const hub of hubs) {
+                    const marketId = String(hub['marketId'] ?? '');
+                    if (!marketId) {
+                        continue;
+                    }
+                    byMarket.set(marketId, [
+                        ...(byMarket.get(marketId) ?? []),
+                        String(hub['name'] ?? '').trim() || hub.id,
+                    ]);
+                }
+                this.hubsByMarket.set(byMarket);
             })
             .catch((err) => void this._notifyError(err, 'admin.crud.loadError'))
             .finally(() => this.loading.set(false));
     }
 
-    agentFor(row: CrudRow): AdminUserRow | undefined {
-        return this.agentsByMarket().get(row.id);
+    /** Every hub of the market — all of them, not just the first. */
+    hubsFor(row: CrudRow): string[] {
+        return this.hubsByMarket().get(row.id) ?? [];
     }
 
-    agentLabel(row: CrudRow): string {
-        const agent = this.agentFor(row);
-        if (!agent) {
-            return '';
-        }
-        return agent.email || String(agent['name'] ?? '');
+    /** The hub names as one string — the search text and the sort key. */
+    hubLabel(row: CrudRow): string {
+        return this.hubsFor(row).join(', ');
     }
 
-    openAgentDialog(row: CrudRow, template: TemplateRef<unknown>): void {
-        this.agentDialogMarket.set(row);
-        const current = this.agentFor(row);
-        this.agentForm.reset({ agentUserId: current?.id ?? '' });
-        this.agentDialogSaving.set(false);
-
-        this._agentDialogRef = this._dialog.open(template, {
-            autoFocus: 'first-tabbable',
-            maxWidth: '95vw',
-        });
-        this._agentDialogRef.afterClosed().subscribe(() => {
-            this._agentDialogRef = null;
-            this.agentDialogMarket.set(null);
-        });
-    }
-
-    closeAgentDialog(): void {
-        this._agentDialogRef?.close();
-    }
-
-    clearAgentAssignment(): void {
-        this.agentForm.reset({ agentUserId: '' });
-        this.saveAgentAssignment();
-    }
-
-    saveAgentAssignment(): void {
-        const market = this.agentDialogMarket();
-        if (!market) {
-            return;
-        }
-        const agentUserId = this.agentForm.getRawValue().agentUserId || null;
-        const previousAgentId = this.agentFor(market)?.id ?? null;
-
-        this.agentDialogSaving.set(true);
-        this._admin
-            .setMarketAgent(market.id, agentUserId, previousAgentId)
-            .then(() => {
-                this._notify('admin.markets.agentDialog.success');
-                this.closeAgentDialog();
-                this.load();
-            })
-            .catch(
-                (err) =>
-                    void this._notifyError(
-                        err,
-                        'admin.markets.agentDialog.error'
-                    )
-            )
-            .finally(() => this.agentDialogSaving.set(false));
+    imageUrl(row: CrudRow): string {
+        return String(row['imageUrl'] ?? '');
     }
 
     onSearch(value: string): void {

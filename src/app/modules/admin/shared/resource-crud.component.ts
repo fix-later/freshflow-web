@@ -112,6 +112,13 @@ export class ResourceCrudComponent implements OnInit {
     @Input({ required: true }) resource!: CrudResource;
     /** `create` renders a full-page create form at `/…/new`. */
     @Input() pageMode: 'list' | 'create' = 'list';
+
+    /**
+     * Renders the list inside another page's tab: no absolute page shell and no
+     * page title, since the host already has both. Search, filters, create and
+     * the row actions all stay.
+     */
+    @Input() embedded = false;
     @ViewChild('formDialog') private _formDialog!: TemplateRef<unknown>;
     @ViewChild('assignDialog') private _assignDialog!: TemplateRef<unknown>;
 

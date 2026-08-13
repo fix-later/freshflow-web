@@ -32,7 +32,10 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
-import { CrudOption } from '../shared/resource-crud.types';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
+import { createVehicleResource } from '../logistics/vehicle-resource';
+import { ResourceCrudComponent } from '../shared/resource-crud.component';
+import { CrudOption, CrudResource } from '../shared/resource-crud.types';
 import {
     CatalogAdminService,
     MARKET_ADDRESS_MAX_LENGTH,
@@ -65,6 +68,7 @@ import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
         TranslocoModule,
         LocationPickerComponent,
         MarketFleetPanelComponent,
+        ResourceCrudComponent,
     ],
     // No tab overrides — stock Material metrics, so the ink bar slides.
 })
@@ -79,6 +83,12 @@ export class MarketCreateComponent implements OnInit {
     readonly tabs = MARKET_TABS;
     readonly selectedTab = signal(0);
     readonly productsTab = MARKET_PRODUCTS_TAB;
+
+    /** The fleet is platform-wide, so it is editable before this market exists. */
+    readonly vehicleResource: CrudResource = createVehicleResource(
+        inject(LogisticsAdminService),
+        (key) => this._transloco.translate(key)
+    );
     readonly productOptions = signal<CrudOption[]>([]);
     readonly selectedProductId = signal('');
     readonly pricingRows = signal<

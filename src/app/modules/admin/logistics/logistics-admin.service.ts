@@ -129,8 +129,12 @@ export class LogisticsAdminService {
     /**
      * Active hubs as `{ value: hubId, label: name }` — a route starts at
      * exactly one hub, so the route form picks from these.
+     *
+     * `marketId` narrows them to one chợ's hubs, which is what the market
+     * page's vehicle picker offers: a vehicle is stationed at a hub, and only
+     * this market's hubs belong on that form.
      */
-    async hubOptions(): Promise<HubOption[]> {
+    async hubOptions(marketId?: string): Promise<HubOption[]> {
         try {
             const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
                 hubsApi
@@ -139,6 +143,10 @@ export class LogisticsAdminService {
             );
             return withId<CrudRow>(rows, 'hubId')
                 .filter((row) => !!row.id)
+                .filter(
+                    (row) =>
+                        !marketId || String(row['marketId'] ?? '') === marketId
+                )
                 .map((row) => ({
                     value: row.id,
                     label: str(row['name']) || row.id,
@@ -819,10 +827,11 @@ export class LogisticsAdminService {
 
     // ---- Vehicles ---------------------------------------------------------
 
-    async listVehicles(): Promise<CrudRow[]> {
+    /** The fleet, or just the vehicles stationed at `hubId`. */
+    async listVehicles(hubId?: string): Promise<CrudRow[]> {
         const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
             vehiclesApi
-                .apiV1LogisticsVehiclesGetRaw({ cursor, pageSize })
+                .apiV1LogisticsVehiclesGetRaw({ cursor, pageSize, hubId })
                 .then((res) => res.raw)
         );
         return withId<CrudRow>(rows, 'vehicleId');
@@ -834,6 +843,7 @@ export class LogisticsAdminService {
                 plateNumber: str(value['plateNumber']),
                 vehicleType: optStr(value['vehicleType']),
                 capacityKg: optNum(value['capacityKg']),
+                hubId: optStr(value['hubId']),
             },
         });
     }
@@ -845,6 +855,7 @@ export class LogisticsAdminService {
                 plateNumber: str(value['plateNumber']),
                 vehicleType: optStr(value['vehicleType']),
                 capacityKg: optNum(value['capacityKg']),
+                hubId: optStr(value['hubId']),
             },
         });
     }
