@@ -376,13 +376,44 @@ empty-layout {
 /**
  * Admin side-nav tree (Kartify-style connectors).
  *
- * Collapsable children: vertical rail + node dots; active leaf uses FreshFlow
- * mint (`--fuse-accent`) and a hollow ring on the node — not a filled row chip.
- * Mint, not primary: the sidebar is near-black, where navy is unreadable.
+ * Collapsable children: vertical rail + node dots. The selected row is a filled
+ * FreshFlow mint chip (`--fuse-accent`) with `--fuse-on-accent` text — Fuse's
+ * own active state is a 12% white wash, which is nearly invisible on a
+ * near-black sidebar. Mint, not primary: navy is unreadable there.
  * Scoped to the dark admin sidebar so storefront collapsables stay untouched.
  */
 fuse-vertical-navigation.dark {
+    /* Selected top-level row (basic items such as the storefront link). */
+    > .fuse-vertical-navigation-wrapper
+        .fuse-vertical-navigation-content
+        > fuse-vertical-navigation-basic-item
+        > .fuse-vertical-navigation-item-wrapper
+        .fuse-vertical-navigation-item,
+    > .fuse-vertical-navigation-wrapper
+        .fuse-vertical-navigation-content
+        fuse-vertical-navigation-group-item
+        > fuse-vertical-navigation-basic-item
+        > .fuse-vertical-navigation-item-wrapper
+        .fuse-vertical-navigation-item {
+        &.fuse-vertical-navigation-item-active,
+        &.fuse-vertical-navigation-item-active-forced {
+            background: var(--fuse-accent) !important;
+
+            .fuse-vertical-navigation-item-icon,
+            .fuse-vertical-navigation-item-title {
+                color: var(--fuse-on-accent);
+                opacity: 1;
+            }
+
+            .fuse-vertical-navigation-item-title {
+                font-weight: 600;
+            }
+        }
+    }
+
     fuse-vertical-navigation-collapsable-item {
+        /* The open group — mint label, so the branch you are inside reads at a
+           glance even when the selected leaf is scrolled out of view. */
         &.fuse-vertical-navigation-item-expanded
             > .fuse-vertical-navigation-item-wrapper
             .fuse-vertical-navigation-item {
@@ -393,6 +424,8 @@ fuse-vertical-navigation.dark {
             }
 
             .fuse-vertical-navigation-item-title {
+                color: var(--fuse-accent);
+                font-weight: 600;
                 opacity: 1;
             }
         }
@@ -462,18 +495,21 @@ fuse-vertical-navigation.dark {
 
                     &.fuse-vertical-navigation-item-active,
                     &.fuse-vertical-navigation-item-active-forced {
-                        background: transparent !important;
+                        background: var(--fuse-accent) !important;
+                        border-radius: 6px;
 
+                        /* Filled node on the rail, ringed by the sidebar's own
+                           dark so the rail reads as passing behind it. */
                         &::before {
                             width: 9px;
                             height: 9px;
-                            background: transparent;
-                            border: 2px solid #fff;
-                            box-shadow: 0 0 0 1px rgb(0 0 0 / 0.25);
+                            background: var(--fuse-accent);
+                            border: none;
+                            box-shadow: 0 0 0 3px rgb(0 0 0 / 0.45);
                         }
 
                         .fuse-vertical-navigation-item-title {
-                            color: var(--fuse-accent);
+                            color: var(--fuse-on-accent);
                             opacity: 1;
                             font-weight: 600;
                         }
