@@ -18,6 +18,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -58,6 +59,7 @@ const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
+        MatTabsModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
@@ -116,14 +118,20 @@ export class UsersListComponent implements OnInit {
         initialValue: this.filterForm.getRawValue(),
     });
 
-    /** True when search / role / status filter is non-empty. */
+    /**
+     * The role tab in force — `''` is the "all roles" tab. Driven by the same
+     * `role` filter control the API call reads, so switching tabs goes through
+     * the one reload path (page reset, detail panel closed, server-side filter).
+     */
+    readonly activeRole = computed(() => this._filterValues().role ?? '');
+
+    /**
+     * True when search / status is non-empty. The role tab is deliberately left
+     * out: it is navigation, not a filter to be cleared.
+     */
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
-        return (
-            (v.search ?? '').trim() !== '' ||
-            !!(v.role ?? '') ||
-            !!(v.isActive ?? '')
-        );
+        return (v.search ?? '').trim() !== '' || !!(v.isActive ?? '');
     });
 
     readonly roleForm = this._formBuilder.nonNullable.group({
@@ -156,10 +164,16 @@ export class UsersListComponent implements OnInit {
         this._load();
     }
 
+    /** Switches the role tab; `''` selects the all-roles tab. */
+    selectRole(role: string): void {
+        if (this.activeRole() !== role) {
+            this.filterForm.controls.role.setValue(role);
+        }
+    }
+
     clearFilters(): void {
-        this.filterForm.reset({
+        this.filterForm.patchValue({
             search: '',
-            role: '',
             isActive: '',
         });
     }

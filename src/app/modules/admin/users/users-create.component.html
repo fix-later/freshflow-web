@@ -31,7 +31,9 @@
     </div>
 
     <div class="flex flex-auto overflow-hidden">
-        <div class="flex flex-auto flex-col overflow-y-auto p-6 md:p-8">
+        <div
+            class="flex flex-auto flex-col items-center overflow-y-auto p-6 md:p-8"
+        >
             <form
                 #createNgForm="ngForm"
                 class="flex w-full max-w-2xl flex-col gap-6"
@@ -171,6 +173,31 @@
                                     t(
                                         'admin.users.create.errors.marketRequired'
                                     )
+                                }}</mat-error>
+                            }
+                        </mat-form-field>
+                    }
+
+                    @if (needsHub()) {
+                        <mat-form-field
+                            class="w-full"
+                            subscriptSizing="dynamic"
+                        >
+                            <mat-label>{{
+                                t('admin.users.create.hub')
+                            }}</mat-label>
+                            <mat-select formControlName="hubId" required>
+                                @for (hub of hubs(); track hub.id) {
+                                    <mat-option [value]="hub.id">{{
+                                        hub.name
+                                    }}</mat-option>
+                                }
+                            </mat-select>
+                            @if (
+                                createForm.controls.hubId.hasError('required')
+                            ) {
+                                <mat-error>{{
+                                    t('admin.users.create.errors.hubRequired')
                                 }}</mat-error>
                             }
                         </mat-form-field>

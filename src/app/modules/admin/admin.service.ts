@@ -105,10 +105,19 @@ export class AdminService {
         };
     }
 
-    async createUser(payload: AdminCreateUserPayload): Promise<void> {
-        await adminApi.apiV1AdminUsersPostRaw({
+    /**
+     * Creates the account and answers its new id, which the caller needs to
+     * follow up with an assignment the create endpoint does not cover (a
+     * hub-staff roster, say). `null` when the response carries no id.
+     */
+    async createUser(payload: AdminCreateUserPayload): Promise<string | null> {
+        const res = await adminApi.apiV1AdminUsersPostRaw({
             createUserCommand: payload,
         });
+        const body = await parseJson<unknown>(res.raw);
+        const created = unwrapData<Record<string, unknown>>(body);
+        const id = created?.['id'] ?? created?.['userId'];
+        return id ? String(id) : null;
     }
 
     async setUserActive(userId: string, isActive: boolean): Promise<void> {

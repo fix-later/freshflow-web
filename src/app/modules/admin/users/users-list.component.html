@@ -58,21 +58,6 @@
                     class="fuse-mat-dense w-48"
                     subscriptSizing="dynamic"
                 >
-                    <mat-label>{{ t('admin.users.filters.role') }}</mat-label>
-                    <mat-select formControlName="role">
-                        <mat-option value="">{{
-                            t('admin.users.filters.allRoles')
-                        }}</mat-option>
-                        @for (role of roles(); track role) {
-                            <mat-option [value]="role">{{ role }}</mat-option>
-                        }
-                    </mat-select>
-                </mat-form-field>
-
-                <mat-form-field
-                    class="fuse-mat-dense w-48"
-                    subscriptSizing="dynamic"
-                >
                     <mat-label>{{ t('admin.users.filters.status') }}</mat-label>
                     <mat-select formControlName="isActive">
                         <mat-option value="">{{
@@ -103,8 +88,28 @@
         </form>
     </div>
 
+    <!-- One tab per role; the tab drives the server-side role filter -->
+    <nav
+        class="flex-0 border-b px-6 md:px-8"
+        mat-tab-nav-bar
+        [tabPanel]="usersTabPanel"
+    >
+        <a mat-tab-link [active]="activeRole() === ''" (click)="selectRole('')">
+            {{ t('admin.users.filters.allRoles') }}
+        </a>
+        @for (role of roles(); track role) {
+            <a
+                mat-tab-link
+                [active]="activeRole() === role"
+                (click)="selectRole(role)"
+            >
+                {{ role }}
+            </a>
+        }
+    </nav>
+
     <!-- Main -->
-    <div class="flex flex-auto overflow-hidden">
+    <mat-tab-nav-panel class="flex flex-auto overflow-hidden" #usersTabPanel>
         <div
             class="flex flex-auto flex-col overflow-hidden sm:mb-18 sm:overflow-y-auto"
         >
@@ -399,5 +404,5 @@
                 </div>
             }
         </div>
-    </div>
+    </mat-tab-nav-panel>
 </div>

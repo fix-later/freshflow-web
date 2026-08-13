@@ -32,9 +32,11 @@ import {
     phoneNumberValidator,
 } from 'app/core/api/validators';
 import { AdminService } from '../admin.service';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 
 const AGENT_ROLES = ['market_agent', 'kiosk_staff'];
 const RESTAURANT_ROLE = 'restaurant';
+const HUB_STAFF_ROLE = 'hub_staff';
 const RESTAURANT_NAME_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 20;
 
@@ -61,6 +63,7 @@ const PHONE_MAX_LENGTH = 20;
 })
 export class UsersCreateComponent implements OnInit {
     private readonly _admin = inject(AdminService);
+    private readonly _logistics = inject(LogisticsAdminService);
     private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
@@ -70,6 +73,7 @@ export class UsersCreateComponent implements OnInit {
     readonly saving = signal(false);
     readonly roles = signal<string[]>([]);
     readonly markets = signal<{ id: string; name: string }[]>([]);
+    readonly hubs = signal<{ id: string; name: string }[]>([]);
     readonly selectedRole = signal('');
 
     readonly createForm = this._formBuilder.nonNullable.group({
@@ -84,6 +88,7 @@ export class UsersCreateComponent implements OnInit {
         password: ['', [Validators.required, passwordStrengthValidator]],
         role: ['', Validators.required],
         marketId: [''],
+        hubId: [''],
         restaurantName: ['', Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH)],
         phone: [
             '',
@@ -94,6 +99,7 @@ export class UsersCreateComponent implements OnInit {
     readonly needsMarket = computed(() =>
         AGENT_ROLES.includes(this.selectedRole())
     );
+    readonly needsHub = computed(() => this.selectedRole() === HUB_STAFF_ROLE);
     readonly needsRestaurantName = computed(
         () => this.selectedRole() === RESTAURANT_ROLE
     );
@@ -101,6 +107,7 @@ export class UsersCreateComponent implements OnInit {
     ngOnInit(): void {
         this._loadRoles();
         this._loadMarkets();
+        this._loadHubs();
         this.createForm.controls.role.valueChanges
             .pipe(takeUntilDestroyed(this._destroyRef))
             .subscribe((role) => this._applyRoleValidators(role));
@@ -140,8 +147,13 @@ export class UsersCreateComponent implements OnInit {
                     : null,
                 phone: value.phone.trim() || null,
             })
-            .then(() => {
-                this._notify('admin.users.create.success');
+            .then(async (userId) => {
+                const hubId = this.needsHub() ? value.hubId : '';
+                if (hubId && userId) {
+                    await this._assignToHub(hubId, userId);
+                } else {
+                    this._notify('admin.users.create.success');
+                }
                 this.goBack();
             })
             .catch(async (err) => {
@@ -160,13 +172,45 @@ export class UsersCreateComponent implements OnInit {
             });
     }
 
+    /**
+     * Adds the freshly created account to `hubId`'s roster. The create endpoint
+     * takes a `marketId` but no `hubId`, so the hub side rides on the same
+     * replace-the-roster call the hub edit page uses: read the current staff,
+     * then write it back with the new user appended.
+     *
+     * The account already exists at this point, so a failure here is reported
+     * as "created, but not assigned" rather than as a failed creation — the
+     * admin can finish the assignment from Admin ▸ Logistics ▸ Hubs.
+     */
+    private async _assignToHub(hubId: string, userId: string): Promise<void> {
+        try {
+            const staffIds =
+                await this._logistics.getHubStaffAssignments(hubId);
+            await this._logistics.replaceHubStaffAssignments(
+                hubId,
+                staffIds.includes(userId) ? staffIds : [...staffIds, userId]
+            );
+            this._notify('admin.users.create.success');
+        } catch (err) {
+            this._notifyText(
+                await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.users.create.errors.hubAssignFailed'
+                )
+            );
+        }
+    }
+
     private _applyRoleValidators(role: string): void {
         this.selectedRole.set(role);
         const market = this.createForm.controls.marketId;
+        const hub = this.createForm.controls.hubId;
         const restaurantName = this.createForm.controls.restaurantName;
         market.setValidators(
             AGENT_ROLES.includes(role) ? [Validators.required] : []
         );
+        hub.setValidators(role === HUB_STAFF_ROLE ? [Validators.required] : []);
         restaurantName.setValidators(
             role === RESTAURANT_ROLE
                 ? [
@@ -176,6 +220,7 @@ export class UsersCreateComponent implements OnInit {
                 : [Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH)]
         );
         market.updateValueAndValidity();
+        hub.updateValueAndValidity();
         restaurantName.updateValueAndValidity();
     }
 
@@ -198,6 +243,13 @@ export class UsersCreateComponent implements OnInit {
                 )
             )
             .catch(() => this.markets.set([]));
+    }
+
+    private _loadHubs(): void {
+        this._admin
+            .getHubs()
+            .then((hubs) => this.hubs.set(hubs))
+            .catch(() => this.hubs.set([]));
     }
 
     private _notify(key: string): void {
