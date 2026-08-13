@@ -27,5 +27,5 @@ import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.ser
 })
 export class DraftOrderComponent {
     protected readonly draftOrderService = inject(DraftOrderService);
-    readonly count = this.draftOrderService.totalQuantity;
+    readonly count = this.draftOrderService.productCount;
 }

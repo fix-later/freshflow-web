@@ -15,7 +15,12 @@ import { PermissionsService } from 'app/core/auth/permissions/permissions.servic
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
-import { canDecrease, canIncrease, cartLineIssues } from './cart-line-rules';
+import {
+    canDecrease,
+    canIncrease,
+    cartLineIssues,
+    packSize,
+} from './cart-line-rules';
 
 @Component({
     selector: 'cart',
@@ -106,20 +111,47 @@ export class CartComponent {
         this.lines().some((line) => cartLineIssues(line, '').length > 0)
     );
 
+    /** One case ("kiện") of this line's product — the stepper's unit, not 1kg. */
+    step(line: DraftOrderLine): number {
+        return packSize(line);
+    }
+
+    /**
+     * "5 kg mỗi kiện" under the stepper, so a jump of more than one unit per
+     * click reads as the case size rather than a bug. Omitted for a line
+     * whose case size is unknown (`packSize` already falls back to 1 there).
+     */
+    packLabel(line: DraftOrderLine): string | null {
+        const weight = line.product.packWeightKg;
+        if (weight === null || weight <= 0) {
+            return null;
+        }
+        return this._transloco.translate('productCard.packWeight', {
+            weight: weight.toLocaleString(this._transloco.getActiveLang()),
+        });
+    }
+
     increment(line: DraftOrderLine): void {
         if (!canIncrease(line)) {
             return;
         }
-        this._draftOrder.setQuantity(line.product.id, line.quantity + 1);
+        this._draftOrder.setQuantity(
+            line.product.id,
+            line.quantity + packSize(line)
+        );
     }
 
     decrement(line: DraftOrderLine): void {
         // Stops at the product's minimum instead of stepping into a quantity
-        // the confirm would reject — or, at 1, deleting the line outright.
+        // the confirm would reject — or, below one case, deleting the line
+        // outright.
         if (!canDecrease(line)) {
             return;
         }
-        this._draftOrder.setQuantity(line.product.id, line.quantity - 1);
+        this._draftOrder.setQuantity(
+            line.product.id,
+            line.quantity - packSize(line)
+        );
     }
 
     remove(productId: string): void {

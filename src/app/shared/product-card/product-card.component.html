@@ -63,6 +63,18 @@
                 >
                     {{ t('productCard.outOfStock') }}
                 </span>
+            } @else if (hasNoPackingCode()) {
+                <span
+                    class="ff-product-card__badge ff-product-card__badge--muted"
+                >
+                    {{ t('productCard.packMissing') }}
+                </span>
+            } @else if (hasInsufficientStock()) {
+                <span
+                    class="ff-product-card__badge ff-product-card__badge--muted"
+                >
+                    {{ t('productCard.insufficientStock') }}
+                </span>
             }
         </div>
 
@@ -169,15 +181,6 @@
                     aria-hidden="true"
                 ></mat-icon>
                 {{ product.packNote }}
-            </p>
-        }
-
-        @if (hasStock()) {
-            <p class="ff-product-card__stock">
-                {{ t('productCard.inStock', { count: product.stock }) }}
-                @if (product.stockUnit) {
-                    <span>{{ product.stockUnit }}</span>
-                }
             </p>
         }
 

@@ -171,29 +171,26 @@
                     <div
                         class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2"
                     >
-                        @if (product.quantity !== null) {
-                            @if (isOutOfStock(product)) {
-                                <span
-                                    class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
-                                >
-                                    {{ t('productCard.outOfStock') }}
-                                </span>
-                            } @else {
-                                <span
-                                    class="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-900"
-                                >
-                                    <mat-icon
-                                        class="text-current icon-size-4"
-                                        svgIcon="heroicons_outline:check-circle"
-                                    ></mat-icon>
-                                    {{
-                                        t('productCard.inStock', {
-                                            count: product.quantity,
-                                        })
-                                    }}
-                                    {{ unitShort() }}
-                                </span>
-                            }
+                        @if (
+                            product.quantity !== null && isOutOfStock(product)
+                        ) {
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                            >
+                                {{ t('productCard.outOfStock') }}
+                            </span>
+                        } @else if (hasNoPackingCode(product)) {
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                            >
+                                {{ t('productCard.packMissing') }}
+                            </span>
+                        } @else if (hasInsufficientStock(product)) {
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                            >
+                                {{ t('productCard.insufficientStock') }}
+                            </span>
                         }
 
                         @if (updatedNote(); as when) {

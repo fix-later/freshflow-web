@@ -16,7 +16,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -29,18 +28,20 @@ import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { OrdersService } from 'app/modules/orders/orders.service';
 import { OrderConfirmPreview, OrderRow } from 'app/modules/orders/orders.types';
 import { DeliveryAddressesComponent } from 'app/modules/restaurant/delivery-addresses/delivery-addresses.component';
-import {
-    DELIVERY_WINDOWS,
-    windowFromTimestamp,
-    windowLabel,
-    windowsWithin,
-} from 'app/modules/restaurant/delivery-windows';
 import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { DateTime } from 'luxon';
 import { cartLineIssues } from './cart-line-rules';
 
 /** Daily order cutoff (BR-ORD-2): 22:00 — after this, earliest delivery +1 extra day. */
 const CUTOFF_HOUR = 22;
+
+/**
+ * Every order delivers in the same fixed early-morning window — the restaurant
+ * only picks the day (see `deliveryDate`), never the time. Kept as a single
+ * constant (rather than a start/end pair) because only the start is ever
+ * written to `scheduledFor`; "4-6h sáng" is the human label for this hour.
+ */
+const DELIVERY_HOUR = 4;
 
 /**
  * How many days of delivery dates the picker offers, counting the earliest
@@ -89,7 +90,6 @@ function toLuxonDay(date: Date): DateTime {
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
-        MatSelectModule,
         MatSnackBarModule,
         RouterLink,
         TranslocoModule,
@@ -143,33 +143,23 @@ export class CheckoutComponent implements OnInit {
     /**
      * Last day the restaurant may pick. The window counts the earliest day, so
      * a delivery cannot be booked further out than the market can plan for.
+     *
+     * One day shorter than the server's own `D..D+windowDays` window
+     * (`OrderCutoffScheduler.IsWithinDeliveryWindow`): that check's upper bound
+     * is an exact midnight cutoff, not end-of-day, so the nominal last day would
+     * only ever accept a `scheduledFor` of precisely 00:00 — never
+     * `DELIVERY_HOUR` (04:00), which every order now carries. Capping the
+     * picker here keeps every day it actually offers usable.
      */
     readonly maxDeliveryDate = computed(() =>
         this.minDeliveryDate()
-            .plus({ days: this.deliveryWindowDays() - 1 })
+            .plus({ days: this.deliveryWindowDays() - 2 })
             .startOf('day')
     );
 
     readonly deliveryDate = signal<DateTime>(this.minDeliveryDate());
 
     readonly afterCutoff = signal(new Date().getHours() >= CUTOFF_HOUR);
-
-    /**
-     * The windows this restaurant can order into: those that fit the receiving
-     * hours declared on `/profile/business`. Every window until the profile
-     * loads (and for a restaurant that declared none) — the picker must never
-     * be empty, and an unconfigured kitchen is not restricted.
-     */
-    readonly deliverySlots = signal<string[]>([...DELIVERY_WINDOWS]);
-
-    /**
-     * Preselected window: the one the last order was placed for, else the
-     * earliest available. Seeded with the earliest so the field is never blank
-     * while `/orders` and the profile are still loading.
-     */
-    readonly deliverySlot = signal<string>(DELIVERY_WINDOWS[0]);
-
-    readonly windowLabel = windowLabel;
 
     /** The restaurant's default saved delivery address, once loaded. */
     readonly defaultAddress = computed(
@@ -255,7 +245,6 @@ export class CheckoutComponent implements OnInit {
             .catch(() => {
                 // The summary just shows no address; not fatal to checkout.
             })
-            .then(() => this._applyDeliverySlots())
             .then(() => this.refreshQuote());
     }
 
@@ -311,31 +300,6 @@ export class CheckoutComponent implements OnInit {
         void this._router.navigate(['/profile/scheduled'], {
             state: { prefillItems: this._items() },
         });
-    }
-
-    /**
-     * Narrows the slot list to the restaurant's declared receiving hours, then
-     * preselects the window its last order used — repeat buyers order into the
-     * same slot, so re-picking it every time is friction. Falls back to the
-     * earliest available window when there is no previous order, or when that
-     * order's window is no longer offered.
-     *
-     * Both reads are best-effort: on failure the picker keeps the full list and
-     * the earliest window, which is exactly the pre-configuration behaviour.
-     */
-    private async _applyDeliverySlots(): Promise<void> {
-        const [profile, latest] = await Promise.all([
-            this._restaurantProfile.loadProfile().catch(() => null),
-            this._orders.getLatestOrder().catch(() => null),
-        ]);
-
-        const slots = windowsWithin(profile?.pickupStart, profile?.pickupEnd);
-        this.deliverySlots.set(slots);
-
-        const previous = windowFromTimestamp(latest?.scheduledFor);
-        this.deliverySlot.set(
-            previous && slots.includes(previous) ? previous : slots[0]
-        );
     }
 
     /**
@@ -410,12 +374,6 @@ export class CheckoutComponent implements OnInit {
             return;
         }
         this.deliveryDate.set(value.startOf('day'));
-        void this.refreshQuote();
-    }
-
-    /** Re-prices when the slot moves — the server resolves the date from it. */
-    onDeliverySlotChange(slot: string): void {
-        this.deliverySlot.set(slot);
         void this.refreshQuote();
     }
 
@@ -632,12 +590,10 @@ export class CheckoutComponent implements OnInit {
         return scheduleMatches && draftNotes === (notes ?? '');
     }
 
-    /** Combines the selected delivery day with the chosen slot's start time. */
+    /** Combines the selected delivery day with the fixed early-morning delivery hour. */
     private _scheduledFor(): Date {
-        const slotStart = this.deliverySlot().split('-')[0] ?? '00:00';
-        const [hour, minute] = slotStart.split(':').map(Number);
         return this.deliveryDate()
-            .set({ hour, minute, second: 0, millisecond: 0 })
+            .set({ hour: DELIVERY_HOUR, minute: 0, second: 0, millisecond: 0 })
             .toJSDate();
     }
 

@@ -182,23 +182,34 @@
                                     {{ line.unitPrice | number: '1.0-0' }}₫
                                 </div>
                                 <div class="cart-row__qty">
-                                    <button
-                                        type="button"
-                                        (click)="decrement(line)"
-                                        [disabled]="!canDecrease(line)"
-                                        [attr.aria-label]="t('cart.decrease')"
-                                    >
-                                        −
-                                    </button>
-                                    <span>{{ line.quantity }}</span>
-                                    <button
-                                        type="button"
-                                        (click)="increment(line)"
-                                        [disabled]="!canIncrease(line)"
-                                        [attr.aria-label]="t('cart.increase')"
-                                    >
-                                        +
-                                    </button>
+                                    <div class="cart-row__qty-stepper">
+                                        <button
+                                            type="button"
+                                            (click)="decrement(line)"
+                                            [disabled]="!canDecrease(line)"
+                                            [attr.aria-label]="
+                                                t('cart.decrease')
+                                            "
+                                        >
+                                            −
+                                        </button>
+                                        <span>{{ line.quantity }}</span>
+                                        <button
+                                            type="button"
+                                            (click)="increment(line)"
+                                            [disabled]="!canIncrease(line)"
+                                            [attr.aria-label]="
+                                                t('cart.increase')
+                                            "
+                                        >
+                                            +
+                                        </button>
+                                    </div>
+                                    @if (packLabel(line); as pack) {
+                                        <span class="cart-row__pack">{{
+                                            pack
+                                        }}</span>
+                                    }
                                 </div>
                                 <div class="cart-row__subtotal">
                                     {{ lineTotal(line) | number: '1.0-0' }}₫

@@ -569,6 +569,29 @@ export class OrderDetailComponent implements OnInit {
             : date.toLocaleString(this._transloco.getActiveLang());
     }
 
+    /**
+     * `scheduledFor`'s clock time is always the same fixed early-morning hour
+     * now (see `DELIVERY_HOUR` in `checkout.component.ts`) — the actual
+     * delivery can land anywhere in that window, so this shows the date plus
+     * the window instead of the stored instant's own minute, which would read
+     * as an exact time.
+     */
+    formatScheduledFor(value: string | null | undefined): string {
+        if (!value) {
+            return '—';
+        }
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) {
+            return '—';
+        }
+        const day = date.toLocaleDateString(this._transloco.getActiveLang());
+        const window = this._transloco.translate('orders.deliveryWindow', {
+            start: 4,
+            end: 6,
+        });
+        return `${day} (${window})`;
+    }
+
     formatAmount(value: number | null | undefined): string {
         if (value == null) {
             return '—';

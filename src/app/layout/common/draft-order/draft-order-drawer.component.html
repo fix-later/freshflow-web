@@ -59,6 +59,7 @@
                                 class="h-8 min-h-8 w-8"
                                 mat-icon-button
                                 (click)="decrement(line)"
+                                [disabled]="!canDecrease(line)"
                                 [attr.aria-label]="t('draftOrder.decrease')"
                             >
                                 <mat-icon
@@ -73,6 +74,7 @@
                                 class="h-8 min-h-8 w-8"
                                 mat-icon-button
                                 (click)="increment(line)"
+                                [disabled]="!canIncrease(line)"
                                 [attr.aria-label]="t('draftOrder.increase')"
                             >
                                 <mat-icon

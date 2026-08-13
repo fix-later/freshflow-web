@@ -103,6 +103,12 @@
                             [for]="firstRunDatePicker"
                         ></mat-datepicker-toggle>
                         <mat-datepicker #firstRunDatePicker></mat-datepicker>
+                        <mat-hint>{{
+                            t('scheduledOrders.deliveryWindow', {
+                                start: deliveryHourStart,
+                                end: deliveryHourEnd,
+                            })
+                        }}</mat-hint>
                         @if (
                             serverMessage(editForm.controls.firstRunAtDate);
                             as msg
@@ -110,27 +116,6 @@
                             <mat-error>{{ msg }}</mat-error>
                         } @else if (
                             errorKey(editForm.controls.firstRunAtDate);
-                            as key
-                        ) {
-                            <mat-error>{{ t(key) }}</mat-error>
-                        }
-                    </mat-form-field>
-                    <mat-form-field class="flex-1" subscriptSizing="dynamic">
-                        <mat-label>{{
-                            t('scheduledOrders.firstRunTime')
-                        }}</mat-label>
-                        <input
-                            matInput
-                            type="time"
-                            formControlName="firstRunAtTime"
-                        />
-                        @if (
-                            serverMessage(editForm.controls.firstRunAtTime);
-                            as msg
-                        ) {
-                            <mat-error>{{ msg }}</mat-error>
-                        } @else if (
-                            errorKey(editForm.controls.firstRunAtTime);
                             as key
                         ) {
                             <mat-error>{{ t(key) }}</mat-error>
@@ -303,14 +288,36 @@
                                         {{ t('scheduledOrders.nextRun') }}:
                                         {{
                                             schedule.nextRunAt
-                                                | date: 'dd/MM/yyyy HH:mm'
+                                                | date: 'dd/MM/yyyy'
                                         }}
+                                        @if (!isCancelled(schedule)) {
+                                            ({{
+                                                t(
+                                                    'scheduledOrders.deliveryWindow',
+                                                    {
+                                                        start: deliveryHourStart,
+                                                        end: deliveryHourEnd,
+                                                    }
+                                                )
+                                            }})
+                                        }
                                     } @else if (schedule.firstRunAt) {
                                         {{ t('scheduledOrders.firstRun') }}:
                                         {{
                                             schedule.firstRunAt
-                                                | date: 'dd/MM/yyyy HH:mm'
+                                                | date: 'dd/MM/yyyy'
                                         }}
+                                        @if (!isCancelled(schedule)) {
+                                            ({{
+                                                t(
+                                                    'scheduledOrders.deliveryWindow',
+                                                    {
+                                                        start: deliveryHourStart,
+                                                        end: deliveryHourEnd,
+                                                    }
+                                                )
+                                            }})
+                                        }
                                     } @else {
                                         {{ t('scheduledOrders.schedule') }}
                                     }
@@ -462,6 +469,15 @@
                                         <mat-datepicker
                                             #firstRunDatePickerEdit
                                         ></mat-datepicker>
+                                        <mat-hint>{{
+                                            t(
+                                                'scheduledOrders.deliveryWindow',
+                                                {
+                                                    start: deliveryHourStart,
+                                                    end: deliveryHourEnd,
+                                                }
+                                            )
+                                        }}</mat-hint>
                                         @if (
                                             serverMessage(
                                                 editForm.controls.firstRunAtDate
@@ -472,34 +488,6 @@
                                         } @else if (
                                             errorKey(
                                                 editForm.controls.firstRunAtDate
-                                            );
-                                            as key
-                                        ) {
-                                            <mat-error>{{ t(key) }}</mat-error>
-                                        }
-                                    </mat-form-field>
-                                    <mat-form-field
-                                        class="flex-1"
-                                        subscriptSizing="dynamic"
-                                    >
-                                        <mat-label>{{
-                                            t('scheduledOrders.firstRunTime')
-                                        }}</mat-label>
-                                        <input
-                                            matInput
-                                            type="time"
-                                            formControlName="firstRunAtTime"
-                                        />
-                                        @if (
-                                            serverMessage(
-                                                editForm.controls.firstRunAtTime
-                                            );
-                                            as msg
-                                        ) {
-                                            <mat-error>{{ msg }}</mat-error>
-                                        } @else if (
-                                            errorKey(
-                                                editForm.controls.firstRunAtTime
                                             );
                                             as key
                                         ) {
