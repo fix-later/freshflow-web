@@ -23,7 +23,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import {
@@ -31,6 +31,7 @@ import {
     passwordStrengthValidator,
     phoneNumberValidator,
 } from 'app/core/api/validators';
+import { RoleLabelPipe } from 'app/core/i18n/role-label.pipe';
 import { AdminService } from '../admin.service';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 
@@ -58,6 +59,7 @@ const PHONE_MAX_LENGTH = 20;
         MatSnackBarModule,
         MatTooltipModule,
         ReactiveFormsModule,
+        RoleLabelPipe,
         TranslocoModule,
     ],
 })
@@ -65,6 +67,7 @@ export class UsersCreateComponent implements OnInit {
     private readonly _admin = inject(AdminService);
     private readonly _logistics = inject(LogisticsAdminService);
     private readonly _router = inject(Router);
+    private readonly _route = inject(ActivatedRoute);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
@@ -224,10 +227,22 @@ export class UsersCreateComponent implements OnInit {
         restaurantName.updateValueAndValidity();
     }
 
+    /**
+     * `?role=` preselects the role, so a screen that knows which kind of
+     * account it needs — the chợ's driver tab, say — can hand the job over
+     * without the admin picking it again. Applied only if the backend really
+     * offers that role, so a stale link cannot submit an invalid one.
+     */
     private _loadRoles(): void {
         this._admin
             .getRoles()
-            .then((roles) => this.roles.set(roles))
+            .then((roles) => {
+                this.roles.set(roles);
+                const wanted = this._route.snapshot.queryParamMap.get('role');
+                if (wanted && roles.includes(wanted)) {
+                    this.createForm.controls.role.setValue(wanted);
+                }
+            })
             .catch(() => this.roles.set([]));
     }
 
