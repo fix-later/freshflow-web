@@ -14,6 +14,11 @@ import { FuseDrawerComponent } from '@fuse/components/drawer';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
+import {
+    canDecrease,
+    canIncrease,
+    packSize,
+} from 'app/modules/cart/cart-line-rules';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 
 /**
@@ -43,7 +48,7 @@ export class DraftOrderDrawerComponent {
     protected readonly draftOrderService = inject(DraftOrderService);
 
     readonly lines = this.draftOrderService.lines;
-    readonly count = this.draftOrderService.totalQuantity;
+    readonly count = this.draftOrderService.productCount;
     readonly isOpen = this.draftOrderService.drawerOpen;
     readonly subtotal = this.draftOrderService.subtotal;
 
@@ -59,12 +64,28 @@ export class DraftOrderDrawerComponent {
         return this.isVi() ? product.unit : product.unitEn;
     }
 
+    /** Stepper bounds — the same per-line rules the cart page enforces (see cart-line-rules). */
+    readonly canIncrease = canIncrease;
+    readonly canDecrease = canDecrease;
+
     increment(line: DraftOrderLine): void {
-        this.draftOrderService.setQuantity(line.product.id, line.quantity + 1);
+        if (!canIncrease(line)) {
+            return;
+        }
+        this.draftOrderService.setQuantity(
+            line.product.id,
+            line.quantity + packSize(line)
+        );
     }
 
     decrement(line: DraftOrderLine): void {
-        this.draftOrderService.setQuantity(line.product.id, line.quantity - 1);
+        if (!canDecrease(line)) {
+            return;
+        }
+        this.draftOrderService.setQuantity(
+            line.product.id,
+            line.quantity - packSize(line)
+        );
     }
 
     remove(productId: string): void {

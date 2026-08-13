@@ -153,6 +153,7 @@ export class TodayHighlightsComponent {
             badgeClass: 'ff-product-card__badge--sale',
             stock: product.quantity,
             stockUnit: unit,
+            packWeightKg: product.packWeightKg,
             favorite: this._favorites.isFavorite(product.marketProductId),
             inactive: product.active === false,
             link: ['/catalog', product.productId],

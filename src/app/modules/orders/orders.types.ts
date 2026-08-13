@@ -19,6 +19,8 @@ export interface OrderRow {
     scheduledFor?: string | null;
     totalAmount?: number | null;
     notes?: string | null;
+    /** Populated on the list endpoints (`GET /orders`, `GET /orders/history`) instead of `items`. */
+    itemCount?: number | null;
     items?: OrderItem[] | null;
     createdAt?: string | null;
     cancelledAt?: string | null;

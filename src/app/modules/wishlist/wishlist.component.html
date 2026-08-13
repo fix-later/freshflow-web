@@ -92,8 +92,15 @@
                             <button
                                 type="button"
                                 mat-icon-button
+                                [disabled]="!canAddToDraft(product)"
                                 (click)="addToDraftOrder(product)"
-                                [matTooltip]="t('favorites.addToDraft')"
+                                [matTooltip]="
+                                    hasNoPackingCode(product)
+                                        ? t('productCard.packMissing')
+                                        : hasInsufficientStock(product)
+                                          ? t('productCard.insufficientStock')
+                                          : t('favorites.addToDraft')
+                                "
                                 [attr.aria-label]="t('favorites.addToDraft')"
                             >
                                 <mat-icon

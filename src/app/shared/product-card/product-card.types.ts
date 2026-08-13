@@ -71,13 +71,23 @@ export interface ProductCardVm {
     rating?: number | null;
 
     /**
-     * Units the market still lists. `0` renders as out of stock and disables
-     * the cart action; `null`/omitted hides the stock line entirely (the
-     * listing endpoint does not always report a quantity).
+     * Units the market still lists. Not rendered as text (a raw kg count told
+     * a buyer nothing they could act on, since ordering only ever moves by
+     * the case — see {@link packWeightKg}) — `0` still disables the cart
+     * action and shows the "out of stock" badge; `null`/omitted means the
+     * listing did not report a figure, so nothing is disabled on its account.
      */
     stock?: number | null;
-    /** Unit the `stock` count is expressed in, e.g. "kg". */
+    /** Unit the `stock` count is expressed in, e.g. "kg". Kept for parity with `stock`; no longer displayed. */
     stockUnit?: string | null;
+    /**
+     * How many kilograms one case ("kiện") of this product weighs
+     * (`CatalogProduct.packWeightKg`). A product can only be ordered by the
+     * whole case, so `null`/`0` (no packing code configured) disables the
+     * cart action the same way being out of stock does — there is no legal
+     * quantity to add.
+     */
+    packWeightKg?: number | null;
 
     favorite?: boolean;
     /** Renders the tile muted with an "inactive" note. */

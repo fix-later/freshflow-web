@@ -178,6 +178,23 @@ export class ScheduledOrdersListComponent implements OnInit {
             : date.toLocaleString(this._transloco.getActiveLang());
     }
 
+    /**
+     * Date-only, for `firstRunAt` specifically: every run delivers in the same
+     * fixed early-morning window (see `DELIVERY_HOUR` in the restaurant-facing
+     * `scheduled-orders.component.ts`), so the stored instant's clock time —
+     * unlike `createdAt`/`lastExecutedAt`, which are real recorded events — would
+     * read as an exact minute rather than the window it actually stands for.
+     */
+    formatRunDate(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '—';
+        }
+        const date = new Date(String(value));
+        return Number.isNaN(date.getTime())
+            ? '—'
+            : date.toLocaleDateString(this._transloco.getActiveLang());
+    }
+
     private _load(): void {
         this._loadTask.trigger();
     }

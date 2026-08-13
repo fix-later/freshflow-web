@@ -36,6 +36,13 @@ export class DraftOrderService {
     private readonly _lines = signal<DraftOrderLine[]>([]);
 
     readonly lines = this._lines.asReadonly();
+    /**
+     * Distinct products in the cart — what the header badge and drawer title
+     * count. `quantity` is kg, not units (and jumps by a whole case per step
+     * since packing sizes landed), so summing it no longer means "how many
+     * products": a handful of 5kg-cased lines could already read as 30+.
+     */
+    readonly productCount = computed(() => this._lines().length);
     readonly totalQuantity = computed(() =>
         this._lines().reduce((sum, line) => sum + line.quantity, 0)
     );
@@ -174,8 +181,24 @@ export class DraftOrderService {
     /**
      * Adds a product line (or bumps quantity). Unit price defaults to the
      * catalog listing price so callers don't have to pass it every time.
+     *
+     * `quantity` defaults to one whole case (`packWeightKg`) rather than 1 —
+     * a market product is only ever picked/shipped by the case, so "add to
+     * cart" from the catalog tile starts a line at a legal quantity instead
+     * of one every listing would immediately flag as below the case size.
+     * Every caller that omits the argument relies on this; none currently
+     * pass their own. Falls back to 1 for a product with no packing code,
+     * matching `cart-line-rules.ts`'s `packSize()` — unreachable in practice
+     * since `product-card.component.ts`'s `canAddToCart()` already refuses
+     * to add such a product.
      */
-    add(product: CatalogProduct, quantity = 1, unitPrice?: number): void {
+    add(
+        product: CatalogProduct,
+        quantity = product.packWeightKg && product.packWeightKg > 0
+            ? product.packWeightKg
+            : 1,
+        unitPrice?: number
+    ): void {
         const price = unitPrice ?? product.price ?? 0;
         const existing = this._find(product.marketProductId, product.id);
 

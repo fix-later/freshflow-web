@@ -158,30 +158,14 @@
                                     {{ t('checkout.shipping.minDateHint') }}
                                 }
                             </p>
-                        </div>
-
-                        <div class="checkout-field">
-                            <span class="checkout-field__label">{{
-                                t('checkout.shipping.time')
-                            }}</span>
-                            <mat-form-field
-                                class="w-full"
-                                appearance="outline"
-                                subscriptSizing="dynamic"
-                            >
-                                <mat-select
-                                    [ngModel]="deliverySlot()"
-                                    (ngModelChange)="
-                                        onDeliverySlotChange($event)
-                                    "
-                                >
-                                    @for (slot of deliverySlots(); track slot) {
-                                        <mat-option [value]="slot">{{
-                                            windowLabel(slot)
-                                        }}</mat-option>
-                                    }
-                                </mat-select>
-                            </mat-form-field>
+                            <p class="checkout-shipping__hint">
+                                {{
+                                    t('orders.deliveryWindow', {
+                                        start: 4,
+                                        end: 6,
+                                    })
+                                }}
+                            </p>
                         </div>
                     </div>
 

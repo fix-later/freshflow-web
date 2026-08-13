@@ -14,7 +14,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
@@ -41,21 +40,21 @@ import {
 } from 'app/core/api/validators';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
 import { restaurantProfileApi, UpdateRestaurantProfileRequest } from 'contract';
-import {
-    DELIVERY_WINDOWS,
-    toApiTime,
-    toSlotTime,
-    windowBounds,
-    windowFromTimes,
-    windowLabel,
-} from '../delivery-windows';
 import { RestaurantProfileService } from '../restaurant-profile.service';
-import { RestaurantProfileView } from '../restaurant-profile.types';
 
 /**
- * Restaurant business-profile editor (spec US1): name, address, contact person,
- * and the receiving window, with an inline approval-status notice for accounts
- * that are not yet approved.
+ * Restaurant business-profile editor (spec US1): name, address, and contact
+ * person, with an inline approval-status notice for accounts that are not yet
+ * approved.
+ *
+ * The receiving-window ("giờ nhận hàng") fields this form used to expose are
+ * retired: every delivery — one-off or recurring — now arrives in the same
+ * fixed early-morning window (see `checkout.component.ts`'s `DELIVERY_HOUR`),
+ * so there is nothing left for a restaurant to declare. Any `pickupStart`/
+ * `pickupEnd` a restaurant configured previously is preserved as-is (passed
+ * through unchanged on save, never surfaced in this form) rather than nulled
+ * out — the backend still overwrites both on every profile update, so
+ * dropping them from the payload would silently erase that historical data.
  */
 @Component({
     selector: 'business-profile-form',
@@ -71,7 +70,6 @@ import { RestaurantProfileView } from '../restaurant-profile.types';
         MatButtonModule,
         MatIconModule,
         MatProgressBarModule,
-        MatSelectModule,
         MatSnackBarModule,
         TranslocoModule,
         ApprovalBannerComponent,
@@ -124,14 +122,6 @@ export class BusinessProfileFormComponent implements OnInit {
             trimmedMaxLengthValidator(CONTACT_PERSON_MAX_LENGTH),
         ]),
         /**
-         * One of {@link DELIVERY_WINDOWS} (or `null` for "not set"), split
-         * back into `pickupStart`/`pickupEnd` on save. Picking a window
-         * rather than typing two times is what lets checkout offer exactly
-         * the hours declared here — a free-form 08:30–12:00 matches no
-         * orderable slot.
-         */
-        pickupWindow: this._fb.control<string | null>(null),
-        /**
          * Filled by the Cloudinary upload below, so the format rule
          * (`Uri.TryCreate(…, Absolute)` + `MaximumLength(512)`) only bites on a
          * value that arrived some other way — a legacy row, or a hand-edited
@@ -145,13 +135,11 @@ export class BusinessProfileFormComponent implements OnInit {
     });
 
     /**
-     * The selectable windows. A profile saved before this list existed holds
-     * free-form times that match none of them; that value is prepended so the
-     * form shows what is actually stored instead of silently reading as unset.
+     * The restaurant's previously-declared receiving hours, if any — not shown
+     * in this form, only round-tripped unchanged on save (see the class doc).
      */
-    readonly windowOptions = signal<string[]>([...DELIVERY_WINDOWS]);
-
-    readonly windowLabel = windowLabel;
+    private _pickupStart: string | null = null;
+    private _pickupEnd: string | null = null;
 
     async ngOnInit(): Promise<void> {
         await this.reload();
@@ -168,9 +156,10 @@ export class BusinessProfileFormComponent implements OnInit {
                     name: profile.name ?? '',
                     address: profile.address ?? null,
                     contactPerson: profile.contactPerson ?? null,
-                    pickupWindow: this._windowFromProfile(profile),
                     businessLicenseUrl: profile.businessLicenseUrl ?? null,
                 });
+                this._pickupStart = profile.pickupStart ?? null;
+                this._pickupEnd = profile.pickupEnd ?? null;
             }
         } catch (err) {
             // 403 (not yet approved), 404, 5xx and offline each get their own
@@ -256,15 +245,14 @@ export class BusinessProfileFormComponent implements OnInit {
             return false;
         }
         const v = this.form.getRawValue();
-        const [pickupStart, pickupEnd] = v.pickupWindow
-            ? windowBounds(v.pickupWindow)
-            : [null, null];
         const payload: UpdateRestaurantProfileRequest = {
             name: v.name.trim(),
             address: emptyToNull(v.address),
             contactPerson: emptyToNull(v.contactPerson),
-            pickupStart: toApiTime(pickupStart),
-            pickupEnd: toApiTime(pickupEnd),
+            // Round-tripped unchanged — see the class doc for why this form
+            // no longer lets the restaurant edit these.
+            pickupStart: this._pickupStart,
+            pickupEnd: this._pickupEnd,
             businessLicenseUrl: emptyToNull(v.businessLicenseUrl),
         };
 
@@ -296,26 +284,6 @@ export class BusinessProfileFormComponent implements OnInit {
         } finally {
             this.saving.set(false);
         }
-    }
-
-    /**
-     * The saved window as a slot, widening the option list when the stored
-     * times predate {@link DELIVERY_WINDOWS} so nothing is silently dropped.
-     */
-    private _windowFromProfile(profile: RestaurantProfileView): string | null {
-        const { pickupStart, pickupEnd } = profile;
-        if (!pickupStart || !pickupEnd) {
-            this.windowOptions.set([...DELIVERY_WINDOWS]);
-            return null;
-        }
-        const known = windowFromTimes(pickupStart, pickupEnd);
-        if (known) {
-            this.windowOptions.set([...DELIVERY_WINDOWS]);
-            return known;
-        }
-        const legacy = `${toSlotTime(pickupStart)}-${toSlotTime(pickupEnd)}`;
-        this.windowOptions.set([legacy, ...DELIVERY_WINDOWS]);
-        return legacy;
     }
 
     private _toast(key: string): void {
