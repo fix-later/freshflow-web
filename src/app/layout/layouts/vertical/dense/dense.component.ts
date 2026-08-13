@@ -21,7 +21,6 @@ import { TranslocoModule } from '@jsverse/transloco';
 import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation.directive';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
-import { ConsoleModeComponent } from 'app/layout/common/console-mode/console-mode.component';
 import { LanguagesComponent } from 'app/layout/common/languages/languages.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.component';
@@ -41,7 +40,6 @@ import { Subject, takeUntil } from 'rxjs';
         MatIconModule,
         MatTooltipModule,
         TranslocoModule,
-        ConsoleModeComponent,
         LanguagesComponent,
         FuseFullscreenComponent,
         ShortcutsComponent,
