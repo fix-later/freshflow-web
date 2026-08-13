@@ -179,6 +179,8 @@
                     </form>
                 </div>
             } @else if (selectedTab() === 1) {
+                <admin-market-staff-panel />
+            } @else if (selectedTab() === 3) {
                 <!-- A hub is created against a marketId, which this market does
                      not have yet — so the tab explains rather than pretending. -->
                 <div
@@ -191,13 +193,11 @@
                         {{ t('admin.markets.createPage.afterSave.hubs') }}
                     </div>
                 </div>
-            } @else if (selectedTab() === 2) {
+            } @else if (selectedTab() === 4) {
                 <admin-resource-crud
                     [resource]="vehicleResource"
                     [embedded]="true"
                 ></admin-resource-crud>
-            } @else if (selectedTab() === 3) {
-                <admin-market-fleet-panel />
             } @else {
                 <div class="flex flex-col gap-6 p-6 md:p-8">
                     <div

@@ -35,6 +35,7 @@ import {
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
+import { HubEditComponent } from '../logistics/hub-edit.component';
 import { createHubResource } from '../logistics/hub-resource';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { createVehicleResource } from '../logistics/vehicle-resource';
@@ -48,20 +49,18 @@ import {
     MARKET_LOCATION_MAX_LENGTH,
     MARKET_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
-import { MarketFleetPanelComponent } from './market-fleet-panel.component';
 import { MarketProductsComponent } from './market-products.component';
-import {
-    MARKET_PRODUCTS_TAB,
-    MARKET_TABS,
-    MARKET_VEHICLES_TAB,
-} from './market-tabs';
+import { MarketStaffPanelComponent } from './market-staff-panel.component';
+import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
 
 const PRICING_TAB = MARKET_PRODUCTS_TAB;
-const VEHICLES_TAB = MARKET_VEHICLES_TAB;
 
-/** Read-only MarketDto fields for the detail grid. */
+/**
+ * Read-only MarketDto fields for the detail column. The id is deliberately not
+ * among them: it is a database key the admin never types or quotes, and it only
+ * crowded the panel.
+ */
 const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
-    { key: 'id', label: 'admin.crud.id' },
     { key: 'createdAt', label: 'admin.crud.createdAt', kind: 'date' },
     { key: 'updatedAt', label: 'admin.crud.updatedAt', kind: 'date' },
 ];
@@ -78,6 +77,7 @@ const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        HubEditComponent,
         MatButtonModule,
         MatFormFieldModule,
         MatIconModule,
@@ -90,8 +90,8 @@ const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
         ReactiveFormsModule,
         TranslocoModule,
         LocationPickerComponent,
-        MarketFleetPanelComponent,
         MarketProductsComponent,
+        MarketStaffPanelComponent,
         ResourceCrudComponent,
     ],
     templateUrl: './market-edit.component.html',
@@ -121,6 +121,12 @@ export class MarketEditComponent implements OnInit {
     readonly pricingTabLoaded = signal(false);
 
     /**
+     * Which hub the tab is showing, or `null` for the list. Opening one keeps
+     * the chợ page and its tabs on screen instead of routing away.
+     */
+    readonly openHubId = signal<string | null>(null);
+
+    /**
      * Hubs and vehicles are managed right here — neither has a nav entry of its
      * own any more. The hub list is scoped to this market and pins new hubs to
      * it; the fleet is platform-wide, so its tab edits the same rows the
@@ -132,7 +138,7 @@ export class MarketEditComponent implements OnInit {
         return marketId
             ? createHubResource(this._logistics, this._router, {
                   marketId,
-                  admin: this._admin,
+                  openDetail: (hubId) => this.openHubId.set(hubId),
               })
             : null;
     });
@@ -239,6 +245,11 @@ export class MarketEditComponent implements OnInit {
 
     goBack(): void {
         void this._router.navigate(['/admin/markets']);
+    }
+
+    /** Back from a hub returns to this market's hub list, not another page. */
+    onHubClosed(): void {
+        this.openHubId.set(null);
     }
 
     onTabChange(index: number): void {
