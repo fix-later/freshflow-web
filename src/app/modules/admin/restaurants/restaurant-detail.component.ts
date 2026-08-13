@@ -39,7 +39,10 @@ import {
     fieldMaxLength,
     serverError,
 } from 'app/core/api/form-errors';
-import { trimmedMaxLengthValidator } from 'app/core/api/validators';
+import {
+    nonBlankValidator,
+    trimmedMaxLengthValidator,
+} from 'app/core/api/validators';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
@@ -259,7 +262,16 @@ export class RestaurantDetailComponent implements OnInit {
     readonly settleForm = this._formBuilder.nonNullable.group({
         amount: [0, [Validators.required, Validators.min(0.01)]],
         paymentMethod: [''],
-        reference: [''],
+        // `SettleCreditRequest.reference` is required, 1–200 chars: a payment
+        // without one is rejected 400, so the form asks for it up front.
+        reference: [
+            '',
+            [
+                Validators.required,
+                nonBlankValidator,
+                trimmedMaxLengthValidator(REFERENCE_MAX_LENGTH),
+            ],
+        ],
         note: [''],
     });
 
@@ -616,7 +628,7 @@ export class RestaurantDetailComponent implements OnInit {
             .settleCredit(restaurantId, {
                 amount,
                 paymentMethod: paymentMethod || null,
-                reference: reference || null,
+                reference: reference.trim(),
                 note: note || null,
             })
             .then(() => {
