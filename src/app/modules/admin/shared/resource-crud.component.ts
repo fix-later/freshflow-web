@@ -371,6 +371,13 @@ export class ResourceCrudComponent implements OnInit {
             return;
         }
         this.load();
+        // `?create=1` opens the create dialog on arrival, so a "new X" button on
+        // another screen can hand the job over to the screen that owns the form
+        // instead of duplicating it. The dialog builds its own form and options,
+        // so it does not wait on `load()`.
+        if (this._route.snapshot.queryParamMap.get('create') !== null) {
+            this.openCreate();
+        }
     }
 
     goBack(): void {
