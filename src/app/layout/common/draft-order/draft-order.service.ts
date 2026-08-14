@@ -488,6 +488,7 @@ export class DraftOrderService {
     ): CatalogProduct {
         const thumbnail = String(item['imageUrl'] ?? '');
         const unitPrice = Number(item['unitPrice'] ?? 0);
+        const packWeightKg = this._parsePackWeight(item);
         return {
             id: marketProductId,
             productId: marketProductId,
@@ -508,9 +509,7 @@ export class DraftOrderService {
             // Unknown here, and an unknown limit must not bound the stepper.
             quantity: null,
             totalQuantity: null,
-            // Packing and the last price update likewise live on the listing;
-            // an order line carries neither.
-            packWeightKg: null,
+            packWeightKg,
             updatedAt: '',
             minimumOrderQuantity: 1,
             thumbnail,
@@ -521,6 +520,38 @@ export class DraftOrderService {
             tags: [],
             featured: false,
         };
+    }
+
+    private _parsePackWeight(item: Record<string, unknown>): number | null {
+        const directWeight = item['packWeightKg'] ?? item['capacityKg'];
+        if (
+            typeof directWeight === 'number' &&
+            !Number.isNaN(directWeight) &&
+            directWeight > 0
+        ) {
+            return directWeight;
+        }
+        if (
+            typeof directWeight === 'string' &&
+            directWeight.trim() !== '' &&
+            !Number.isNaN(+directWeight) &&
+            +directWeight > 0
+        ) {
+            return +directWeight;
+        }
+        const packingCode = String(
+            item['packingCode'] ?? item['packingCodeSnapshot'] ?? ''
+        ).trim();
+        if (packingCode) {
+            const match = packingCode.match(/(\d+(?:\.\d+)?)/);
+            if (match) {
+                const parsed = parseFloat(match[1]);
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    return parsed;
+                }
+            }
+        }
+        return null;
     }
 
     /**

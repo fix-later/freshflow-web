@@ -112,6 +112,7 @@ export interface LoadingManifestLine {
     productName: string;
     quantity: number;
     capacityKg: number | null;
+    marketProductId?: string | null;
 }
 
 export interface LoadingManifestStop {
