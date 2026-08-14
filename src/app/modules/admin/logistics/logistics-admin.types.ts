@@ -87,9 +87,43 @@ export interface CalculateRouteInput {
  * instead of Admin hand-picking restaurants per route.
  */
 export interface PlanRoutesInput {
+    marketSessionId: string;
+    optimizationCriteria: OptimizationCriterion;
+}
+
+export interface RoutePlanResult {
+    planId: string | null;
+    status: string;
     hubId: string;
     serviceDate: string;
-    optimizationCriteria: OptimizationCriterion;
+    optimizationCriteria: string;
+    routingProvider: string;
+    isEstimated: boolean;
+    inputRevision: string;
+    vehiclesUsed: number;
+    totalLoadKg: number;
+    totalDistanceKm: number;
+    estimatedDurationMinutes: number;
+    estimatedCost: number;
+    routes: CrudRoutePlanRow[];
+    unassigned: unknown[];
+    warnings: string[];
+    createdAt?: string | null;
+}
+
+export interface RouteDeliveryStatus {
+    deliveryId: string;
+    orderId: string;
+    sequenceNumber: number;
+    status: string;
+    estimatedArrival?: string | null;
+    actualArrival?: string | null;
+    proofUrl?: string | null;
+}
+
+export interface CrudRoutePlanRow extends Record<string, unknown> {
+    id: string;
+    routeId?: string;
 }
 
 /**

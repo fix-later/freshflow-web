@@ -69,10 +69,10 @@ const RESTAURANT_ROLE = 'restaurant';
     styles: [
         `
             .restaurants-grid {
-                /* name | email | phone | status | approval | approve | unlock | details */
+                /* name | email | phone | status | approval | approve | unlock | account | details */
                 grid-template-columns:
                     minmax(0, 1.25fr) minmax(0, 1.4fr) minmax(0, 0.9fr)
-                    7rem minmax(0, 0.9fr) 7.5rem auto 5rem;
+                    7rem minmax(0, 0.9fr) 7.5rem auto auto 5rem;
             }
         `,
     ],
@@ -106,7 +106,9 @@ export class RestaurantsAdminComponent implements OnInit {
     );
     readonly totalCount = signal(0);
     readonly loading = signal(false);
-    readonly unlocking = signal(false);
+    readonly unlockingId = signal<string | null>(null);
+    /** User id whose account activation call is in flight. */
+    readonly accountStatusId = signal<string | null>(null);
     /** Restaurant id whose approval call is in flight, so only its row spins. */
     readonly approvingId = signal<string | null>(null);
     readonly pageIndex = signal(0);
@@ -260,7 +262,10 @@ export class RestaurantsAdminComponent implements OnInit {
     }
 
     unlock(user: AdminUserRow): void {
-        this.unlocking.set(true);
+        if (!user.lockedUntil || this.unlockingId()) {
+            return;
+        }
+        this.unlockingId.set(user.id);
         this._admin
             .unlockUser(user.id)
             .then(() => {
@@ -286,7 +291,50 @@ export class RestaurantsAdminComponent implements OnInit {
                     { duration: 5000 }
                 );
             })
-            .finally(() => this.unlocking.set(false));
+            .finally(() => this.unlockingId.set(null));
+    }
+
+    /**
+     * Enables or disables login for the user account. This is deliberately
+     * separate from the restaurant approval lifecycle: suspending a restaurant
+     * controls whether it may operate, while this endpoint controls sign-in.
+     */
+    toggleAccountActive(user: AdminUserRow): void {
+        if (this.accountStatusId()) {
+            return;
+        }
+        const isActive = user.isActive === false;
+        this.accountStatusId.set(user.id);
+        this._admin
+            .setUserActive(user.id, isActive)
+            .then(() => {
+                this.users.update((list) =>
+                    list.map((row) =>
+                        row.id === user.id ? { ...row, isActive } : row
+                    )
+                );
+                this._snackBar.open(
+                    this._transloco.translate(
+                        isActive
+                            ? 'admin.users.activate.success'
+                            : 'admin.users.deactivate.success'
+                    ),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .catch(async (err) => {
+                this._snackBar.open(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.userDetail.actionError'
+                    ),
+                    undefined,
+                    { duration: 5000 }
+                );
+            })
+            .finally(() => this.accountStatusId.set(null));
     }
 
     openDetail(user: AdminUserRow): void {

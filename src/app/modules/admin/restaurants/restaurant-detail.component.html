@@ -75,7 +75,11 @@
                     mat-stroked-button
                     type="button"
                     data-testid="restaurant-detail-settle"
-                    [disabled]="!u.restaurantId || busyAction() !== null"
+                    [disabled]="
+                        !u.restaurantId ||
+                        busyAction() !== null ||
+                        (outstandingBalance() ?? 0) <= 0
+                    "
                     (click)="openSettleDialog(settleDialog)"
                 >
                     <mat-icon
@@ -85,20 +89,40 @@
                         t('admin.restaurants.settle.title')
                     }}</span>
                 </button>
-                @if (canSuspend() || canReactivate()) {
+                <button
+                    mat-icon-button
+                    type="button"
+                    data-testid="restaurant-detail-more"
+                    [matTooltip]="t('admin.crud.moreActions')"
+                    [matMenuTriggerFor]="restaurantActionsMenu"
+                >
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:ellipsis-vertical'"
+                    ></mat-icon>
+                </button>
+                <mat-menu #restaurantActionsMenu="matMenu">
                     <button
-                        mat-icon-button
+                        mat-menu-item
                         type="button"
-                        data-testid="restaurant-detail-more"
-                        [matTooltip]="t('admin.crud.moreActions')"
-                        [matMenuTriggerFor]="restaurantActionsMenu"
+                        data-testid="restaurant-detail-account-status"
+                        [disabled]="busyAction() !== null"
+                        (click)="toggleAccountActive()"
                     >
                         <mat-icon
-                            [svgIcon]="'heroicons_outline:ellipsis-vertical'"
+                            [svgIcon]="
+                                u.isActive === false
+                                    ? 'heroicons_outline:play'
+                                    : 'heroicons_outline:pause'
+                            "
                         ></mat-icon>
+                        <span>{{
+                            t(
+                                u.isActive === false
+                                    ? 'admin.users.actions.activate'
+                                    : 'admin.users.actions.deactivate'
+                            )
+                        }}</span>
                     </button>
-                }
-                <mat-menu #restaurantActionsMenu="matMenu">
                     @if (canReactivate()) {
                         <button
                             mat-menu-item
@@ -325,6 +349,19 @@
                         <mat-progress-bar
                             mode="indeterminate"
                         ></mat-progress-bar>
+                    } @else if (creditError(); as message) {
+                        <div
+                            class="ff-rd__alert flex items-center gap-3 rounded-2xl p-3.5 text-sm"
+                        >
+                            <span class="min-w-0 flex-1">{{ message }}</span>
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                (click)="reloadCredit()"
+                            >
+                                {{ t('admin.restaurants.retry') }}
+                            </button>
+                        </div>
                     } @else {
                         <div
                             class="grid grid-cols-1 gap-3 sm:grid-cols-3"
@@ -342,7 +379,7 @@
                                         <input
                                             matInput
                                             type="number"
-                                            min="0"
+                                            [min]="outstandingBalance() ?? 0"
                                             formControlName="creditLimit"
                                             data-testid="restaurant-detail-credit-input"
                                             [placeholder]="
@@ -596,6 +633,21 @@
                             <mat-progress-bar
                                 mode="indeterminate"
                             ></mat-progress-bar>
+                        } @else if (creditHistoryError(); as message) {
+                            <div
+                                class="ff-rd__alert flex items-center gap-3 rounded-2xl p-3.5 text-sm"
+                            >
+                                <span class="min-w-0 flex-1">{{
+                                    message
+                                }}</span>
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="reloadCredit()"
+                                >
+                                    {{ t('admin.restaurants.retry') }}
+                                </button>
+                            </div>
                         } @else if (statements().length) {
                             <div class="ff-rd__list">
                                 @for (
@@ -704,6 +756,21 @@
                             <mat-progress-bar
                                 mode="indeterminate"
                             ></mat-progress-bar>
+                        } @else if (creditHistoryError(); as message) {
+                            <div
+                                class="ff-rd__alert flex items-center gap-3 rounded-2xl p-3.5 text-sm"
+                            >
+                                <span class="min-w-0 flex-1">{{
+                                    message
+                                }}</span>
+                                <button
+                                    mat-stroked-button
+                                    type="button"
+                                    (click)="reloadCredit()"
+                                >
+                                    {{ t('admin.restaurants.retry') }}
+                                </button>
+                            </div>
                         } @else if (transactions().length) {
                             <div class="ff-rd__list">
                                 @for (
@@ -718,7 +785,7 @@
                                         <span
                                             class="text-secondary w-36 shrink-0 text-sm tabular-nums sm:w-44"
                                         >
-                                            {{ tx.createdAt }}
+                                            {{ formatDateTime(tx.createdAt) }}
                                         </span>
                                         <span
                                             class="admin-pill admin-pill-neutral shrink-0"
@@ -970,7 +1037,8 @@
                 <input
                     matInput
                     type="number"
-                    min="0"
+                    min="0.01"
+                    [max]="outstandingBalance() ?? 0"
                     step="0.01"
                     formControlName="amount"
                 />
@@ -987,13 +1055,36 @@
                 <mat-label>{{
                     t('admin.restaurants.settle.paymentMethod')
                 }}</mat-label>
-                <input matInput formControlName="paymentMethod" />
+                <mat-select formControlName="paymentMethod">
+                    @for (method of settlementPaymentMethods; track method) {
+                        <mat-option [value]="method">
+                            {{
+                                t(
+                                    'admin.restaurants.settle.paymentMethods.' +
+                                        method
+                                )
+                            }}
+                        </mat-option>
+                    }
+                </mat-select>
+                @if (serverMessage(settleForm.controls.paymentMethod); as msg) {
+                    <mat-error>{{ msg }}</mat-error>
+                } @else if (
+                    errorKey(settleForm.controls.paymentMethod);
+                    as key
+                ) {
+                    <mat-error>{{ t(key) }}</mat-error>
+                }
             </mat-form-field>
             <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.restaurants.settle.reference')
                 }}</mat-label>
-                <input matInput formControlName="reference" />
+                <input
+                    matInput
+                    formControlName="reference"
+                    [maxlength]="maxLength(settleForm.controls.reference)"
+                />
                 @if (serverMessage(settleForm.controls.reference); as msg) {
                     <mat-error>{{ msg }}</mat-error>
                 } @else if (errorKey(settleForm.controls.reference); as key) {
@@ -1006,7 +1097,11 @@
             </mat-form-field>
             <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{ t('admin.restaurants.settle.note') }}</mat-label>
-                <input matInput formControlName="note" />
+                <input
+                    matInput
+                    formControlName="note"
+                    [maxlength]="maxLength(settleForm.controls.note)"
+                />
                 @if (serverMessage(settleForm.controls.note); as msg) {
                     <mat-error>{{ msg }}</mat-error>
                 } @else if (errorKey(settleForm.controls.note); as key) {

@@ -244,6 +244,16 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     // Hub operations
     HUB_ALREADY_CONFIGURED_FOR_MARKET: 'errors.api.hubAlreadyForMarket',
     HUB_NOT_CONFIGURED_FOR_MARKET: 'errors.api.hubNotForMarket',
+    MARKET_SESSION_NOT_FOUND: 'errors.api.marketSessionNotFound',
+    MARKET_SESSION_NOT_READY: 'errors.api.marketSessionNotReady',
+    MARKET_SESSION_NOT_AVAILABLE: 'errors.api.marketSessionNotAvailable',
+    MARKET_SESSION_NOT_OPEN: 'errors.api.marketSessionNotOpen',
+    MARKET_SESSION_CLOSED: 'errors.api.marketSessionClosed',
+    MARKET_SESSION_CUTOFF_PASSED: 'errors.api.marketSessionCutoffPassed',
+    MARKET_SESSION_CONFLICT: 'errors.api.marketSessionConflict',
+    INVALID_MARKET_SESSION: 'errors.api.invalidMarketSession',
+    INVALID_MARKET_SESSION_CLOSE_TIME:
+        'errors.api.invalidMarketSessionCloseTime',
     HUB_INACTIVE: 'errors.api.hubInactive',
     HUB_CAPACITY_EXCEEDED: 'errors.api.hubCapacityExceeded',
     HUB_CAPACITY_BELOW_OCCUPIED: 'errors.api.hubCapacityBelowOccupied',

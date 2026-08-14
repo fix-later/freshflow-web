@@ -60,8 +60,11 @@ type RestaurantAction =
     | 'approve'
     | 'suspend'
     | 'reactivate'
+    | 'accountStatus'
     | 'creditLimit'
     | 'settle';
+
+type SettlementPaymentMethod = 'bank_transfer' | 'manual';
 
 interface ProfileField {
     label: string;
@@ -135,9 +138,11 @@ export class RestaurantDetailComponent implements OnInit {
     readonly user = signal<AdminUserRow | null>(null);
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
+    readonly creditError = signal<string | null>(null);
     readonly statements = signal<AdminCreditStatement[]>([]);
     readonly transactions = signal<AdminCreditTransaction[]>([]);
     readonly loadingCreditHistory = signal(false);
+    readonly creditHistoryError = signal<string | null>(null);
     readonly generatingStatement = signal(false);
     readonly downloadingStatementId = signal<string | null>(null);
 
@@ -261,7 +266,11 @@ export class RestaurantDetailComponent implements OnInit {
 
     readonly settleForm = this._formBuilder.nonNullable.group({
         amount: [0, [Validators.required, Validators.min(0.01)]],
-        paymentMethod: [''],
+        paymentMethod:
+            this._formBuilder.nonNullable.control<SettlementPaymentMethod>(
+                'bank_transfer',
+                Validators.required
+            ),
         // `SettleCreditRequest.reference` is required, 1–200 chars: a payment
         // without one is rejected 400, so the form asks for it up front.
         reference: [
@@ -272,8 +281,13 @@ export class RestaurantDetailComponent implements OnInit {
                 trimmedMaxLengthValidator(REFERENCE_MAX_LENGTH),
             ],
         ],
-        note: [''],
+        note: ['', [trimmedMaxLengthValidator(NOTE_MAX_LENGTH)]],
     });
+
+    readonly settlementPaymentMethods: readonly SettlementPaymentMethod[] = [
+        'bank_transfer',
+        'manual',
+    ];
 
     /**
      * The most recent billing period that has actually closed, in
@@ -524,6 +538,10 @@ export class RestaurantDetailComponent implements OnInit {
     startEditingCreditLimit(): void {
         clearServerErrors(this.creditLimitForm);
         this.actionError.set(null);
+        this.creditLimitForm.controls.creditLimit.setValidators([
+            Validators.required,
+            Validators.min(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
         this.creditLimitForm.reset({
             creditLimit: this.creditLimit(),
             note: '',
@@ -596,6 +614,30 @@ export class RestaurantDetailComponent implements OnInit {
         );
     }
 
+    toggleAccountActive(): void {
+        const current = this.user();
+        if (!current) {
+            return;
+        }
+        const isActive = current.isActive === false;
+        this.busyAction.set('accountStatus');
+        this._admin
+            .setUserActive(current.id, isActive)
+            .then(() => {
+                this.user.update((user) =>
+                    user ? { ...user, isActive } : user
+                );
+                this._notify(
+                    isActive
+                        ? 'admin.users.activate.success'
+                        : 'admin.users.deactivate.success'
+                );
+                void this._refreshUser(current.id);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
+    }
+
     closeActionDialog(): void {
         this._dialogRef?.close();
     }
@@ -607,10 +649,18 @@ export class RestaurantDetailComponent implements OnInit {
         }
         this.settleForm.reset({
             amount: 0,
-            paymentMethod: '',
+            paymentMethod: 'bank_transfer',
             reference: '',
             note: '',
         });
+        this.settleForm.controls.amount.setValidators([
+            Validators.required,
+            Validators.min(0.01),
+            Validators.max(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
+        this.settleForm.controls.amount.updateValueAndValidity();
+        clearServerErrors(this.settleForm);
+        this.actionError.set(null);
         this._dialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
             maxWidth: '95vw',
@@ -633,9 +683,9 @@ export class RestaurantDetailComponent implements OnInit {
         this._admin
             .settleCredit(restaurantId, {
                 amount,
-                paymentMethod: paymentMethod || null,
+                paymentMethod,
                 reference: reference.trim(),
-                note: note || null,
+                note: note.trim() || null,
             })
             .then(() => {
                 this._notify('admin.restaurants.settle.success');
@@ -944,6 +994,7 @@ export class RestaurantDetailComponent implements OnInit {
 
     private _loadCreditSnapshot(restaurantId: string): void {
         this.credit.set(null);
+        this.creditError.set(null);
         this.editingCreditLimit.set(false);
         this.creditLimitForm.reset({ creditLimit: 0, note: '' });
         this.statements.set([]);
@@ -961,21 +1012,57 @@ export class RestaurantDetailComponent implements OnInit {
                     note: '',
                 });
             })
+            .catch(async (err) => {
+                this.creditError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.credit.loadError'
+                    )
+                );
+            })
             .finally(() => this.loadingCredit.set(false));
         this._loadCreditHistory(restaurantId);
     }
 
     private _loadCreditHistory(restaurantId: string): void {
         this.loadingCreditHistory.set(true);
-        Promise.all([
+        this.creditHistoryError.set(null);
+        Promise.allSettled([
             this._admin.getCreditStatements(restaurantId),
             this._admin.getCreditTransactions(restaurantId),
         ])
-            .then(([statements, transactions]) => {
-                this.statements.set(statements);
-                this.transactions.set(transactions);
+            .then(async ([statements, transactions]) => {
+                if (statements.status === 'fulfilled') {
+                    this.statements.set(statements.value);
+                }
+                if (transactions.status === 'fulfilled') {
+                    this.transactions.set(transactions.value);
+                }
+                const failure =
+                    statements.status === 'rejected'
+                        ? statements.reason
+                        : transactions.status === 'rejected'
+                          ? transactions.reason
+                          : null;
+                if (failure) {
+                    this.creditHistoryError.set(
+                        await describeApiError(
+                            failure,
+                            (key) => this._transloco.translate(key),
+                            'admin.restaurants.credit.historyLoadError'
+                        )
+                    );
+                }
             })
             .finally(() => this.loadingCreditHistory.set(false));
+    }
+
+    reloadCredit(): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (restaurantId) {
+            this._loadCreditSnapshot(restaurantId);
+        }
     }
 
     private _notify(key: string): void {

@@ -32,11 +32,13 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import { describeApiError } from 'app/core/api/error-codes';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { includesFolded } from 'app/core/util/text-search';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
@@ -44,16 +46,38 @@ import {
     AdminAutoBatchBatch,
     AdminAutoBatchResult,
     AdminBatchMember,
+    AdminMarketSession,
+    AdminMarketSessionResources,
+    AdminMarketSessionTracking,
     AdminOrderDetail,
     AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
 import { CatalogAdminService } from '../catalog/catalog-admin.service';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
+import {
+    LoadingManifest,
+    OPTIMIZATION_CRITERIA,
+    OptimizationCriterion,
+    RouteDeliveryStatus,
+    RoutePlanResult,
+    RouteStop,
+} from '../logistics/logistics-admin.types';
+import {
+    routeStatusLabelKey,
+    routeStatusPillClass,
+} from '../logistics/route-status';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ADMIN_DEFAULT_PAGE_SIZE } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
+import { CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
+import {
+    MarketSessionBatchingStatus,
+    canRetryMarketSessionBatching,
+    marketSessionBatchingStatus,
+} from './market-session-batching-status';
 import { statusLabelKey, statusPillClass } from './order-group-status';
 
 /**
@@ -63,6 +87,9 @@ import { statusLabelKey, statusPillClass } from './order-group-status';
  */
 const KNOWN_SKIP_REASONS = new Set([
     'no_eligible_orders',
+    'no_closed_sessions',
+    'all_sessions_skipped',
+    'already_completed',
     'already_batched',
     'batching_disabled',
     'outside_window',
@@ -73,8 +100,33 @@ const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
 interface PlanningDay {
     iso: string;
     date: DateTime;
-    pendingOrders: number;
-    existingSessions: number;
+    draftSessions: number;
+    openSessions: number;
+    closedSessions: number;
+}
+
+interface TrackingProductCategoryGroup {
+    key: string;
+    label: string;
+    products: AdminMarketSessionTracking['products'];
+    quantities: { unit: string; total: number }[];
+}
+
+interface TrackingCatalogFields {
+    marketProductId: string;
+    unit?: string | null;
+    unitName?: string | null;
+    unitAbbreviation?: string | null;
+    categoryId?: string | null;
+    categoryName?: string | null;
+    parentCategoryId?: string | null;
+    parentCategoryName?: string | null;
+}
+
+interface MarketSessionRouteView {
+    route: CrudRow;
+    deliveries: RouteDeliveryStatus[];
+    manifest: LoadingManifest | null;
 }
 
 /** Optional Luxon day from the Material datepicker. */
@@ -113,6 +165,7 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
         MatSelectModule,
         MatSnackBarModule,
         MatTooltipModule,
+        MatTabsModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
@@ -165,13 +218,15 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
 })
 export class OrderGroupsComponent implements OnInit {
     private readonly _admin = inject(AdminService);
-    private readonly _catalog = inject(CatalogAdminService);
+    private readonly _catalogAdmin = inject(CatalogAdminService);
+    private readonly _logistics = inject(LogisticsAdminService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _dialog = inject(MatDialog);
     private readonly _router = inject(Router);
     private readonly _route = inject(ActivatedRoute);
+    private readonly _permissions = inject(PermissionsService);
 
     readonly historyView = this._route.snapshot.data['view'] === 'history';
 
@@ -180,7 +235,17 @@ export class OrderGroupsComponent implements OnInit {
     private _batchDialogRef: MatDialogRef<unknown> | null = null;
     private _resetDialogRef: MatDialogRef<unknown> | null = null;
     private _agentDialogRef: MatDialogRef<unknown> | null = null;
-    private _orderDialogRef: MatDialogRef<unknown> | null = null;
+    private _marketSessionDialogRef: MatDialogRef<unknown> | null = null;
+    private _marketSessionConfigurationDialogRef: MatDialogRef<unknown> | null =
+        null;
+    private _marketSessionCloseDialogRef: MatDialogRef<unknown> | null = null;
+    private _marketSessionRoutePollingId: ReturnType<
+        typeof setInterval
+    > | null = null;
+    private readonly _restaurantAddressCache = new Map<
+        string,
+        Promise<string | null>
+    >();
 
     readonly groups = signal<AdminOrderGroupRow[]>([]);
     readonly agents = signal<AdminUserRow[]>([]);
@@ -189,33 +254,132 @@ export class OrderGroupsComponent implements OnInit {
     readonly pageIndex = signal(0);
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
-    readonly pendingOrders = signal<AdminOrderDetail[]>([]);
     readonly historyOrderDetails = signal<Map<string, AdminOrderDetail>>(
         new Map()
     );
     readonly historySummaryLoading = signal(false);
     readonly planningLoading = signal(false);
-    readonly planningApplying = signal(false);
+    readonly marketSessions = signal<AdminMarketSession[]>([]);
+    readonly planningWindowDays = signal(7);
+    readonly planningLoadFailed = signal(false);
+    readonly planningActionError = signal<string | null>(null);
+    readonly openingSessionId = signal<string | null>(null);
+    readonly batchingSessionId = signal<string | null>(null);
+    readonly routingSessionId = signal<string | null>(null);
+    readonly trackedMarketSession = signal<AdminMarketSession | null>(null);
+    readonly marketSessionTracking = signal<AdminMarketSessionTracking | null>(
+        null
+    );
+    readonly marketSessionTrackingLoading = signal(false);
+    readonly marketSessionTrackingError = signal(false);
+    readonly marketSessionTrackingPageIndex = signal(0);
+    readonly marketSessionTrackingPageSize = signal(20);
+    readonly marketSessionTrackingTabIndex = signal(0);
+    readonly expandedTrackingOrderIds = signal<ReadonlySet<string>>(new Set());
+    readonly routeCriteriaOptions = OPTIMIZATION_CRITERIA;
+    readonly routeCriteria = new FormControl<OptimizationCriterion>(
+        'distance',
+        {
+            nonNullable: true,
+        }
+    );
+    readonly marketSessionRoutePlan = signal<RoutePlanResult | null>(null);
+    readonly marketSessionRoutes = signal<MarketSessionRouteView[]>([]);
+    readonly marketSessionRoutesLoading = signal(false);
+    readonly marketSessionRoutesError = signal<string | null>(null);
+    readonly marketSessionRoutesUpdatedAt = signal<Date | null>(null);
+    readonly approvingRoutePlan = signal(false);
+    readonly routeStatusPillClass = routeStatusPillClass;
+    readonly configuredMarketSession = signal<AdminMarketSession | null>(null);
+    readonly marketSessionConfigurationSaving = signal(false);
+    readonly marketSessionResources =
+        signal<AdminMarketSessionResources | null>(null);
+    readonly marketSessionResourcesLoading = signal(false);
+    readonly marketSessionConfigurationError = signal<string | null>(null);
+    readonly marketSessionConfigurationForm = this._formBuilder.group({
+        closesAt: ['', Validators.required],
+        plannedCapacityKg: new FormControl<number | null>(null, [
+            Validators.min(0.01),
+            Validators.max(1_000_000),
+        ]),
+        vehicleIds: new FormControl<string[]>([], {
+            nonNullable: true,
+            validators: Validators.required,
+        }),
+        agentUserIds: new FormControl<string[]>([], {
+            nonNullable: true,
+            validators: Validators.required,
+        }),
+    });
+    readonly closingMarketSession = signal<AdminMarketSession | null>(null);
+    readonly closingMarketSessionTracking =
+        signal<AdminMarketSessionTracking | null>(null);
+    readonly marketSessionCloseSummaryLoading = signal(false);
+    readonly marketSessionCloseSaving = signal(false);
+    readonly marketSessionCloseError = signal<string | null>(null);
+    readonly marketSessionCloseForm = this._formBuilder.group({
+        reason: ['', Validators.maxLength(500)],
+    });
+    readonly canOpenMarketSessions = computed(() =>
+        this._permissions.hasRole('admin')
+    );
+    readonly marketSessionProductCategoryGroups = computed<
+        TrackingProductCategoryGroup[]
+    >(() => {
+        const groups = new Map<string, TrackingProductCategoryGroup>();
+        for (const product of this.marketSessionTracking()?.products ?? []) {
+            const key =
+                product.parentCategoryId ||
+                product.categoryId ||
+                product.parentCategoryName ||
+                product.categoryName ||
+                '__uncategorized__';
+            const label =
+                product.parentCategoryName || product.categoryName || '';
+            let group = groups.get(key);
+            if (!group) {
+                group = { key, label, products: [], quantities: [] };
+                groups.set(key, group);
+            }
+            group.products.push(product);
+        }
+        return [...groups.values()]
+            .map((group) => {
+                const totals = new Map<string, number>();
+                for (const product of group.products) {
+                    const unit = this.trackingProductUnit(product);
+                    totals.set(
+                        unit,
+                        (totals.get(unit) ?? 0) + product.totalQuantity
+                    );
+                }
+                return {
+                    ...group,
+                    products: [...group.products].sort((a, b) =>
+                        a.productName.localeCompare(b.productName, 'vi')
+                    ),
+                    quantities: [...totals].map(([unit, total]) => ({
+                        unit,
+                        total,
+                    })),
+                };
+            })
+            .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
+    });
+    readonly marketSessionQuantityTotals = computed(() => {
+        const totals = new Map<string, number>();
+        for (const product of this.marketSessionTracking()?.products ?? []) {
+            const unit = this.trackingProductUnit(product);
+            totals.set(unit, (totals.get(unit) ?? 0) + product.totalQuantity);
+        }
+        return [...totals].map(([unit, total]) => ({ unit, total }));
+    });
 
     private readonly _localToday = DateTime.now()
         .setZone(VIETNAM_ZONE)
         .startOf('day');
     readonly tomorrowDate = this._localToday.plus({ days: 1 });
     readonly planningDate = signal<DateTime>(this.tomorrowDate);
-    readonly planningResult = signal<AdminAutoBatchResult | null>(null);
-    readonly planningRestaurantNames = signal<Map<string, string>>(new Map());
-
-    /** Order selected from a proposed/existing session. */
-    readonly planningOrder = signal<AdminOrderDetail | null>(null);
-    readonly planningOrderId = signal('');
-    readonly planningOrderRestaurant = signal('');
-    readonly planningOrderLoading = signal(false);
-    readonly planningOrderError = signal(false);
-    readonly planningOrderUnits = signal<Map<string, string>>(new Map());
-    private readonly _marketUnitCache = new Map<
-        string,
-        Promise<Map<string, string>>
-    >();
 
     /**
      * Server-side batching progress (`GET /admin/order-groups/progress`).
@@ -247,116 +411,49 @@ export class OrderGroupsComponent implements OnInit {
         Number(this.progressSummary()?.openExceptions ?? 0)
     );
 
-    readonly activeSessionCount = computed(
-        () =>
-            this.groups().filter(
-                (group) =>
-                    !['completed', 'cancelled'].includes(
-                        String(group.status ?? '').toLowerCase()
-                    )
-            ).length
-    );
-
-    readonly unassignedSessionCount = computed(
-        () =>
-            this.groups().filter(
-                (group) =>
-                    !['completed', 'cancelled'].includes(
-                        String(group.status ?? '').toLowerCase()
-                    ) && !group.agentId
-            ).length
-    );
-
-    /** Delivery dates that restaurants actually have confirmed orders for. */
+    /** Delivery dates in the backend-configured ordering window. */
     readonly planningDays = computed<PlanningDay[]>(() => {
-        const pendingByDate = new Map<string, number>();
-        for (const order of this.pendingOrders()) {
-            const iso = this._deliveryDateIso(order.scheduledFor);
-            if (iso) {
-                pendingByDate.set(iso, (pendingByDate.get(iso) ?? 0) + 1);
-            }
-        }
-
-        const sessionsByDate = new Map<string, number>();
-        for (const group of this.groups()) {
-            if (String(group.status ?? '').toLowerCase() === 'cancelled') {
-                continue;
-            }
-            const iso = this.sessionDateIso(group);
-            if (iso) {
-                sessionsByDate.set(iso, (sessionsByDate.get(iso) ?? 0) + 1);
-            }
-        }
-
         const dates = new Set<string>();
-        const tomorrowIso = this.tomorrowDate.toISODate();
-        if (tomorrowIso) {
-            dates.add(tomorrowIso);
-        }
-        for (const iso of pendingByDate.keys()) {
-            const day = DateTime.fromISO(iso, { zone: VIETNAM_ZONE });
-            if (day.isValid && day >= this.tomorrowDate) {
-                dates.add(iso);
-            }
-        }
-        for (const iso of sessionsByDate.keys()) {
-            const day = DateTime.fromISO(iso, { zone: VIETNAM_ZONE });
-            if (day.isValid && day >= this.tomorrowDate) {
+        for (let offset = 0; offset < this.planningWindowDays(); offset += 1) {
+            const iso = this.tomorrowDate.plus({ days: offset }).toISODate();
+            if (iso) {
                 dates.add(iso);
             }
         }
 
         return [...dates]
             .sort()
-            .slice(0, 7)
-            .map((iso) => ({
-                iso,
-                date: DateTime.fromISO(iso, { zone: VIETNAM_ZONE }),
-                pendingOrders: pendingByDate.get(iso) ?? 0,
-                existingSessions: sessionsByDate.get(iso) ?? 0,
-            }));
+            .slice(0, this.planningWindowDays())
+            .map((iso) => {
+                const sessions = this.marketSessions().filter(
+                    (session) => session.serviceDate === iso
+                );
+                return {
+                    iso,
+                    date: DateTime.fromISO(iso, { zone: VIETNAM_ZONE }),
+                    draftSessions: sessions.filter(
+                        (session) => session.status === 'draft'
+                    ).length,
+                    openSessions: sessions.filter(
+                        (session) => session.status === 'open'
+                    ).length,
+                    closedSessions: sessions.filter(
+                        (session) => session.status === 'closed'
+                    ).length,
+                };
+            });
     });
 
     readonly selectedPlanningIso = computed(
         () => this.planningDate().toISODate() ?? ''
     );
 
-    readonly selectedPlanningDay = computed(() =>
-        this.planningDays().find(
-            (day) => day.iso === this.selectedPlanningIso()
+    readonly selectedMarketSessions = computed(() =>
+        this.marketSessions().filter(
+            (session) => session.serviceDate === this.selectedPlanningIso()
         )
     );
 
-    readonly selectedPendingOrders = computed(() =>
-        this.pendingOrders().filter(
-            (order) =>
-                this._deliveryDateIso(order.scheduledFor) ===
-                this.selectedPlanningIso()
-        )
-    );
-
-    readonly selectedExistingSessions = computed(() =>
-        this.groups().filter(
-            (group) =>
-                this.sessionDateIso(group) === this.selectedPlanningIso() &&
-                String(group.status ?? '').toLowerCase() !== 'cancelled'
-        )
-    );
-
-    readonly existingOrderCount = computed(() =>
-        this.selectedExistingSessions().reduce(
-            (sum, group) => sum + this.membersOf(group).length,
-            0
-        )
-    );
-
-    readonly canCreatePlannedSessions = computed(
-        () =>
-            !this.planningLoading() &&
-            !this.planningApplying() &&
-            !!this.planningResult()?.preview?.length &&
-            !this.planningResult()?.skipped
-    );
     readonly batching = signal(false);
     readonly resetting = signal(false);
     readonly search = signal('');
@@ -554,7 +651,6 @@ export class OrderGroupsComponent implements OnInit {
             }
         ),
         dryRun: this._formBuilder.nonNullable.control(true),
-        force: this._formBuilder.nonNullable.control(false),
     });
 
     /**
@@ -608,49 +704,908 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     selectPlanningDay(day: PlanningDay): void {
-        if (this.planningLoading() || this.planningApplying()) {
+        if (this.planningLoading()) {
             return;
         }
         this.planningDate.set(day.date);
-        this.batchForm.patchValue({ targetDate: day.date, dryRun: true });
-        this.previewPlanningDay();
+        this.planningActionError.set(null);
     }
 
-    previewPlanningDay(): void {
-        const targetDate = this.selectedPlanningIso();
-        if (!targetDate) {
-            return;
-        }
-        this.planningLoading.set(true);
-        this.planningResult.set(null);
-        this.autoBatchError.set(null);
-        this._admin
-            .runAutoBatch({ targetDate, dryRun: true, force: false })
-            .then((result) => this.planningResult.set(result))
-            .catch((err) => void this._handleAutoBatchError(err))
-            .finally(() => this.planningLoading.set(false));
+    refreshMarketSessions(): void {
+        this._loadPlanning();
     }
 
-    createPlannedSessions(): void {
-        const targetDate = this.selectedPlanningIso();
-        if (!targetDate || !this.canCreatePlannedSessions()) {
+    openMarketSessionTracking(
+        session: AdminMarketSession,
+        template: TemplateRef<unknown>,
+        initialTab = 0
+    ): void {
+        if (this._marketSessionDialogRef) return;
+        this.marketSessionTrackingTabIndex.set(initialTab);
+        this.trackedMarketSession.set(session);
+        this.marketSessionTracking.set(null);
+        this.marketSessionTrackingError.set(false);
+        this.marketSessionTrackingPageIndex.set(0);
+        this.expandedTrackingOrderIds.set(new Set());
+        this.marketSessionRoutePlan.set(null);
+        this.marketSessionRoutes.set([]);
+        this.marketSessionRoutesError.set(null);
+        this._marketSessionDialogRef = this._dialog.open(template, {
+            autoFocus: false,
+            maxWidth: '96vw',
+            width: '1080px',
+        });
+        this._marketSessionDialogRef.afterClosed().subscribe(() => {
+            this._marketSessionDialogRef = null;
+            this.marketSessionTrackingLoading.set(false);
+            this._stopMarketSessionRoutePolling();
+        });
+        if (initialTab === 2) this._startMarketSessionRoutePolling();
+        this.refreshMarketSessionTracking();
+    }
+
+    closeMarketSessionTracking(): void {
+        this._marketSessionDialogRef?.close();
+    }
+
+    refreshMarketSessionTracking(): void {
+        const session = this.trackedMarketSession();
+        if (!session || this.marketSessionTrackingLoading()) return;
+        this.marketSessionTrackingLoading.set(true);
+        this.marketSessionTrackingError.set(false);
+        this._admin
+            .getMarketSessionTracking(
+                session.id,
+                this.marketSessionTrackingPageIndex() + 1,
+                this.marketSessionTrackingPageSize()
+            )
+            .then((tracking) => this._enrichMarketSessionTracking(tracking))
+            .then((tracking) => {
+                this.trackedMarketSession.set(tracking.session);
+                this.marketSessionTracking.set(tracking);
+                this.marketSessions.update((sessions) =>
+                    sessions.map((item) =>
+                        item.id === tracking.session.id
+                            ? tracking.session
+                            : item
+                    )
+                );
+                void this.loadMarketSessionRoutes();
+            })
+            .catch(() => this.marketSessionTrackingError.set(true))
+            .finally(() => this.marketSessionTrackingLoading.set(false));
+    }
+
+    selectMarketSessionTrackingTab(index: number): void {
+        this.marketSessionTrackingTabIndex.set(index);
+        if (index === 2) {
+            this.loadMarketSessionRoutes();
+            this._startMarketSessionRoutePolling();
+        } else {
+            this._stopMarketSessionRoutePolling();
+        }
+    }
+
+    loadMarketSessionRoutes(): void {
+        const session = this.trackedMarketSession();
+        if (!session || !session.hubId || this.marketSessionRoutesLoading()) {
             return;
         }
-        this.planningApplying.set(true);
-        this.autoBatchError.set(null);
+        this.marketSessionRoutesLoading.set(true);
+        this.marketSessionRoutesError.set(null);
+        void this._loadMarketSessionRouteViews(session)
+            .then((routes) => {
+                this.marketSessionRoutes.set(routes);
+                this.marketSessionRoutesUpdatedAt.set(new Date());
+            })
+            .catch(async (err) => {
+                this.marketSessionRoutesError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.orderGroups.marketSessions.routing.loadError'
+                    )
+                );
+            })
+            .finally(() => this.marketSessionRoutesLoading.set(false));
+    }
+
+    openFullRouteDetail(routeId: string): void {
+        this.closeMarketSessionTracking();
+        void this._router.navigate(['/admin/routes', routeId]);
+    }
+
+    private _startMarketSessionRoutePolling(): void {
+        if (this._marketSessionRoutePollingId) return;
+        this._marketSessionRoutePollingId = setInterval(
+            () => this.loadMarketSessionRoutes(),
+            15_000
+        );
+    }
+
+    private _stopMarketSessionRoutePolling(): void {
+        if (!this._marketSessionRoutePollingId) return;
+        clearInterval(this._marketSessionRoutePollingId);
+        this._marketSessionRoutePollingId = null;
+    }
+
+    onMarketSessionTrackingPage(event: PageEvent): void {
+        this.marketSessionTrackingPageIndex.set(event.pageIndex);
+        this.marketSessionTrackingPageSize.set(event.pageSize);
+        this.refreshMarketSessionTracking();
+    }
+
+    toggleTrackingOrder(orderId: string): void {
+        this.expandedTrackingOrderIds.update((current) => {
+            const next = new Set(current);
+            if (next.has(orderId)) {
+                next.delete(orderId);
+            } else {
+                next.add(orderId);
+            }
+            return next;
+        });
+    }
+
+    isTrackingOrderExpanded(orderId: string): boolean {
+        return this.expandedTrackingOrderIds().has(orderId);
+    }
+
+    openMarketSessionConfiguration(
+        session: AdminMarketSession,
+        template: TemplateRef<unknown>
+    ): void {
+        if (
+            !this.canOpenMarketSessions() ||
+            this._marketSessionConfigurationDialogRef
+        ) {
+            return;
+        }
+        this.configuredMarketSession.set(session);
+        this.marketSessionConfigurationError.set(null);
+        this.marketSessionResources.set(null);
+        this.marketSessionResourcesLoading.set(true);
+        const closesAt = DateTime.fromISO(session.closesAt).setZone(
+            VIETNAM_ZONE
+        );
+        this.marketSessionConfigurationForm.reset({
+            closesAt: closesAt.isValid
+                ? closesAt.toFormat("yyyy-MM-dd'T'HH:mm")
+                : '',
+            plannedCapacityKg: session.plannedCapacityKg ?? null,
+            vehicleIds: session.vehicleIds ?? [],
+            agentUserIds: session.agentUserIds ?? [],
+        });
+        this._marketSessionConfigurationDialogRef = this._dialog.open(
+            template,
+            {
+                autoFocus: false,
+                maxWidth: '96vw',
+                width: '640px',
+            }
+        );
+        this._marketSessionConfigurationDialogRef
+            .afterClosed()
+            .subscribe(() => {
+                this._marketSessionConfigurationDialogRef = null;
+                this.marketSessionConfigurationSaving.set(false);
+                this.marketSessionResourcesLoading.set(false);
+                this.configuredMarketSession.set(null);
+                this.marketSessionResources.set(null);
+            });
+
+        void this._admin
+            .getMarketSessionResources(session.id)
+            .then((resources) => {
+                if (this.configuredMarketSession()?.id !== session.id) return;
+                this.marketSessionResources.set(resources);
+                this.marketSessionConfigurationForm.patchValue({
+                    plannedCapacityKg: resources.plannedCapacityKg ?? null,
+                    vehicleIds: resources.vehicles
+                        .filter((vehicle) => vehicle.selected)
+                        .map((vehicle) => vehicle.vehicleId),
+                    agentUserIds: resources.agents
+                        .filter((agent) => agent.selected)
+                        .map((agent) => agent.userId),
+                });
+            })
+            .catch(async (err) => {
+                if (this.configuredMarketSession()?.id !== session.id) return;
+                const message = await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.orderGroups.marketSessions.configuration.resourcesLoadError'
+                );
+                this.marketSessionConfigurationError.set(message);
+            })
+            .finally(() => {
+                if (this.configuredMarketSession()?.id === session.id) {
+                    this.marketSessionResourcesLoading.set(false);
+                }
+            });
+    }
+
+    closeMarketSessionConfiguration(): void {
+        this._marketSessionConfigurationDialogRef?.close();
+    }
+
+    selectedVehicleCapacityKg(): number {
+        const resources = this.marketSessionResources();
+        if (!resources) return 0;
+        const selectedIds = new Set(
+            this.marketSessionConfigurationForm.controls.vehicleIds.value
+        );
+        return resources.vehicles.reduce(
+            (total, vehicle) =>
+                total +
+                (selectedIds.has(vehicle.vehicleId)
+                    ? Number(vehicle.capacityKg ?? 0)
+                    : 0),
+            0
+        );
+    }
+
+    saveMarketSessionConfiguration(): void {
+        const session = this.configuredMarketSession();
+        if (
+            !session ||
+            session.status === 'closed' ||
+            this.marketSessionConfigurationSaving() ||
+            this.marketSessionResourcesLoading()
+        ) {
+            return;
+        }
+        if (this.marketSessionConfigurationForm.invalid) {
+            this.marketSessionConfigurationForm.markAllAsTouched();
+            return;
+        }
+        const localValue =
+            this.marketSessionConfigurationForm.controls.closesAt.value;
+        const closesAt = DateTime.fromISO(localValue ?? '', {
+            zone: VIETNAM_ZONE,
+        });
+        if (!closesAt.isValid || closesAt <= DateTime.now()) {
+            this.marketSessionConfigurationForm.controls.closesAt.setErrors({
+                future: true,
+            });
+            return;
+        }
+        const closesAtUtc = closesAt.toUTC().toISO();
+        if (!closesAtUtc) return;
+        const formValue = this.marketSessionConfigurationForm.getRawValue();
+
+        this.marketSessionConfigurationSaving.set(true);
+        this.marketSessionConfigurationError.set(null);
         this._admin
-            .runAutoBatch({ targetDate, dryRun: false, force: false })
-            .then((result) => {
-                this.planningResult.set(result);
-                this._notifyKey('admin.orderGroups.autoBatch.success');
-                this.dateFrom.set(this.planningDate());
-                this.dateTo.set(this.planningDate());
-                this.pageIndex.set(0);
+            .updateMarketSessionCloseTime(session.id, closesAtUtc)
+            .then(() =>
+                this._admin.configureMarketSessionResources(session.id, {
+                    plannedCapacityKg: formValue.plannedCapacityKg,
+                    vehicleIds: formValue.vehicleIds,
+                    agentUserIds: formValue.agentUserIds,
+                })
+            )
+            .then((resources) => {
+                this.marketSessionResources.set(resources);
+                return this._admin.getMarketSession(session.id);
+            })
+            .then((updated) => {
+                this.configuredMarketSession.set(updated);
+                this.marketSessions.update((sessions) =>
+                    sessions.map((item) =>
+                        item.id === updated.id ? updated : item
+                    )
+                );
+                if (this.trackedMarketSession()?.id === updated.id) {
+                    this.trackedMarketSession.set(updated);
+                    this.marketSessionTracking.update((tracking) =>
+                        tracking ? { ...tracking, session: updated } : tracking
+                    );
+                }
+                this._notifyKey(
+                    'admin.orderGroups.marketSessions.configuration.saveSuccess'
+                );
+                this.closeMarketSessionConfiguration();
+            })
+            .catch(async (err) => {
+                const message = await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.orderGroups.marketSessions.configuration.saveError'
+                );
+                this.marketSessionConfigurationError.set(message);
+            })
+            .finally(() => this.marketSessionConfigurationSaving.set(false));
+    }
+
+    manageMarketSessionVehicles(): void {
+        this.manageMarketSessionResource('vehicles');
+    }
+
+    manageMarketSessionResource(tab: 'staff' | 'hubs' | 'vehicles'): void {
+        const session = this.configuredMarketSession();
+        if (!session) return;
+        this.closeMarketSessionConfiguration();
+        void this._router.navigate(['/admin/markets', session.marketId], {
+            queryParams: { tab },
+        });
+    }
+
+    manageMarketSessionOperationalSettings(): void {
+        this.closeMarketSessionConfiguration();
+        void this._router.navigate(['/admin/order-group-settings']);
+    }
+
+    openMarketSessionClose(
+        session: AdminMarketSession,
+        template: TemplateRef<unknown>
+    ): void {
+        if (
+            !this.canCloseMarketSession(session) ||
+            this._marketSessionCloseDialogRef
+        ) {
+            return;
+        }
+
+        this.closingMarketSession.set(session);
+        this.marketSessionCloseError.set(null);
+        this.marketSessionCloseForm.reset({ reason: '' });
+        const currentTracking =
+            this.marketSessionTracking()?.session.id === session.id
+                ? this.marketSessionTracking()
+                : null;
+        this.closingMarketSessionTracking.set(currentTracking);
+
+        this._marketSessionCloseDialogRef = this._dialog.open(template, {
+            autoFocus: false,
+            maxWidth: '96vw',
+            width: '640px',
+        });
+        this._marketSessionCloseDialogRef.afterClosed().subscribe(() => {
+            this._marketSessionCloseDialogRef = null;
+            this.marketSessionCloseSaving.set(false);
+            this.marketSessionCloseSummaryLoading.set(false);
+        });
+
+        if (!currentTracking) {
+            this.marketSessionCloseSummaryLoading.set(true);
+            void this._admin
+                .getMarketSessionTracking(session.id, 1, 1)
+                .then((tracking) => {
+                    if (this.closingMarketSession()?.id === session.id) {
+                        this.closingMarketSessionTracking.set(tracking);
+                    }
+                })
+                .catch(() => undefined)
+                .finally(() =>
+                    this.marketSessionCloseSummaryLoading.set(false)
+                );
+        }
+    }
+
+    closeMarketSessionCloseDialog(): void {
+        this._marketSessionCloseDialogRef?.close();
+    }
+
+    confirmCloseMarketSession(): void {
+        const session = this.closingMarketSession();
+        if (
+            !session ||
+            !this.canCloseMarketSession(session) ||
+            this.marketSessionCloseSaving()
+        ) {
+            return;
+        }
+        if (this.marketSessionCloseForm.invalid) {
+            this.marketSessionCloseForm.markAllAsTouched();
+            return;
+        }
+
+        const reason =
+            this.marketSessionCloseForm.controls.reason.value?.trim() || null;
+        this.marketSessionCloseSaving.set(true);
+        this.marketSessionCloseError.set(null);
+        this._admin
+            .closeMarketSession(session.id, reason)
+            .then((closed) => {
+                this.marketSessions.update((sessions) =>
+                    sessions.map((item) =>
+                        item.id === closed.id ? closed : item
+                    )
+                );
+                if (this.trackedMarketSession()?.id === closed.id) {
+                    this.trackedMarketSession.set(closed);
+                    this.marketSessionTracking.update((tracking) =>
+                        tracking ? { ...tracking, session: closed } : tracking
+                    );
+                }
+                if (this.configuredMarketSession()?.id === closed.id) {
+                    this.configuredMarketSession.set(closed);
+                }
+                this._notifyKey(
+                    'admin.orderGroups.marketSessions.close.success'
+                );
+                this.closeMarketSessionCloseDialog();
+                // Close triggers BE's first batching attempt synchronously.
+                // Refresh both sides of the transition: the session gains
+                // `batchingCompletedAt`, while a successful attempt creates a
+                // procurement batch used by the actions below this workspace.
                 this._load();
                 this._loadPlanning();
+                if (this.trackedMarketSession()?.id === closed.id) {
+                    this.refreshMarketSessionTracking();
+                }
             })
-            .catch((err) => void this._handleAutoBatchError(err))
-            .finally(() => this.planningApplying.set(false));
+            .catch(async (err) => {
+                const message = await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.orderGroups.marketSessions.close.error'
+                );
+                this.marketSessionCloseError.set(message);
+            })
+            .finally(() => this.marketSessionCloseSaving.set(false));
+    }
+
+    canCloseMarketSession(session: AdminMarketSession): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            session.status !== 'closed' &&
+            !this.marketSessionCloseSaving()
+        );
+    }
+
+    openMarketSession(session: AdminMarketSession): void {
+        if (
+            !this.canOpenMarketSessions() ||
+            session.status !== 'draft' ||
+            session.readiness !== 'ready' ||
+            this.isSessionCutoffPassed(session) ||
+            this.openingSessionId()
+        ) {
+            return;
+        }
+
+        this.openingSessionId.set(session.id);
+        this.planningActionError.set(null);
+        this._admin
+            .openMarketSession(session.id)
+            .then((opened) => {
+                this.marketSessions.update((sessions) =>
+                    sessions.map((item) =>
+                        item.id === opened.id ? opened : item
+                    )
+                );
+                if (this.trackedMarketSession()?.id === opened.id) {
+                    this.trackedMarketSession.set(opened);
+                    this.marketSessionTracking.update((tracking) =>
+                        tracking ? { ...tracking, session: opened } : tracking
+                    );
+                }
+                this._notifyKey('admin.orderGroups.marketSessions.openSuccess');
+                this._loadPlanning();
+            })
+            .catch(async (err) => {
+                const message = await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.orderGroups.marketSessions.openError'
+                );
+                this.planningActionError.set(message);
+                this._snackBar.open(message, undefined, { duration: 5000 });
+                // Readiness and state may have changed since the list response.
+                this._loadPlanning();
+            })
+            .finally(() => this.openingSessionId.set(null));
+    }
+
+    canOpenMarketSession(session: AdminMarketSession): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            session.status === 'draft' &&
+            session.readiness === 'ready' &&
+            !this.isSessionCutoffPassed(session) &&
+            !this.openingSessionId()
+        );
+    }
+
+    isSessionCutoffPassed(session: AdminMarketSession): boolean {
+        const closesAt = DateTime.fromISO(session.closesAt);
+        return !closesAt.isValid || closesAt <= DateTime.now();
+    }
+
+    marketSessionName(session: AdminMarketSession): string {
+        return (
+            session.marketName ||
+            this.markets().find((market) => market.id === session.marketId)
+                ?.name ||
+            session.marketId
+        );
+    }
+
+    marketSessionStatusLabel(session: AdminMarketSession): string {
+        return this._transloco.translate(
+            `admin.orderGroups.marketSessions.status.${session.status}`
+        );
+    }
+
+    marketSessionStatusClass(session: AdminMarketSession): string {
+        switch (session.status) {
+            case 'open':
+                return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200';
+            case 'closed':
+                return 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200';
+            default:
+                return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200';
+        }
+    }
+
+    marketSessionBatchingStatus(
+        session: AdminMarketSession
+    ): MarketSessionBatchingStatus {
+        return marketSessionBatchingStatus(session);
+    }
+
+    marketSessionBatchingLabel(session: AdminMarketSession): string {
+        return this._transloco.translate(
+            `admin.orderGroups.marketSessions.batching.status.${this.marketSessionBatchingStatus(session)}`
+        );
+    }
+
+    marketSessionBatchingClass(session: AdminMarketSession): string {
+        switch (this.marketSessionBatchingStatus(session)) {
+            case 'completed':
+                return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200';
+            case 'pending':
+                return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200';
+            default:
+                return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300';
+        }
+    }
+
+    canBatchMarketSession(session: AdminMarketSession): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            canRetryMarketSessionBatching(session)
+        );
+    }
+
+    canPlanMarketSessionRoutes(session: AdminMarketSession): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            this.marketSessionBatchingStatus(session) === 'completed'
+        );
+    }
+
+    /** Creates or returns the proposed route plan for this market session. */
+    planMarketSessionRoutes(session: AdminMarketSession): void {
+        if (
+            !this.canPlanMarketSessionRoutes(session) ||
+            this.routingSessionId()
+        ) {
+            return;
+        }
+        this.routingSessionId.set(session.id);
+        this.planningActionError.set(null);
+        void this._logistics
+            .planRoutes({
+                marketSessionId: session.id,
+                optimizationCriteria: this.routeCriteria.value,
+            })
+            .then(async (plan) => {
+                this.marketSessionRoutePlan.set(plan);
+                if (plan.status === 'empty' || plan.routes.length === 0) {
+                    this._notifyKey(
+                        'admin.orderGroups.marketSessions.routing.empty'
+                    );
+                    return;
+                }
+                this._snackBar.open(
+                    this._transloco.translate(
+                        'admin.orderGroups.marketSessions.routing.success',
+                        { count: plan.routes.length }
+                    ),
+                    undefined,
+                    { duration: 3500 }
+                );
+                this.marketSessionRoutes.set(
+                    await this._loadMarketSessionRouteViews(session)
+                );
+            })
+            .catch(async (err) => {
+                const message = await this._describeRoutePlanningError(
+                    err,
+                    session
+                );
+                this.planningActionError.set(message);
+                this._snackBar.open(message, undefined, { duration: 5000 });
+            })
+            .finally(() => this.routingSessionId.set(null));
+    }
+
+    canApproveMarketSessionRoutePlan(): boolean {
+        const plan = this.marketSessionRoutePlan();
+        return !!plan?.planId && plan.status.toLowerCase() === 'proposed';
+    }
+
+    approveMarketSessionRoutePlan(): void {
+        const plan = this.marketSessionRoutePlan();
+        const session = this.trackedMarketSession();
+        if (
+            !plan?.planId ||
+            !session ||
+            !this.canApproveMarketSessionRoutePlan() ||
+            this.approvingRoutePlan()
+        ) {
+            return;
+        }
+        this.approvingRoutePlan.set(true);
+        this.marketSessionRoutesError.set(null);
+        void this._logistics
+            .approveRoutePlan(plan.planId)
+            .then(async (approved) => {
+                this.marketSessionRoutePlan.set(approved);
+                this.marketSessionRoutes.set(
+                    await this._loadMarketSessionRouteViews(session)
+                );
+                this._notifyKey(
+                    'admin.orderGroups.marketSessions.routing.approveSuccess'
+                );
+            })
+            .catch(async (err) => {
+                this.marketSessionRoutesError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.orderGroups.marketSessions.routing.approveError'
+                    )
+                );
+            })
+            .finally(() => this.approvingRoutePlan.set(false));
+    }
+
+    marketSessionRouteStatusLabel(route: CrudRow): string {
+        return this._transloco.translate(
+            routeStatusLabelKey(String(route['status'] ?? ''))
+        );
+    }
+
+    marketSessionRouteStatusClass(route: CrudRow): string {
+        return routeStatusPillClass(String(route['status'] ?? ''));
+    }
+
+    marketSessionRouteNumber(route: CrudRow, key: string): number {
+        const value = Number(route[key] ?? 0);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    marketSessionRouteStops(route: CrudRow): RouteStop[] {
+        return Array.isArray(route['stops'])
+            ? (route['stops'] as RouteStop[])
+            : [];
+    }
+
+    deliveryStatusLabel(status: string): string {
+        const key = `admin.orderGroups.marketSessions.routing.deliveryStatus.${String(status).toLowerCase()}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? status : translated;
+    }
+
+    trackingOrderName(orderId: string): string {
+        const order = this.marketSessionTracking()?.orders.find(
+            (item) => item.orderId === orderId
+        );
+        return order?.restaurantName || `#${this.shortOrderId(orderId)}`;
+    }
+
+    private async _loadMarketSessionRouteViews(
+        session: AdminMarketSession
+    ): Promise<MarketSessionRouteView[]> {
+        if (!session.hubId) return [];
+        const rows: CrudRow[] = [];
+        let cursor: string | undefined;
+        do {
+            const page = await this._logistics.listRoutes({
+                serviceDate: session.serviceDate,
+                hubId: session.hubId,
+                cursor,
+            });
+            rows.push(...page.rows);
+            cursor = page.nextCursor;
+        } while (cursor);
+
+        return Promise.all(
+            rows.map(async (row) => {
+                const route = (await this._logistics.getRoute(row.id)) ?? row;
+                const status = String(route['status'] ?? '').toLowerCase();
+                const [deliveries, manifest] = await Promise.all([
+                    this._logistics.getRouteDeliveries(row.id).catch(() => []),
+                    [
+                        'reviewed',
+                        'assigned',
+                        'in_progress',
+                        'completed',
+                    ].includes(status)
+                        ? this._logistics
+                              .getLoadingManifest(row.id)
+                              .catch(() => null)
+                        : Promise.resolve(null),
+                ]);
+                return { route, deliveries, manifest };
+            })
+        );
+    }
+
+    private async _describeRoutePlanningError(
+        err: unknown,
+        session: AdminMarketSession
+    ): Promise<string> {
+        const info = await readApiError(err);
+        if (info?.code !== 'MISSING_COORDINATES') {
+            return describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'admin.orderGroups.marketSessions.routing.error'
+            );
+        }
+
+        // BE deliberately includes the offending entity id in this message.
+        // Preserve that precision instead of replacing it with the generic
+        // MISSING_COORDINATES translation used by the rest of Logistics.
+        const restaurantId = info.message?.match(
+            /Restaurant '([^']+)' has no coordinates/i
+        )?.[1];
+        if (restaurantId) {
+            const profile = await this._admin
+                .getRestaurantProfile(restaurantId)
+                .catch(() => null);
+            return this._transloco.translate(
+                'admin.orderGroups.marketSessions.routing.missingRestaurantCoordinates',
+                {
+                    name:
+                        profile?.name?.trim() ||
+                        `#${this.shortOrderId(restaurantId)}`,
+                }
+            );
+        }
+
+        const hubId = info.message?.match(
+            /Hub '([^']+)' has no coordinates/i
+        )?.[1];
+        if (hubId) {
+            return this._transloco.translate(
+                'admin.orderGroups.marketSessions.routing.missingHubCoordinates',
+                {
+                    market: this.marketSessionName(session),
+                    id: this.shortOrderId(hubId),
+                }
+            );
+        }
+
+        return this._transloco.translate('errors.api.missingCoordinates');
+    }
+
+    /**
+     * Retries BE batching for the session's delivery date. The endpoint is
+     * date-scoped and processes every closed, pending session on that date;
+     * the selected session is then re-read so `batchingCompletedAt` remains
+     * the authority for whether this attempt actually finished.
+     */
+    batchMarketSession(session: AdminMarketSession): void {
+        if (!this.canBatchMarketSession(session) || this.batchingSessionId()) {
+            return;
+        }
+        this.batchingSessionId.set(session.id);
+        this.planningActionError.set(null);
+        this._admin
+            .runAutoBatch({
+                targetDate: session.serviceDate,
+                dryRun: false,
+            })
+            .then(async (result) => {
+                const updated = await this._admin.getMarketSession(session.id);
+                this.marketSessions.update((sessions) =>
+                    sessions.map((item) =>
+                        item.id === updated.id ? updated : item
+                    )
+                );
+                if (this.trackedMarketSession()?.id === updated.id) {
+                    this.trackedMarketSession.set(updated);
+                    this.marketSessionTracking.update((tracking) =>
+                        tracking ? { ...tracking, session: updated } : tracking
+                    );
+                }
+                this.autoBatchResult.set(result);
+                if (updated.batchingCompletedAt) {
+                    this._notifyKey(
+                        'admin.orderGroups.marketSessions.batching.success'
+                    );
+                } else {
+                    this.planningActionError.set(
+                        this._transloco.translate(
+                            'admin.orderGroups.marketSessions.batching.stillPending'
+                        )
+                    );
+                }
+                this._load();
+                this._loadPlanning();
+                if (this.trackedMarketSession()?.id === updated.id) {
+                    this.refreshMarketSessionTracking();
+                }
+            })
+            .catch(async (err) => {
+                const message = await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'admin.orderGroups.marketSessions.batching.error'
+                );
+                this.planningActionError.set(message);
+                this._snackBar.open(message, undefined, { duration: 5000 });
+                this._loadPlanning();
+            })
+            .finally(() => this.batchingSessionId.set(null));
+    }
+
+    marketSessionReadinessLabel(session: AdminMarketSession): string {
+        return this._transloco.translate(
+            `admin.orderGroups.marketSessions.readiness.${session.readiness}`
+        );
+    }
+
+    marketSessionWarningLabel(code: string): string {
+        const knownCodes = new Set([
+            'BATCHING_DISABLED',
+            'HUB_NOT_CONFIGURED',
+            'NO_MARKET_AGENT',
+            'NO_VEHICLE',
+        ]);
+        return knownCodes.has(code)
+            ? this._transloco.translate(
+                  `admin.orderGroups.marketSessions.warning.${code}`
+              )
+            : code;
+    }
+
+    formatSessionCloseTime(value: string): string {
+        const date = DateTime.fromISO(value).setZone(VIETNAM_ZONE);
+        return date.isValid
+            ? date
+                  .setLocale(this._transloco.getActiveLang())
+                  .toFormat('HH:mm, dd/MM/yyyy')
+            : '—';
+    }
+
+    formatMarketSessionServiceDate(value: string): string {
+        const date = DateTime.fromISO(value, { zone: VIETNAM_ZONE });
+        return date.isValid
+            ? date.setLocale(this._transloco.getActiveLang()).toLocaleString({
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+              })
+            : value;
+    }
+
+    trackingOrderStatusLabel(status: string | null | undefined): string {
+        const normalized = String(status ?? '').toLowerCase();
+        if (!normalized) return '—';
+        const key = `admin.orders.status.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? String(status) : translated;
+    }
+
+    trackingMoney(value: number | null | undefined): string {
+        return new Intl.NumberFormat(this._transloco.getActiveLang(), {
+            style: 'currency',
+            currency: 'VND',
+            maximumFractionDigits: 0,
+        }).format(Number(value ?? 0));
+    }
+
+    trackingProductUnit(product: TrackingCatalogFields): string {
+        return String(
+            product.unitAbbreviation || product.unitName || product.unit || ''
+        ).trim();
     }
 
     planningDayLabel(day: PlanningDay): string {
@@ -664,38 +1619,10 @@ export class OrderGroupsComponent implements OnInit {
             .toFormat('cccc');
     }
 
-    formatPlanningDate(date: DateTime): string {
-        return date.setLocale(this._transloco.getActiveLang()).toLocaleString({
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        });
-    }
-
-    /** Orders represented by one dry-run session, preserving backend order. */
-    previewOrders(session: AdminAutoBatchBatch): AdminOrderDetail[] {
-        const byId = new Map(
-            this.pendingOrders().map((order) => [String(order.orderId), order])
-        );
-        return (session.coveredOrderIds ?? [])
-            .map((id) => byId.get(String(id)))
-            .filter((order): order is AdminOrderDetail => !!order);
-    }
-
     membersOf(row: AdminOrderGroupRow): AdminBatchMember[] {
         return Array.isArray(row['members'])
             ? (row['members'] as AdminBatchMember[])
             : [];
-    }
-
-    planningRestaurantLabel(order: AdminOrderDetail): string {
-        const restaurantId = String(order.restaurantId ?? '');
-        return (
-            this.planningRestaurantNames().get(restaurantId) ||
-            this._transloco.translate(
-                'admin.orderGroups.planning.restaurantFallback'
-            )
-        );
     }
 
     shortOrderId(value: string | null | undefined): string {
@@ -703,104 +1630,104 @@ export class OrderGroupsComponent implements OnInit {
         return id ? id.slice(0, 8).toUpperCase() : '—';
     }
 
-    openPlanningOrder(
-        orderId: string | null | undefined,
-        marketId: string | null | undefined,
-        template: TemplateRef<unknown>
-    ): void {
-        const id = String(orderId ?? '');
-        if (!id || this._orderDialogRef) {
-            return;
-        }
-
-        this.planningOrderId.set(id);
-        this.planningOrder.set(null);
-        this.planningOrderRestaurant.set('');
-        this.planningOrderUnits.set(new Map());
-        this.planningOrderError.set(false);
-        this.planningOrderLoading.set(true);
-        this._orderDialogRef = this._dialog.open(template, {
-            autoFocus: false,
-            maxWidth: '96vw',
-            width: '760px',
-        });
-        this._orderDialogRef.afterClosed().subscribe(() => {
-            this._orderDialogRef = null;
-            this.planningOrderLoading.set(false);
-        });
-
-        const marketKey = String(marketId ?? '');
-        Promise.all([
-            this._admin.getOrder(id),
-            marketKey
-                ? this._marketUnits(marketKey).catch(
-                      () => new Map<string, string>()
-                  )
-                : Promise.resolve(new Map<string, string>()),
-        ])
-            .then(async ([order, units]) => {
-                if (!order) {
-                    throw new Error('ORDER_NOT_FOUND');
-                }
-                this.planningOrder.set(order);
-                this.planningOrderUnits.set(units);
-                const restaurantId = String(order.restaurantId ?? '');
-                if (restaurantId) {
-                    const profile = await this._admin
-                        .getRestaurantProfile(restaurantId)
-                        .catch(() => null);
-                    this.planningOrderRestaurant.set(
-                        String(profile?.name ?? restaurantId)
-                    );
-                }
-            })
-            .catch(() => this.planningOrderError.set(true))
-            .finally(() => this.planningOrderLoading.set(false));
-    }
-
-    closePlanningOrder(): void {
-        this._orderDialogRef?.close();
-    }
-
-    orderItemUnit(marketProductId: string | null | undefined): string {
-        return (
-            this.planningOrderUnits().get(String(marketProductId ?? '')) ||
-            this._transloco.translate(
-                'admin.orderGroups.planning.orderDialog.unitFallback'
-            )
+    private async _enrichMarketSessionTracking(
+        tracking: AdminMarketSessionTracking
+    ): Promise<AdminMarketSessionTracking> {
+        const ordersWithAddresses = await Promise.all(
+            tracking.orders.map(async (order) => ({
+                ...order,
+                restaurantAddress: await this._restaurantAddress(
+                    order.restaurantId
+                ),
+            }))
         );
-    }
-
-    money(value: number | null | undefined): string {
-        if (value === null || value === undefined) {
-            return '—';
-        }
-        return new Intl.NumberFormat(this._transloco.getActiveLang(), {
-            style: 'currency',
-            currency: 'VND',
-            maximumFractionDigits: 0,
-        }).format(value);
-    }
-
-    private _marketUnits(marketId: string): Promise<Map<string, string>> {
-        let pending = this._marketUnitCache.get(marketId);
-        if (!pending) {
-            pending = this._catalog.listMarketProducts(marketId).then(
-                (rows) =>
-                    new Map(
-                        rows.map((row) => {
-                            const sellingUnit = (row['sellingUnit'] ??
-                                {}) as Record<string, unknown>;
-                            return [
-                                String(row['marketProductId'] ?? row.id ?? ''),
-                                String(
-                                    row['unit'] ?? sellingUnit['unitName'] ?? ''
-                                ),
-                            ];
-                        })
-                    )
+        const trackingWithAddresses = {
+            ...tracking,
+            orders: ordersWithAddresses,
+        };
+        try {
+            const [listings, categories] = await Promise.all([
+                this._catalogAdmin.listMarketProducts(
+                    tracking.session.marketId
+                ),
+                this._catalogAdmin.listCategories(false),
+            ]);
+            const text = (value: unknown): string => String(value ?? '').trim();
+            const categoryByName = new Map(
+                categories
+                    .filter((category) => text(category['name']))
+                    .map((category) => [
+                        text(category['name']).toLocaleLowerCase('vi'),
+                        category,
+                    ])
             );
-            this._marketUnitCache.set(marketId, pending);
+            const listingById = new Map(
+                listings
+                    .map(
+                        (listing) =>
+                            [
+                                text(
+                                    listing['marketProductId'] ?? listing['id']
+                                ),
+                                listing,
+                            ] as const
+                    )
+                    .filter(([id]) => !!id)
+            );
+            const enrich = <T extends TrackingCatalogFields>(item: T): T => {
+                const listing = listingById.get(item.marketProductId);
+                const sellingUnit =
+                    listing?.['sellingUnit'] &&
+                    typeof listing['sellingUnit'] === 'object'
+                        ? (listing['sellingUnit'] as Record<string, unknown>)
+                        : null;
+                const unit =
+                    this.trackingProductUnit(item) ||
+                    text(listing?.['unit']) ||
+                    text(sellingUnit?.['unitName']);
+                const categoryName =
+                    text(item.categoryName) || text(listing?.['category']);
+                const category = categoryByName.get(
+                    categoryName.toLocaleLowerCase('vi')
+                );
+                return {
+                    ...item,
+                    unit: text(item.unit) || unit,
+                    unitName: text(item.unitName) || unit,
+                    categoryId: text(item.categoryId) || text(category?.['id']),
+                    categoryName,
+                    parentCategoryId:
+                        text(item.parentCategoryId) ||
+                        text(category?.['parentId']),
+                    parentCategoryName:
+                        text(item.parentCategoryName) ||
+                        text(category?.['parentName']),
+                };
+            };
+            return {
+                ...trackingWithAddresses,
+                products: tracking.products.map(enrich),
+                orders: ordersWithAddresses.map((order) => ({
+                    ...order,
+                    items: (order.items ?? []).map(enrich),
+                })),
+            };
+        } catch {
+            // Addresses remain visible if the catalog lookup is unavailable.
+            return trackingWithAddresses;
+        }
+    }
+
+    private _restaurantAddress(restaurantId: string): Promise<string | null> {
+        const id = String(restaurantId ?? '').trim();
+        if (!id) return Promise.resolve(null);
+        let pending = this._restaurantAddressCache.get(id);
+        if (!pending) {
+            pending = this._admin
+                .getRestaurantProfile(id)
+                .then((profile) => profile?.address?.trim() || null)
+                .catch(() => null);
+            this._restaurantAddressCache.set(id, pending);
         }
         return pending;
     }
@@ -930,7 +1857,6 @@ export class OrderGroupsComponent implements OnInit {
         this.batchForm.reset({
             targetDate: this.planningDate(),
             dryRun: true,
-            force: false,
         });
         this._batchDialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
@@ -950,7 +1876,7 @@ export class OrderGroupsComponent implements OnInit {
             this.batchForm.markAllAsTouched();
             return;
         }
-        const { targetDate, dryRun, force } = this.batchForm.getRawValue();
+        const { targetDate, dryRun } = this.batchForm.getRawValue();
         const dateIso =
             targetDate && DateTime.isDateTime(targetDate) && targetDate.isValid
                 ? targetDate.toISODate()
@@ -962,7 +1888,6 @@ export class OrderGroupsComponent implements OnInit {
             .runAutoBatch({
                 targetDate: dateIso,
                 dryRun: dryRun ?? true,
-                force: force ?? false,
             })
             .then((result) => {
                 this.autoBatchResult.set(result);
@@ -970,6 +1895,7 @@ export class OrderGroupsComponent implements OnInit {
                 if (!dryRun) {
                     this._notifyKey('admin.orderGroups.autoBatch.success');
                     this._load();
+                    this._loadPlanning();
                 }
             })
             .catch((err) => void this._handleAutoBatchError(err))
@@ -1211,16 +2137,6 @@ export class OrderGroupsComponent implements OnInit {
             : '';
     }
 
-    private _deliveryDateIso(value: unknown): string {
-        if (value === null || value === undefined || value === '') {
-            return '';
-        }
-        const parsed = DateTime.fromISO(String(value), { setZone: true });
-        return parsed.isValid
-            ? parsed.setZone(VIETNAM_ZONE).toISODate() ?? ''
-            : '';
-    }
-
     /** Locale date-time for a stored ISO value, or '' when missing/invalid. */
     formatDate(value: unknown): string {
         if (value === null || value === undefined || value === '') {
@@ -1336,54 +2252,66 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     private readonly _loadPlanningTask = new CoalescedTask(async () => {
+        this.planningLoading.set(true);
+        this.planningLoadFailed.set(false);
         try {
-            const pageSize = 100;
-            const first = await this._admin.getOrders({
-                status: 'confirmed',
-                sort: 'createdAt:desc',
-                page: 1,
-                pageSize,
-            });
-            const orders = [...first.orders];
-            let page = 2;
-            while (orders.length < first.totalCount) {
-                const next = await this._admin.getOrders({
-                    status: 'confirmed',
-                    sort: 'createdAt:desc',
-                    page,
-                    pageSize,
-                });
-                if (!next.orders.length) {
-                    break;
-                }
-                orders.push(...next.orders);
-                page += 1;
-            }
-            this.pendingOrders.set(orders);
-            const restaurantIds = [
-                ...new Set(
-                    orders
-                        .map((order) => String(order.restaurantId ?? ''))
-                        .filter(Boolean)
-                ),
-            ];
-            const profiles = await Promise.all(
-                restaurantIds.map(async (id) => {
-                    try {
-                        const profile =
-                            await this._admin.getRestaurantProfile(id);
-                        return [id, String(profile?.name ?? id)] as const;
-                    } catch {
-                        return [id, id] as const;
-                    }
-                })
+            const from = this.tomorrowDate.toISODate() ?? undefined;
+            // operations_manager may list sessions but BE deliberately denies
+            // operational settings. Admin uses the configured window; read-only
+            // roles query all future sessions and infer the visible range.
+            const settings = await this._admin
+                .getOperationalSettings()
+                .catch(() => null);
+            let windowDays = Math.min(
+                30,
+                Math.max(1, Number(settings?.deliveryWindowDays) || 7)
             );
-            this.planningRestaurantNames.set(new Map(profiles));
+            const to = settings
+                ? this.tomorrowDate.plus({ days: windowDays - 1 }).toISODate()
+                : null;
+            const sessions = await this._admin.getMarketSessions({
+                from,
+                to: to ?? undefined,
+            });
+            if (!settings && sessions.length) {
+                const lastServiceDate = sessions.reduce(
+                    (latest, session) =>
+                        session.serviceDate > latest
+                            ? session.serviceDate
+                            : latest,
+                    from ?? ''
+                );
+                const lastDay = DateTime.fromISO(lastServiceDate, {
+                    zone: VIETNAM_ZONE,
+                });
+                if (lastDay.isValid) {
+                    windowDays = Math.min(
+                        30,
+                        Math.max(
+                            1,
+                            Math.floor(
+                                lastDay.diff(this.tomorrowDate, 'days').days
+                            ) + 1
+                        )
+                    );
+                }
+            }
+            this.planningWindowDays.set(windowDays);
+            this.marketSessions.set(
+                [...sessions].sort(
+                    (left, right) =>
+                        left.serviceDate.localeCompare(right.serviceDate) ||
+                        this.marketSessionName(left).localeCompare(
+                            this.marketSessionName(right)
+                        )
+                )
+            );
         } catch {
-            this.pendingOrders.set([]);
-            this.planningRestaurantNames.set(new Map());
+            this.marketSessions.set([]);
+            this.planningLoadFailed.set(true);
+        } finally {
+            this.planningLoading.set(false);
         }
-        this.previewPlanningDay();
     });
 
     private _notifyKey(key: string): void {
