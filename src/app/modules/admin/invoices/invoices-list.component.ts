@@ -15,6 +15,7 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { AdminService } from '../admin.service';
 import { AdminInvoiceRow } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
@@ -24,26 +25,8 @@ import {
     toPageIndex,
 } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
-
-/** Pill class for an invoice status — same lifecycle-coloring idiom used elsewhere. */
-function invoiceStatusPillClass(status: string | null | undefined): string {
-    switch (String(status ?? '').toLowerCase()) {
-        case 'paid':
-        case 'settled':
-            return 'admin-pill admin-pill-success';
-        case 'overdue':
-        case 'cancelled':
-        case 'void':
-            return 'admin-pill admin-pill-danger';
-        case 'pending':
-        case 'issued':
-            return 'admin-pill admin-pill-warning';
-        case 'draft':
-            return 'admin-pill admin-pill-info';
-        default:
-            return 'admin-pill admin-pill-neutral';
-    }
-}
+import { newestActiveFirst } from '../shared/row-order';
+import { invoiceStatusPillClass } from '../shared/status-pills';
 
 /**
  * Admin ▸ Invoices — read-only financial oversight, extending the credit
@@ -57,6 +40,7 @@ function invoiceStatusPillClass(status: string | null | undefined): string {
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
     imports: [
+        ApiLabelPipe,
         AdminLoadingStateComponent,
         MatButtonModule,
         MatFormFieldModule,
@@ -154,7 +138,7 @@ export class InvoicesListComponent implements OnInit {
                 page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });
-            this.invoices.set(result.invoices);
+            this.invoices.set(newestActiveFirst(result.invoices));
             this.totalCount.set(result.totalCount);
             if (result.page) {
                 this.pageIndex.set(toPageIndex(result.page));

@@ -491,3 +491,28 @@ fuse-vertical-navigation.dark {
         }
     }
 }
+
+/**
+ * A filled button that means "this destroys something".
+ *
+ * Material 3 dropped the `color="warn"` mapping for filled buttons, so a
+ * destructive confirm renders in the *primary* colour — the one the page uses
+ * for "yes, go ahead" everywhere else, which is the opposite signal. Both the
+ * MDC token and the plain properties are set: the token is what the component
+ * reads, the properties cover the themes that hard-code a background.
+ */
+.admin-btn-danger.mat-mdc-unelevated-button {
+    --mdc-filled-button-container-color: var(--fuse-warn);
+    --mdc-filled-button-label-text-color: var(--fuse-on-warn);
+
+    background-color: var(--fuse-warn) !important;
+    color: var(--fuse-on-warn) !important;
+
+    .mat-icon {
+        color: var(--fuse-on-warn) !important;
+    }
+
+    &[disabled='true'] {
+        opacity: 0.6;
+    }
+}

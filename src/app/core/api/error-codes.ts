@@ -91,6 +91,30 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     VEHICLE_NOT_ELIGIBLE: 'errors.api.vehicleNotEligible',
     PENDING_HUB_DISCREPANCY: 'errors.api.pendingHubDiscrepancy',
 
+    // Market sessions. A chợ trades in sessions now, and every one of these
+    // reaches a buyer at checkout — as a `409` on confirm, or ahead of it as an
+    // `issues[]` entry from confirm-preview. Unmapped, they arrived as the
+    // backend's English.
+    MARKET_SESSION_NOT_AVAILABLE: 'errors.api.marketSessionNotAvailable',
+    MARKET_SESSION_NOT_OPEN: 'errors.api.marketSessionNotOpen',
+    MARKET_SESSION_CLOSED: 'errors.api.marketSessionClosed',
+    MARKET_SESSION_NOT_CLOSED: 'errors.api.marketSessionNotClosed',
+    MARKET_SESSION_CUTOFF_PASSED: 'errors.api.marketSessionCutoffPassed',
+    // The session's `plannedCapacityKg` ceiling — the order would tip the
+    // session past what the chợ planned to move that day.
+    MARKET_SESSION_CAPACITY_EXCEEDED:
+        'errors.api.marketSessionCapacityExceeded',
+    // Session-specific wording, not the generic concurrency line: what changed
+    // underneath is the session, and that is what the admin must refresh.
+    MARKET_SESSION_CONFLICT: 'errors.api.marketSessionConflict',
+    // The administration side of the same lifecycle — reached from the market
+    // session screens rather than checkout.
+    MARKET_SESSION_NOT_FOUND: 'errors.api.marketSessionNotFound',
+    MARKET_SESSION_NOT_READY: 'errors.api.marketSessionNotReady',
+    INVALID_MARKET_SESSION: 'errors.api.invalidMarketSession',
+    INVALID_MARKET_SESSION_CLOSE_TIME:
+        'errors.api.invalidMarketSessionCloseTime',
+
     // Orders
     RESTAURANT_NOT_APPROVED: 'errors.api.restaurantNotApproved',
     // Confirming an order re-checks the restaurant's own status, so a account

@@ -39,6 +39,8 @@ const AGENT_ROLES = ['market_agent', 'kiosk_staff'];
 const RESTAURANT_ROLE = 'restaurant';
 const HUB_STAFF_ROLE = 'hub_staff';
 const RESTAURANT_NAME_MAX_LENGTH = 200;
+/** `CreateUserCommandValidator.FullName` — `MaximumLength(200)`. */
+const FULL_NAME_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 20;
 
 /** Admin ▸ Users ▸ New — the create form, shown as a dialog from the list. */
@@ -93,6 +95,7 @@ export class UsersCreateComponent implements OnInit {
         ],
         password: ['', [Validators.required, passwordStrengthValidator]],
         role: ['', Validators.required],
+        fullName: ['', Validators.maxLength(FULL_NAME_MAX_LENGTH)],
         marketId: [''],
         hubId: [''],
         restaurantName: ['', Validators.maxLength(RESTAURANT_NAME_MAX_LENGTH)],
@@ -148,6 +151,7 @@ export class UsersCreateComponent implements OnInit {
                 email: value.email.trim(),
                 password: value.password,
                 role: value.role,
+                fullName: value.fullName.trim() || null,
                 marketId: this.needsMarket() ? value.marketId || null : null,
                 restaurantName: this.needsRestaurantName()
                     ? value.restaurantName.trim() || null

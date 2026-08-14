@@ -14,6 +14,7 @@ import {
     invoicesApi,
     marketsApi,
     ordersApi,
+    rawApi,
     restaurantCreditApi,
 } from 'contract';
 import { DateTime } from 'luxon';
@@ -33,6 +34,10 @@ import {
     AdminInvoiceRow,
     AdminInvoicesResult,
     AdminMarketOption,
+    AdminMarketSession,
+    AdminMarketSessionFilters,
+    AdminMarketSessionResources,
+    AdminMarketSessionTracking,
     AdminOperationalSettings,
     AdminOrderDetail,
     AdminOrderGroupProgress,
@@ -40,7 +45,6 @@ import {
     AdminOrderGroupsResult,
     AdminOrderListFilters,
     AdminOrdersResult,
-    AdminPricingSettings,
     AdminResetOrderGroupsPayload,
     AdminRestaurantCredit,
     AdminRestaurantProfile,
@@ -64,6 +68,26 @@ const MAX_USER_PAGE_SIZE = 100;
 
 /** Stops a broken `total` from turning the walk into an endless loop. */
 const MAX_USER_PAGES = 50;
+
+/**
+ * Every distinct agent the batch's items are assigned to, in the order the
+ * items list them. A batch is shopped per product now, so this is a list —
+ * usually of one, but nothing stops an admin splitting it between agents.
+ */
+function itemAgentIds(row: Record<string, unknown>): string[] {
+    const items = row['items'];
+    if (!Array.isArray(items)) {
+        return [];
+    }
+    const ids = items
+        .map((item) =>
+            String(
+                (item as Record<string, unknown>)?.['assignedAgentUserId'] ?? ''
+            ).trim()
+        )
+        .filter((id) => !!id);
+    return [...new Set(ids)];
+}
 
 /**
  * The zone statement period boundaries are computed in server-side
@@ -387,47 +411,36 @@ export class AdminService {
         });
     }
 
-    /** Best-effort credit snapshot — used to prefill the restaurant screen. */
+    /** Credit snapshot used to prefill the restaurant screen. */
     async getRestaurantCredit(
         restaurantId: string
     ): Promise<AdminRestaurantCredit | null> {
-        try {
-            const res =
-                await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditGetRaw(
-                    { restaurantId }
-                );
-            // `{ success, data }` — without unwrapping, every field read off
-            // the snapshot is `undefined` and the card renders 0 ₫ / "—".
-            return (
-                unwrapData<AdminRestaurantCredit>(await parseJson(res.raw)) ??
-                null
-            );
-        } catch {
-            return null;
-        }
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditGetRaw({
+                restaurantId,
+            });
+        return (
+            unwrapData<AdminRestaurantCredit>(await parseJson(res.raw)) ?? null
+        );
     }
 
-    /** Monthly credit statements, newest first (best-effort; empty on failure). */
+    /** Monthly credit statements, newest first. */
     async getCreditStatements(
         restaurantId: string
     ): Promise<AdminCreditStatement[]> {
-        try {
-            const rows = await fetchAllCursor<AdminCreditStatement>(
-                (cursor, pageSize) =>
-                    restaurantCreditApi
-                        .apiV1RestaurantsRestaurantIdCreditStatementsGetRaw({
-                            restaurantId,
-                            cursor,
-                            pageSize,
-                        })
-                        .then((res) => res.raw)
-            );
-            return withId<AdminCreditStatement>(rows, 'statementId').map(
-                (row) => normalizeCreditStatement(row)
-            );
-        } catch {
-            return [];
-        }
+        const rows = await fetchAllCursor<AdminCreditStatement>(
+            (cursor, pageSize) =>
+                restaurantCreditApi
+                    .apiV1RestaurantsRestaurantIdCreditStatementsGetRaw({
+                        restaurantId,
+                        cursor,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+        );
+        return withId<AdminCreditStatement>(rows, 'statementId').map((row) =>
+            normalizeCreditStatement(row)
+        );
     }
 
     /**
@@ -501,25 +514,26 @@ export class AdminService {
         return res.raw.blob();
     }
 
-    /** Credit ledger entries, newest first (best-effort; empty on failure). */
+    /** Credit ledger entries, newest first. */
     async getCreditTransactions(
         restaurantId: string
     ): Promise<AdminCreditTransaction[]> {
-        try {
-            const rows = await fetchAllCursor<AdminCreditTransaction>(
-                (cursor, pageSize) =>
-                    restaurantCreditApi
-                        .apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw({
-                            restaurantId,
-                            cursor,
-                            pageSize,
-                        })
-                        .then((res) => res.raw)
-            );
-            return withId<AdminCreditTransaction>(rows, 'transactionId');
-        } catch {
-            return [];
-        }
+        const rows = await fetchAllCursor<AdminCreditTransaction>(
+            (cursor, pageSize) =>
+                restaurantCreditApi
+                    .apiV1RestaurantsRestaurantIdCreditTransactionsGetRaw({
+                        restaurantId,
+                        cursor,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+        );
+        return withId<AdminCreditTransaction>(rows, 'transactionId').map(
+            (row) => ({
+                ...row,
+                description: row.description ?? row.note ?? null,
+            })
+        );
     }
 
     // -------------------------------------------------------------------
@@ -541,15 +555,272 @@ export class AdminService {
         });
     }
 
-    async getPricingSettings(): Promise<AdminPricingSettings> {
-        const res = await adminApi.apiV1AdminPricingSettingsGetRaw();
-        return unwrapData<AdminPricingSettings>(await parseJson(res.raw)) ?? {};
+    // -------------------------------------------------------------------
+    // Market sessions (ordering windows)
+    // -------------------------------------------------------------------
+
+    /**
+     * Lists backend-generated sessions. This endpoint is newer than the
+     * checked-in OpenAPI snapshot, so it temporarily uses the authenticated
+     * raw client; auth refresh and standard API errors still apply.
+     */
+    async getMarketSessions(
+        filters: AdminMarketSessionFilters = {}
+    ): Promise<AdminMarketSession[]> {
+        const query: Record<string, string> = {};
+        if (filters.from) query['from'] = filters.from;
+        if (filters.to) query['to'] = filters.to;
+        if (filters.marketId) query['marketId'] = filters.marketId;
+        if (filters.status) query['status'] = filters.status;
+        const response = await rawApi.send(
+            '/api/v1/admin/market-sessions',
+            'GET',
+            undefined,
+            query
+        );
+        return withId<AdminMarketSession>(
+            extractList(await parseJson(response)),
+            'sessionId'
+        );
     }
 
-    async updatePricingSettings(payload: AdminPricingSettings): Promise<void> {
-        await adminApi.apiV1AdminPricingSettingsPutRaw({
-            updatePricingSettingsRequest: payload,
-        });
+    async getMarketSession(id: string): Promise<AdminMarketSession> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}`,
+            'GET'
+        );
+        return this._requireMarketSession(response);
+    }
+
+    async getMarketSessionResources(
+        id: string
+    ): Promise<AdminMarketSessionResources> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}/resource-options`,
+            'GET'
+        );
+        const resources = unwrapData<AdminMarketSessionResources>(
+            await parseJson(response)
+        );
+        if (!resources) {
+            throw new Error('MARKET_SESSION_RESOURCES_RESPONSE_EMPTY');
+        }
+        return resources;
+    }
+
+    async configureMarketSessionResources(
+        id: string,
+        resources: {
+            plannedCapacityKg: number | null;
+            vehicleIds: string[];
+            agentUserIds: string[];
+        }
+    ): Promise<AdminMarketSessionResources> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}/resources`,
+            'PUT',
+            resources
+        );
+        const updated = unwrapData<AdminMarketSessionResources>(
+            await parseJson(response)
+        );
+        if (!updated) {
+            throw new Error('MARKET_SESSION_RESOURCES_RESPONSE_EMPTY');
+        }
+        return updated;
+    }
+
+    async updateMarketSessionCloseTime(
+        id: string,
+        closesAt: string
+    ): Promise<AdminMarketSession> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}`,
+            'PUT',
+            { closesAt }
+        );
+        return this._requireMarketSession(response);
+    }
+
+    /** Opens a draft session. The backend re-checks live readiness atomically. */
+    async openMarketSession(id: string): Promise<AdminMarketSession> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}/open`,
+            'POST'
+        );
+        return this._requireMarketSession(response);
+    }
+
+    async closeMarketSession(
+        id: string,
+        reason: string | null = null
+    ): Promise<AdminMarketSession> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}/close`,
+            'POST',
+            { reason }
+        );
+        return this._requireMarketSession(response);
+    }
+
+    async getMarketSessionTracking(
+        id: string,
+        page = 1,
+        pageSize = 50
+    ): Promise<AdminMarketSessionTracking> {
+        const tracking = await this._requestMarketSessionTracking(
+            id,
+            page,
+            pageSize
+        );
+        const normalizedTracking: AdminMarketSessionTracking = {
+            ...tracking,
+            summary: {
+                ...tracking.summary,
+                subtotalAmount: Number(
+                    tracking.summary.subtotalAmount ??
+                        tracking.summary.merchandiseAmount ??
+                        0
+                ),
+                totalAmount: Number(
+                    tracking.summary.totalAmount ??
+                        tracking.summary.grandTotal ??
+                        0
+                ),
+            },
+        };
+        const orders = normalizedTracking.orders.map((order) =>
+            this._normalizeTrackingOrderFinancials(order)
+        );
+        const activePageOrders = orders.filter(
+            (order) => order.status.toLowerCase() !== 'cancelled'
+        );
+        const summaryNeedsFallback =
+            !Number.isFinite(Number(normalizedTracking.summary.totalAmount)) ||
+            !Number.isFinite(
+                Number(normalizedTracking.summary.subtotalAmount)
+            ) ||
+            (Number(normalizedTracking.summary.totalAmount ?? 0) === 0 &&
+                activePageOrders.some((order) => order.totalAmount > 0)) ||
+            (Number(normalizedTracking.summary.subtotalAmount ?? 0) === 0 &&
+                activePageOrders.some((order) => order.subtotalAmount > 0));
+
+        let financialOrders = orders;
+        if (
+            summaryNeedsFallback &&
+            normalizedTracking.ordersPagination.total > orders.length
+        ) {
+            const aggregatePageSize = 100;
+            const pageCount = Math.ceil(
+                normalizedTracking.ordersPagination.total / aggregatePageSize
+            );
+            const pages = await Promise.all(
+                Array.from({ length: pageCount }, (_, index) =>
+                    this._requestMarketSessionTracking(
+                        id,
+                        index + 1,
+                        aggregatePageSize
+                    )
+                )
+            );
+            const uniqueOrders = new Map(
+                pages
+                    .flatMap((result) => result.orders)
+                    .map((order) => [
+                        order.orderId,
+                        this._normalizeTrackingOrderFinancials(order),
+                    ])
+            );
+            financialOrders = [...uniqueOrders.values()];
+        }
+
+        if (!summaryNeedsFallback) {
+            return { ...normalizedTracking, orders };
+        }
+        const activeOrders = financialOrders.filter(
+            (order) => order.status.toLowerCase() !== 'cancelled'
+        );
+        const sum = (
+            selector: (
+                order: AdminMarketSessionTracking['orders'][number]
+            ) => number | null | undefined
+        ): number =>
+            activeOrders.reduce(
+                (total, order) => total + Number(selector(order) ?? 0),
+                0
+            );
+        const derivedDeliveryFee = sum((order) => order.deliveryFee);
+        return {
+            ...normalizedTracking,
+            orders,
+            summary: {
+                ...normalizedTracking.summary,
+                subtotalAmount: sum((order) => order.subtotalAmount),
+                vatAmount: sum((order) => order.vatAmount),
+                deliveryFee:
+                    derivedDeliveryFee > 0
+                        ? derivedDeliveryFee
+                        : Number(normalizedTracking.summary.deliveryFee ?? 0),
+                totalAmount: sum((order) => order.totalAmount),
+            },
+        };
+    }
+
+    private async _requestMarketSessionTracking(
+        id: string,
+        page: number,
+        pageSize: number
+    ): Promise<AdminMarketSessionTracking> {
+        const response = await rawApi.send(
+            `/api/v1/admin/market-sessions/${encodeURIComponent(id)}/tracking`,
+            'GET',
+            undefined,
+            { page: String(page), pageSize: String(pageSize) }
+        );
+        const tracking = unwrapData<AdminMarketSessionTracking>(
+            await parseJson(response)
+        );
+        if (!tracking) {
+            throw new Error('MARKET_SESSION_TRACKING_RESPONSE_EMPTY');
+        }
+        return tracking;
+    }
+
+    private _normalizeTrackingOrderFinancials(
+        order: AdminMarketSessionTracking['orders'][number]
+    ): AdminMarketSessionTracking['orders'][number] {
+        const itemSubtotal = (order.items ?? []).reduce(
+            (total, item) => total + Number(item.subtotal ?? 0),
+            0
+        );
+        const storedSubtotal = Number(order.subtotalAmount ?? 0);
+        const subtotalAmount =
+            storedSubtotal > 0 ? storedSubtotal : itemSubtotal;
+        const vatAmount = Number(order.vatAmount ?? 0);
+        const deliveryFee = Number(order.deliveryFee ?? 0);
+        const storedTotal = Number(order.totalAmount ?? 0);
+        return {
+            ...order,
+            subtotalAmount,
+            vatAmount,
+            deliveryFee,
+            totalAmount:
+                storedTotal > 0
+                    ? storedTotal
+                    : subtotalAmount + vatAmount + deliveryFee,
+        };
+    }
+
+    private async _requireMarketSession(
+        response: Response
+    ): Promise<AdminMarketSession> {
+        const session = unwrapData<AdminMarketSession>(
+            await parseJson(response)
+        );
+        if (!session) {
+            throw new Error('MARKET_SESSION_RESPONSE_EMPTY');
+        }
+        return session;
     }
 
     // -------------------------------------------------------------------
@@ -609,11 +880,16 @@ export class AdminService {
                     row.marketName ??
                     marketNames.get(String(row.marketId ?? '')) ??
                     null,
+                // Who is shopping this batch now lives on its items;
+                // `assignedAgentUserId` on the batch is deprecated server-side
+                // and no longer written, so it is read last rather than first.
                 agentId:
                     row.agentId ??
+                    itemAgentIds(row)[0] ??
                     (row['assignedAgentUserId'] as string | null) ??
                     (row['AssignedAgentUserId'] as string | null) ??
                     null,
+                agentIds: itemAgentIds(row),
                 orderCount:
                     row.orderCount ??
                     (Array.isArray(members)
@@ -709,13 +985,28 @@ export class AdminService {
         await adminApi.apiV1AdminOrderGroupsBatchIdManifestPostRaw({ batchId });
     }
 
-    async assignBatchAgent(
+    /**
+     * Assigns the batch's line items to market agents
+     * (`PUT /admin/batches/{batchId}/item-assignments`).
+     *
+     * This replaced `POST /admin/order-groups/{batchId}/agent`, which put one
+     * agent on the whole batch: a batch is now shopped per product, so who buys
+     * what is recorded per item and `ProcurementBatch.AssignedAgentUserId` is
+     * marked deprecated server-side. An `agentUserId` of
+     * `00000000-0000-0000-0000-000000000000` unassigns that item.
+     *
+     * The command refuses the batch unless it is `manifested` or `purchasing`,
+     * refuses a product that is not in it or already bought, and refuses an
+     * agent who is not an active agent of the batch's chợ (and, when the batch
+     * belongs to a market session, not assigned to that session).
+     */
+    async assignBatchItems(
         batchId: string,
-        agentUserId: string
+        assignments: { marketProductId: string; agentUserId: string }[]
     ): Promise<void> {
-        await adminApi.apiV1AdminOrderGroupsBatchIdAgentPostRaw({
+        await adminApi.apiV1AdminBatchesBatchIdItemAssignmentsPutRaw({
             batchId,
-            assignAgentRequest: { agentUserId },
+            assignBatchItemsRequest: { assignments },
         });
     }
 

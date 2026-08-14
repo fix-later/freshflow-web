@@ -170,6 +170,16 @@
             }
 
             <mat-form-field class="w-full" subscriptSizing="dynamic">
+                <mat-label>{{ t('admin.users.create.fullName') }}</mat-label>
+                <input matInput formControlName="fullName" />
+                @if (createForm.controls.fullName.hasError('maxlength')) {
+                    <mat-error>{{
+                        t('admin.users.create.errors.fullNameMax')
+                    }}</mat-error>
+                }
+            </mat-form-field>
+
+            <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{ t('admin.users.create.phone') }}</mat-label>
                 <input matInput formControlName="phone" />
                 @if (createForm.controls.phone.hasError('phoneNumber')) {

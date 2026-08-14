@@ -12,6 +12,7 @@ Name | Type
 `marketId` | string
 `restaurantName` | string
 `phone` | string
+`fullName` | string
 
 ## Example
 
@@ -26,6 +27,7 @@ const example = {
   "marketId": null,
   "restaurantName": null,
   "phone": null,
+  "fullName": null,
 } satisfies CreateUserCommand
 
 console.log(example)

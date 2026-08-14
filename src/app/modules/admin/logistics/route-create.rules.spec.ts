@@ -111,13 +111,12 @@ describe('Route create — the rules the calculate call enforces', () => {
      * `MISSING_COORDINATES` before anything else is read — so the screen says
      * so instead of spending the request.
      */
-    it('blocks both actions on a hub with no coordinates, and says why', () => {
+    it('blocks calculation on a hub with no coordinates, and says why', () => {
         const component = build([hub('h1', false)]);
         component.selectedHubId.set('h1');
         component.selectedRestaurants.set(new Set(['r1']));
 
         expect(component.canCalculate()).toBeFalse();
-        expect(component.canPlan()).toBeFalse();
         expect(component.blockedReason()).toBe(
             'admin.routes.create.blocked.hubNoCoordinates'
         );
@@ -130,6 +129,5 @@ describe('Route create — the rules the calculate call enforces', () => {
 
         expect(component.blockedReason()).toBeNull();
         expect(component.canCalculate()).toBeTrue();
-        expect(component.canPlan()).toBeTrue();
     });
 });

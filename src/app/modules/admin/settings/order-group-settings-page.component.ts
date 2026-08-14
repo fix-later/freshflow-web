@@ -22,7 +22,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
-import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
+import { AdminOperationalSettings } from '../admin.types';
 
 /**
  * The only two values `UpdateOperationalSettingsCommandValidator` accepts
@@ -32,8 +32,14 @@ import { AdminOperationalSettings, AdminPricingSettings } from '../admin.types';
  */
 const ROUTE_TYPES = ['hub_relay', 'direct'] as const;
 
-/** `DeliveryFeePerKm` — `InclusiveBetween(0, 1_000_000)` on the same validator. */
+/**
+ * `DeliveryFeePerKm` and `RoundingUnit` — `InclusiveBetween(0, 1_000_000)` on
+ * the same validator.
+ */
 const DELIVERY_FEE_PER_KM_MAX = 1_000_000;
+
+/** `BaseFee` / `MinimumFee` — `InclusiveBetween(0, 10_000_000)`. */
+const FEE_MAX = 10_000_000;
 
 function parseCutoffTime(raw: string | null | undefined): DateTime | null {
     const hhmm = (raw ?? '').trim().slice(0, 5);
@@ -97,10 +103,20 @@ export class OrderGroupSettingsPageComponent implements OnInit {
             Validators.min(0),
             Validators.max(DELIVERY_FEE_PER_KM_MAX),
         ]),
-        priceAlertThresholdPercent: this._formBuilder.nonNullable.control(10, [
+        baseFee: this._formBuilder.nonNullable.control(0, [
             Validators.required,
-            Validators.min(0.01),
-            Validators.max(100),
+            Validators.min(0),
+            Validators.max(FEE_MAX),
+        ]),
+        minimumFee: this._formBuilder.nonNullable.control(0, [
+            Validators.required,
+            Validators.min(0),
+            Validators.max(FEE_MAX),
+        ]),
+        roundingUnit: this._formBuilder.nonNullable.control(0, [
+            Validators.required,
+            Validators.min(0),
+            Validators.max(DELIVERY_FEE_PER_KM_MAX),
         ]),
     });
 
@@ -129,7 +145,9 @@ export class OrderGroupSettingsPageComponent implements OnInit {
             defaultRouteType,
             deliveryWindowDays,
             deliveryFeePerKm,
-            priceAlertThresholdPercent,
+            baseFee,
+            minimumFee,
+            roundingUnit,
         } = this.form.getRawValue();
         if (!dailyCutoffTime?.isValid) {
             this.form.controls.dailyCutoffTime.setErrors({ required: true });
@@ -137,18 +155,17 @@ export class OrderGroupSettingsPageComponent implements OnInit {
         }
         const time = dailyCutoffTime.toFormat('HH:mm');
         this.saving.set(true);
-        Promise.all([
-            this._admin.updateOperationalSettings({
+        this._admin
+            .updateOperationalSettings({
                 dailyCutoffTime: time,
                 batchingEnabled: batchingEnabled ?? false,
                 defaultRouteType: defaultRouteType || null,
                 deliveryWindowDays: deliveryWindowDays ?? 7,
                 deliveryFeePerKm: deliveryFeePerKm ?? 5000,
-            }),
-            this._admin.updatePricingSettings({
-                priceAlertThresholdPercent: priceAlertThresholdPercent ?? 10,
-            }),
-        ])
+                baseFee: baseFee ?? 0,
+                minimumFee: minimumFee ?? 0,
+                roundingUnit: roundingUnit ?? 0,
+            })
             .then(() => {
                 this._notifyKey('admin.settings.saveSuccess');
                 this._load();
@@ -159,15 +176,10 @@ export class OrderGroupSettingsPageComponent implements OnInit {
 
     private _load(): void {
         this.loading.set(true);
-        Promise.all([
-            this._admin
-                .getOperationalSettings()
-                .catch((): AdminOperationalSettings => ({})),
-            this._admin
-                .getPricingSettings()
-                .catch((): AdminPricingSettings => ({})),
-        ])
-            .then(([operational, pricing]) => {
+        this._admin
+            .getOperationalSettings()
+            .catch((): AdminOperationalSettings => ({}))
+            .then((operational) => {
                 const routeType = operational.defaultRouteType ?? '';
                 if (routeType && !this.routeTypes().includes(routeType)) {
                     this.routeTypes.update((types) => [...types, routeType]);
@@ -180,8 +192,9 @@ export class OrderGroupSettingsPageComponent implements OnInit {
                     defaultRouteType: routeType,
                     deliveryWindowDays: operational.deliveryWindowDays ?? 7,
                     deliveryFeePerKm: operational.deliveryFeePerKm ?? 5000,
-                    priceAlertThresholdPercent:
-                        pricing.priceAlertThresholdPercent ?? 10,
+                    baseFee: operational.baseFee ?? 0,
+                    minimumFee: operational.minimumFee ?? 0,
+                    roundingUnit: operational.roundingUnit ?? 0,
                 });
             })
             .finally(() => this.loading.set(false));

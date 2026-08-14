@@ -25,6 +25,7 @@ import {
     toPageIndex,
 } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
+import { newestActiveFirst } from '../shared/row-order';
 import { ScheduledOrdersAdminService } from './scheduled-orders-admin.service';
 import {
     AdminScheduledOrder,
@@ -209,7 +210,7 @@ export class ScheduledOrdersListComponent implements OnInit {
                 page: toApiPage(this.pageIndex()),
                 pageSize: this.pageSize(),
             });
-            this.schedules.set(result.schedules);
+            this.schedules.set(newestActiveFirst(result.schedules));
             this.totalCount.set(result.totalCount);
             if (result.page) {
                 this.pageIndex.set(toPageIndex(result.page));

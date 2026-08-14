@@ -129,6 +129,39 @@ export function claimAmountValidator(
 }
 
 /**
+ * A market product is only ever ordered in whole multiples of one case's
+ * weight — `OrderItem.packingWeightKg`, snapshotted onto the line from the
+ * product's packing code (`packing_codes.CapacityKg`). `packSize` is read
+ * lazily so the validator follows whichever line is being edited; `null`/
+ * `undefined`/`<= 0` means "not known" — a product with no packing code, or an
+ * order placed before the snapshot existed — and the rule is skipped rather
+ * than invented, since the backend does not enforce it either: rejecting a
+ * value here that the server would still accept would be worse than not
+ * checking at all.
+ */
+export function packingMultipleValidator(
+    packSize: () => number | null | undefined
+): (control: AbstractControl) => ValidationErrors | null {
+    return (control) => {
+        const size = packSize();
+        const raw = control.value;
+        if (
+            !size ||
+            size <= 0 ||
+            raw === null ||
+            raw === undefined ||
+            raw === ''
+        ) {
+            return null;
+        }
+        const value = typeof raw === 'number' ? raw : Number(raw);
+        return Number.isFinite(value) && value % size !== 0
+            ? { packingMultiple: { size } }
+            : null;
+    };
+}
+
+/**
  * "Claim amount cannot exceed the amount charged for the order" — the
  * handler's second rule (`INVALID_CLAIM_AMOUNT`). `limit` is read lazily so the
  * validator follows the order once it has loaded; a `null` total means the

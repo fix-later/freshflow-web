@@ -466,46 +466,65 @@
                             editingItemId() === item.orderItemId
                         ) {
                             <form
-                                class="flex items-center gap-1"
+                                class="flex flex-col gap-1"
                                 [formGroup]="quantityForm"
                                 (ngSubmit)="
                                     saveItemQuantity(item.orderItemId ?? '')
                                 "
                             >
-                                <input
-                                    class="w-20 rounded border px-2 py-1"
-                                    type="number"
-                                    min="1"
-                                    step="1"
-                                    formControlName="quantity"
-                                    [attr.aria-label]="
-                                        t('orders.detail.quantity')
-                                    "
-                                />
-                                <button
-                                    mat-icon-button
-                                    type="submit"
-                                    [disabled]="acting()"
-                                    [matTooltip]="t('orders.detail.itemSave')"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:check"
-                                    ></mat-icon>
-                                </button>
-                                <button
-                                    mat-icon-button
-                                    type="button"
-                                    (click)="cancelEditItem()"
-                                    [matTooltip]="
-                                        t('orders.detail.issueCancel')
-                                    "
-                                >
-                                    <mat-icon
-                                        class="text-hint icon-size-5"
-                                        svgIcon="heroicons_outline:x-mark"
-                                    ></mat-icon>
-                                </button>
+                                <div class="flex items-center gap-1">
+                                    <input
+                                        class="w-20 rounded border px-2 py-1"
+                                        type="number"
+                                        [attr.min]="editingItemPackSize() || 1"
+                                        [attr.step]="editingItemPackSize() || 1"
+                                        formControlName="quantity"
+                                        [attr.aria-label]="
+                                            t('orders.detail.quantity')
+                                        "
+                                    />
+                                    <button
+                                        mat-icon-button
+                                        type="submit"
+                                        [disabled]="acting()"
+                                        [matTooltip]="
+                                            t('orders.detail.itemSave')
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:check"
+                                        ></mat-icon>
+                                    </button>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        (click)="cancelEditItem()"
+                                        [matTooltip]="
+                                            t('orders.detail.issueCancel')
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="text-hint icon-size-5"
+                                            svgIcon="heroicons_outline:x-mark"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                                @if (
+                                    quantityForm.controls.quantity.touched &&
+                                        errorKey(
+                                            quantityForm.controls.quantity
+                                        );
+                                    as key
+                                ) {
+                                    <span class="text-xs text-warn">{{
+                                        t(key, {
+                                            size: quantityForm.controls.quantity
+                                                .errors?.['packingMultiple']
+                                                ?.size,
+                                        })
+                                    }}</span>
+                                }
                             </form>
                         } @else {
                             <span class="flex items-center gap-1">

@@ -33,6 +33,11 @@ interface HubResourceOptions {
      * on screen.
      */
     openDetail?: (hubId: string) => void;
+    /**
+     * Called after a hub is created. A chợ has exactly one, so its tab swaps
+     * the create form for the hub itself the moment there is one.
+     */
+    onCreated?: () => void;
 }
 
 /**
@@ -49,7 +54,7 @@ export function createHubResource(
     label: (key: string) => string,
     options: HubResourceOptions = {}
 ): CrudResource {
-    const { marketId, openDetail } = options;
+    const { marketId, openDetail, onCreated } = options;
 
     /** Scoped forms carry the market implicitly; the field is dropped. */
     const withMarket = (value: CrudFormValue): CrudFormValue =>
@@ -66,7 +71,11 @@ export function createHubResource(
         },
         subtitle: 'admin.hubs.subtitle',
         createLabel: 'admin.hubs.create',
-        searchKeys: ['name', 'address', 'managedByName', 'marketName'],
+        // Only the standalone screen lists more than one hub; inside a chợ this
+        // form is shown solely to create the one it lacks.
+        searchKeys: marketId
+            ? undefined
+            : ['name', 'address', 'managedByName', 'marketName'],
         searchPlaceholder: 'admin.hubs.searchPlaceholder',
         // Name and capacity are sized to their content — a hub name is a couple
         // of words, a capacity never longer than "1.000 kg" — so the room goes
@@ -153,55 +162,60 @@ export function createHubResource(
                 addressField: 'address',
             },
         ],
-        filters: [
-            {
-                name: 'status',
-                label: 'admin.crud.status',
-                options: () =>
-                    Promise.resolve([
-                        { value: 'active', label: label('admin.crud.active') },
-                        {
-                            value: 'inactive',
-                            label: label('admin.crud.inactive'),
-                        },
-                    ]),
-                match: (row, value) =>
-                    value === 'active'
-                        ? row['isActive'] !== false
-                        : row['isActive'] === false,
-            },
-            {
-                name: 'utilization',
-                label: 'admin.hubs.utilizationPercent',
-                options: () =>
-                    Promise.resolve([
-                        {
-                            value: 'free',
-                            label: label('admin.hubs.utilization.free'),
-                        },
-                        {
-                            value: 'tight',
-                            label: label('admin.hubs.utilization.tight'),
-                        },
-                        {
-                            value: 'full',
-                            label: label('admin.hubs.utilization.full'),
-                        },
-                    ]),
-                match: (row, value) => {
-                    const used = utilization(row);
-                    if (used === null) {
-                        return false;
-                    }
-                    if (value === 'full') {
-                        return used >= 0.9;
-                    }
-                    return value === 'tight'
-                        ? used >= 0.7 && used < 0.9
-                        : used < 0.7;
-                },
-            },
-        ],
+        filters: marketId
+            ? undefined
+            : [
+                  {
+                      name: 'status',
+                      label: 'admin.crud.status',
+                      options: () =>
+                          Promise.resolve([
+                              {
+                                  value: 'active',
+                                  label: label('admin.crud.active'),
+                              },
+                              {
+                                  value: 'inactive',
+                                  label: label('admin.crud.inactive'),
+                              },
+                          ]),
+                      match: (row, value) =>
+                          value === 'active'
+                              ? row['isActive'] !== false
+                              : row['isActive'] === false,
+                  },
+                  {
+                      name: 'utilization',
+                      label: 'admin.hubs.utilizationPercent',
+                      options: () =>
+                          Promise.resolve([
+                              {
+                                  value: 'free',
+                                  label: label('admin.hubs.utilization.free'),
+                              },
+                              {
+                                  value: 'tight',
+                                  label: label('admin.hubs.utilization.tight'),
+                              },
+                              {
+                                  value: 'full',
+                                  label: label('admin.hubs.utilization.full'),
+                              },
+                          ]),
+                      match: (row, value) => {
+                          const used = utilization(row);
+                          if (used === null) {
+                              return false;
+                          }
+                          if (value === 'full') {
+                              return used >= 0.9;
+                          }
+                          return value === 'tight'
+                              ? used >= 0.7 && used < 0.9
+                              : used < 0.7;
+                      },
+                  },
+              ],
         list: async () => {
             const all = await logistics.listHubs();
             return marketId
@@ -210,7 +224,10 @@ export function createHubResource(
                   )
                 : all;
         },
-        create: (value) => logistics.createHub(withMarket(value)),
+        create: async (value) => {
+            await logistics.createHub(withMarket(value));
+            onCreated?.();
+        },
         update: (id, value) => logistics.updateHub(id, withMarket(value)),
         remove: (row) => logistics.deleteHub(row.id),
         removeLabel: 'admin.crud.delete',

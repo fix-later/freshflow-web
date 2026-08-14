@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { newestActiveFirst } from './row-order';
 
 export type SortDirection = 'asc' | 'desc';
 
@@ -77,11 +78,17 @@ export class TableSort<T> {
         return this.direction() === 'asc' ? 'ascending' : 'descending';
     }
 
-    /** Returns a sorted copy of `rows`, or `rows` itself when unsorted. */
+    /**
+     * Returns a sorted copy of `rows`.
+     *
+     * With no column chosen the list is not left in the order the API happened
+     * to return: it falls back to {@link newestActiveFirst}, so the top of every
+     * table is what is live and what changed most recently.
+     */
     apply(rows: T[], accessor: SortAccessor<T>): T[] {
         const key = this.key();
         if (!key) {
-            return rows;
+            return newestActiveFirst(rows);
         }
         const factor = this.direction() === 'asc' ? 1 : -1;
         // Copy first: Array.prototype.sort mutates, and `rows` is signal state.

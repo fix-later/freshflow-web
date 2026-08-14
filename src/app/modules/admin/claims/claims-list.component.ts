@@ -26,6 +26,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { claimStatusPillClass } from 'app/modules/orders/claims.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import { newestActiveFirst } from '../shared/row-order';
 import { ClaimsService } from './claims.service';
 import {
     AdminClaimRow,
@@ -418,7 +419,7 @@ export class ClaimsListComponent implements OnInit {
                 status: this.status.value || undefined,
             })
             .then((page) => {
-                this.claims.set(page.claims);
+                this.claims.set(newestActiveFirst(page.claims));
                 this.nextCursor.set(page.nextCursor);
             })
             .catch(async (err) => {

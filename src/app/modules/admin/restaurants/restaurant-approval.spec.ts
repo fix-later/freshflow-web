@@ -107,7 +107,32 @@ describe('Restaurant approval actions', () => {
         expect(component.canApprove(component.users()[0])).toBeFalse();
     });
 
-    it('shows exactly one lifecycle action per state on the detail page', () => {
+    /**
+     * Approving an account that cannot sign in leaves it approved and still
+     * locked out, which reads as done and is not — and credit is a relationship
+     * with a restaurant that has actually traded.
+     */
+    it('withholds approval from a stopped account, and credit from an unapproved one', () => {
+        configure({
+            getUsers: () => Promise.resolve({ users: [], totalCount: 0 }),
+        });
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+
+        component.user.set(row({ isActive: false }));
+        expect(component.canApprove()).toBeFalse();
+
+        component.user.set(pending);
+        expect(component.canApprove()).toBeTrue();
+        expect(component.canManageCredit()).toBeFalse();
+
+        // Suspended still owes money, so settling and the limit stay reachable.
+        component.user.set(row({ restaurantStatus: 'suspended' }));
+        expect(component.canManageCredit()).toBeTrue();
+    });
+
+    it('offers approval or reactivation, never both, on the detail page', () => {
         configure({
             getUsers: () => Promise.resolve({ users: [], totalCount: 0 }),
         });
@@ -116,27 +141,46 @@ describe('Restaurant approval actions', () => {
         ).componentInstance;
 
         component.user.set(pending);
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([true, false, false]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            true,
+            false,
+        ]);
 
         component.user.set(
             row({ restaurantStatus: 'active', isApproved: true })
         );
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([false, true, false]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            false,
+            false,
+        ]);
 
         component.user.set(row({ restaurantStatus: 'suspended' }));
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([false, false, true]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            false,
+            true,
+        ]);
+    });
+
+    it('toggles account access independently from restaurant approval', async () => {
+        let activation: { userId: string; isActive: boolean } | null = null;
+        configure({
+            setUserActive: (userId: string, isActive: boolean) => {
+                activation = { userId, isActive };
+                return Promise.resolve();
+            },
+        });
+        const component = TestBed.createComponent(
+            RestaurantsAdminComponent
+        ).componentInstance;
+        component.users.set([pending]);
+
+        component.toggleAccountActive(pending);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(activation).toEqual({ userId: 'user-1', isActive: false });
+        expect(component.users()[0].isActive).toBeFalse();
+        expect(component.users()[0].restaurantStatus).toBe('pending');
     });
 });
 
@@ -211,5 +255,51 @@ describe('Restaurant credit limit', () => {
 
         component.credit.set(null);
         expect(component.outstandingBalance()).toBeNull();
+    });
+
+    it('does not allow a credit limit below the outstanding balance', () => {
+        configure({});
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+        component.user.set(row({ restaurantStatus: 'active' }));
+        component.credit.set({
+            creditLimit: 1_000_000,
+            outstandingBalance: 400_000,
+            availableCredit: 600_000,
+        });
+
+        component.startEditingCreditLimit();
+        component.creditLimitForm.controls.creditLimit.setValue(399_999);
+
+        expect(
+            component.creditLimitForm.controls.creditLimit.hasError('min')
+        ).toBeTrue();
+    });
+});
+
+describe('Restaurant settlement contract', () => {
+    it('only accepts backend payment methods and enforces request lengths', () => {
+        configure({});
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+
+        expect(component.settlementPaymentMethods).toEqual([
+            'bank_transfer',
+            'manual',
+        ]);
+
+        component.settleForm.controls.paymentMethod.setValue(
+            '' as 'bank_transfer'
+        );
+        component.settleForm.controls.note.setValue('x'.repeat(501));
+
+        expect(
+            component.settleForm.controls.paymentMethod.hasError('required')
+        ).toBeTrue();
+        expect(
+            component.settleForm.controls.note.hasError('maxlength')
+        ).toBeTrue();
     });
 });

@@ -49,6 +49,18 @@ export interface RegisterRestaurantRequest {
      * @memberof RegisterRestaurantRequest
      */
     taxCode?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof RegisterRestaurantRequest
+     */
+    invoiceLegalName?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof RegisterRestaurantRequest
+     */
+    invoiceAddress?: string | null;
 }
 
 /**
@@ -76,6 +88,8 @@ export function RegisterRestaurantRequestFromJSONTyped(json: any, ignoreDiscrimi
         'restaurantName': json['restaurantName'],
         'phone': json['phone'] == null ? undefined : json['phone'],
         'taxCode': json['taxCode'] == null ? undefined : json['taxCode'],
+        'invoiceLegalName': json['invoiceLegalName'] == null ? undefined : json['invoiceLegalName'],
+        'invoiceAddress': json['invoiceAddress'] == null ? undefined : json['invoiceAddress'],
     };
 }
 
@@ -95,6 +109,8 @@ export function RegisterRestaurantRequestToJSONTyped(value?: RegisterRestaurantR
         'restaurantName': value['restaurantName'],
         'phone': value['phone'],
         'taxCode': value['taxCode'],
+        'invoiceLegalName': value['invoiceLegalName'],
+        'invoiceAddress': value['invoiceAddress'],
     };
 }
 

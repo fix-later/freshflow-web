@@ -15,14 +15,16 @@
             </div>
         }
         <div class="flex min-w-0 items-center gap-3">
-            <button
-                mat-icon-button
-                type="button"
-                [matTooltip]="t('admin.hubs.editPage.back')"
-                (click)="goBack()"
-            >
-                <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
-            </button>
+            @if (!embedded()) {
+                <button
+                    mat-icon-button
+                    type="button"
+                    [matTooltip]="t('admin.hubs.editPage.back')"
+                    (click)="goBack()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:arrow-left"></mat-icon>
+                </button>
+            }
             <div class="min-w-0">
                 <div class="text-secondary text-xs uppercase tracking-wide">
                     {{ t('admin.hubs.editPage.title') }}

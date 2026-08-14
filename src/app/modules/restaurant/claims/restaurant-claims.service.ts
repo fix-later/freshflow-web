@@ -7,7 +7,7 @@ import {
     withId,
 } from 'app/core/api/envelope';
 import { CLAIM_PAGE_SIZE, ClaimRow } from 'app/modules/orders/claims.types';
-import { rawApi } from 'contract';
+import { claimsApi } from 'contract';
 
 /** One cursor page of the restaurant's own claims. */
 export interface RestaurantClaimsPage {
@@ -22,22 +22,16 @@ export interface RestaurantClaimsPage {
  * Listing is not scoped by a parameter here on purpose: `ListClaimsQuery`
  * resolves the caller's own restaurant when they are not privileged, so a
  * `restaurantId` from the client would be ignored at best and wrong at worst.
- *
- * `rawApi` rather than a generated method: the claims routes are missing from
- * the `openapi.json` snapshot. It still applies the shared configuration —
- * bearer auth, no-store, 401 refresh-and-retry, the typed error classes — so a
- * failure reads exactly like a generated call's and `describeApiError` can
- * localize it.
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantClaimsService {
     /** Claims this restaurant has filed, newest first. */
     async listMyClaims(cursor?: string | null): Promise<RestaurantClaimsPage> {
-        const res = await rawApi.send('/api/v1/claims', 'GET', undefined, {
+        const res = await claimsApi.apiV1ClaimsGetRaw({
             cursor: cursor || undefined,
             pageSize: CLAIM_PAGE_SIZE,
         });
-        const body = await parseJson(res);
+        const body = await parseJson(res.raw);
         return {
             claims: withId<ClaimRow>(
                 extractList(body),
@@ -61,12 +55,11 @@ export class RestaurantClaimsService {
         amount: number,
         reason: string
     ): Promise<ClaimRow> {
-        const res = await rawApi.send(
-            `/api/v1/orders/${orderId}/claims`,
-            'POST',
-            { amount, reason }
-        );
-        const body = await parseJson(res);
+        const res = await claimsApi.apiV1OrdersOrderIdClaimsPostRaw({
+            orderId,
+            fileClaimRequest: { amount, reason },
+        });
+        const body = await parseJson(res.raw);
         return (unwrapData(body) ?? {}) as ClaimRow;
     }
 }

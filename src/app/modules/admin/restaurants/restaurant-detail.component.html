@@ -2,17 +2,23 @@
     class="ff-rd bg-card relative flex min-h-0 min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
     *transloco="let t"
 >
-    <!-- Header -->
-    <div
-        class="ff-rd__header relative flex flex-none flex-col gap-4 border-b px-6 py-6 sm:flex-row sm:items-center sm:justify-between md:px-8"
-    >
+    <!-- Header — Fuse profile page: cover, then the identity strip riding up
+         over it, then the tabs. -->
+    <div class="ff-rd__header bg-card relative flex flex-none flex-col">
         @if (loading()) {
-            <div class="absolute inset-x-0 bottom-0">
+            <div class="absolute inset-x-0 top-0 z-20">
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div class="flex min-w-0 items-center gap-3">
+
+        <div class="relative">
+            <img
+                class="ff-rd__cover h-36 w-full object-cover lg:h-52"
+                src="images/pages/profile/cover.jpg"
+                alt=""
+            />
             <button
+                class="ff-rd__back absolute left-3 top-3"
                 mat-icon-button
                 type="button"
                 data-testid="restaurant-detail-back"
@@ -21,71 +27,145 @@
             >
                 <mat-icon [svgIcon]="'heroicons_outline:arrow-left'"></mat-icon>
             </button>
-            <div class="min-w-0">
-                <p class="ff-rd__eyebrow">
-                    {{ t('admin.restaurants.detailPage.title') }}
-                </p>
-                <div class="mt-1 flex min-w-0 flex-wrap items-center gap-2.5">
+        </div>
+
+        <div
+            class="bg-card relative z-10 mx-auto flex w-full max-w-5xl flex-none flex-col items-center px-6 md:px-8 lg:h-18 lg:flex-row"
+        >
+            <!-- Same avatar as the staff and user lists: the photo when the
+                 account has one, the initial when it does not. -->
+            <div class="ff-rd__avatar-slot -mt-16 lg:-mt-14">
+                @if (avatarUrl(); as url) {
+                    <img
+                        class="ff-rd__avatar"
+                        loading="lazy"
+                        alt=""
+                        [src]="url"
+                    />
+                } @else {
+                    <div
+                        class="ff-rd__avatar ff-rd__avatar--fallback text-secondary flex items-center justify-center"
+                    >
+                        {{ initial() }}
+                    </div>
+                }
+                <!-- A stopped account is stopped everywhere, so the avatar
+                     is struck out rather than captioned. -->
+                @if (!accountActive()) {
+                    <div
+                        class="ff-rd__avatar-veil"
+                        data-testid="restaurant-detail-avatar-veil"
+                        [matTooltip]="t('admin.users.filters.inactive')"
+                    >
+                        <mat-icon
+                            class="ff-rd__avatar-veil-icon"
+                            [svgIcon]="'heroicons_solid:x-mark'"
+                        ></mat-icon>
+                    </div>
+                }
+                @if (isApproved()) {
+                    <mat-icon
+                        class="ff-rd__verified ff-rd__verified--badge"
+                        data-testid="restaurant-detail-verified"
+                        [svgIcon]="'heroicons_solid:check-badge'"
+                        [matTooltip]="t('admin.users.approval.active')"
+                    ></mat-icon>
+                }
+            </div>
+
+            <div
+                class="mt-4 flex min-w-0 flex-col items-center lg:ml-6 lg:mt-0 lg:items-start"
+            >
+                <div class="flex min-w-0 items-center gap-2">
                     <h1
-                        class="truncate text-2xl font-extrabold tracking-tight"
+                        class="truncate text-lg font-bold leading-none"
                         data-testid="restaurant-detail-title"
                     >
                         {{ detailTitle() }}
                     </h1>
-                    @if (user(); as u) {
-                        <span
-                            data-testid="restaurant-detail-status"
-                            [class]="approvalPillClass(u)"
-                        >
-                            {{ t(approvalKey(u)) }}
+                    @if (accountLocked()) {
+                        <span class="admin-pill admin-pill-warning shrink-0">
+                            {{ t('admin.users.table.locked') }}
                         </span>
-                        @if (u.lockedUntil) {
-                            <span class="admin-pill admin-pill-warning">
-                                {{ t('admin.users.table.locked') }}
-                            </span>
-                        }
                     }
                 </div>
+                <div class="text-secondary mt-1 truncate text-sm">
+                    {{ user()?.email || t('admin.restaurants.unnamed') }}
+                </div>
             </div>
-        </div>
-        @if (user(); as u) {
-            <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                <!--
-                    Approving a waiting restaurant is the whole point of this
-                    screen, so it is a button rather than an overflow item.
-                -->
-                @if (canApprove()) {
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        data-testid="restaurant-detail-approve"
-                        [disabled]="!u.restaurantId || busyAction() !== null"
-                        (click)="approve()"
-                    >
-                        <mat-icon
-                            [svgIcon]="'heroicons_outline:check-circle'"
-                        ></mat-icon>
-                        <span class="ml-2">{{
-                            t('admin.restaurants.approve.submit')
-                        }}</span>
-                    </button>
-                }
-                <button
-                    mat-stroked-button
-                    type="button"
-                    data-testid="restaurant-detail-settle"
-                    [disabled]="!u.restaurantId || busyAction() !== null"
-                    (click)="openSettleDialog(settleDialog)"
-                >
-                    <mat-icon
-                        [svgIcon]="'heroicons_outline:banknotes'"
-                    ></mat-icon>
-                    <span class="ml-2">{{
-                        t('admin.restaurants.settle.title')
+
+            <div class="mx-8 hidden h-8 border-l-2 lg:flex"></div>
+
+            <!-- Stats: the numbers an admin opens a restaurant to check, so
+                 they are readable without changing tab. -->
+            <div class="mt-5 flex items-center gap-8 lg:mt-0">
+                <div class="flex flex-col items-center lg:items-start">
+                    <span class="ff-rd__mini-value">
+                        @if (outstandingBalance() !== null) {
+                            {{ outstandingBalance() | number: '1.0-0' }} ₫
+                        } @else {
+                            —
+                        }
+                    </span>
+                    <span class="ff-rd__mini-label">{{
+                        t('admin.restaurants.credit.balance')
                     }}</span>
-                </button>
-                @if (canSuspend() || canReactivate()) {
+                </div>
+                <div class="flex flex-col items-center lg:items-start">
+                    <span class="ff-rd__mini-value">
+                        @if (availableCredit() !== null) {
+                            {{ availableCredit() | number: '1.0-0' }} ₫
+                        } @else {
+                            —
+                        }
+                    </span>
+                    <span class="ff-rd__mini-label">{{
+                        t('admin.restaurants.credit.available')
+                    }}</span>
+                </div>
+            </div>
+
+            @if (user(); as u) {
+                <div
+                    class="mb-5 mt-6 flex flex-wrap items-center justify-center gap-2 lg:m-0 lg:ml-auto"
+                >
+                    @if (canApprove()) {
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            data-testid="restaurant-detail-approve"
+                            [disabled]="
+                                !u.restaurantId || busyAction() !== null
+                            "
+                            (click)="approve()"
+                        >
+                            <mat-icon
+                                [svgIcon]="'heroicons_outline:check-circle'"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('admin.restaurants.approve.submit')
+                            }}</span>
+                        </button>
+                    }
+                    @if (canManageCredit()) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            data-testid="restaurant-detail-settle"
+                            [disabled]="
+                                !u.restaurantId || busyAction() !== null
+                            "
+                            (click)="openSettleDialog(settleDialog)"
+                        >
+                            <mat-icon
+                                [svgIcon]="'heroicons_outline:banknotes'"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('admin.restaurants.settle.title')
+                            }}</span>
+                        </button>
+                    }
                     <button
                         mat-icon-button
                         type="button"
@@ -97,683 +177,1112 @@
                             [svgIcon]="'heroicons_outline:ellipsis-vertical'"
                         ></mat-icon>
                     </button>
-                }
-                <mat-menu #restaurantActionsMenu="matMenu">
-                    @if (canReactivate()) {
-                        <button
-                            mat-menu-item
-                            type="button"
-                            data-testid="restaurant-detail-reactivate"
-                            [disabled]="
-                                !u.restaurantId || busyAction() !== null
-                            "
-                            (click)="reactivate()"
-                        >
-                            <mat-icon
-                                [svgIcon]="'heroicons_outline:arrow-path'"
-                            ></mat-icon>
-                            <span>{{ t('admin.crud.reactivate') }}</span>
-                        </button>
-                    }
-                    @if (canSuspend()) {
-                        <button
-                            mat-menu-item
-                            type="button"
-                            data-testid="restaurant-detail-suspend"
-                            [disabled]="
-                                !u.restaurantId || busyAction() !== null
-                            "
-                            (click)="suspend()"
-                        >
-                            <mat-icon
-                                class="text-warn"
-                                [svgIcon]="'heroicons_outline:no-symbol'"
-                            ></mat-icon>
-                            <span class="text-warn">{{
-                                t('admin.crud.deactivate')
-                            }}</span>
-                        </button>
-                    }
-                </mat-menu>
-            </div>
-        }
-    </div>
-
-    <!-- Body scrolls inside absolute inset; min-h-0 is required for flex overflow -->
-    <div
-        class="ff-rd__body flex min-h-0 flex-auto flex-col gap-5 overflow-y-auto overscroll-contain p-6 pb-12 md:gap-6 md:p-8 md:pb-14"
-    >
-        @if (loading() && !user()) {
-            <admin-loading-state />
-        } @else if (notFound()) {
-            <div class="ff-rd__empty">
-                {{ t('admin.restaurants.detailPage.notFound') }}
-            </div>
-        } @else if (user(); as u) {
-            <!-- Profile -->
-            <section
-                class="ff-rd__card"
-                data-testid="restaurant-detail-profile"
-                aria-labelledby="ff-rd-profile-title"
-            >
-                <header class="ff-rd__card-head">
-                    <div class="ff-rd__icon" aria-hidden="true">
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'heroicons_outline:building-storefront'"
-                        ></mat-icon>
-                    </div>
-                    <h2
-                        id="ff-rd-profile-title"
-                        class="text-base font-bold tracking-tight"
-                    >
-                        {{ t('admin.restaurants.detailPage.fields') }}
-                    </h2>
-                </header>
-                <div
-                    class="ff-rd__card-body grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                >
-                    @for (field of profileFields(u); track field.label) {
-                        <div class="ff-rd__field min-w-0">
-                            <span class="ff-rd__field-label">{{
-                                field.label
-                            }}</span>
-                            <span class="ff-rd__field-value break-words">{{
-                                field.value
-                            }}</span>
-                        </div>
-                    }
-                </div>
-            </section>
-
-            <!-- Legal / e-invoice identity — what an approval is a judgement
-                 on. Only `GET /admin/restaurants/{id}/profile` carries these. -->
-            <section
-                class="ff-rd__card"
-                data-testid="restaurant-detail-legal"
-                aria-labelledby="ff-rd-legal-title"
-            >
-                <header class="ff-rd__card-head">
-                    <div class="ff-rd__icon" aria-hidden="true">
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'heroicons_outline:document-check'"
-                        ></mat-icon>
-                    </div>
-                    <h2
-                        id="ff-rd-legal-title"
-                        class="text-base font-bold tracking-tight"
-                    >
-                        {{ t('admin.restaurants.legal.title') }}
-                    </h2>
-                </header>
-                <div class="ff-rd__card-body">
-                    @if (loadingProfile()) {
-                        <admin-loading-state />
-                    } @else if (profileError(); as message) {
-                        <!-- Distinguished from "filed nothing": an empty panel
-                             would be read as the restaurant's own fault. -->
-                        <div
-                            class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                            role="alert"
-                        >
-                            <mat-icon
-                                class="shrink-0 text-red-500 icon-size-5"
-                                [svgIcon]="
-                                    'heroicons_outline:exclamation-triangle'
-                                "
-                            ></mat-icon>
-                            <span class="min-w-0 flex-auto">{{ message }}</span>
+                    <mat-menu #restaurantActionsMenu="matMenu">
+                        @if (canReactivate()) {
                             <button
-                                mat-button
+                                mat-menu-item
                                 type="button"
-                                (click)="reloadProfile()"
-                            >
-                                {{ t('common.retry') }}
-                            </button>
-                        </div>
-                    } @else if (profile()) {
-                        @if (hasIncompleteLegalProfile()) {
-                            <div
-                                class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
-                                role="status"
+                                data-testid="restaurant-detail-reactivate"
+                                [disabled]="
+                                    !u.restaurantId || busyAction() !== null
+                                "
+                                (click)="reactivate()"
                             >
                                 <mat-icon
-                                    class="shrink-0 icon-size-5"
+                                    [svgIcon]="'heroicons_outline:arrow-path'"
+                                ></mat-icon>
+                                <span>{{ t('admin.crud.reactivate') }}</span>
+                            </button>
+                        }
+                        @if (accountLocked()) {
+                            <button
+                                mat-menu-item
+                                type="button"
+                                data-testid="restaurant-detail-unlock"
+                                [disabled]="busyAction() !== null"
+                                (click)="unlockAccount()"
+                            >
+                                <mat-icon
+                                    [svgIcon]="'heroicons_outline:key'"
+                                ></mat-icon>
+                                <span>{{
+                                    t('admin.users.actions.unlock')
+                                }}</span>
+                            </button>
+                        }
+                        <button
+                            mat-menu-item
+                            type="button"
+                            data-testid="restaurant-detail-account-toggle"
+                            [disabled]="busyAction() !== null"
+                            (click)="toggleAccountActive(accountDialog)"
+                        >
+                            @if (accountActive()) {
+                                <mat-icon
+                                    class="text-warn"
                                     [svgIcon]="
                                         'heroicons_outline:exclamation-triangle'
                                     "
                                 ></mat-icon>
-                                <span class="min-w-0">{{
-                                    t('admin.restaurants.legal.incomplete')
+                                <span class="text-warn">{{
+                                    t('admin.restaurants.account.disable')
                                 }}</span>
-                            </div>
-                        }
-                        <div
-                            class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                        >
-                            @for (field of legalFields(); track field.label) {
-                                <div class="ff-rd__field min-w-0">
-                                    <span class="ff-rd__field-label">{{
-                                        t(field.label)
-                                    }}</span>
-                                    <span
-                                        class="ff-rd__field-value break-words"
-                                        [class.text-secondary]="field.missing"
-                                        >{{ field.value }}</span
-                                    >
-                                </div>
+                            } @else {
+                                <mat-icon
+                                    [svgIcon]="'heroicons_outline:lock-open'"
+                                ></mat-icon>
+                                <span>{{
+                                    t('admin.restaurants.account.enable')
+                                }}</span>
                             }
-                            <div class="ff-rd__field min-w-0">
-                                <span class="ff-rd__field-label">{{
-                                    t('admin.restaurants.legal.businessLicense')
-                                }}</span>
-                                @if (businessLicenseUrl(); as url) {
-                                    <a
-                                        class="ff-rd__field-value break-words text-primary underline"
-                                        [href]="url"
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        >{{
-                                            t(
-                                                'admin.restaurants.legal.viewDocument'
-                                            )
-                                        }}</a
-                                    >
-                                } @else {
-                                    <span
-                                        class="ff-rd__field-value text-secondary"
-                                        >{{
-                                            t(
-                                                'admin.restaurants.legal.noDocument'
-                                            )
-                                        }}</span
-                                    >
-                                }
-                            </div>
-                        </div>
-                    } @else {
-                        <p class="text-secondary text-sm">
-                            {{ t('admin.restaurants.legal.unavailable') }}
-                        </p>
-                    }
+                        </button>
+                    </mat-menu>
                 </div>
-            </section>
+            }
+        </div>
 
-            <!-- Credit -->
-            <section
-                class="ff-rd__card"
-                data-testid="restaurant-detail-credit"
-                aria-labelledby="ff-rd-credit-title"
-            >
-                <header class="ff-rd__card-head">
-                    <div class="ff-rd__icon" aria-hidden="true">
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'heroicons_outline:banknotes'"
-                        ></mat-icon>
-                    </div>
-                    <h2
-                        id="ff-rd-credit-title"
-                        class="text-base font-bold tracking-tight"
-                    >
-                        {{ t('admin.restaurants.credit.snapshot') }}
-                    </h2>
-                </header>
-                <div class="ff-rd__card-body">
-                    @if (loadingCredit()) {
-                        <mat-progress-bar
-                            mode="indeterminate"
-                        ></mat-progress-bar>
-                    } @else {
+        <nav
+            class="mx-auto w-full max-w-5xl flex-none px-6 md:px-8"
+            mat-tab-nav-bar
+            [mat-stretch-tabs]="false"
+            [tabPanel]="restaurantTabPanel"
+        >
+            @for (tab of tabs; track tab.index) {
+                <a
+                    mat-tab-link
+                    [attr.data-testid]="'restaurant-detail-tab-' + tab.index"
+                    [active]="selectedTab() === tab.index"
+                    (click)="selectTab(tab.index)"
+                >
+                    {{ t(tab.label) }}
+                </a>
+            }
+        </nav>
+    </div>
+
+    <!-- Body scrolls inside the absolute inset; min-h-0 is required for it -->
+    <mat-tab-nav-panel
+        class="ff-rd__body flex min-h-0 flex-auto flex-col overflow-y-auto overscroll-contain"
+        #restaurantTabPanel
+    >
+        <div
+            class="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6 pb-12 md:gap-6 md:p-8 md:pb-14"
+        >
+            @if (loading() && !user()) {
+                <admin-loading-state />
+            } @else if (notFound()) {
+                <div class="ff-rd__empty">
+                    {{ t('admin.restaurants.detailPage.notFound') }}
+                </div>
+            } @else if (user(); as u) {
+                @if (selectedTab() === 0) {
+                    <div class="flex flex-col gap-5 md:gap-6 lg:flex-row">
+                        <!-- Left column, Fuse profile's "about" rail -->
                         <div
-                            class="grid grid-cols-1 gap-3 sm:grid-cols-3"
-                            [formGroup]="creditLimitForm"
+                            class="flex w-full flex-col gap-5 md:gap-6 lg:w-80 lg:flex-none"
                         >
-                            <div class="ff-rd__stat">
-                                <span class="ff-rd__field-label">
-                                    {{ t('admin.restaurants.credit.limit') }}
-                                </span>
-                                @if (editingCreditLimit()) {
-                                    <mat-form-field
-                                        class="fuse-mat-dense mt-1 w-full"
-                                        subscriptSizing="dynamic"
+                            <section
+                                class="ff-rd__card"
+                                data-testid="restaurant-detail-profile"
+                                aria-labelledby="ff-rd-profile-title"
+                            >
+                                <header class="ff-rd__card-head">
+                                    <div class="ff-rd__icon" aria-hidden="true">
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:building-storefront'
+                                            "
+                                        ></mat-icon>
+                                    </div>
+                                    <h2
+                                        id="ff-rd-profile-title"
+                                        class="text-base font-bold tracking-tight"
                                     >
-                                        <input
-                                            matInput
-                                            type="number"
-                                            min="0"
-                                            formControlName="creditLimit"
-                                            data-testid="restaurant-detail-credit-input"
-                                            [placeholder]="
-                                                t(
-                                                    'admin.restaurants.creditLimit.amount'
-                                                )
-                                            "
-                                        />
-                                        <span
-                                            class="text-secondary"
-                                            matTextSuffix
-                                            >₫</span
-                                        >
-                                        @if (
-                                            errorKey(
-                                                creditLimitForm,
-                                                'creditLimit'
-                                            );
-                                            as key
-                                        ) {
-                                            <mat-error>{{ t(key) }}</mat-error>
-                                        }
-                                    </mat-form-field>
-                                } @else {
-                                    <div class="flex items-center gap-1.5">
-                                        <span
-                                            class="ff-rd__stat-value"
-                                            data-testid="restaurant-detail-credit-limit"
-                                        >
-                                            {{
-                                                creditLimit() | number: '1.0-0'
-                                            }}
-                                            ₫
-                                        </span>
-                                        <button
-                                            mat-icon-button
-                                            type="button"
-                                            data-testid="restaurant-detail-credit-edit"
-                                            [disabled]="!u.restaurantId"
-                                            [matTooltip]="
-                                                t(
-                                                    'admin.restaurants.creditLimit.edit'
-                                                )
-                                            "
-                                            (click)="startEditingCreditLimit()"
+                                        {{
+                                            t(
+                                                'admin.restaurants.detailPage.fields'
+                                            )
+                                        }}
+                                    </h2>
+                                </header>
+                                <div
+                                    class="ff-rd__card-body flex flex-col gap-3.5"
+                                >
+                                    @for (
+                                        field of profileFields(u);
+                                        track field.label
+                                    ) {
+                                        <div
+                                            class="flex min-w-0 items-start gap-3"
                                         >
                                             <mat-icon
-                                                class="icon-size-4"
+                                                class="text-secondary mt-0.5 shrink-0 icon-size-5"
                                                 [svgIcon]="
-                                                    'heroicons_outline:pencil-square'
+                                                    'heroicons_outline:' +
+                                                    field.icon
                                                 "
+                                                [matTooltip]="t(field.label)"
                                             ></mat-icon>
-                                        </button>
+                                            <span
+                                                class="min-w-0 break-words text-sm"
+                                                [class.text-secondary]="
+                                                    field.missing
+                                                "
+                                                >{{
+                                                    field.missing
+                                                        ? t(field.label)
+                                                        : field.text
+                                                }}</span
+                                            >
+                                        </div>
+                                    }
+                                </div>
+                            </section>
+
+                            <!-- Credit -->
+                            <section
+                                class="ff-rd__card"
+                                data-testid="restaurant-detail-credit"
+                                aria-labelledby="ff-rd-credit-title"
+                            >
+                                <header class="ff-rd__card-head">
+                                    <div class="ff-rd__icon" aria-hidden="true">
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:banknotes'
+                                            "
+                                        ></mat-icon>
                                     </div>
-                                }
-                            </div>
-                            <div class="ff-rd__stat">
-                                <span class="ff-rd__field-label">
-                                    {{ t('admin.restaurants.credit.balance') }}
-                                </span>
-                                <span class="ff-rd__stat-value">
-                                    @if (outstandingBalance() !== null) {
+                                    <h2
+                                        id="ff-rd-credit-title"
+                                        class="text-base font-bold tracking-tight"
+                                    >
                                         {{
-                                            outstandingBalance()
-                                                | number: '1.0-0'
+                                            t(
+                                                'admin.restaurants.credit.snapshot'
+                                            )
                                         }}
-                                        ₫
+                                    </h2>
+                                </header>
+                                <div class="ff-rd__card-body">
+                                    @if (loadingCredit()) {
+                                        <mat-progress-bar
+                                            mode="indeterminate"
+                                        ></mat-progress-bar>
                                     } @else {
-                                        —
+                                        <div [formGroup]="creditLimitForm">
+                                            <!-- What is owed is the headline;
+                                                 the limit and what is left of
+                                                 it are the two facts that
+                                                 explain it. -->
+                                            <span class="ff-rd__field-label">
+                                                {{
+                                                    t(
+                                                        'admin.restaurants.credit.balance'
+                                                    )
+                                                }}
+                                            </span>
+                                            <div
+                                                class="ff-rd__credit-total mt-1"
+                                            >
+                                                @if (
+                                                    outstandingBalance() !==
+                                                    null
+                                                ) {
+                                                    {{
+                                                        outstandingBalance()
+                                                            | number: '1.0-0'
+                                                    }}
+                                                    ₫
+                                                } @else {
+                                                    —
+                                                }
+                                            </div>
+
+                                            @if (creditUsedPercent() !== null) {
+                                                <div
+                                                    class="ff-rd__meter mt-3"
+                                                    role="img"
+                                                    [attr.aria-label]="
+                                                        t(
+                                                            'admin.restaurants.credit.used',
+                                                            {
+                                                                percent:
+                                                                    creditUsedPercent(),
+                                                            }
+                                                        )
+                                                    "
+                                                >
+                                                    <div
+                                                        [class]="
+                                                            'ff-rd__meter-fill ' +
+                                                            creditMeterClass()
+                                                        "
+                                                        [style.width.%]="
+                                                            creditUsedPercent()
+                                                        "
+                                                    ></div>
+                                                </div>
+                                                <div
+                                                    class="text-secondary mt-1.5 text-xs font-medium"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.restaurants.credit.used',
+                                                            {
+                                                                percent:
+                                                                    creditUsedPercent(),
+                                                            }
+                                                        )
+                                                    }}
+                                                </div>
+                                            }
+
+                                            <div
+                                                class="mt-4 flex flex-col gap-2"
+                                            >
+                                                @if (!editingCreditLimit()) {
+                                                    <div
+                                                        class="ff-rd__credit-row"
+                                                    >
+                                                        <span
+                                                            class="ff-rd__credit-label"
+                                                            >{{
+                                                                t(
+                                                                    'admin.restaurants.credit.limit'
+                                                                )
+                                                            }}</span
+                                                        >
+                                                        <span
+                                                            class="ff-rd__credit-value"
+                                                            data-testid="restaurant-detail-credit-limit"
+                                                        >
+                                                            {{
+                                                                creditLimit()
+                                                                    | number
+                                                                        : '1.0-0'
+                                                            }}
+                                                            ₫
+                                                        </span>
+                                                        <button
+                                                            class="ff-rd__credit-edit"
+                                                            mat-icon-button
+                                                            type="button"
+                                                            data-testid="restaurant-detail-credit-edit"
+                                                            [disabled]="
+                                                                !u.restaurantId ||
+                                                                !canManageCredit()
+                                                            "
+                                                            [matTooltip]="
+                                                                canManageCredit()
+                                                                    ? t(
+                                                                          'admin.restaurants.creditLimit.edit'
+                                                                      )
+                                                                    : t(
+                                                                          'admin.restaurants.credit.requiresApproval'
+                                                                      )
+                                                            "
+                                                            (click)="
+                                                                startEditingCreditLimit()
+                                                            "
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-4"
+                                                                [svgIcon]="
+                                                                    'heroicons_outline:pencil-square'
+                                                                "
+                                                            ></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                }
+                                                <div class="ff-rd__credit-row">
+                                                    <span
+                                                        class="ff-rd__credit-label"
+                                                        >{{
+                                                            t(
+                                                                'admin.restaurants.credit.available'
+                                                            )
+                                                        }}</span
+                                                    >
+                                                    <span
+                                                        class="ff-rd__credit-value"
+                                                    >
+                                                        @if (
+                                                            availableCredit() !==
+                                                            null
+                                                        ) {
+                                                            {{
+                                                                availableCredit()
+                                                                    | number
+                                                                        : '1.0-0'
+                                                            }}
+                                                            ₫
+                                                        } @else {
+                                                            —
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            @if (editingCreditLimit()) {
+                                                <div
+                                                    class="mt-4 flex flex-col gap-3 border-t pt-4"
+                                                >
+                                                    <mat-form-field
+                                                        class="fuse-mat-dense w-full"
+                                                        subscriptSizing="dynamic"
+                                                    >
+                                                        <mat-label>{{
+                                                            t(
+                                                                'admin.restaurants.credit.limit'
+                                                            )
+                                                        }}</mat-label>
+                                                        <input
+                                                            matInput
+                                                            type="number"
+                                                            min="0"
+                                                            formControlName="creditLimit"
+                                                            data-testid="restaurant-detail-credit-input"
+                                                        />
+                                                        <span
+                                                            class="text-secondary"
+                                                            matTextSuffix
+                                                            >₫</span
+                                                        >
+                                                        @if (
+                                                            errorKey(
+                                                                creditLimitForm,
+                                                                'creditLimit'
+                                                            );
+                                                            as key
+                                                        ) {
+                                                            <mat-error>{{
+                                                                t(key)
+                                                            }}</mat-error>
+                                                        }
+                                                    </mat-form-field>
+
+                                                    <mat-form-field
+                                                        class="fuse-mat-dense w-full"
+                                                        subscriptSizing="dynamic"
+                                                    >
+                                                        <mat-label>{{
+                                                            t(
+                                                                'admin.restaurants.creditLimit.note'
+                                                            )
+                                                        }}</mat-label>
+                                                        <input
+                                                            matInput
+                                                            formControlName="note"
+                                                            [maxlength]="
+                                                                maxLength(
+                                                                    creditLimitForm,
+                                                                    'note'
+                                                                )
+                                                            "
+                                                        />
+                                                        @if (
+                                                            errorKey(
+                                                                creditLimitForm,
+                                                                'note'
+                                                            );
+                                                            as key
+                                                        ) {
+                                                            <mat-error>{{
+                                                                t(key)
+                                                            }}</mat-error>
+                                                        }
+                                                    </mat-form-field>
+
+                                                    @if (
+                                                        actionError();
+                                                        as message
+                                                    ) {
+                                                        <p
+                                                            class="ff-rd__alert rounded-lg px-3 py-2 text-sm"
+                                                            data-testid="restaurant-detail-credit-error"
+                                                        >
+                                                            {{ message }}
+                                                        </p>
+                                                    }
+
+                                                    <div
+                                                        class="flex justify-end gap-2"
+                                                    >
+                                                        <button
+                                                            mat-stroked-button
+                                                            type="button"
+                                                            data-testid="restaurant-detail-credit-cancel"
+                                                            [disabled]="
+                                                                busyAction() ===
+                                                                'creditLimit'
+                                                            "
+                                                            (click)="
+                                                                cancelEditingCreditLimit()
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.crud.cancel'
+                                                                )
+                                                            }}
+                                                        </button>
+                                                        <button
+                                                            mat-flat-button
+                                                            color="primary"
+                                                            type="button"
+                                                            data-testid="restaurant-detail-credit-save"
+                                                            [disabled]="
+                                                                !u.restaurantId ||
+                                                                !canManageCredit() ||
+                                                                creditLimitForm.invalid ||
+                                                                busyAction() ===
+                                                                    'creditLimit'
+                                                            "
+                                                            (click)="
+                                                                saveCreditLimit()
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.crud.save'
+                                                                )
+                                                            }}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
                                     }
-                                </span>
-                            </div>
-                            <div class="ff-rd__stat ff-rd__stat--accent">
-                                <span class="ff-rd__field-label">
-                                    {{
-                                        t('admin.restaurants.credit.available')
-                                    }}
-                                </span>
-                                <span class="ff-rd__stat-value">
-                                    @if (availableCredit() !== null) {
-                                        {{
-                                            availableCredit() | number: '1.0-0'
-                                        }}
-                                        ₫
-                                    } @else {
-                                        —
-                                    }
-                                </span>
-                            </div>
+                                </div>
+                            </section>
                         </div>
 
-                        @if (editingCreditLimit()) {
-                            <div
-                                class="mt-4 flex flex-col gap-3"
-                                [formGroup]="creditLimitForm"
-                            >
-                                <mat-form-field
-                                    class="fuse-mat-dense w-full"
-                                    subscriptSizing="dynamic"
-                                >
-                                    <mat-label>{{
-                                        t('admin.restaurants.creditLimit.note')
-                                    }}</mat-label>
-                                    <input
-                                        matInput
-                                        formControlName="note"
-                                        [maxlength]="
-                                            maxLength(creditLimitForm, 'note')
+                        <!-- Legal / e-invoice identity — what an approval is a
+                             judgement on. Only
+                             `GET /admin/restaurants/{id}/profile` carries these. -->
+                        <section
+                            class="ff-rd__card min-w-0 flex-auto"
+                            data-testid="restaurant-detail-legal"
+                            aria-labelledby="ff-rd-legal-title"
+                        >
+                            <header class="ff-rd__card-head">
+                                <div class="ff-rd__icon" aria-hidden="true">
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:document-check'
                                         "
-                                    />
-                                    @if (
-                                        errorKey(creditLimitForm, 'note');
-                                        as key
-                                    ) {
-                                        <mat-error>{{ t(key) }}</mat-error>
-                                    }
-                                </mat-form-field>
-
-                                @if (actionError(); as message) {
-                                    <p
-                                        class="ff-rd__alert rounded-lg px-3 py-2 text-sm"
-                                        data-testid="restaurant-detail-credit-error"
+                                    ></mat-icon>
+                                </div>
+                                <h2
+                                    id="ff-rd-legal-title"
+                                    class="text-base font-bold tracking-tight"
+                                >
+                                    {{ t('admin.restaurants.legal.title') }}
+                                </h2>
+                            </header>
+                            <div class="ff-rd__card-body">
+                                @if (loadingProfile()) {
+                                    <admin-loading-state />
+                                } @else if (profileError(); as message) {
+                                    <!-- Distinguished from "filed nothing": an
+                                         empty panel would be read as the
+                                         restaurant's own fault. -->
+                                    <div
+                                        class="flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                                        role="alert"
                                     >
-                                        {{ message }}
+                                        <mat-icon
+                                            class="shrink-0 text-red-500 icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:exclamation-triangle'
+                                            "
+                                        ></mat-icon>
+                                        <span class="min-w-0 flex-auto">{{
+                                            message
+                                        }}</span>
+                                        <button
+                                            mat-button
+                                            type="button"
+                                            (click)="reloadProfile()"
+                                        >
+                                            {{ t('common.retry') }}
+                                        </button>
+                                    </div>
+                                } @else if (profile()) {
+                                    @if (hasIncompleteLegalProfile()) {
+                                        <div
+                                            class="mb-4 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200"
+                                            role="status"
+                                        >
+                                            <mat-icon
+                                                class="shrink-0 icon-size-5"
+                                                [svgIcon]="
+                                                    'heroicons_outline:exclamation-triangle'
+                                                "
+                                            ></mat-icon>
+                                            <span class="min-w-0">{{
+                                                t(
+                                                    'admin.restaurants.legal.incomplete'
+                                                )
+                                            }}</span>
+                                        </div>
+                                    }
+                                    <div
+                                        class="grid grid-cols-1 gap-4 sm:grid-cols-2"
+                                    >
+                                        @for (
+                                            field of legalFields();
+                                            track field.label
+                                        ) {
+                                            <div class="ff-rd__field min-w-0">
+                                                <span
+                                                    class="ff-rd__field-label"
+                                                    >{{ t(field.label) }}</span
+                                                >
+                                                <span
+                                                    class="ff-rd__field-value break-words"
+                                                    [class.text-secondary]="
+                                                        field.missing
+                                                    "
+                                                    >{{ field.value }}</span
+                                                >
+                                            </div>
+                                        }
+                                        <div class="ff-rd__field min-w-0">
+                                            <span class="ff-rd__field-label">{{
+                                                t(
+                                                    'admin.restaurants.legal.businessLicense'
+                                                )
+                                            }}</span>
+                                            @if (businessLicenseUrl(); as url) {
+                                                <a
+                                                    class="ff-rd__field-value break-words text-primary underline"
+                                                    [href]="url"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    >{{
+                                                        t(
+                                                            'admin.restaurants.legal.viewDocument'
+                                                        )
+                                                    }}</a
+                                                >
+                                            } @else {
+                                                <span
+                                                    class="ff-rd__field-value text-secondary"
+                                                    >{{
+                                                        t(
+                                                            'admin.restaurants.legal.noDocument'
+                                                        )
+                                                    }}</span
+                                                >
+                                            }
+                                        </div>
+                                    </div>
+                                } @else {
+                                    <p class="text-secondary text-sm">
+                                        {{
+                                            t(
+                                                'admin.restaurants.legal.unavailable'
+                                            )
+                                        }}
                                     </p>
                                 }
-
-                                <div class="flex justify-end gap-2">
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        data-testid="restaurant-detail-credit-cancel"
-                                        [disabled]="
-                                            busyAction() === 'creditLimit'
-                                        "
-                                        (click)="cancelEditingCreditLimit()"
-                                    >
-                                        {{ t('admin.crud.cancel') }}
-                                    </button>
-                                    <button
-                                        mat-flat-button
-                                        color="primary"
-                                        type="button"
-                                        data-testid="restaurant-detail-credit-save"
-                                        [disabled]="
-                                            !u.restaurantId ||
-                                            creditLimitForm.invalid ||
-                                            busyAction() === 'creditLimit'
-                                        "
-                                        (click)="saveCreditLimit()"
-                                    >
-                                        {{ t('admin.crud.save') }}
-                                    </button>
-                                </div>
                             </div>
-                        }
-                    }
-                </div>
-            </section>
-
-            @if (u.restaurantId) {
-                <!-- Statements -->
-                <section
-                    class="ff-rd__card"
-                    [formGroup]="statementForm"
-                    data-testid="restaurant-detail-statements"
-                    aria-labelledby="ff-rd-statements-title"
-                >
-                    <header class="ff-rd__card-head ff-rd__card-head--wrap">
-                        <div class="flex min-w-0 items-center gap-3">
-                            <div class="ff-rd__icon" aria-hidden="true">
-                                <mat-icon
-                                    class="icon-size-5"
-                                    [svgIcon]="
-                                        'heroicons_outline:document-text'
-                                    "
-                                ></mat-icon>
-                            </div>
-                            <h2
-                                id="ff-rd-statements-title"
-                                class="text-base font-bold tracking-tight"
-                            >
-                                {{ t('admin.restaurants.statements.title') }}
-                            </h2>
-                        </div>
-                        <div
-                            class="flex flex-wrap items-center gap-2 sm:ml-auto"
+                        </section>
+                    </div>
+                } @else if (selectedTab() === 1) {
+                    @if (u.restaurantId) {
+                        <!--
+                            The ledger and the statement drawn from it are one
+                            job: pick a month, read what moved, draw the paper.
+                        -->
+                        <section
+                            class="ff-rd__card"
+                            [formGroup]="statementForm"
+                            data-testid="restaurant-detail-history"
+                            aria-labelledby="ff-rd-history-title"
                         >
-                            <mat-form-field
-                                class="fuse-mat-dense w-24"
-                                subscriptSizing="dynamic"
+                            <header
+                                class="ff-rd__card-head ff-rd__card-head--wrap"
                             >
-                                <mat-label>{{
-                                    t('admin.restaurants.statements.year')
-                                }}</mat-label>
-                                <mat-select formControlName="year">
-                                    @for (y of statementYears; track y) {
-                                        <mat-option [value]="y">{{
-                                            y
-                                        }}</mat-option>
-                                    }
-                                </mat-select>
-                            </mat-form-field>
-                            <mat-form-field
-                                class="fuse-mat-dense w-28"
-                                subscriptSizing="dynamic"
-                            >
-                                <mat-label>{{
-                                    t('admin.restaurants.statements.month')
-                                }}</mat-label>
-                                <!-- Only closed periods: the server rejects an
-                                     open one with a 500, not a readable 4xx. -->
-                                <mat-select formControlName="month">
-                                    @for (m of availableMonths(); track m) {
-                                        <mat-option [value]="m">{{
-                                            m
-                                        }}</mat-option>
-                                    }
-                                </mat-select>
-                            </mat-form-field>
-                            <button
-                                mat-stroked-button
-                                type="button"
-                                [matTooltip]="
-                                    t(
-                                        'admin.restaurants.statements.latestClosed',
-                                        { period: latestClosedPeriodLabel() }
-                                    )
-                                "
-                                [disabled]="
-                                    statementForm.invalid ||
-                                    !isStatementPeriodClosed() ||
-                                    generatingStatement()
-                                "
-                                (click)="generateStatement()"
-                            >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    [svgIcon]="
-                                        'heroicons_outline:document-plus'
-                                    "
-                                ></mat-icon>
-                                <span class="ml-1">{{
-                                    t('admin.restaurants.statements.generate')
-                                }}</span>
-                            </button>
-                        </div>
-                    </header>
-                    <div class="ff-rd__card-body">
-                        @if (loadingCreditHistory()) {
-                            <mat-progress-bar
-                                mode="indeterminate"
-                            ></mat-progress-bar>
-                        } @else if (statements().length) {
-                            <div class="ff-rd__list">
-                                @for (
-                                    st of statements();
-                                    track st.id;
-                                    let last = $last
-                                ) {
-                                    <div
-                                        class="ff-rd__row"
-                                        [class.border-b]="!last"
+                                <div class="flex min-w-0 items-center gap-3">
+                                    <div class="ff-rd__icon" aria-hidden="true">
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            [svgIcon]="
+                                                'heroicons_outline:arrows-right-left'
+                                            "
+                                        ></mat-icon>
+                                    </div>
+                                    <h2
+                                        id="ff-rd-history-title"
+                                        class="text-base font-bold tracking-tight"
                                     >
-                                        <span class="font-semibold">{{
-                                            statementPeriodLabel(st)
+                                        {{
+                                            t(
+                                                'admin.restaurants.detailPage.tabs.history'
+                                            )
+                                        }}
+                                    </h2>
+                                </div>
+
+                                <div
+                                    class="flex flex-wrap items-center gap-2 sm:ml-auto"
+                                >
+                                    <mat-form-field
+                                        class="fuse-mat-dense w-24"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <mat-label>{{
+                                            t(
+                                                'admin.restaurants.statements.year'
+                                            )
+                                        }}</mat-label>
+                                        <mat-select formControlName="year">
+                                            @for (
+                                                y of statementYears;
+                                                track y
+                                            ) {
+                                                <mat-option [value]="y">{{
+                                                    y
+                                                }}</mat-option>
+                                            }
+                                        </mat-select>
+                                    </mat-form-field>
+                                    <mat-form-field
+                                        class="fuse-mat-dense w-28"
+                                        subscriptSizing="dynamic"
+                                    >
+                                        <mat-label>{{
+                                            t(
+                                                'admin.restaurants.statements.month'
+                                            )
+                                        }}</mat-label>
+                                        <mat-select formControlName="month">
+                                            @for (
+                                                m of availableMonths();
+                                                track m
+                                            ) {
+                                                <mat-option [value]="m">{{
+                                                    m
+                                                }}</mat-option>
+                                            }
+                                        </mat-select>
+                                    </mat-form-field>
+                                </div>
+                            </header>
+
+                            <div class="ff-rd__card-body">
+                                @if (loadingCreditHistory()) {
+                                    <mat-progress-bar
+                                        mode="indeterminate"
+                                    ></mat-progress-bar>
+                                } @else if (creditHistoryError(); as message) {
+                                    <!-- An unread ledger and an empty one look
+                                         alike, so a failure says so and offers
+                                         the retry rather than showing nothing. -->
+                                    <div
+                                        class="ff-rd__alert flex flex-wrap items-center gap-3 rounded-2xl p-3.5 text-sm"
+                                    >
+                                        <span class="min-w-0 flex-1">{{
+                                            message
                                         }}</span>
-                                        <span class="text-secondary text-sm">
+                                        <button
+                                            mat-stroked-button
+                                            type="button"
+                                            data-testid="restaurant-credit-history-retry"
+                                            (click)="reloadCredit()"
+                                        >
+                                            {{ t('admin.restaurants.retry') }}
+                                        </button>
+                                    </div>
+                                } @else {
+                                    <!-- What the month adds up to on the left,
+                                         what to do with it on the right. -->
+                                    <div
+                                        class="mb-4 flex flex-wrap items-center justify-between gap-3"
+                                    >
+                                        <span class="text-sm font-semibold">
                                             {{
                                                 t(
-                                                    'admin.restaurants.statements.closing'
+                                                    'admin.restaurants.transactions.count',
+                                                    {
+                                                        count: periodTransactions()
+                                                            .length,
+                                                    }
                                                 )
-                                            }}:
-                                            {{ st.closingBalance | number }} ₫
+                                            }}
                                         </span>
-                                        <!-- The list carries headers only; the
-                                             movements behind this balance come
-                                             from the by-id read. -->
-                                        <button
-                                            class="ml-auto h-8 min-h-8 min-w-10 px-2"
-                                            mat-stroked-button
-                                            type="button"
-                                            [matTooltip]="
-                                                t(
-                                                    'admin.restaurants.statements.viewLines'
-                                                )
-                                            "
-                                            (click)="
-                                                openStatementDetail(
-                                                    st,
-                                                    statementDialog
-                                                )
-                                            "
-                                        >
-                                            <mat-icon
-                                                class="icon-size-5"
-                                                [svgIcon]="
-                                                    'heroicons_outline:list-bullet'
-                                                "
-                                            ></mat-icon>
-                                        </button>
-                                        <button
-                                            class="h-8 min-h-8 min-w-10 px-2"
-                                            mat-stroked-button
-                                            type="button"
-                                            [disabled]="
-                                                downloadingStatementId() ===
-                                                st.id
-                                            "
-                                            [matTooltip]="
-                                                t(
-                                                    'admin.restaurants.statements.download'
-                                                )
-                                            "
-                                            (click)="downloadStatementPdf(st)"
-                                        >
-                                            <mat-icon
-                                                class="icon-size-5"
-                                                [svgIcon]="
-                                                    'heroicons_outline:arrow-down-tray'
-                                                "
-                                            ></mat-icon>
-                                        </button>
-                                    </div>
-                                }
-                            </div>
-                        } @else {
-                            <p class="text-secondary text-sm">
-                                {{ t('admin.restaurants.statements.empty') }}
-                            </p>
-                        }
-                    </div>
-                </section>
 
-                <!-- Transactions -->
-                <section
-                    class="ff-rd__card"
-                    data-testid="restaurant-detail-transactions"
-                    aria-labelledby="ff-rd-tx-title"
-                >
-                    <header class="ff-rd__card-head">
-                        <div class="ff-rd__icon" aria-hidden="true">
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="
-                                    'heroicons_outline:arrows-right-left'
-                                "
-                            ></mat-icon>
-                        </div>
-                        <h2
-                            id="ff-rd-tx-title"
-                            class="text-base font-bold tracking-tight"
-                        >
-                            {{ t('admin.restaurants.transactions.title') }}
-                        </h2>
-                    </header>
-                    <div class="ff-rd__card-body">
-                        @if (loadingCreditHistory()) {
-                            <mat-progress-bar
-                                mode="indeterminate"
-                            ></mat-progress-bar>
-                        } @else if (transactions().length) {
-                            <div class="ff-rd__list">
-                                @for (
-                                    tx of transactions();
-                                    track tx.id;
-                                    let last = $last
-                                ) {
-                                    <div
-                                        class="ff-rd__row ff-rd__row--tx"
-                                        [class.border-b]="!last"
-                                    >
-                                        <span
-                                            class="text-secondary w-36 shrink-0 text-sm tabular-nums sm:w-44"
-                                        >
-                                            {{ tx.createdAt }}
-                                        </span>
-                                        <span
-                                            class="admin-pill admin-pill-neutral shrink-0"
-                                        >
-                                            {{ tx.type || '—' }}
-                                        </span>
-                                        <span
-                                            class="font-mono text-sm font-semibold tabular-nums"
-                                        >
-                                            {{ tx.amount | number }} ₫
-                                        </span>
-                                        <span
-                                            class="text-secondary min-w-0 flex-1 truncate text-sm"
-                                        >
-                                            {{ tx.description }}
-                                        </span>
+                                        @if (periodStatement(); as drawn) {
+                                            <div
+                                                class="flex flex-wrap items-center gap-2"
+                                            >
+                                                <button
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    data-testid="restaurant-detail-statement-open"
+                                                    (click)="
+                                                        openStatementDetail(
+                                                            drawn,
+                                                            statementDialog
+                                                        )
+                                                    "
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:document-text'
+                                                        "
+                                                    ></mat-icon>
+                                                    <span class="ml-1">{{
+                                                        t(
+                                                            'admin.restaurants.statements.viewLines'
+                                                        )
+                                                    }}</span>
+                                                </button>
+                                                <button
+                                                    class="h-9 min-h-9 min-w-10 px-2"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    [disabled]="
+                                                        downloadingStatementId() ===
+                                                        drawn.id
+                                                    "
+                                                    [matTooltip]="
+                                                        t(
+                                                            'admin.restaurants.statements.download'
+                                                        )
+                                                    "
+                                                    (click)="
+                                                        downloadStatementPdf(
+                                                            drawn
+                                                        )
+                                                    "
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:arrow-down-tray'
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
+                                            </div>
+                                        } @else {
+                                            <button
+                                                mat-flat-button
+                                                color="primary"
+                                                type="button"
+                                                data-testid="restaurant-detail-statement-generate"
+                                                [matTooltip]="
+                                                    t(
+                                                        'admin.restaurants.statements.latestClosed',
+                                                        {
+                                                            period: latestClosedPeriodLabel(),
+                                                        }
+                                                    )
+                                                "
+                                                [disabled]="
+                                                    statementForm.invalid ||
+                                                    !isStatementPeriodClosed() ||
+                                                    generatingStatement()
+                                                "
+                                                (click)="
+                                                    generateStatement(
+                                                        statementDialog
+                                                    )
+                                                "
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-5"
+                                                    [svgIcon]="
+                                                        'heroicons_outline:document-plus'
+                                                    "
+                                                ></mat-icon>
+                                                <span class="ml-1">{{
+                                                    t(
+                                                        'admin.restaurants.statements.generate'
+                                                    )
+                                                }}</span>
+                                            </button>
+                                        }
                                     </div>
+
+                                    @if (periodTransactions().length) {
+                                        <div class="ff-rd__list">
+                                            @for (
+                                                tx of periodTransactions();
+                                                track tx.id;
+                                                let last = $last
+                                            ) {
+                                                <button
+                                                    class="ff-rd__row ff-rd__row--tx ff-rd__row--clickable w-full text-left"
+                                                    type="button"
+                                                    data-testid="restaurant-detail-transaction"
+                                                    [class.border-b]="!last"
+                                                    (click)="
+                                                        openTransactionDetail(
+                                                            tx,
+                                                            transactionDialog
+                                                        )
+                                                    "
+                                                >
+                                                    <span
+                                                        class="text-secondary w-36 shrink-0 text-sm tabular-nums sm:w-44"
+                                                    >
+                                                        {{
+                                                            formatDateTime(
+                                                                tx.createdAt
+                                                            )
+                                                        }}
+                                                    </span>
+                                                    <span
+                                                        class="shrink-0"
+                                                        [class]="
+                                                            creditTypePillClass(
+                                                                tx.type
+                                                            ) + ' shrink-0'
+                                                        "
+                                                    >
+                                                        {{
+                                                            tx.type
+                                                                | apiLabel
+                                                                    : 'admin.restaurants.transactions.type'
+                                                        }}
+                                                    </span>
+                                                    <span
+                                                        class="font-mono text-sm font-semibold tabular-nums"
+                                                    >
+                                                        {{ tx.amount | number }}
+                                                        ₫
+                                                    </span>
+                                                    <span
+                                                        class="text-secondary min-w-0 flex-1 truncate text-sm"
+                                                    >
+                                                        {{
+                                                            tx.note ||
+                                                                tx.reference ||
+                                                                ''
+                                                        }}
+                                                    </span>
+                                                    <mat-icon
+                                                        class="text-secondary shrink-0 icon-size-4"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:chevron-right'
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
+                                            }
+                                        </div>
+                                    } @else {
+                                        <p class="text-secondary text-sm">
+                                            {{
+                                                t(
+                                                    'admin.restaurants.transactions.emptyPeriod'
+                                                )
+                                            }}
+                                        </p>
+                                    }
                                 }
                             </div>
-                        } @else {
-                            <p class="text-secondary text-sm">
-                                {{ t('admin.restaurants.transactions.empty') }}
-                            </p>
-                        }
-                    </div>
-                </section>
+                        </section>
+                    } @else {
+                        <div class="ff-rd__empty">
+                            {{ t('admin.restaurants.noRestaurantId') }}
+                        </div>
+                    }
+                } @else {
+                    @if (u.restaurantId) {
+                        <!-- Invoices. Issued against this restaurant, so the
+                             e-invoice XML is downloadable from the page the
+                             debt is being read on. -->
+                        <section
+                            class="ff-rd__card"
+                            data-testid="restaurant-detail-invoices"
+                            aria-labelledby="ff-rd-invoices-title"
+                        >
+                            <header class="ff-rd__card-head">
+                                <div class="ff-rd__icon" aria-hidden="true">
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            'heroicons_outline:document-arrow-down'
+                                        "
+                                    ></mat-icon>
+                                </div>
+                                <h2
+                                    id="ff-rd-invoices-title"
+                                    class="text-base font-bold tracking-tight"
+                                >
+                                    {{ t('admin.invoices.title') }}
+                                </h2>
+                            </header>
+                            <div class="ff-rd__card-body">
+                                @if (loadingCreditHistory()) {
+                                    <mat-progress-bar
+                                        mode="indeterminate"
+                                    ></mat-progress-bar>
+                                } @else if (invoices().length) {
+                                    <div class="ff-rd__list">
+                                        @for (
+                                            inv of invoices();
+                                            track inv.id;
+                                            let last = $last
+                                        ) {
+                                            <div
+                                                class="ff-rd__row"
+                                                [class.border-b]="!last"
+                                            >
+                                                <span
+                                                    class="text-secondary w-36 shrink-0 text-sm tabular-nums sm:w-44"
+                                                >
+                                                    {{
+                                                        formatDateTime(
+                                                            inv.issuedAt
+                                                        )
+                                                    }}
+                                                </span>
+                                                <span
+                                                    [class]="
+                                                        invoiceStatusPillClass(
+                                                            inv.status
+                                                        ) + ' shrink-0'
+                                                    "
+                                                >
+                                                    {{
+                                                        inv.status
+                                                            | apiLabel
+                                                                : 'admin.finance.invoiceStatus'
+                                                    }}
+                                                </span>
+                                                <span
+                                                    class="font-mono text-sm font-semibold tabular-nums"
+                                                >
+                                                    {{
+                                                        inv.totalAmount | number
+                                                    }}
+                                                    ₫
+                                                </span>
+                                                <button
+                                                    class="ml-auto h-8 min-h-8 min-w-10 px-2"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    [disabled]="
+                                                        exportingInvoiceId() ===
+                                                        inv.id
+                                                    "
+                                                    [matTooltip]="
+                                                        t(
+                                                            'admin.invoices.export'
+                                                        )
+                                                    "
+                                                    (click)="exportInvoice(inv)"
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:arrow-down-tray'
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                } @else {
+                                    <p class="text-secondary text-sm">
+                                        {{ t('admin.invoices.empty') }}
+                                    </p>
+                                }
+                            </div>
+                        </section>
+                    } @else {
+                        <div class="ff-rd__empty">
+                            {{ t('admin.restaurants.noRestaurantId') }}
+                        </div>
+                    }
+                }
             }
-        }
-    </div>
+        </div>
+    </mat-tab-nav-panel>
 </div>
 
-<!-- One statement with its line items (`GET .../statements/{statementId}`) -->
-<ng-template #statementDialog>
+<!--
+    Switching an account off locks the restaurant out of the platform, so the
+    action asks first. Switching it back on does not — that is the undo.
+-->
+<ng-template #accountDialog>
     <div
-        class="-m-6 flex max-h-screen flex-col md:w-160 md:min-w-160"
+        class="-m-6 flex max-h-screen flex-col md:w-120 md:min-w-120"
+        *transloco="let t"
+    >
+        <div class="flex flex-auto flex-col gap-4 p-6 sm:p-8">
+            <div class="flex items-start gap-4">
+                <div class="ff-rd__danger-icon" aria-hidden="true">
+                    <mat-icon
+                        class="text-warn icon-size-6"
+                        [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                    ></mat-icon>
+                </div>
+                <div class="min-w-0">
+                    <div class="text-lg font-medium">
+                        {{
+                            t('admin.restaurants.account.disableConfirm.title')
+                        }}
+                    </div>
+                    <p class="text-secondary mt-2 text-sm">
+                        {{ t('admin.restaurants.account.disableConfirm.body') }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="mt-2 flex justify-end gap-3">
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="closeActionDialog()"
+                >
+                    {{ t('admin.crud.cancel') }}
+                </button>
+                <button
+                    class="admin-btn-danger"
+                    mat-flat-button
+                    type="button"
+                    data-testid="restaurant-detail-account-disable-confirm"
+                    [disabled]="busyAction() === 'account'"
+                    (click)="setAccountActive(false)"
+                >
+                    {{ t('admin.restaurants.account.disable') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>
+
+<!--
+    One ledger entry, laid out as Fuse's compact printable invoice: what was
+    charged on the left, who charged it on the right, then the order's lines and
+    the money they add up to.
+-->
+<ng-template #transactionDialog>
+    <div
+        class="ff-rd__doc-shell -m-6 flex max-h-screen flex-col"
         *transloco="let t"
     >
         <div
-            class="flex h-16 flex-none items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8 sm:pr-5"
+            class="flex h-14 flex-none items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent"
         >
-            <div class="min-w-0">
-                <div class="text-lg font-medium">
-                    {{ t('admin.restaurants.statements.detailTitle') }}
-                </div>
-                @if (openStatement(); as st) {
-                    <div class="text-secondary truncate text-sm">
-                        {{ statementPeriodLabel(st) }}
-                    </div>
-                }
+            <div class="text-base font-medium">
+                {{ t('admin.restaurants.transactions.detailTitle') }}
             </div>
             <button
                 mat-icon-button
                 type="button"
                 [tabIndex]="-1"
-                (click)="closeStatementDetail()"
+                (click)="closeTransactionDetail()"
             >
                 <mat-icon
                     class="text-current"
@@ -782,139 +1291,307 @@
             </button>
         </div>
 
-        @if (loadingStatement()) {
+        @if (loadingTransactionOrder()) {
             <mat-progress-bar mode="indeterminate"></mat-progress-bar>
         }
 
-        <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
-            @if (openStatement(); as st) {
-                <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    <div>
-                        <div class="text-secondary text-xs uppercase">
-                            {{ t('admin.restaurants.statements.opening') }}
-                        </div>
-                        <div class="mt-1 font-semibold tabular-nums">
-                            {{ st.openingBalance | number }} ₫
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-secondary text-xs uppercase">
-                            {{ t('admin.restaurants.statements.charges') }}
-                        </div>
-                        <div class="mt-1 font-semibold tabular-nums">
-                            {{ st.totalCharges | number }} ₫
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-secondary text-xs uppercase">
-                            {{ t('admin.restaurants.statements.payments') }}
-                        </div>
-                        <div class="mt-1 font-semibold tabular-nums">
-                            {{ st.totalPayments | number }} ₫
-                        </div>
-                    </div>
-                    <div>
-                        <div class="text-secondary text-xs uppercase">
-                            {{ t('admin.restaurants.statements.closing') }}
-                        </div>
-                        <div class="mt-1 font-semibold tabular-nums">
-                            {{ st.closingBalance | number }} ₫
-                        </div>
-                    </div>
-                </div>
-
-                <div
-                    class="text-secondary mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs"
-                >
-                    <span>
-                        {{ t('admin.restaurants.statements.generatedAt') }}:
-                        {{ formatDateTime(st.generatedAt) }}
-                    </span>
-                    <!-- Soft Net-15 term derived from the period end; there is
-                         no paid/overdue lifecycle behind it. -->
-                    @if (st.dueDate) {
-                        <span>
-                            {{ t('admin.restaurants.statements.dueDate') }}:
-                            {{ formatDateTime(st.dueDate) }}
-                        </span>
-                    }
-                    @if (st.totalRefunds) {
-                        <span>
-                            {{ t('admin.restaurants.statements.refunds') }}:
-                            {{ st.totalRefunds | number }} ₫
-                        </span>
-                    }
-                </div>
-
-                @if (statementError(); as message) {
+        <div class="ff-rd__doc-scroll flex flex-auto flex-col overflow-auto">
+            @if (openTransaction(); as tx) {
+                <div class="ff-rd__doc bg-card">
+                    <!-- Head: the entry on the left, the issuer riding the
+                         accent panel on the right (compact invoice). -->
                     <div
-                        class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
-                        role="alert"
+                        class="flex flex-wrap items-start justify-between gap-6"
                     >
-                        <mat-icon
-                            class="shrink-0 text-red-500 icon-size-5"
-                            svgIcon="heroicons_outline:exclamation-triangle"
-                        ></mat-icon>
-                        <span class="min-w-0">{{ message }}</span>
-                    </div>
-                } @else if (st.lines.length) {
-                    <div class="mt-6">
                         <div
-                            class="text-secondary flex items-baseline justify-between"
+                            class="grid grid-cols-2 items-baseline gap-x-4 gap-y-1"
                         >
-                            <span class="text-xs uppercase">{{
-                                t('admin.restaurants.statements.lines')
-                            }}</span>
-                            <span class="text-xs tabular-nums">
+                            <div class="text-secondary text-2xl tracking-tight">
                                 {{
-                                    t('admin.restaurants.statements.lineTotal')
+                                    t(
+                                        'admin.restaurants.transactions.detailTitle'
+                                    )
                                 }}
-                                :
-                                {{ statementLineTotal() | number }} ₫
-                            </span>
-                        </div>
-                        <div class="mt-2 divide-y rounded-xl border">
-                            @for (line of st.lines; track line.id) {
+                            </div>
+                            <div>
+                                <span [class]="creditTypePillClass(tx.type)">
+                                    {{
+                                        tx.type
+                                            | apiLabel
+                                                : 'admin.restaurants.transactions.type'
+                                    }}
+                                </span>
+                            </div>
+
+                            @for (
+                                field of transactionFields(tx);
+                                track field.label
+                            ) {
                                 <div
-                                    class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 text-sm"
+                                    class="text-secondary font-medium tracking-tight"
                                 >
-                                    <span
-                                        class="text-secondary w-36 shrink-0 tabular-nums"
-                                    >
-                                        {{ formatDateTime(line.occurredAt) }}
-                                    </span>
-                                    <span
-                                        class="admin-pill admin-pill-neutral shrink-0"
-                                    >
-                                        {{ line.type || '—' }}
-                                    </span>
-                                    <span
-                                        class="font-mono font-semibold tabular-nums"
-                                    >
-                                        {{ line.amount | number }} ₫
-                                    </span>
-                                    <span
-                                        class="text-secondary min-w-0 flex-1 truncate"
-                                        [matTooltip]="line.note || ''"
-                                    >
-                                        {{ line.note || line.reference || '' }}
-                                    </span>
-                                    <span
-                                        class="text-secondary shrink-0 tabular-nums"
-                                    >
-                                        {{ line.balanceAfter | number }} ₫
-                                    </span>
+                                    {{ field.label }}
+                                </div>
+                                <div
+                                    class="font-medium tabular-nums"
+                                    [class.text-secondary]="field.missing"
+                                >
+                                    {{ field.text }}
                                 </div>
                             }
                         </div>
-                    </div>
-                } @else if (!loadingStatement()) {
-                    <p class="text-secondary mt-6 text-sm">
-                        {{ t('admin.restaurants.statements.noLines') }}
-                    </p>
-                }
 
-                <div class="mt-6 flex justify-end gap-3">
+                        <div
+                            class="ff-rd__doc-issuer flex items-center gap-6 rounded-2xl px-8 py-6"
+                        >
+                            <img
+                                class="w-16 flex-none"
+                                src="images/logo/logo.svg"
+                                alt=""
+                            />
+                            <div class="border-l pl-6 text-md">
+                                <div class="font-medium">FreshFlow</div>
+                                <div class="text-secondary">
+                                    {{
+                                        t(
+                                            'admin.restaurants.statements.issuerNote'
+                                        )
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Who it was charged to -->
+                    <div class="mt-8 text-md">
+                        <div class="text-lg font-medium">
+                            {{ detailTitle() }}
+                        </div>
+                        @if (openTransactionOrder()?.deliveryAddress; as to) {
+                            @if (to.addressLine) {
+                                <div>{{ to.addressLine }}</div>
+                            }
+                            @if (to.recipientName || to.phone) {
+                                <div>
+                                    {{ to.recipientName
+                                    }}{{
+                                        to.recipientName && to.phone
+                                            ? ' · '
+                                            : ''
+                                    }}{{ to.phone }}
+                                </div>
+                            }
+                        } @else {
+                            @if (user()?.email) {
+                                <div>{{ user()?.email }}</div>
+                            }
+                            @if (user()?.phone) {
+                                <div>{{ user()?.phone }}</div>
+                            }
+                        }
+                    </div>
+
+                    @if (openTransactionOrder(); as order) {
+                        <div class="mt-8 flex flex-wrap items-center gap-2">
+                            <span class="text-secondary text-md font-medium">{{
+                                t('admin.restaurants.transactions.order')
+                            }}</span>
+                            @if (order.status) {
+                                <span
+                                    [class]="orderStatusPillClass(order.status)"
+                                >
+                                    {{
+                                        order.status
+                                            | apiLabel: 'admin.orders.status'
+                                    }}
+                                </span>
+                            }
+                            @if (order.paymentStatus) {
+                                <span
+                                    [class]="
+                                        paymentStatusPillClass(
+                                            order.paymentStatus
+                                        )
+                                    "
+                                >
+                                    {{
+                                        order.paymentStatus
+                                            | apiLabel
+                                                : 'admin.orders.paymentStatus'
+                                    }}
+                                </span>
+                            }
+                            <span class="text-secondary ml-auto text-md">
+                                {{ t('admin.orders.table.scheduledFor') }}:
+                                {{ formatDateTime(order.scheduledFor) }}
+                            </span>
+                        </div>
+
+                        <div class="mt-6 grid grid-cols-12 gap-x-1">
+                            <div
+                                class="text-secondary col-span-6 text-md font-medium"
+                            >
+                                {{ t('admin.products.name') }}
+                            </div>
+                            <div
+                                class="text-secondary col-span-2 text-right text-md font-medium"
+                            >
+                                {{ t('admin.markets.pricing.price') }}
+                            </div>
+                            <div
+                                class="text-secondary col-span-2 text-right text-md font-medium"
+                            >
+                                {{ t('admin.markets.pricing.quantity') }}
+                            </div>
+                            <div
+                                class="text-secondary col-span-2 text-right text-md font-medium"
+                            >
+                                {{
+                                    t(
+                                        'admin.restaurants.statements.table.amount'
+                                    )
+                                }}
+                            </div>
+
+                            <div class="col-span-12 my-4 border-b"></div>
+
+                            @for (
+                                item of orderItems(order);
+                                track item.orderItemId
+                            ) {
+                                <div class="col-span-6 min-w-0">
+                                    <div class="font-medium">
+                                        {{ item.productNameSnapshot || '—' }}
+                                    </div>
+                                    @if (item.packingCode) {
+                                        <div
+                                            class="text-secondary mt-1 text-md"
+                                        >
+                                            {{ item.packingCode }}
+                                        </div>
+                                    }
+                                </div>
+                                <div
+                                    class="col-span-2 self-center text-right tabular-nums"
+                                >
+                                    {{ item.unitPrice | number }} ₫
+                                </div>
+                                <div
+                                    class="col-span-2 self-center text-right tabular-nums"
+                                >
+                                    {{ item.quantity }}
+                                </div>
+                                <div
+                                    class="col-span-2 self-center text-right tabular-nums"
+                                >
+                                    {{ item.subtotal | number }} ₫
+                                </div>
+
+                                <div class="col-span-12 my-4 border-b"></div>
+                            } @empty {
+                                <div class="text-secondary col-span-12 text-md">
+                                    {{ t('admin.crud.empty') }}
+                                </div>
+                                <div class="col-span-12 my-4 border-b"></div>
+                            }
+
+                            <div class="col-span-12 mt-8"></div>
+
+                            <div
+                                class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                            >
+                                {{ t('admin.orders.itemField.subtotal') }}
+                            </div>
+                            <div
+                                class="col-span-2 text-right text-lg tabular-nums"
+                            >
+                                {{ order.subtotalAmount | number }} ₫
+                            </div>
+
+                            <div class="col-span-12 my-3 border-b"></div>
+
+                            <div
+                                class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                            >
+                                {{ t('admin.orders.deliveryFee') }}
+                            </div>
+                            <div
+                                class="col-span-2 text-right text-lg tabular-nums"
+                            >
+                                {{ order.deliveryFee | number }} ₫
+                            </div>
+
+                            <div class="col-span-12 my-3 border-b"></div>
+
+                            <div
+                                class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                            >
+                                {{ t('admin.orders.vat') }}
+                            </div>
+                            <div
+                                class="col-span-2 text-right text-lg tabular-nums"
+                            >
+                                {{ order.vatAmount | number }} ₫
+                            </div>
+
+                            <div class="col-span-12 my-3 border-b"></div>
+
+                            <div
+                                class="text-secondary col-span-10 self-center text-xl font-medium tracking-tight"
+                            >
+                                {{ t('admin.orders.orderField.totalAmount') }}
+                            </div>
+                            <div
+                                class="col-span-2 text-right text-xl font-medium tabular-nums"
+                            >
+                                {{ order.totalAmount | number }} ₫
+                            </div>
+                        </div>
+
+                        @if (order.notes) {
+                            <div class="mt-8 text-md">
+                                <span class="text-secondary"
+                                    >{{
+                                        t(
+                                            'admin.restaurants.transactions.description'
+                                        )
+                                    }}:</span
+                                >
+                                {{ order.notes }}
+                            </div>
+                        }
+                    } @else if (!loadingTransactionOrder() && tx.orderId) {
+                        <p class="text-secondary mt-8 text-md">
+                            {{
+                                t('admin.restaurants.transactions.orderMissing')
+                            }}
+                        </p>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</ng-template>
+
+<!--
+    One statement with its line items (`GET .../statements/{statementId}`),
+    laid out as the document it is — Fuse's printable "modern" invoice. The
+    list behind it carries headers only, so the movements that add up to a
+    closing balance exist nowhere else in the UI.
+-->
+<ng-template #statementDialog>
+    <div
+        class="ff-rd__doc-shell -m-6 flex max-h-screen flex-col"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-14 flex-none items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent"
+        >
+            <div class="text-base font-medium">
+                {{ t('admin.restaurants.statements.detailTitle') }}
+            </div>
+            <div class="flex items-center gap-2">
+                @if (openStatement(); as st) {
                     <button
                         mat-stroked-button
                         type="button"
@@ -929,6 +1606,288 @@
                             t('admin.restaurants.statements.download')
                         }}</span>
                     </button>
+                }
+                <button
+                    mat-icon-button
+                    type="button"
+                    [tabIndex]="-1"
+                    (click)="closeStatementDetail()"
+                >
+                    <mat-icon
+                        class="text-current"
+                        svgIcon="heroicons_outline:x-mark"
+                    ></mat-icon>
+                </button>
+            </div>
+        </div>
+
+        @if (loadingStatement()) {
+            <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+        }
+
+        <div class="ff-rd__doc-scroll flex flex-auto flex-col overflow-auto">
+            @if (openStatement(); as st) {
+                <div class="ff-rd__doc bg-card">
+                    <!-- Issuer and recipient, the invoice's two identities -->
+                    <div class="flex flex-wrap items-start gap-8">
+                        <div class="grid gap-y-8">
+                            <div class="flex items-center gap-6">
+                                <img
+                                    class="w-20 flex-none"
+                                    src="images/logo/logo.svg"
+                                    alt=""
+                                />
+                                <div class="border-l pl-6 text-md">
+                                    <div class="font-medium">FreshFlow</div>
+                                    <div class="text-secondary">
+                                        {{
+                                            t(
+                                                'admin.restaurants.statements.issuerNote'
+                                            )
+                                        }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="flex items-start gap-6">
+                                <div
+                                    class="text-secondary w-20 flex-none text-center text-lg"
+                                >
+                                    {{
+                                        t('admin.restaurants.statements.billTo')
+                                    }}
+                                </div>
+                                <div class="border-l pl-6 text-md">
+                                    <div class="font-medium">
+                                        {{ detailTitle() }}
+                                    </div>
+                                    @if (user(); as u) {
+                                        @if (u.email) {
+                                            <div>{{ u.email }}</div>
+                                        }
+                                        @if (u.phone) {
+                                            <div>{{ u.phone }}</div>
+                                        }
+                                    }
+                                    @if (profile()?.address; as address) {
+                                        <div>{{ address }}</div>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+
+                        <div
+                            class="ml-auto grid grid-cols-2 items-baseline gap-x-4 gap-y-1"
+                        >
+                            <div
+                                class="text-secondary justify-self-end text-2xl tracking-tight"
+                            >
+                                {{ t('admin.restaurants.statements.title') }}
+                            </div>
+                            <div class="text-2xl">
+                                {{ statementPeriodLabel(st) }}
+                            </div>
+                            <div
+                                class="text-secondary justify-self-end font-medium tracking-tight"
+                            >
+                                {{
+                                    t(
+                                        'admin.restaurants.statements.generatedAt'
+                                    )
+                                }}
+                            </div>
+                            <div class="font-medium">
+                                {{ formatDateTime(st.generatedAt) }}
+                            </div>
+                            @if (st.dueDate) {
+                                <div
+                                    class="text-secondary justify-self-end font-medium tracking-tight"
+                                >
+                                    {{
+                                        t(
+                                            'admin.restaurants.statements.dueDate'
+                                        )
+                                    }}
+                                </div>
+                                <div class="font-medium">
+                                    {{ formatDateTime(st.dueDate) }}
+                                </div>
+                            }
+                            <div
+                                class="text-secondary justify-self-end font-medium tracking-tight"
+                            >
+                                {{ t('admin.restaurants.statements.totalDue') }}
+                            </div>
+                            <div class="font-medium tabular-nums">
+                                {{ st.closingBalance | number }} ₫
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (statementError(); as message) {
+                        <div
+                            class="mt-10 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                            role="alert"
+                        >
+                            <mat-icon
+                                class="shrink-0 text-red-500 icon-size-5"
+                                svgIcon="heroicons_outline:exclamation-triangle"
+                            ></mat-icon>
+                            <span class="min-w-0">{{ message }}</span>
+                        </div>
+                    }
+
+                    <div class="mt-10 grid grid-cols-12 gap-x-1">
+                        <div
+                            class="text-secondary col-span-3 text-md font-medium"
+                        >
+                            {{ t('admin.restaurants.statements.table.date') }}
+                        </div>
+                        <div
+                            class="text-secondary col-span-5 text-md font-medium"
+                        >
+                            {{
+                                t(
+                                    'admin.restaurants.statements.table.description'
+                                )
+                            }}
+                        </div>
+                        <div
+                            class="text-secondary col-span-2 text-right text-md font-medium"
+                        >
+                            {{ t('admin.restaurants.statements.table.amount') }}
+                        </div>
+                        <div
+                            class="text-secondary col-span-2 text-right text-md font-medium"
+                        >
+                            {{
+                                t('admin.restaurants.statements.table.balance')
+                            }}
+                        </div>
+
+                        <div class="col-span-12 my-4 border-b"></div>
+
+                        @for (line of st.lines; track line.id) {
+                            <div class="text-secondary col-span-3 tabular-nums">
+                                {{ formatDateTime(line.occurredAt) }}
+                            </div>
+                            <div class="col-span-5 min-w-0">
+                                <div>
+                                    <span
+                                        [class]="creditTypePillClass(line.type)"
+                                    >
+                                        {{
+                                            (line.type
+                                                | apiLabel
+                                                    : 'admin.restaurants.transactions.type') ||
+                                                '—'
+                                        }}
+                                    </span>
+                                </div>
+                                @if (line.note || line.reference) {
+                                    <div
+                                        class="text-secondary mt-1 break-words text-md"
+                                    >
+                                        {{ line.note || line.reference }}
+                                    </div>
+                                }
+                            </div>
+                            <div
+                                class="col-span-2 self-center text-right tabular-nums"
+                            >
+                                {{ line.amount | number }} ₫
+                            </div>
+                            <div
+                                class="text-secondary col-span-2 self-center text-right tabular-nums"
+                            >
+                                {{ line.balanceAfter | number }} ₫
+                            </div>
+
+                            <div class="col-span-12 my-4 border-b"></div>
+                        } @empty {
+                            @if (!loadingStatement() && !statementError()) {
+                                <div class="text-secondary col-span-12 text-md">
+                                    {{
+                                        t(
+                                            'admin.restaurants.statements.noLines'
+                                        )
+                                    }}
+                                </div>
+                                <div class="col-span-12 my-4 border-b"></div>
+                            }
+                        }
+
+                        <div class="col-span-12 mt-10"></div>
+
+                        <div
+                            class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                        >
+                            {{ t('admin.restaurants.statements.opening') }}
+                        </div>
+                        <div class="col-span-2 text-right text-lg tabular-nums">
+                            {{ st.openingBalance | number }} ₫
+                        </div>
+
+                        <div class="col-span-12 my-3 border-b"></div>
+
+                        <div
+                            class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                        >
+                            {{ t('admin.restaurants.statements.charges') }}
+                        </div>
+                        <div class="col-span-2 text-right text-lg tabular-nums">
+                            {{ st.totalCharges | number }} ₫
+                        </div>
+
+                        <div class="col-span-12 my-3 border-b"></div>
+
+                        <div
+                            class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                        >
+                            {{ t('admin.restaurants.statements.payments') }}
+                        </div>
+                        <div class="col-span-2 text-right text-lg tabular-nums">
+                            {{ st.totalPayments | number }} ₫
+                        </div>
+
+                        <div class="col-span-12 my-3 border-b"></div>
+
+                        @if (st.totalRefunds) {
+                            <div
+                                class="text-secondary col-span-10 self-center font-medium tracking-tight"
+                            >
+                                {{ t('admin.restaurants.statements.refunds') }}
+                            </div>
+                            <div
+                                class="col-span-2 text-right text-lg tabular-nums"
+                            >
+                                {{ st.totalRefunds | number }} ₫
+                            </div>
+
+                            <div class="col-span-12 my-3 border-b"></div>
+                        }
+
+                        <div
+                            class="text-secondary col-span-10 self-center text-xl font-medium tracking-tight"
+                        >
+                            {{ t('admin.restaurants.statements.closing') }}
+                        </div>
+                        <div
+                            class="col-span-2 text-right text-xl font-medium tabular-nums"
+                        >
+                            {{ st.closingBalance | number }} ₫
+                        </div>
+                    </div>
+
+                    <div class="mt-10 flex items-start gap-6">
+                        <img
+                            class="mt-1 w-8 flex-none"
+                            src="images/logo/logo.svg"
+                            alt=""
+                        />
+                        <div class="text-secondary text-sm">
+                            {{ t('admin.restaurants.statements.terms') }}
+                        </div>
+                    </div>
                 </div>
             }
         </div>

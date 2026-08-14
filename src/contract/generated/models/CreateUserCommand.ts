@@ -55,6 +55,12 @@ export interface CreateUserCommand {
      * @memberof CreateUserCommand
      */
     phone?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof CreateUserCommand
+     */
+    fullName?: string | null;
 }
 
 /**
@@ -83,6 +89,7 @@ export function CreateUserCommandFromJSONTyped(json: any, ignoreDiscriminator: b
         'marketId': json['marketId'] == null ? undefined : json['marketId'],
         'restaurantName': json['restaurantName'] == null ? undefined : json['restaurantName'],
         'phone': json['phone'] == null ? undefined : json['phone'],
+        'fullName': json['fullName'] == null ? undefined : json['fullName'],
     };
 }
 
@@ -103,6 +110,7 @@ export function CreateUserCommandToJSONTyped(value?: CreateUserCommand | null, i
         'marketId': value['marketId'],
         'restaurantName': value['restaurantName'],
         'phone': value['phone'],
+        'fullName': value['fullName'],
     };
 }
 

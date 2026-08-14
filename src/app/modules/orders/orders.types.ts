@@ -7,6 +7,15 @@ export interface OrderItem {
     unitPrice?: number | null;
     subtotal?: number | null;
     actualQuantity?: number | null;
+    /** Packing code snapshotted onto the line (`OrderItemDto.PackingCode`). */
+    packingCode?: string | null;
+    /**
+     * Kg per case ("kiện") — `quantity` must be a whole multiple of this, since a
+     * market product is only ever picked/shipped by the case. Snapshotted onto the
+     * line at checkout (`OrderItemDto.PackingWeightKg`); null on orders placed
+     * before the field existed, and on products that declare no packing weight.
+     */
+    packingWeightKg?: number | null;
     [key: string]: unknown;
 }
 

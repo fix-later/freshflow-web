@@ -15,6 +15,7 @@ import {
     hubStaffAssignmentsApi,
     hubsApi,
     marketsApi,
+    rawApi,
     routesApi,
     shippingApi,
     vehiclesApi,
@@ -32,7 +33,9 @@ import {
     LoadingManifestStop,
     OptimizationCriterion,
     PlanRoutesInput,
+    RouteDeliveryStatus,
     RouteEligibility,
+    RoutePlanResult,
     RouteSuggestions,
 } from './logistics-admin.types';
 import { parseRouteSuggestions } from './route-suggestions';
@@ -274,6 +277,37 @@ export class LogisticsAdminService {
     }
 
     /**
+     * Drivers stationed at `hubId` (`GET /hubs/{hubId}/driver-assignments`).
+     *
+     * Through `rawApi` rather than a generated method: the route is newer than
+     * the checked-in `openapi.json`. It still applies the shared configuration —
+     * bearer auth, no-store, 401 refresh-and-retry, the typed error classes — so
+     * failures read like a generated call's. Swap both of these for the
+     * generated methods after the next `npm run generate:api`.
+     */
+    async getHubDriverAssignments(hubId: string): Promise<string[]> {
+        const res = await rawApi.send(
+            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
+            'GET'
+        );
+        return this._assignmentUserIds(
+            unwrapData<unknown>(await parseJson(res))
+        );
+    }
+
+    /** Replaces the full driver roster for `hubId` (mirrors the staff one). */
+    async replaceHubDriverAssignments(
+        hubId: string,
+        driverUserIds: string[]
+    ): Promise<void> {
+        await rawApi.send(
+            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
+            'PUT',
+            { driverUserIds }
+        );
+    }
+
+    /**
      * Pulls assigned user ids out of the (untyped) staff-assignments body,
      * tolerating a bare array or an object wrapper (`staffUserIds` / `items` /
      * …), and entries that are either plain id strings or objects.
@@ -286,6 +320,7 @@ export class LogisticsAdminService {
             const record = data as Record<string, unknown>;
             for (const key of [
                 'staffUserIds',
+                'driverUserIds',
                 'userIds',
                 'assignments',
                 'items',
@@ -611,20 +646,128 @@ export class LogisticsAdminService {
     }
 
     /**
-     * Plans the whole day for a hub in one call — the backend groups that
-     * day's restaurants into as many routes as it needs. Returns the created
-     * routes so the list can refresh without a second round-trip.
+     * Plans the whole day in one call — the backend groups that day's
+     * restaurants into as many routes as it needs. Returns the created routes
+     * so the list can refresh without a second round-trip.
+     *
+     * Keyed on the **market session** now, not the hub and the date:
+     * `PlanRoutesCommandHandler` reads the hub and the service date off the
+     * session, and plans are stored against it. {@link marketSessionIdFor}
+     * turns the pair the form still asks for into that id.
      */
-    async planRoutes(input: PlanRoutesInput): Promise<CrudRow[]> {
-        const res = await routesApi.apiV1LogisticsRoutesPlanPostRaw({
-            planRoutesRequest: {
-                hubId: input.hubId,
-                serviceDate: new Date(input.serviceDate),
+    async planRoutes(input: PlanRoutesInput): Promise<RoutePlanResult> {
+        // `routesApi.apiV1LogisticsRoutesPlanPostRaw` now carries the
+        // session-keyed request shape and could serve this call; it is left on
+        // the raw client only so the market-session methods beside it stay of a
+        // piece, and moves with them when they move.
+        const response = await rawApi.send(
+            '/api/v1/logistics/routes/plan',
+            'POST',
+            {
+                marketSessionId: input.marketSessionId,
                 optimizationCriteria: input.optimizationCriteria.toUpperCase(),
-            },
-        });
-        const body = await parseJson(res.raw);
-        return withId<CrudRow>(extractList(body), 'routeId');
+            }
+        );
+        const data =
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ??
+            {};
+        return this._routePlanOf(data);
+    }
+
+    async getRoutePlan(planId: string): Promise<RoutePlanResult> {
+        const response = await rawApi.send(
+            `/api/v1/logistics/routes/plans/${encodeURIComponent(planId)}`,
+            'GET'
+        );
+        return this._routePlanOf(
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ?? {}
+        );
+    }
+
+    async approveRoutePlan(planId: string): Promise<RoutePlanResult> {
+        const response = await rawApi.send(
+            `/api/v1/logistics/routes/plans/${encodeURIComponent(planId)}/approve`,
+            'POST'
+        );
+        return this._routePlanOf(
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ?? {}
+        );
+    }
+
+    async getRouteDeliveries(routeId: string): Promise<RouteDeliveryStatus[]> {
+        const response =
+            await routesApi.apiV1LogisticsRoutesRouteIdDeliveriesGetRaw({
+                routeId,
+            });
+        return extractList<Record<string, unknown>>(
+            await parseJson(response.raw)
+        ).map((row) => ({
+            deliveryId: str(row['deliveryId']),
+            orderId: str(row['orderId']),
+            sequenceNumber: optNum(row['sequenceNumber']) ?? 0,
+            status: str(row['status']),
+            estimatedArrival: optStr(row['estimatedArrival']),
+            actualArrival: optStr(row['actualArrival']),
+            proofUrl: optStr(row['proofUrl']),
+        }));
+    }
+
+    private _routePlanOf(data: Record<string, unknown>): RoutePlanResult {
+        const routes = withId<CrudRow>(
+            Array.isArray(data['routes']) ? (data['routes'] as CrudRow[]) : [],
+            'routeId'
+        );
+        return {
+            planId: data['planId'] ? String(data['planId']) : null,
+            status: str(data['status']),
+            hubId: str(data['hubId']),
+            serviceDate: str(data['serviceDate']),
+            optimizationCriteria: str(data['optimizationCriteria']),
+            routingProvider: str(data['routingProvider']),
+            isEstimated: data['isEstimated'] === true,
+            inputRevision: str(data['inputRevision']),
+            vehiclesUsed: optNum(data['vehiclesUsed']) ?? routes.length,
+            totalLoadKg: optNum(data['totalLoadKg']) ?? 0,
+            totalDistanceKm: optNum(data['totalDistanceKm']) ?? 0,
+            estimatedDurationMinutes:
+                optNum(data['estimatedDurationMinutes']) ?? 0,
+            estimatedCost: optNum(data['estimatedCost']) ?? 0,
+            routes,
+            unassigned: Array.isArray(data['unassigned'])
+                ? data['unassigned']
+                : [],
+            warnings: Array.isArray(data['warnings'])
+                ? data['warnings'].map(str)
+                : [],
+            createdAt: optStr(data['createdAt']),
+        };
+    }
+
+    /**
+     * The market session trading at `hubId` on `serviceDate` (`yyyy-MM-dd`),
+     * or `null` when the chợ has not opened one — which is the honest answer to
+     * "plan this day": there is nothing to plan against yet.
+     */
+    async marketSessionIdFor(
+        hubId: string,
+        serviceDate: string
+    ): Promise<string | null> {
+        try {
+            const day = new Date(serviceDate);
+            const res = await adminApi.apiV1AdminMarketSessionsGetRaw({
+                from: day,
+                to: day,
+            });
+            const sessions = extractList<Record<string, unknown>>(
+                await parseJson(res.raw)
+            );
+            const match = sessions.find(
+                (session) => str(session['hubId']) === hubId
+            );
+            return match ? str(match['id']) || null : null;
+        } catch {
+            return null;
+        }
     }
 
     /** `planned` → `selected`: adopts the calculated model for optimization. */
@@ -821,6 +964,7 @@ export class LogisticsAdminService {
                           .map((line) => ({
                               orderId: str(line['orderId']),
                               orderItemId: str(line['orderItemId']),
+                              marketProductId: str(line['marketProductId']),
                               productName: str(line['productName']),
                               quantity: optNum(line['quantity']) ?? 0,
                               capacityKg: optNum(line['capacityKg']) ?? null,

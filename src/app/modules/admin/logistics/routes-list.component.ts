@@ -160,7 +160,7 @@ export class RoutesListComponent implements OnInit {
                 hubId: this.hubId.value,
             })
             .then((res) => {
-                this.rows.set(res.rows);
+                this.rows.set(newestActiveFirst(res.rows));
                 this.nextCursor.set(res.nextCursor);
             })
             .catch(() => {
@@ -170,3 +170,5 @@ export class RoutesListComponent implements OnInit {
             .finally(() => this.loading.set(false));
     }
 }
+
+import { newestActiveFirst } from '../shared/row-order';

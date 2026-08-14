@@ -9,6 +9,7 @@ import {
     inject,
     signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import {
     FormBuilder,
     FormGroup,
@@ -28,6 +29,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTabsModule } from '@angular/material/tabs';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -43,29 +45,67 @@ import {
     nonBlankValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
     AdminCreditStatement,
     AdminCreditStatementDetail,
     AdminCreditTransaction,
+    AdminInvoiceRow,
+    AdminOrderDetail,
+    AdminOrderItem,
     AdminRestaurantCredit,
     AdminRestaurantProfile,
     AdminUserRow,
 } from '../admin.types';
+import { orderStatusPillClass } from '../orders/orders-list.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import { newestActiveFirst } from '../shared/row-order';
+import {
+    creditTypePillClass,
+    invoiceStatusPillClass,
+    paymentStatusPillClass,
+} from '../shared/status-pills';
 
 /** Actions this page can start against a restaurant. */
 type RestaurantAction =
     | 'approve'
-    | 'suspend'
     | 'reactivate'
+    | 'accountStatus'
     | 'creditLimit'
-    | 'settle';
+    | 'settle'
+    | 'unlock'
+    | 'account';
+
+/**
+ * The page's four jobs. What the restaurant owes is settled on the first tab,
+ * beside the licence it was approved on; the other three are each a ledger of
+ * their own, and their fetches are wasted work while an approver is only
+ * reading the profile.
+ */
+export const RESTAURANT_DETAIL_TABS = [
+    { index: 0, label: 'admin.restaurants.detailPage.tabs.info' },
+    { index: 1, label: 'admin.restaurants.detailPage.tabs.history' },
+    { index: 2, label: 'admin.restaurants.detailPage.tabs.invoices' },
+] as const;
+
+const HISTORY_TAB = 1;
+const INVOICES_TAB = 2;
+
+/** Both ledgers are served by the one credit-history read. */
+const LEDGER_TABS: readonly number[] = [HISTORY_TAB, INVOICES_TAB];
+
+type SettlementPaymentMethod = 'bank_transfer' | 'manual';
 
 interface ProfileField {
+    /** Heroicons id, rendered with the `heroicons_outline:` prefix. */
+    icon: string;
+    /** What the row says, or a dash when the restaurant has not filed it. */
+    text: string;
+    /** i18n key naming the field — the icon's tooltip, and its label when blank. */
     label: string;
-    value: string;
+    missing: boolean;
 }
 
 /**
@@ -77,7 +117,6 @@ const LIFECYCLE_PATCH: Partial<
     Record<RestaurantAction, Partial<AdminUserRow>>
 > = {
     approve: { isApproved: true, restaurantStatus: 'active' },
-    suspend: { isApproved: false, restaurantStatus: 'suspended' },
     reactivate: { isApproved: true, restaurantStatus: 'active' },
 };
 
@@ -87,6 +126,9 @@ const LIFECYCLE_PATCH: Partial<
  * closed?" must be asked in the same zone — not the browser's.
  */
 const STATEMENT_TIME_ZONE = 'Asia/Ho_Chi_Minh';
+
+/** One screenful of invoices — the tab lists, the finance screen paginates. */
+const INVOICE_PAGE_SIZE = 20;
 
 const RESTAURANT_ROLE = 'restaurant';
 const USER_LOOKUP_PAGE_SIZE = 100;
@@ -102,6 +144,7 @@ const USER_LOOKUP_MAX_PAGES = 20;
     host: { class: 'relative flex min-h-0 flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        ApiLabelPipe,
         DecimalPipe,
         MatButtonModule,
         MatDialogModule,
@@ -112,6 +155,7 @@ const USER_LOOKUP_MAX_PAGES = 20;
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
+        MatTabsModule,
         MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
@@ -129,15 +173,21 @@ export class RestaurantDetailComponent implements OnInit {
     private _dialogRef: MatDialogRef<unknown> | null = null;
     /** Kept apart from `_dialogRef`, which the lifecycle actions own. */
     private _statementRef: MatDialogRef<unknown> | null = null;
+    private _transactionRef: MatDialogRef<unknown> | null = null;
 
     readonly loading = signal(false);
     readonly notFound = signal(false);
     readonly user = signal<AdminUserRow | null>(null);
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
+    readonly creditError = signal<string | null>(null);
     readonly statements = signal<AdminCreditStatement[]>([]);
     readonly transactions = signal<AdminCreditTransaction[]>([]);
+    /** This restaurant's invoices (`GET /invoices?restaurantId=`). */
+    readonly invoices = signal<AdminInvoiceRow[]>([]);
+    readonly exportingInvoiceId = signal<string | null>(null);
     readonly loadingCreditHistory = signal(false);
+    readonly creditHistoryError = signal<string | null>(null);
     readonly generatingStatement = signal(false);
     readonly downloadingStatementId = signal<string | null>(null);
 
@@ -146,12 +196,33 @@ export class RestaurantDetailComponent implements OnInit {
      * headers only (`CreditStatementSummaryDto`), so the movements that add up
      * to a closing balance — and the due date — exist nowhere else in the UI.
      */
+    /** The transaction opened from the list — the row truncates its text. */
+    readonly openTransaction = signal<AdminCreditTransaction | null>(null);
+    /**
+     * The order a charge came from, read when its entry is opened.
+     *
+     * The ledger says a restaurant was charged 1.2 triệu; what it was charged
+     * *for* lives on the order, and `CreditTransactionDto` carries only its id.
+     */
+    readonly openTransactionOrder = signal<AdminOrderDetail | null>(null);
+    readonly loadingTransactionOrder = signal(false);
+
     readonly openStatement = signal<AdminCreditStatementDetail | null>(null);
     readonly openStatementId = signal<string | null>(null);
     readonly loadingStatement = signal(false);
     readonly statementError = signal<string | null>(null);
     readonly busyAction = signal<RestaurantAction | null>(null);
     readonly editingCreditLimit = signal(false);
+
+    /** A state is a colour as well as a word — see `shared/status-pills`. */
+    readonly creditTypePillClass = creditTypePillClass;
+    readonly invoiceStatusPillClass = invoiceStatusPillClass;
+    readonly orderStatusPillClass = orderStatusPillClass;
+    readonly paymentStatusPillClass = paymentStatusPillClass;
+
+    readonly tabs = RESTAURANT_DETAIL_TABS;
+    readonly selectedTab = signal(0);
+    readonly creditTabLoaded = signal(false);
 
     /**
      * The legal / e-invoice profile behind this account. Approving is a
@@ -187,23 +258,6 @@ export class RestaurantDetailComponent implements OnInit {
             {
                 label: 'admin.restaurants.legal.invoiceLegalName',
                 value: p.invoiceLegalName,
-            },
-            {
-                label: 'admin.restaurants.legal.invoiceAddress',
-                value: p.invoiceAddress,
-            },
-            {
-                label: 'admin.restaurants.legal.invoiceEmail',
-                value: p.invoiceEmail,
-            },
-            {
-                label: 'admin.restaurants.legal.contactPerson',
-                value: p.contactPerson,
-            },
-            { label: 'admin.restaurants.legal.address', value: p.address },
-            {
-                label: 'admin.restaurants.legal.pickupWindow',
-                value: this._pickupWindow(p),
             },
         ].map((row) => ({
             label: row.label,
@@ -251,6 +305,31 @@ export class RestaurantDetailComponent implements OnInit {
     });
 
     /**
+     * How much of the limit is used, 0–100. `null` when there is no limit to
+     * be a share of — a restaurant on a limit of 0 cannot order at all, and a
+     * bar that reads "100% used" would say the opposite of that.
+     */
+    readonly creditUsedPercent = computed(() => {
+        const limit = this.creditLimit();
+        const owed = this.outstandingBalance();
+        if (!limit || limit <= 0 || owed === null) {
+            return null;
+        }
+        return Math.max(0, Math.min(100, Math.round((owed / limit) * 100)));
+    });
+
+    /** Same bands as the hub capacity meter, so the colours mean one thing. */
+    readonly creditMeterClass = computed(() => {
+        const used = this.creditUsedPercent() ?? 0;
+        if (used >= 90) {
+            return 'ff-rd__meter-fill--full';
+        }
+        return used >= 70
+            ? 'ff-rd__meter-fill--tight'
+            : 'ff-rd__meter-fill--ok';
+    });
+
+    /**
      * `SetCreditLimitRequest`: `creditLimit` `minimum: 0` (inclusive — a limit
      * of 0 freezes ordering rather than being invalid), `note` `maxLength: 500`.
      */
@@ -261,7 +340,11 @@ export class RestaurantDetailComponent implements OnInit {
 
     readonly settleForm = this._formBuilder.nonNullable.group({
         amount: [0, [Validators.required, Validators.min(0.01)]],
-        paymentMethod: [''],
+        paymentMethod:
+            this._formBuilder.nonNullable.control<SettlementPaymentMethod>(
+                'bank_transfer',
+                Validators.required
+            ),
         // `SettleCreditRequest.reference` is required, 1–200 chars: a payment
         // without one is rejected 400, so the form asks for it up front.
         reference: [
@@ -272,8 +355,13 @@ export class RestaurantDetailComponent implements OnInit {
                 trimmedMaxLengthValidator(REFERENCE_MAX_LENGTH),
             ],
         ],
-        note: [''],
+        note: ['', [trimmedMaxLengthValidator(NOTE_MAX_LENGTH)]],
     });
+
+    readonly settlementPaymentMethods: readonly SettlementPaymentMethod[] = [
+        'bank_transfer',
+        'manual',
+    ];
 
     /**
      * The most recent billing period that has actually closed, in
@@ -310,6 +398,44 @@ export class RestaurantDetailComponent implements OnInit {
         ],
     });
 
+    private readonly _period = toSignal(this.statementForm.valueChanges, {
+        initialValue: this.statementForm.getRawValue(),
+    });
+
+    /** The year+month the tab is showing, defaulted to the last closed month. */
+    readonly period = computed(() => {
+        const value = this._period();
+        return {
+            year: Number(value.year) || this._latestClosedPeriod.year,
+            month: Number(value.month) || this._latestClosedPeriod.month,
+        };
+    });
+
+    /**
+     * The movements of that month. A ledger is read a period at a time, and it
+     * is the same period a statement is drawn for — so the list doubles as a
+     * preview of what the statement will say.
+     */
+    readonly periodTransactions = computed(() => {
+        const { year, month } = this.period();
+        return this.transactions().filter((tx) => {
+            const at = DateTime.fromISO(String(tx.createdAt ?? ''), {
+                zone: STATEMENT_TIME_ZONE,
+            });
+            return at.isValid && at.year === year && at.month === month;
+        });
+    });
+
+    /** The statement already drawn for that period, if there is one. */
+    readonly periodStatement = computed(() => {
+        const { year, month } = this.period();
+        return (
+            this.statements().find(
+                (st) => st.year === year && st.month === month
+            ) ?? null
+        );
+    });
+
     /** Years that contain at least one closed period. */
     readonly statementYears = Array.from(
         { length: 6 },
@@ -317,19 +443,18 @@ export class RestaurantDetailComponent implements OnInit {
     );
 
     /**
-     * Months selectable for the chosen year — every month up to and including
-     * the latest closed one. A month is a signal-free getter because it reads
-     * the form control, which is not a signal.
+     * Months selectable for the chosen year: every month that has begun. The
+     * current one is included — its movements are readable even though its
+     * statement cannot be drawn yet, which {@link isStatementPeriodClosed}
+     * gates separately.
      */
     availableMonths(): number[] {
-        const year = Number(this.statementForm.controls.year.value);
-        if (!Number.isFinite(year) || year > this._latestClosedPeriod.year) {
+        const now = DateTime.now().setZone(STATEMENT_TIME_ZONE);
+        const year = this.period().year;
+        if (!Number.isFinite(year) || year > now.year) {
             return [];
         }
-        const last =
-            year === this._latestClosedPeriod.year
-                ? this._latestClosedPeriod.month
-                : 12;
+        const last = year === now.year ? now.month : 12;
         return Array.from({ length: last }, (_, i) => i + 1);
     }
 
@@ -387,6 +512,126 @@ export class RestaurantDetailComponent implements OnInit {
         void this._loadUser(userId);
     }
 
+    selectTab(index: number): void {
+        if (this.selectedTab() === index) {
+            return;
+        }
+        this.selectedTab.set(index);
+        if (LEDGER_TABS.includes(index)) {
+            this._loadCreditTab();
+        }
+    }
+
+    /** First letter of the restaurant name — the stand-in for a logo. */
+    initial(): string {
+        return (this.detailTitle().trim()[0] ?? '?').toUpperCase();
+    }
+
+    /**
+     * The account's photo, when the row carries one. `UserSummaryDto` has no
+     * avatar today, so this is normally empty and the initial shows instead —
+     * read the same tolerant way as the staff lists, so a DTO that grows one
+     * starts working here without a change.
+     */
+    avatarUrl(): string {
+        return String(this.user()?.['avatarUrl'] ?? '').trim();
+    }
+
+    /**
+     * The account's own status, which is not the restaurant's lifecycle:
+     * approving a restaurant never touches `isActive`, and deactivating the
+     * account never touches `restaurantStatus`. Both are shown, apart.
+     */
+    accountActive(): boolean {
+        return this.user()?.isActive !== false;
+    }
+
+    accountLocked(): boolean {
+        return !!this.user()?.lockedUntil;
+    }
+
+    /**
+     * Lifts a lockout from failed sign-ins (`POST /admin/users/{id}/unlock`).
+     * It was reachable only from the users list, which is the wrong place to
+     * find it: the restaurant that phoned in about not being able to sign in is
+     * the one whose page you are already on.
+     */
+    unlockAccount(): void {
+        const user = this.user();
+        if (!user || this.busyAction()) {
+            return;
+        }
+        this.busyAction.set('unlock');
+        this._admin
+            .unlockUser(user.id)
+            .then(() => {
+                this.user.update((current) =>
+                    current ? { ...current, lockedUntil: null } : current
+                );
+                this._notify('admin.users.unlock.success');
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
+    }
+
+    /**
+     * Enables or disables sign-in (`PATCH /admin/users/{id}/activate`).
+     *
+     * Switching an account off locks the restaurant out of the platform, so it
+     * asks first; switching it back on is the recovery from that and needs no
+     * ceremony. Note this is not the restaurant's trading lifecycle — that is
+     * `restaurantStatus`, which this endpoint never touches.
+     */
+    toggleAccountActive(confirmTemplate?: TemplateRef<unknown>): void {
+        if (!this.user() || this.busyAction()) {
+            return;
+        }
+        if (this.accountActive() && confirmTemplate) {
+            this.openAccountDialog(confirmTemplate);
+            return;
+        }
+        this.setAccountActive(!this.accountActive());
+    }
+
+    openAccountDialog(template: TemplateRef<unknown>): void {
+        if (this._dialogRef) {
+            return;
+        }
+        this._dialogRef = this._dialog.open(template, {
+            autoFocus: 'dialog',
+            maxWidth: '95vw',
+        });
+        this._dialogRef.afterClosed().subscribe(() => {
+            this._dialogRef = null;
+        });
+    }
+
+    setAccountActive(nextActive: boolean): void {
+        const user = this.user();
+        if (!user || this.busyAction()) {
+            return;
+        }
+        this.closeActionDialog();
+        this.busyAction.set('account');
+        this._admin
+            .setUserActive(user.id, nextActive)
+            .then(() => {
+                this.user.update((current) =>
+                    current ? { ...current, isActive: nextActive } : current
+                );
+                this._notify(
+                    nextActive
+                        ? 'admin.users.activate.success'
+                        : 'admin.users.deactivate.success'
+                );
+                // The optimistic flip above keeps the header honest; this
+                // re-reads what the server actually recorded.
+                void this._refreshUser(user.id);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.busyAction.set(null));
+    }
+
     /**
      * Back to the users page — restaurants are a tab there now, not a screen of
      * their own. `?role=` lands on that tab rather than "tất cả vai trò".
@@ -404,29 +649,6 @@ export class RestaurantDetailComponent implements OnInit {
             current?.email?.trim() ||
             this._transloco.translate('admin.restaurants.unnamed')
         );
-    }
-
-    /**
-     * The approval lifecycle is the only status worth showing here: the live
-     * API reports `isActive: true` for every restaurant, so an account-active
-     * label would read "Đang hoạt động" next to "Chờ duyệt".
-     */
-    statusLabel(): string {
-        const u = this.user();
-        return u ? this._transloco.translate(this.approvalKey(u)) : '—';
-    }
-
-    /** i18n key for the restaurant approval lifecycle pill (BR-AUTH-1). */
-    approvalKey(user: AdminUserRow): string {
-        const status = String(user.restaurantStatus ?? '')
-            .trim()
-            .toLowerCase();
-        if (status) {
-            return `admin.users.approval.${status}`;
-        }
-        return user.isApproved
-            ? 'admin.users.approval.active'
-            : 'admin.users.approval.pending';
     }
 
     /**
@@ -449,14 +671,37 @@ export class RestaurantDetailComponent implements OnInit {
         return u?.isApproved ? 'active' : 'pending';
     }
 
-    /** A restaurant awaiting review can be approved (BR-AUTH-1). */
-    canApprove(): boolean {
+    /**
+     * Approved and trading. Shown as a tick on the avatar rather than a pill:
+     * it is the state most restaurants are in, and a word repeated on every
+     * page carries less than a mark the eye can skip.
+     */
+    isApproved(): boolean {
+        return this._status() === 'active';
+    }
+
+    /** Signed up and waiting for review — never approved, so never traded. */
+    isPending(): boolean {
         return this._status() === 'pending';
     }
 
-    /** An approved, running restaurant can be suspended. */
-    canSuspend(): boolean {
-        return this._status() === 'active';
+    /**
+     * A restaurant awaiting review can be approved (BR-AUTH-1) — but only while
+     * its account is live. Approving one that cannot sign in leaves it approved
+     * and still locked out, which reads as done and is not.
+     */
+    canApprove(): boolean {
+        return this.isPending() && this.accountActive();
+    }
+
+    /**
+     * Credit is a relationship with a trading restaurant: one still waiting for
+     * review has never ordered, owes nothing and has no limit to set. Settling
+     * and editing the limit are hidden until it is approved — a suspended one
+     * keeps both, because it can still owe money.
+     */
+    canManageCredit(): boolean {
+        return !this.isPending();
     }
 
     /** Only a suspended restaurant can be put back into service. */
@@ -464,56 +709,39 @@ export class RestaurantDetailComponent implements OnInit {
         return this._status() === 'suspended';
     }
 
-    approvalPillClass(user: AdminUserRow): string {
-        const key = this.approvalKey(user);
-        if (key.endsWith('.active')) {
-            return 'admin-pill admin-pill-success';
-        }
-        if (key.endsWith('.suspended')) {
-            return 'admin-pill admin-pill-danger';
-        }
-        return 'admin-pill admin-pill-warning';
-    }
-
+    /**
+     * Who and where this restaurant is, one line per fact.
+     *
+     * Name and approval are the page title and the tick beside it, and the
+     * internal id is not something an operator ever reads out — repeating them
+     * as label/value rows only made the card longer than what it said. What is
+     * left is what someone opening the card actually wants: how to reach the
+     * restaurant, where it is, and when it can be collected from.
+     */
     profileFields(u: AdminUserRow): ProfileField[] {
+        const p = this.profile();
         return [
             {
-                label: this._transloco.translate(
-                    'admin.restaurants.table.restaurant'
-                ),
-                value:
-                    u.restaurantName?.trim() ||
-                    this._transloco.translate('admin.restaurants.unnamed'),
+                icon: 'envelope',
+                label: 'admin.restaurants.table.email',
+                value: u.email,
             },
             {
-                label: this._transloco.translate(
-                    'admin.restaurants.table.email'
-                ),
-                value: u.email?.trim() || '—',
+                icon: 'phone',
+                label: 'admin.restaurants.table.phone',
+                value: u.phone,
             },
             {
-                label: this._transloco.translate(
-                    'admin.restaurants.table.phone'
-                ),
-                value: u.phone?.trim() || '—',
+                icon: 'map-pin',
+                label: 'admin.restaurants.legal.address',
+                value: p?.address,
             },
-            {
-                label: this._transloco.translate(
-                    'admin.restaurants.table.status'
-                ),
-                value: this.statusLabel(),
-            },
-            {
-                label: this._transloco.translate(
-                    'admin.restaurants.lookup.label'
-                ),
-                value:
-                    u.restaurantId?.trim() ||
-                    this._transloco.translate(
-                        'admin.restaurants.noRestaurantId'
-                    ),
-            },
-        ];
+        ].map((row) => ({
+            icon: row.icon,
+            label: row.label,
+            text: this._textOrDash(row.value),
+            missing: !this._hasText(row.value),
+        }));
     }
 
     /**
@@ -524,6 +752,10 @@ export class RestaurantDetailComponent implements OnInit {
     startEditingCreditLimit(): void {
         clearServerErrors(this.creditLimitForm);
         this.actionError.set(null);
+        this.creditLimitForm.controls.creditLimit.setValidators([
+            Validators.required,
+            Validators.min(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
         this.creditLimitForm.reset({
             creditLimit: this.creditLimit(),
             note: '',
@@ -580,14 +812,6 @@ export class RestaurantDetailComponent implements OnInit {
         );
     }
 
-    suspend(): void {
-        this._runLifecycleAction(
-            'suspend',
-            (id) => this._admin.suspendRestaurant(id),
-            'admin.restaurants.suspend.success'
-        );
-    }
-
     reactivate(): void {
         this._runLifecycleAction(
             'reactivate',
@@ -607,10 +831,18 @@ export class RestaurantDetailComponent implements OnInit {
         }
         this.settleForm.reset({
             amount: 0,
-            paymentMethod: '',
+            paymentMethod: 'bank_transfer',
             reference: '',
             note: '',
         });
+        this.settleForm.controls.amount.setValidators([
+            Validators.required,
+            Validators.min(0.01),
+            Validators.max(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
+        this.settleForm.controls.amount.updateValueAndValidity();
+        clearServerErrors(this.settleForm);
+        this.actionError.set(null);
         this._dialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
             maxWidth: '95vw',
@@ -633,9 +865,9 @@ export class RestaurantDetailComponent implements OnInit {
         this._admin
             .settleCredit(restaurantId, {
                 amount,
-                paymentMethod: paymentMethod || null,
+                paymentMethod,
                 reference: reference.trim(),
-                note: note || null,
+                note: note.trim() || null,
             })
             .then(() => {
                 this._notify('admin.restaurants.settle.success');
@@ -646,7 +878,7 @@ export class RestaurantDetailComponent implements OnInit {
             .finally(() => this.busyAction.set(null));
     }
 
-    generateStatement(): void {
+    generateStatement(template: TemplateRef<unknown>): void {
         const current = this.user();
         const restaurantId = current?.restaurantId;
         if (
@@ -661,9 +893,13 @@ export class RestaurantDetailComponent implements OnInit {
         this.generatingStatement.set(true);
         this._admin
             .generateCreditStatement(restaurantId, { year, month })
-            .then(() => {
+            .then(async () => {
                 this._notify('admin.restaurants.statements.generateSuccess');
-                this._loadCreditHistory(restaurantId);
+                await this._loadCreditHistory(restaurantId);
+                const drawn = this.periodStatement();
+                if (drawn) {
+                    this.openStatementDetail(drawn, template);
+                }
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.generatingStatement.set(false));
@@ -724,6 +960,170 @@ export class RestaurantDetailComponent implements OnInit {
             .finally(() => this.loadingStatement.set(false));
     }
 
+    /**
+     * Everything the ledger entry carries, ids aside.
+     *
+     * `CreditTransactionDto` is wider than a table row: the note, the payment
+     * method and the reference are exactly what someone reconciling a payment
+     * came to read, and none of them fits a column. Built as a list rather than
+     * a fixed set of fields so a field the API grows tomorrow still shows up —
+     * unknown keys are rendered under their own name rather than dropped.
+     *
+     * Ids are left out on purpose (the transaction's own, the restaurant's, the
+     * order's, the recorder's): a UUID on screen is noise an operator cannot
+     * act on, and the page already knows whose ledger this is.
+     */
+    transactionFields(tx: AdminCreditTransaction): ProfileField[] {
+        const known: { key: string; label: string; value: string }[] = [
+            {
+                key: 'createdAt',
+                label: 'admin.restaurants.statements.table.date',
+                value: this.formatDateTime(tx.createdAt),
+            },
+            {
+                key: 'amount',
+                label: 'admin.restaurants.statements.table.amount',
+                value: this._money(tx.amount),
+            },
+            {
+                key: 'balanceAfter',
+                label: 'admin.restaurants.statements.table.balance',
+                value: this._money(tx.balanceAfter),
+            },
+            {
+                key: 'paymentMethod',
+                label: 'admin.restaurants.transactions.paymentMethod',
+                value: this._apiLabel(
+                    tx.paymentMethod,
+                    'admin.restaurants.transactions.method'
+                ),
+            },
+            {
+                key: 'reference',
+                label: 'admin.restaurants.transactions.reference',
+                value: this._textOrDash(tx.reference),
+            },
+            {
+                key: 'note',
+                label: 'admin.restaurants.transactions.description',
+                value: this._textOrDash(tx.note ?? tx.description),
+            },
+        ];
+
+        const seen = new Set([
+            ...known.map((row) => row.key),
+            // The type is the dialog's headline, and ids are not shown.
+            'type',
+            'description',
+            'id',
+            'transactionId',
+            'restaurantId',
+            'orderId',
+            'recordedByUserId',
+        ]);
+        const extras = Object.entries(tx)
+            .filter(
+                ([key, value]) =>
+                    !seen.has(key) &&
+                    !/id$/i.test(key) &&
+                    value !== null &&
+                    value !== undefined &&
+                    value !== '' &&
+                    typeof value !== 'object'
+            )
+            .map(([key, value]) => ({
+                icon: '',
+                label: key,
+                text: String(value),
+                missing: false,
+            }));
+
+        return [
+            ...known.map((row) => ({
+                icon: '',
+                label: this._transloco.translate(row.label),
+                text: row.value,
+                missing: row.value === '—',
+            })),
+            ...extras,
+        ];
+    }
+
+    /** VND, grouped — the dialog prints amounts as text, not through a pipe. */
+    private _money(value: unknown): string {
+        if (value === null || value === undefined || value === '') {
+            return '—';
+        }
+        const amount = Number(value);
+        return Number.isFinite(amount)
+            ? `${new Intl.NumberFormat('vi-VN').format(amount)} ₫`
+            : '—';
+    }
+
+    /** `<prefix>.<value>`, falling through to the value — see `ApiLabelPipe`. */
+    private _apiLabel(value: unknown, prefix: string): string {
+        const raw = String(value ?? '').trim();
+        if (!raw) {
+            return '—';
+        }
+        const label = this._transloco.translate(
+            `${prefix}.${raw.toLowerCase()}`
+        );
+        return label && !label.startsWith(prefix) ? label : raw;
+    }
+
+    /**
+     * Opens one ledger entry in full. There is no per-transaction endpoint —
+     * the row already holds everything the list returned.
+     */
+    openTransactionDetail(
+        transaction: AdminCreditTransaction,
+        template: TemplateRef<unknown>
+    ): void {
+        if (this._transactionRef) {
+            return;
+        }
+        this.openTransaction.set(transaction);
+        this.openTransactionOrder.set(null);
+        this._transactionRef = this._dialog.open(template, {
+            autoFocus: 'dialog',
+            maxWidth: '95vw',
+        });
+        this._transactionRef.afterClosed().subscribe(() => {
+            this._transactionRef = null;
+            this.openTransaction.set(null);
+            this.openTransactionOrder.set(null);
+        });
+
+        const orderId = String(transaction.orderId ?? '').trim();
+        if (!orderId) {
+            return;
+        }
+        this.loadingTransactionOrder.set(true);
+        this._admin
+            .getOrder(orderId)
+            .then((order) => {
+                // The dialog may have been closed, or moved to another entry,
+                // while this was in flight.
+                if (this.openTransaction()?.id === transaction.id) {
+                    this.openTransactionOrder.set(order);
+                }
+            })
+            // A missing or forbidden order leaves the section out rather than
+            // failing the entry the operator actually asked for.
+            .catch(() => this.openTransactionOrder.set(null))
+            .finally(() => this.loadingTransactionOrder.set(false));
+    }
+
+    /** Lines of the order behind the open entry, in the order the API sent. */
+    orderItems(order: AdminOrderDetail): AdminOrderItem[] {
+        return Array.isArray(order.items) ? order.items : [];
+    }
+
+    closeTransactionDetail(): void {
+        this._transactionRef?.close();
+    }
+
     closeStatementDetail(): void {
         this._statementRef?.close();
     }
@@ -747,14 +1147,6 @@ export class RestaurantDetailComponent implements OnInit {
             : '—';
     }
 
-    /** Sum of the line amounts, as a cross-check against the closing balance. */
-    statementLineTotal(): number {
-        return (this.openStatement()?.lines ?? []).reduce(
-            (sum, line) => sum + (Number(line.amount) || 0),
-            0
-        );
-    }
-
     downloadStatementPdf(statement: AdminCreditStatement): void {
         const current = this.user();
         const restaurantId = current?.restaurantId;
@@ -776,6 +1168,31 @@ export class RestaurantDetailComponent implements OnInit {
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.downloadingStatementId.set(null));
+    }
+
+    /**
+     * Downloads an invoice's e-invoice XML (`GET /invoices/{id}/export`). The
+     * invoices screen has this; a restaurant's own invoices are part of what
+     * "công nợ" means, so they are readable from here rather than only through
+     * a filter two screens away.
+     */
+    exportInvoice(invoice: AdminInvoiceRow): void {
+        if (!invoice.id || this.exportingInvoiceId()) {
+            return;
+        }
+        this.exportingInvoiceId.set(invoice.id);
+        this._admin
+            .exportInvoice(invoice.id)
+            .then(({ blob, fileName }) => {
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = fileName;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.exportingInvoiceId.set(null));
     }
 
     private async _refreshUser(userId: string): Promise<void> {
@@ -903,23 +1320,6 @@ export class RestaurantDetailComponent implements OnInit {
         return this._hasText(value) ? (value as string).trim() : '—';
     }
 
-    /** `HH:mm–HH:mm`, or `undefined` when either end is unset. */
-    private _pickupWindow(profile: AdminRestaurantProfile): string | undefined {
-        const start = this._trimSeconds(profile.pickupStart);
-        const end = this._trimSeconds(profile.pickupEnd);
-        return start && end ? `${start} – ${end}` : undefined;
-    }
-
-    /** `HH:mm:ss` → `HH:mm`; the seconds are always `00` and only add noise. */
-    private _trimSeconds(value: unknown): string | undefined {
-        if (!this._hasText(value)) {
-            return undefined;
-        }
-        const text = (value as string).trim();
-        const match = /^(\d{2}:\d{2})(:\d{2})?$/.exec(text);
-        return match ? match[1] : text;
-    }
-
     private _loadProfile(restaurantId: string): void {
         this.profile.set(null);
         this.profileError.set(null);
@@ -944,6 +1344,7 @@ export class RestaurantDetailComponent implements OnInit {
 
     private _loadCreditSnapshot(restaurantId: string): void {
         this.credit.set(null);
+        this.creditError.set(null);
         this.editingCreditLimit.set(false);
         this.creditLimitForm.reset({ creditLimit: 0, note: '' });
         this.statements.set([]);
@@ -961,21 +1362,88 @@ export class RestaurantDetailComponent implements OnInit {
                     note: '',
                 });
             })
+            .catch(async (err) => {
+                this.creditError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.credit.loadError'
+                    )
+                );
+            })
             .finally(() => this.loadingCredit.set(false));
+        // Statements, transactions and invoices belong to the two money tabs
+        // and are read when one is first opened — the header only needs the
+        // snapshot.
+        this.creditTabLoaded.set(false);
+        if (LEDGER_TABS.includes(this.selectedTab())) {
+            this._loadCreditTab();
+        }
+    }
+
+    /** Reads the credit history once, the first time the tab is shown. */
+    private _loadCreditTab(): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (!restaurantId || this.creditTabLoaded()) {
+            return;
+        }
+        this.creditTabLoaded.set(true);
         this._loadCreditHistory(restaurantId);
     }
 
-    private _loadCreditHistory(restaurantId: string): void {
+    private _loadCreditHistory(restaurantId: string): Promise<void> {
         this.loadingCreditHistory.set(true);
-        Promise.all([
+        this.creditHistoryError.set(null);
+        return Promise.allSettled([
             this._admin.getCreditStatements(restaurantId),
             this._admin.getCreditTransactions(restaurantId),
+            // Invoices are a separate endpoint and a separate failure: a 403
+            // there should not blank the statements beside it.
+            this._admin
+                .getInvoices({ restaurantId, pageSize: INVOICE_PAGE_SIZE })
+                .then((result) => result.invoices)
+                .catch(() => []),
         ])
-            .then(([statements, transactions]) => {
-                this.statements.set(statements);
-                this.transactions.set(transactions);
+            .then(async ([statements, transactions, invoices]) => {
+                // Newest period, movement and invoice first — a ledger is read
+                // from the top, and none of these endpoints promises an order.
+                if (statements.status === 'fulfilled') {
+                    this.statements.set(newestActiveFirst(statements.value));
+                }
+                if (transactions.status === 'fulfilled') {
+                    this.transactions.set(
+                        newestActiveFirst(transactions.value)
+                    );
+                }
+                if (invoices.status === 'fulfilled') {
+                    this.invoices.set(newestActiveFirst(invoices.value));
+                }
+                // A half-loaded ledger says so, rather than reading as a
+                // restaurant that never traded.
+                const failure =
+                    statements.status === 'rejected'
+                        ? statements.reason
+                        : transactions.status === 'rejected'
+                          ? transactions.reason
+                          : null;
+                if (failure) {
+                    this.creditHistoryError.set(
+                        await describeApiError(
+                            failure,
+                            (key) => this._transloco.translate(key),
+                            'admin.restaurants.credit.historyLoadError'
+                        )
+                    );
+                }
             })
             .finally(() => this.loadingCreditHistory.set(false));
+    }
+
+    reloadCredit(): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (restaurantId) {
+            this._loadCreditSnapshot(restaurantId);
+        }
     }
 
     private _notify(key: string): void {
