@@ -1,22 +1,26 @@
 
-# UpdatePricingSettingsRequest
+# ConfigureMarketSessionResourcesRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`priceAlertThresholdPercent` | number
+`plannedCapacityKg` | number
+`vehicleIds` | Array&lt;string&gt;
+`agentUserIds` | Array&lt;string&gt;
 
 ## Example
 
 ```typescript
-import type { UpdatePricingSettingsRequest } from ''
+import type { ConfigureMarketSessionResourcesRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "priceAlertThresholdPercent": null,
-} satisfies UpdatePricingSettingsRequest
+  "plannedCapacityKg": null,
+  "vehicleIds": null,
+  "agentUserIds": null,
+} satisfies ConfigureMarketSessionResourcesRequest
 
 console.log(example)
 
@@ -25,7 +29,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as UpdatePricingSettingsRequest
+const exampleParsed = JSON.parse(exampleJSON) as ConfigureMarketSessionResourcesRequest
 console.log(exampleParsed)
 ```
 

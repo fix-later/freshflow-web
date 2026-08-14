@@ -11,6 +11,7 @@ apis/HubInboundApi.ts
 apis/HubStaffAssignmentsApi.ts
 apis/HubsApi.ts
 apis/InvoicesApi.ts
+apis/MarketSessionsApi.ts
 apis/MarketsApi.ts
 apis/NotificationApi.ts
 apis/NotificationDeviceApi.ts
@@ -18,6 +19,7 @@ apis/OrdersApi.ts
 apis/PackingCodesApi.ts
 apis/PricingApi.ts
 apis/ProcurementApi.ts
+apis/ProcurementBatchOverviewApi.ts
 apis/ProductsApi.ts
 apis/ProfileApi.ts
 apis/RestaurantCreditApi.ts
@@ -36,7 +38,7 @@ docs/AdminApi.md
 docs/AdvanceOrderStatusRequest.md
 docs/AnalyticsApi.md
 docs/ApproveClaimRequest.md
-docs/AssignAgentRequest.md
+docs/AssignBatchItemsRequest.md
 docs/AssignRoleRequest.md
 docs/AssignVehicleRequest.md
 docs/AssignVehicleToHubRequest.md
@@ -50,6 +52,8 @@ docs/CancelOrderRequest.md
 docs/CategoriesApi.md
 docs/ChangePasswordRequest.md
 docs/ClaimsApi.md
+docs/CloseMarketSessionRequest.md
+docs/ConfigureMarketSessionResourcesRequest.md
 docs/ConfirmOrderRequest.md
 docs/ConfirmPickupRequest.md
 docs/ConfirmPurchaseRequest.md
@@ -79,9 +83,11 @@ docs/HubOutboundItemCommand.md
 docs/HubStaffAssignmentsApi.md
 docs/HubsApi.md
 docs/InvoicesApi.md
+docs/ItemAssignmentDto.md
 docs/LoginRequest.md
 docs/LogoutRequest.md
 docs/MarkLineSortedRequest.md
+docs/MarketSessionsApi.md
 docs/MarketsApi.md
 docs/NotificationApi.md
 docs/NotificationDeviceApi.md
@@ -92,6 +98,7 @@ docs/PlanRoutesRequest.md
 docs/PricingApi.md
 docs/ProblemDetails.md
 docs/ProcurementApi.md
+docs/ProcurementBatchOverviewApi.md
 docs/ProductsApi.md
 docs/ProfileApi.md
 docs/PurchaseLineDto.md
@@ -135,11 +142,11 @@ docs/UpdateCategoryRequest.md
 docs/UpdateDeliveryStatusRequest.md
 docs/UpdateHubRequest.md
 docs/UpdateMarketRequest.md
+docs/UpdateMarketSessionRequest.md
 docs/UpdateMyProfileRequest.md
 docs/UpdateOperationalSettingsRequest.md
 docs/UpdateOrderItemRequest.md
 docs/UpdatePackingCodeRequest.md
-docs/UpdatePricingSettingsRequest.md
 docs/UpdateProductPriceRequest.md
 docs/UpdateProductRequest.md
 docs/UpdateRestaurantProfileRequest.md
@@ -156,7 +163,7 @@ models/AddFavoriteRequest.ts
 models/AddOrderItemRequest.ts
 models/AdvanceOrderStatusRequest.ts
 models/ApproveClaimRequest.ts
-models/AssignAgentRequest.ts
+models/AssignBatchItemsRequest.ts
 models/AssignRoleRequest.ts
 models/AssignVehicleRequest.ts
 models/AssignVehicleToHubRequest.ts
@@ -166,6 +173,8 @@ models/CalculateRouteRequest.ts
 models/CancelOrderGroupRequest.ts
 models/CancelOrderRequest.ts
 models/ChangePasswordRequest.ts
+models/CloseMarketSessionRequest.ts
+models/ConfigureMarketSessionResourcesRequest.ts
 models/ConfirmOrderRequest.ts
 models/ConfirmPickupRequest.ts
 models/ConfirmPurchaseRequest.ts
@@ -189,6 +198,7 @@ models/ForgotPasswordRequest.ts
 models/GenerateStatementRequest.ts
 models/HubInboundItemCommand.ts
 models/HubOutboundItemCommand.ts
+models/ItemAssignmentDto.ts
 models/LoginRequest.ts
 models/LogoutRequest.ts
 models/MarkLineSortedRequest.ts
@@ -229,11 +239,11 @@ models/UpdateCategoryRequest.ts
 models/UpdateDeliveryStatusRequest.ts
 models/UpdateHubRequest.ts
 models/UpdateMarketRequest.ts
+models/UpdateMarketSessionRequest.ts
 models/UpdateMyProfileRequest.ts
 models/UpdateOperationalSettingsRequest.ts
 models/UpdateOrderItemRequest.ts
 models/UpdatePackingCodeRequest.ts
-models/UpdatePricingSettingsRequest.ts
 models/UpdateProductPriceRequest.ts
 models/UpdateProductRequest.ts
 models/UpdateRestaurantProfileRequest.ts

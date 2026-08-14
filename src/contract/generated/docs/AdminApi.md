@@ -5,17 +5,23 @@ All URIs are relative to *http://localhost*
 | Method | HTTP request | Description |
 |------------- | ------------- | -------------|
 | [**apiV1AdminAuditLogsGet**](AdminApi.md#apiv1adminauditlogsget) | **GET** /api/v1/admin/audit-logs |  |
+| [**apiV1AdminBatchesBatchIdItemAssignmentsPut**](AdminApi.md#apiv1adminbatchesbatchiditemassignmentsput) | **PUT** /api/v1/admin/batches/{batchId}/item-assignments |  |
+| [**apiV1AdminMarketSessionsGet**](AdminApi.md#apiv1adminmarketsessionsget) | **GET** /api/v1/admin/market-sessions |  |
+| [**apiV1AdminMarketSessionsIdClosePost**](AdminApi.md#apiv1adminmarketsessionsidclosepost) | **POST** /api/v1/admin/market-sessions/{id}/close |  |
+| [**apiV1AdminMarketSessionsIdGet**](AdminApi.md#apiv1adminmarketsessionsidget) | **GET** /api/v1/admin/market-sessions/{id} |  |
+| [**apiV1AdminMarketSessionsIdOpenPost**](AdminApi.md#apiv1adminmarketsessionsidopenpost) | **POST** /api/v1/admin/market-sessions/{id}/open |  |
+| [**apiV1AdminMarketSessionsIdPut**](AdminApi.md#apiv1adminmarketsessionsidput) | **PUT** /api/v1/admin/market-sessions/{id} |  |
+| [**apiV1AdminMarketSessionsIdResourceOptionsGet**](AdminApi.md#apiv1adminmarketsessionsidresourceoptionsget) | **GET** /api/v1/admin/market-sessions/{id}/resource-options |  |
+| [**apiV1AdminMarketSessionsIdResourcesPut**](AdminApi.md#apiv1adminmarketsessionsidresourcesput) | **PUT** /api/v1/admin/market-sessions/{id}/resources |  |
+| [**apiV1AdminMarketSessionsIdTrackingGet**](AdminApi.md#apiv1adminmarketsessionsidtrackingget) | **GET** /api/v1/admin/market-sessions/{id}/tracking |  |
 | [**apiV1AdminOperationalSettingsGet**](AdminApi.md#apiv1adminoperationalsettingsget) | **GET** /api/v1/admin/operational-settings |  |
 | [**apiV1AdminOperationalSettingsPut**](AdminApi.md#apiv1adminoperationalsettingsput) | **PUT** /api/v1/admin/operational-settings |  |
 | [**apiV1AdminOrderGroupsAutoBatchPost**](AdminApi.md#apiv1adminordergroupsautobatchpost) | **POST** /api/v1/admin/order-groups/auto-batch |  |
-| [**apiV1AdminOrderGroupsBatchIdAgentPost**](AdminApi.md#apiv1adminordergroupsbatchidagentpost) | **POST** /api/v1/admin/order-groups/{batchId}/agent |  |
 | [**apiV1AdminOrderGroupsBatchIdCancelPost**](AdminApi.md#apiv1adminordergroupsbatchidcancelpost) | **POST** /api/v1/admin/order-groups/{batchId}/cancel |  |
 | [**apiV1AdminOrderGroupsBatchIdManifestPost**](AdminApi.md#apiv1adminordergroupsbatchidmanifestpost) | **POST** /api/v1/admin/order-groups/{batchId}/manifest |  |
 | [**apiV1AdminOrderGroupsGet**](AdminApi.md#apiv1adminordergroupsget) | **GET** /api/v1/admin/order-groups |  |
 | [**apiV1AdminOrderGroupsProgressGet**](AdminApi.md#apiv1adminordergroupsprogressget) | **GET** /api/v1/admin/order-groups/progress |  |
 | [**apiV1AdminOrderGroupsResetPost**](AdminApi.md#apiv1adminordergroupsresetpost) | **POST** /api/v1/admin/order-groups/reset |  |
-| [**apiV1AdminPricingSettingsGet**](AdminApi.md#apiv1adminpricingsettingsget) | **GET** /api/v1/admin/pricing-settings |  |
-| [**apiV1AdminPricingSettingsPut**](AdminApi.md#apiv1adminpricingsettingsput) | **PUT** /api/v1/admin/pricing-settings |  |
 | [**apiV1AdminRestaurantsRestaurantIdApprovePatch**](AdminApi.md#apiv1adminrestaurantsrestaurantidapprovepatch) | **PATCH** /api/v1/admin/restaurants/{restaurantId}/approve |  |
 | [**apiV1AdminRestaurantsRestaurantIdCreditLimitPut**](AdminApi.md#apiv1adminrestaurantsrestaurantidcreditlimitput) | **PUT** /api/v1/admin/restaurants/{restaurantId}/credit/limit |  |
 | [**apiV1AdminRestaurantsRestaurantIdCreditSettlePost**](AdminApi.md#apiv1adminrestaurantsrestaurantidcreditsettlepost) | **POST** /api/v1/admin/restaurants/{restaurantId}/credit/settle |  |
@@ -97,6 +103,654 @@ example().catch(console.error);
 | **to** | `Date` |  | [Optional] [Defaults to `undefined`] |
 | **page** | `number` |  | [Optional] [Defaults to `1`] |
 | **pageSize** | `number` |  | [Optional] [Defaults to `20`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminBatchesBatchIdItemAssignmentsPut
+
+> apiV1AdminBatchesBatchIdItemAssignmentsPut(batchId, assignBatchItemsRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    batchId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // AssignBatchItemsRequest (optional)
+    assignBatchItemsRequest: ...,
+  } satisfies ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest;
+
+  try {
+    const data = await api.apiV1AdminBatchesBatchIdItemAssignmentsPut(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **batchId** | `string` |  | [Defaults to `undefined`] |
+| **assignBatchItemsRequest** | [AssignBatchItemsRequest](AssignBatchItemsRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsGet
+
+> apiV1AdminMarketSessionsGet(from, to, marketId, status)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // Date (optional)
+    from: 2013-10-20,
+    // Date (optional)
+    to: 2013-10-20,
+    // string (optional)
+    marketId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // string (optional)
+    status: status_example,
+  } satisfies ApiV1AdminMarketSessionsGetRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **from** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **to** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **marketId** | `string` |  | [Optional] [Defaults to `undefined`] |
+| **status** | `string` |  | [Optional] [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdClosePost
+
+> apiV1AdminMarketSessionsIdClosePost(id, closeMarketSessionRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdClosePostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // CloseMarketSessionRequest (optional)
+    closeMarketSessionRequest: ...,
+  } satisfies ApiV1AdminMarketSessionsIdClosePostRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdClosePost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+| **closeMarketSessionRequest** | [CloseMarketSessionRequest](CloseMarketSessionRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdGet
+
+> apiV1AdminMarketSessionsIdGet(id)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1AdminMarketSessionsIdGetRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdOpenPost
+
+> apiV1AdminMarketSessionsIdOpenPost(id)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdOpenPostRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1AdminMarketSessionsIdOpenPostRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdOpenPost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdPut
+
+> apiV1AdminMarketSessionsIdPut(id, updateMarketSessionRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdPutRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // UpdateMarketSessionRequest (optional)
+    updateMarketSessionRequest: ...,
+  } satisfies ApiV1AdminMarketSessionsIdPutRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdPut(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+| **updateMarketSessionRequest** | [UpdateMarketSessionRequest](UpdateMarketSessionRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdResourceOptionsGet
+
+> apiV1AdminMarketSessionsIdResourceOptionsGet(id)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdResourceOptionsGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1AdminMarketSessionsIdResourceOptionsGetRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdResourceOptionsGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdResourcesPut
+
+> apiV1AdminMarketSessionsIdResourcesPut(id, configureMarketSessionResourcesRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdResourcesPutRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // ConfigureMarketSessionResourcesRequest (optional)
+    configureMarketSessionResourcesRequest: ...,
+  } satisfies ApiV1AdminMarketSessionsIdResourcesPutRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdResourcesPut(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+| **configureMarketSessionResourcesRequest** | [ConfigureMarketSessionResourcesRequest](ConfigureMarketSessionResourcesRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminMarketSessionsIdTrackingGet
+
+> apiV1AdminMarketSessionsIdTrackingGet(id, page, pageSize)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminMarketSessionsIdTrackingGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    id: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // number (optional)
+    page: 56,
+    // number (optional)
+    pageSize: 56,
+  } satisfies ApiV1AdminMarketSessionsIdTrackingGetRequest;
+
+  try {
+    const data = await api.apiV1AdminMarketSessionsIdTrackingGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **id** | `string` |  | [Defaults to `undefined`] |
+| **page** | `number` |  | [Optional] [Defaults to `1`] |
+| **pageSize** | `number` |  | [Optional] [Defaults to `50`] |
 
 ### Return type
 
@@ -296,78 +950,6 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **runAutoBatchRequest** | [RunAutoBatchRequest](RunAutoBatchRequest.md) |  | [Optional] |
-
-### Return type
-
-`void` (Empty response body)
-
-### Authorization
-
-[Bearer](../README.md#Bearer)
-
-### HTTP request headers
-
-- **Content-Type**: `application/json`, `text/json`, `application/*+json`
-- **Accept**: Not defined
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-| **200** | OK |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
-
-
-## apiV1AdminOrderGroupsBatchIdAgentPost
-
-> apiV1AdminOrderGroupsBatchIdAgentPost(batchId, assignAgentRequest)
-
-
-
-### Example
-
-```ts
-import {
-  Configuration,
-  AdminApi,
-} from '';
-import type { ApiV1AdminOrderGroupsBatchIdAgentPostRequest } from '';
-
-async function example() {
-  console.log("🚀 Testing  SDK...");
-  const config = new Configuration({ 
-    // Configure HTTP bearer authorization: Bearer
-    accessToken: "YOUR BEARER TOKEN",
-  });
-  const api = new AdminApi(config);
-
-  const body = {
-    // string
-    batchId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
-    // AssignAgentRequest (optional)
-    assignAgentRequest: ...,
-  } satisfies ApiV1AdminOrderGroupsBatchIdAgentPostRequest;
-
-  try {
-    const data = await api.apiV1AdminOrderGroupsBatchIdAgentPost(body);
-    console.log(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Run the test
-example().catch(console.error);
-```
-
-### Parameters
-
-
-| Name | Type | Description  | Notes |
-|------------- | ------------- | ------------- | -------------|
-| **batchId** | `string` |  | [Defaults to `undefined`] |
-| **assignAgentRequest** | [AssignAgentRequest](AssignAgentRequest.md) |  | [Optional] |
 
 ### Return type
 
@@ -728,136 +1310,6 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **resetOrderGroupsRequest** | [ResetOrderGroupsRequest](ResetOrderGroupsRequest.md) |  | [Optional] |
-
-### Return type
-
-`void` (Empty response body)
-
-### Authorization
-
-[Bearer](../README.md#Bearer)
-
-### HTTP request headers
-
-- **Content-Type**: `application/json`, `text/json`, `application/*+json`
-- **Accept**: Not defined
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-| **200** | OK |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
-
-
-## apiV1AdminPricingSettingsGet
-
-> apiV1AdminPricingSettingsGet()
-
-
-
-### Example
-
-```ts
-import {
-  Configuration,
-  AdminApi,
-} from '';
-import type { ApiV1AdminPricingSettingsGetRequest } from '';
-
-async function example() {
-  console.log("🚀 Testing  SDK...");
-  const config = new Configuration({ 
-    // Configure HTTP bearer authorization: Bearer
-    accessToken: "YOUR BEARER TOKEN",
-  });
-  const api = new AdminApi(config);
-
-  try {
-    const data = await api.apiV1AdminPricingSettingsGet();
-    console.log(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Run the test
-example().catch(console.error);
-```
-
-### Parameters
-
-This endpoint does not need any parameter.
-
-### Return type
-
-`void` (Empty response body)
-
-### Authorization
-
-[Bearer](../README.md#Bearer)
-
-### HTTP request headers
-
-- **Content-Type**: Not defined
-- **Accept**: Not defined
-
-
-### HTTP response details
-| Status code | Description | Response headers |
-|-------------|-------------|------------------|
-| **200** | OK |  -  |
-
-[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
-
-
-## apiV1AdminPricingSettingsPut
-
-> apiV1AdminPricingSettingsPut(updatePricingSettingsRequest)
-
-
-
-### Example
-
-```ts
-import {
-  Configuration,
-  AdminApi,
-} from '';
-import type { ApiV1AdminPricingSettingsPutRequest } from '';
-
-async function example() {
-  console.log("🚀 Testing  SDK...");
-  const config = new Configuration({ 
-    // Configure HTTP bearer authorization: Bearer
-    accessToken: "YOUR BEARER TOKEN",
-  });
-  const api = new AdminApi(config);
-
-  const body = {
-    // UpdatePricingSettingsRequest (optional)
-    updatePricingSettingsRequest: ...,
-  } satisfies ApiV1AdminPricingSettingsPutRequest;
-
-  try {
-    const data = await api.apiV1AdminPricingSettingsPut(body);
-    console.log(data);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-// Run the test
-example().catch(console.error);
-```
-
-### Parameters
-
-
-| Name | Type | Description  | Notes |
-|------------- | ------------- | ------------- | -------------|
-| **updatePricingSettingsRequest** | [UpdatePricingSettingsRequest](UpdatePricingSettingsRequest.md) |  | [Optional] |
 
 ### Return type
 

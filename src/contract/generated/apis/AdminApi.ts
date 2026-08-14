@@ -19,10 +19,10 @@ import {
     ActivateRequestToJSON,
 } from '../models/ActivateRequest';
 import {
-    type AssignAgentRequest,
-    AssignAgentRequestFromJSON,
-    AssignAgentRequestToJSON,
-} from '../models/AssignAgentRequest';
+    type AssignBatchItemsRequest,
+    AssignBatchItemsRequestFromJSON,
+    AssignBatchItemsRequestToJSON,
+} from '../models/AssignBatchItemsRequest';
 import {
     type AssignRoleRequest,
     AssignRoleRequestFromJSON,
@@ -33,6 +33,16 @@ import {
     CancelOrderGroupRequestFromJSON,
     CancelOrderGroupRequestToJSON,
 } from '../models/CancelOrderGroupRequest';
+import {
+    type CloseMarketSessionRequest,
+    CloseMarketSessionRequestFromJSON,
+    CloseMarketSessionRequestToJSON,
+} from '../models/CloseMarketSessionRequest';
+import {
+    type ConfigureMarketSessionResourcesRequest,
+    ConfigureMarketSessionResourcesRequestFromJSON,
+    ConfigureMarketSessionResourcesRequestToJSON,
+} from '../models/ConfigureMarketSessionResourcesRequest';
 import {
     type CreateUserCommand,
     CreateUserCommandFromJSON,
@@ -69,15 +79,15 @@ import {
     SettleCreditRequestToJSON,
 } from '../models/SettleCreditRequest';
 import {
+    type UpdateMarketSessionRequest,
+    UpdateMarketSessionRequestFromJSON,
+    UpdateMarketSessionRequestToJSON,
+} from '../models/UpdateMarketSessionRequest';
+import {
     type UpdateOperationalSettingsRequest,
     UpdateOperationalSettingsRequestFromJSON,
     UpdateOperationalSettingsRequestToJSON,
 } from '../models/UpdateOperationalSettingsRequest';
-import {
-    type UpdatePricingSettingsRequest,
-    UpdatePricingSettingsRequestFromJSON,
-    UpdatePricingSettingsRequestToJSON,
-} from '../models/UpdatePricingSettingsRequest';
 
 export interface ApiV1AdminAuditLogsGetRequest {
     actorId?: string;
@@ -89,17 +99,57 @@ export interface ApiV1AdminAuditLogsGetRequest {
     pageSize?: number;
 }
 
+export interface ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest {
+    batchId: string;
+    assignBatchItemsRequest?: AssignBatchItemsRequest;
+}
+
+export interface ApiV1AdminMarketSessionsGetRequest {
+    from?: Date;
+    to?: Date;
+    marketId?: string;
+    status?: string;
+}
+
+export interface ApiV1AdminMarketSessionsIdClosePostRequest {
+    id: string;
+    closeMarketSessionRequest?: CloseMarketSessionRequest;
+}
+
+export interface ApiV1AdminMarketSessionsIdGetRequest {
+    id: string;
+}
+
+export interface ApiV1AdminMarketSessionsIdOpenPostRequest {
+    id: string;
+}
+
+export interface ApiV1AdminMarketSessionsIdPutRequest {
+    id: string;
+    updateMarketSessionRequest?: UpdateMarketSessionRequest;
+}
+
+export interface ApiV1AdminMarketSessionsIdResourceOptionsGetRequest {
+    id: string;
+}
+
+export interface ApiV1AdminMarketSessionsIdResourcesPutRequest {
+    id: string;
+    configureMarketSessionResourcesRequest?: ConfigureMarketSessionResourcesRequest;
+}
+
+export interface ApiV1AdminMarketSessionsIdTrackingGetRequest {
+    id: string;
+    page?: number;
+    pageSize?: number;
+}
+
 export interface ApiV1AdminOperationalSettingsPutRequest {
     updateOperationalSettingsRequest?: UpdateOperationalSettingsRequest;
 }
 
 export interface ApiV1AdminOrderGroupsAutoBatchPostRequest {
     runAutoBatchRequest?: RunAutoBatchRequest;
-}
-
-export interface ApiV1AdminOrderGroupsBatchIdAgentPostRequest {
-    batchId: string;
-    assignAgentRequest?: AssignAgentRequest;
 }
 
 export interface ApiV1AdminOrderGroupsBatchIdCancelPostRequest {
@@ -125,10 +175,6 @@ export interface ApiV1AdminOrderGroupsProgressGetRequest {
 
 export interface ApiV1AdminOrderGroupsResetPostRequest {
     resetOrderGroupsRequest?: ResetOrderGroupsRequest;
-}
-
-export interface ApiV1AdminPricingSettingsPutRequest {
-    updatePricingSettingsRequest?: UpdatePricingSettingsRequest;
 }
 
 export interface ApiV1AdminRestaurantsRestaurantIdApprovePatchRequest {
@@ -269,6 +315,484 @@ export class AdminApi extends runtime.BaseAPI {
     }
 
     /**
+     * Creates request options for apiV1AdminBatchesBatchIdItemAssignmentsPut without sending the request
+     */
+    async apiV1AdminBatchesBatchIdItemAssignmentsPutRequestOpts(requestParameters: ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['batchId'] == null) {
+            throw new runtime.RequiredError(
+                'batchId',
+                'Required parameter "batchId" was null or undefined when calling apiV1AdminBatchesBatchIdItemAssignmentsPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/batches/{batchId}/item-assignments`;
+        urlPath = urlPath.replace('{batchId}', encodeURIComponent(String(requestParameters['batchId'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: AssignBatchItemsRequestToJSON(requestParameters['assignBatchItemsRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminBatchesBatchIdItemAssignmentsPutRaw(requestParameters: ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminBatchesBatchIdItemAssignmentsPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminBatchesBatchIdItemAssignmentsPut(requestParameters: ApiV1AdminBatchesBatchIdItemAssignmentsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminBatchesBatchIdItemAssignmentsPutRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsGet without sending the request
+     */
+    async apiV1AdminMarketSessionsGetRequestOpts(requestParameters: ApiV1AdminMarketSessionsGetRequest): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        if (requestParameters['from'] != null) {
+            queryParameters['from'] = (requestParameters['from'] as any).toISOString().substring(0,10);
+        }
+
+        if (requestParameters['to'] != null) {
+            queryParameters['to'] = (requestParameters['to'] as any).toISOString().substring(0,10);
+        }
+
+        if (requestParameters['marketId'] != null) {
+            queryParameters['marketId'] = requestParameters['marketId'];
+        }
+
+        if (requestParameters['status'] != null) {
+            queryParameters['status'] = requestParameters['status'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsGetRaw(requestParameters: ApiV1AdminMarketSessionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsGet(requestParameters: ApiV1AdminMarketSessionsGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdClosePost without sending the request
+     */
+    async apiV1AdminMarketSessionsIdClosePostRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdClosePostRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdClosePost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}/close`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: CloseMarketSessionRequestToJSON(requestParameters['closeMarketSessionRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdClosePostRaw(requestParameters: ApiV1AdminMarketSessionsIdClosePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdClosePostRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdClosePost(requestParameters: ApiV1AdminMarketSessionsIdClosePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdClosePostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdGet without sending the request
+     */
+    async apiV1AdminMarketSessionsIdGetRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdGetRaw(requestParameters: ApiV1AdminMarketSessionsIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdGet(requestParameters: ApiV1AdminMarketSessionsIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdOpenPost without sending the request
+     */
+    async apiV1AdminMarketSessionsIdOpenPostRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdOpenPostRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdOpenPost().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}/open`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdOpenPostRaw(requestParameters: ApiV1AdminMarketSessionsIdOpenPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdOpenPostRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdOpenPost(requestParameters: ApiV1AdminMarketSessionsIdOpenPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdOpenPostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdPut without sending the request
+     */
+    async apiV1AdminMarketSessionsIdPutRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: UpdateMarketSessionRequestToJSON(requestParameters['updateMarketSessionRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdPutRaw(requestParameters: ApiV1AdminMarketSessionsIdPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdPut(requestParameters: ApiV1AdminMarketSessionsIdPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdPutRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdResourceOptionsGet without sending the request
+     */
+    async apiV1AdminMarketSessionsIdResourceOptionsGetRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdResourceOptionsGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdResourceOptionsGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}/resource-options`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdResourceOptionsGetRaw(requestParameters: ApiV1AdminMarketSessionsIdResourceOptionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdResourceOptionsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdResourceOptionsGet(requestParameters: ApiV1AdminMarketSessionsIdResourceOptionsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdResourceOptionsGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdResourcesPut without sending the request
+     */
+    async apiV1AdminMarketSessionsIdResourcesPutRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdResourcesPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdResourcesPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}/resources`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: ConfigureMarketSessionResourcesRequestToJSON(requestParameters['configureMarketSessionResourcesRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdResourcesPutRaw(requestParameters: ApiV1AdminMarketSessionsIdResourcesPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdResourcesPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdResourcesPut(requestParameters: ApiV1AdminMarketSessionsIdResourcesPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdResourcesPutRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminMarketSessionsIdTrackingGet without sending the request
+     */
+    async apiV1AdminMarketSessionsIdTrackingGetRequestOpts(requestParameters: ApiV1AdminMarketSessionsIdTrackingGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['id'] == null) {
+            throw new runtime.RequiredError(
+                'id',
+                'Required parameter "id" was null or undefined when calling apiV1AdminMarketSessionsIdTrackingGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        if (requestParameters['page'] != null) {
+            queryParameters['page'] = requestParameters['page'];
+        }
+
+        if (requestParameters['pageSize'] != null) {
+            queryParameters['pageSize'] = requestParameters['pageSize'];
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/market-sessions/{id}/tracking`;
+        urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdTrackingGetRaw(requestParameters: ApiV1AdminMarketSessionsIdTrackingGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminMarketSessionsIdTrackingGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminMarketSessionsIdTrackingGet(requestParameters: ApiV1AdminMarketSessionsIdTrackingGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminMarketSessionsIdTrackingGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
      * Creates request options for apiV1AdminOperationalSettingsGet without sending the request
      */
     async apiV1AdminOperationalSettingsGetRequestOpts(): Promise<runtime.RequestOpts> {
@@ -398,59 +922,6 @@ export class AdminApi extends runtime.BaseAPI {
      */
     async apiV1AdminOrderGroupsAutoBatchPost(requestParameters: ApiV1AdminOrderGroupsAutoBatchPostRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1AdminOrderGroupsAutoBatchPostRaw(requestParameters, initOverrides);
-    }
-
-    /**
-     * Creates request options for apiV1AdminOrderGroupsBatchIdAgentPost without sending the request
-     */
-    async apiV1AdminOrderGroupsBatchIdAgentPostRequestOpts(requestParameters: ApiV1AdminOrderGroupsBatchIdAgentPostRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['batchId'] == null) {
-            throw new runtime.RequiredError(
-                'batchId',
-                'Required parameter "batchId" was null or undefined when calling apiV1AdminOrderGroupsBatchIdAgentPost().'
-            );
-        }
-
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Bearer", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-
-        let urlPath = `/api/v1/admin/order-groups/{batchId}/agent`;
-        urlPath = urlPath.replace('{batchId}', encodeURIComponent(String(requestParameters['batchId'])));
-
-        return {
-            path: urlPath,
-            method: 'POST',
-            headers: headerParameters,
-            query: queryParameters,
-            body: AssignAgentRequestToJSON(requestParameters['assignAgentRequest']),
-        };
-    }
-
-    /**
-     */
-    async apiV1AdminOrderGroupsBatchIdAgentPostRaw(requestParameters: ApiV1AdminOrderGroupsBatchIdAgentPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.apiV1AdminOrderGroupsBatchIdAgentPostRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     */
-    async apiV1AdminOrderGroupsBatchIdAgentPost(requestParameters: ApiV1AdminOrderGroupsBatchIdAgentPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.apiV1AdminOrderGroupsBatchIdAgentPostRaw(requestParameters, initOverrides);
     }
 
     /**
@@ -707,93 +1178,6 @@ export class AdminApi extends runtime.BaseAPI {
      */
     async apiV1AdminOrderGroupsResetPost(requestParameters: ApiV1AdminOrderGroupsResetPostRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1AdminOrderGroupsResetPostRaw(requestParameters, initOverrides);
-    }
-
-    /**
-     * Creates request options for apiV1AdminPricingSettingsGet without sending the request
-     */
-    async apiV1AdminPricingSettingsGetRequestOpts(): Promise<runtime.RequestOpts> {
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Bearer", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-
-        let urlPath = `/api/v1/admin/pricing-settings`;
-
-        return {
-            path: urlPath,
-            method: 'GET',
-            headers: headerParameters,
-            query: queryParameters,
-        };
-    }
-
-    /**
-     */
-    async apiV1AdminPricingSettingsGetRaw(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.apiV1AdminPricingSettingsGetRequestOpts();
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     */
-    async apiV1AdminPricingSettingsGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.apiV1AdminPricingSettingsGetRaw(initOverrides);
-    }
-
-    /**
-     * Creates request options for apiV1AdminPricingSettingsPut without sending the request
-     */
-    async apiV1AdminPricingSettingsPutRequestOpts(requestParameters: ApiV1AdminPricingSettingsPutRequest): Promise<runtime.RequestOpts> {
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("Bearer", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-
-        let urlPath = `/api/v1/admin/pricing-settings`;
-
-        return {
-            path: urlPath,
-            method: 'PUT',
-            headers: headerParameters,
-            query: queryParameters,
-            body: UpdatePricingSettingsRequestToJSON(requestParameters['updatePricingSettingsRequest']),
-        };
-    }
-
-    /**
-     */
-    async apiV1AdminPricingSettingsPutRaw(requestParameters: ApiV1AdminPricingSettingsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.apiV1AdminPricingSettingsPutRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     */
-    async apiV1AdminPricingSettingsPut(requestParameters: ApiV1AdminPricingSettingsPutRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.apiV1AdminPricingSettingsPutRaw(requestParameters, initOverrides);
     }
 
     /**

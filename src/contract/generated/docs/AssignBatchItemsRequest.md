@@ -1,34 +1,22 @@
 
-# CreateUserCommand
+# AssignBatchItemsRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`email` | string
-`password` | string
-`role` | string
-`marketId` | string
-`restaurantName` | string
-`phone` | string
-`fullName` | string
+`assignments` | [Array&lt;ItemAssignmentDto&gt;](ItemAssignmentDto.md)
 
 ## Example
 
 ```typescript
-import type { CreateUserCommand } from ''
+import type { AssignBatchItemsRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "email": null,
-  "password": null,
-  "role": null,
-  "marketId": null,
-  "restaurantName": null,
-  "phone": null,
-  "fullName": null,
-} satisfies CreateUserCommand
+  "assignments": null,
+} satisfies AssignBatchItemsRequest
 
 console.log(example)
 
@@ -37,7 +25,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as CreateUserCommand
+const exampleParsed = JSON.parse(exampleJSON) as AssignBatchItemsRequest
 console.log(exampleParsed)
 ```
 

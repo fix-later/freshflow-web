@@ -16,12 +16,14 @@ import {
     AssistantApi,
     AuthApi,
     CategoriesApi,
+    ClaimsApi,
     DriverApi,
     HubHandoverApi,
     HubInboundApi,
     HubStaffAssignmentsApi,
     HubsApi,
     InvoicesApi,
+    MarketSessionsApi,
     MarketsApi,
     NotificationApi,
     NotificationDeviceApi,
@@ -29,6 +31,7 @@ import {
     PackingCodesApi,
     PricingApi,
     ProcurementApi,
+    ProcurementBatchOverviewApi,
     ProductsApi,
     ProfileApi,
     RestaurantCreditApi,
@@ -53,6 +56,7 @@ export const analyticsApi = new AnalyticsApi(apiConfiguration);
 export const assistantApi = new AssistantApi(apiConfiguration);
 export const authApi = new AuthApi(apiConfiguration);
 export const categoriesApi = new CategoriesApi(apiConfiguration);
+export const claimsApi = new ClaimsApi(apiConfiguration);
 export const driverApi = new DriverApi(apiConfiguration);
 export const hubHandoverApi = new HubHandoverApi(apiConfiguration);
 export const hubInboundApi = new HubInboundApi(apiConfiguration);
@@ -61,6 +65,7 @@ export const hubStaffAssignmentsApi = new HubStaffAssignmentsApi(
 );
 export const hubsApi = new HubsApi(apiConfiguration);
 export const invoicesApi = new InvoicesApi(apiConfiguration);
+export const marketSessionsApi = new MarketSessionsApi(apiConfiguration);
 export const marketsApi = new MarketsApi(apiConfiguration);
 export const notificationApi = new NotificationApi(apiConfiguration);
 export const notificationDeviceApi = new NotificationDeviceApi(
@@ -70,6 +75,9 @@ export const ordersApi = new OrdersApi(apiConfiguration);
 export const packingCodesApi = new PackingCodesApi(apiConfiguration);
 export const pricingApi = new PricingApi(apiConfiguration);
 export const procurementApi = new ProcurementApi(apiConfiguration);
+export const procurementBatchOverviewApi = new ProcurementBatchOverviewApi(
+    apiConfiguration
+);
 export const productsApi = new ProductsApi(apiConfiguration);
 export const profileApi = new ProfileApi(apiConfiguration);
 export const restaurantCreditApi = new RestaurantCreditApi(apiConfiguration);

@@ -471,6 +471,285 @@
         }
       }
     },
+    "/api/v1/admin/market-sessions": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "marketId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMarketSessionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMarketSessionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMarketSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}/tracking": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}/resource-options": {
+      "get": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}/resources": {
+      "put": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureMarketSessionResourcesRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureMarketSessionResourcesRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigureMarketSessionResourcesRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}/open": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/admin/market-sessions/{id}/close": {
+      "post": {
+        "tags": [
+          "Admin"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMarketSessionRequest"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMarketSessionRequest"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseMarketSessionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/admin/order-groups": {
       "get": {
         "tags": [
@@ -633,8 +912,8 @@
         }
       }
     },
-    "/api/v1/admin/order-groups/{batchId}/agent": {
-      "post": {
+    "/api/v1/admin/batches/{batchId}/item-assignments": {
+      "put": {
         "tags": [
           "Admin"
         ],
@@ -653,17 +932,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignAgentRequest"
+                "$ref": "#/components/schemas/AssignBatchItemsRequest"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignAgentRequest"
+                "$ref": "#/components/schemas/AssignBatchItemsRequest"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/AssignAgentRequest"
+                "$ref": "#/components/schemas/AssignBatchItemsRequest"
               }
             }
           }
@@ -706,47 +985,6 @@
             "application/*+json": {
               "schema": {
                 "$ref": "#/components/schemas/CancelOrderGroupRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/api/v1/admin/pricing-settings": {
-      "get": {
-        "tags": [
-          "Admin"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "Admin"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UpdatePricingSettingsRequest"
               }
             }
           }
@@ -4520,6 +4758,44 @@
         }
       }
     },
+    "/api/v1/market-sessions": {
+      "get": {
+        "tags": [
+          "MarketSessions"
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "marketId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/notifications": {
       "get": {
         "tags": [
@@ -7280,6 +7556,29 @@
         }
       }
     },
+    "/api/v1/procurement/batches/{batchId}/overview": {
+      "get": {
+        "tags": [
+          "ProcurementBatchOverview"
+        ],
+        "parameters": [
+          {
+            "name": "batchId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/products": {
       "post": {
         "tags": [
@@ -9267,16 +9566,17 @@
         },
         "additionalProperties": false
       },
-      "AssignAgentRequest": {
+      "AssignBatchItemsRequest": {
         "required": [
-          "agentUserId"
+          "assignments"
         ],
         "type": "object",
         "properties": {
-          "agentUserId": {
-            "minLength": 1,
-            "type": "string",
-            "format": "uuid"
+          "assignments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ItemAssignmentDto"
+            }
           }
         },
         "additionalProperties": false
@@ -9444,6 +9744,51 @@
             "minLength": 8,
             "pattern": "(?=[\\s\\S]*(?:[A-Z]))(?=[\\s\\S]*(?:[0-9]))(?=[\\s\\S]*(?:[^a-zA-Z0-9]))",
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CloseMarketSessionRequest": {
+        "type": "object",
+        "properties": {
+          "reason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfigureMarketSessionResourcesRequest": {
+        "required": [
+          "agentUserIds",
+          "vehicleIds"
+        ],
+        "type": "object",
+        "properties": {
+          "plannedCapacityKg": {
+            "maximum": 1000000,
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "type": "number",
+            "format": "double"
+          },
+          "vehicleIds": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "agentUserIds": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "minLength": 1,
+              "type": "string",
+              "format": "uuid"
+            }
           }
         },
         "additionalProperties": false
@@ -9890,6 +10235,10 @@
           "phone": {
             "type": "string",
             "nullable": true
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -10047,6 +10396,24 @@
             "exclusiveMinimum": true,
             "type": "number",
             "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ItemAssignmentDto": {
+        "required": [
+          "marketProductId"
+        ],
+        "type": "object",
+        "properties": {
+          "marketProductId": {
+            "minLength": 1,
+            "type": "string",
+            "format": "uuid"
+          },
+          "agentUserId": {
+            "type": "string",
+            "format": "uuid"
           }
         },
         "additionalProperties": false
@@ -10891,6 +11258,16 @@
         },
         "additionalProperties": false
       },
+      "UpdateMarketSessionRequest": {
+        "type": "object",
+        "properties": {
+          "closesAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
       "UpdateMyProfileRequest": {
         "type": "object",
         "properties": {
@@ -10991,18 +11368,6 @@
             "maximum": 25,
             "minimum": 0,
             "exclusiveMinimum": true,
-            "type": "number",
-            "format": "double"
-          }
-        },
-        "additionalProperties": false
-      },
-      "UpdatePricingSettingsRequest": {
-        "type": "object",
-        "properties": {
-          "priceAlertThresholdPercent": {
-            "maximum": 100,
-            "minimum": 0.01,
             "type": "number",
             "format": "double"
           }
@@ -11312,6 +11677,9 @@
       "name": "Markets"
     },
     {
+      "name": "MarketSessions"
+    },
+    {
       "name": "Notification"
     },
     {
@@ -11328,6 +11696,9 @@
     },
     {
       "name": "Procurement"
+    },
+    {
+      "name": "ProcurementBatchOverview"
     },
     {
       "name": "Products"
