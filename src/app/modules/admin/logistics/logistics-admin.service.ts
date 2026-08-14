@@ -33,7 +33,9 @@ import {
     LoadingManifestStop,
     OptimizationCriterion,
     PlanRoutesInput,
+    RouteDeliveryStatus,
     RouteEligibility,
+    RoutePlanResult,
     RouteSuggestions,
 } from './logistics-admin.types';
 import { parseRouteSuggestions } from './route-suggestions';
@@ -653,15 +655,92 @@ export class LogisticsAdminService {
      * session, and plans are stored against it. {@link marketSessionIdFor}
      * turns the pair the form still asks for into that id.
      */
-    async planRoutes(input: PlanRoutesInput): Promise<CrudRow[]> {
-        const res = await routesApi.apiV1LogisticsRoutesPlanPostRaw({
-            planRoutesRequest: {
+    async planRoutes(input: PlanRoutesInput): Promise<RoutePlanResult> {
+        // `routesApi.apiV1LogisticsRoutesPlanPostRaw` now carries the
+        // session-keyed request shape and could serve this call; it is left on
+        // the raw client only so the market-session methods beside it stay of a
+        // piece, and moves with them when they move.
+        const response = await rawApi.send(
+            '/api/v1/logistics/routes/plan',
+            'POST',
+            {
                 marketSessionId: input.marketSessionId,
                 optimizationCriteria: input.optimizationCriteria.toUpperCase(),
-            },
-        });
-        const body = await parseJson(res.raw);
-        return withId<CrudRow>(extractList(body), 'routeId');
+            }
+        );
+        const data =
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ??
+            {};
+        return this._routePlanOf(data);
+    }
+
+    async getRoutePlan(planId: string): Promise<RoutePlanResult> {
+        const response = await rawApi.send(
+            `/api/v1/logistics/routes/plans/${encodeURIComponent(planId)}`,
+            'GET'
+        );
+        return this._routePlanOf(
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ?? {}
+        );
+    }
+
+    async approveRoutePlan(planId: string): Promise<RoutePlanResult> {
+        const response = await rawApi.send(
+            `/api/v1/logistics/routes/plans/${encodeURIComponent(planId)}/approve`,
+            'POST'
+        );
+        return this._routePlanOf(
+            unwrapData<Record<string, unknown>>(await parseJson(response)) ?? {}
+        );
+    }
+
+    async getRouteDeliveries(routeId: string): Promise<RouteDeliveryStatus[]> {
+        const response =
+            await routesApi.apiV1LogisticsRoutesRouteIdDeliveriesGetRaw({
+                routeId,
+            });
+        return extractList<Record<string, unknown>>(
+            await parseJson(response.raw)
+        ).map((row) => ({
+            deliveryId: str(row['deliveryId']),
+            orderId: str(row['orderId']),
+            sequenceNumber: optNum(row['sequenceNumber']) ?? 0,
+            status: str(row['status']),
+            estimatedArrival: optStr(row['estimatedArrival']),
+            actualArrival: optStr(row['actualArrival']),
+            proofUrl: optStr(row['proofUrl']),
+        }));
+    }
+
+    private _routePlanOf(data: Record<string, unknown>): RoutePlanResult {
+        const routes = withId<CrudRow>(
+            Array.isArray(data['routes']) ? (data['routes'] as CrudRow[]) : [],
+            'routeId'
+        );
+        return {
+            planId: data['planId'] ? String(data['planId']) : null,
+            status: str(data['status']),
+            hubId: str(data['hubId']),
+            serviceDate: str(data['serviceDate']),
+            optimizationCriteria: str(data['optimizationCriteria']),
+            routingProvider: str(data['routingProvider']),
+            isEstimated: data['isEstimated'] === true,
+            inputRevision: str(data['inputRevision']),
+            vehiclesUsed: optNum(data['vehiclesUsed']) ?? routes.length,
+            totalLoadKg: optNum(data['totalLoadKg']) ?? 0,
+            totalDistanceKm: optNum(data['totalDistanceKm']) ?? 0,
+            estimatedDurationMinutes:
+                optNum(data['estimatedDurationMinutes']) ?? 0,
+            estimatedCost: optNum(data['estimatedCost']) ?? 0,
+            routes,
+            unassigned: Array.isArray(data['unassigned'])
+                ? data['unassigned']
+                : [],
+            warnings: Array.isArray(data['warnings'])
+                ? data['warnings'].map(str)
+                : [],
+            createdAt: optStr(data['createdAt']),
+        };
     }
 
     /**

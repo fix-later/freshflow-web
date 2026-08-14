@@ -160,6 +160,28 @@ describe('Restaurant approval actions', () => {
             true,
         ]);
     });
+
+    it('toggles account access independently from restaurant approval', async () => {
+        let activation: { userId: string; isActive: boolean } | null = null;
+        configure({
+            setUserActive: (userId: string, isActive: boolean) => {
+                activation = { userId, isActive };
+                return Promise.resolve();
+            },
+        });
+        const component = TestBed.createComponent(
+            RestaurantsAdminComponent
+        ).componentInstance;
+        component.users.set([pending]);
+
+        component.toggleAccountActive(pending);
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(activation).toEqual({ userId: 'user-1', isActive: false });
+        expect(component.users()[0].isActive).toBeFalse();
+        expect(component.users()[0].restaurantStatus).toBe('pending');
+    });
 });
 
 /**
@@ -233,5 +255,51 @@ describe('Restaurant credit limit', () => {
 
         component.credit.set(null);
         expect(component.outstandingBalance()).toBeNull();
+    });
+
+    it('does not allow a credit limit below the outstanding balance', () => {
+        configure({});
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+        component.user.set(row({ restaurantStatus: 'active' }));
+        component.credit.set({
+            creditLimit: 1_000_000,
+            outstandingBalance: 400_000,
+            availableCredit: 600_000,
+        });
+
+        component.startEditingCreditLimit();
+        component.creditLimitForm.controls.creditLimit.setValue(399_999);
+
+        expect(
+            component.creditLimitForm.controls.creditLimit.hasError('min')
+        ).toBeTrue();
+    });
+});
+
+describe('Restaurant settlement contract', () => {
+    it('only accepts backend payment methods and enforces request lengths', () => {
+        configure({});
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+
+        expect(component.settlementPaymentMethods).toEqual([
+            'bank_transfer',
+            'manual',
+        ]);
+
+        component.settleForm.controls.paymentMethod.setValue(
+            '' as 'bank_transfer'
+        );
+        component.settleForm.controls.note.setValue('x'.repeat(501));
+
+        expect(
+            component.settleForm.controls.paymentMethod.hasError('required')
+        ).toBeTrue();
+        expect(
+            component.settleForm.controls.note.hasError('maxlength')
+        ).toBeTrue();
     });
 });

@@ -54,11 +54,15 @@ import { MarketStaffPanelComponent } from './market-staff-panel.component';
 import {
     MARKET_HUBS_TAB,
     MARKET_PRODUCTS_TAB,
+    MARKET_STAFF_TAB,
     MARKET_TABS,
+    MARKET_VEHICLES_TAB,
 } from './market-tabs';
 
 const PRICING_TAB = MARKET_PRODUCTS_TAB;
+const STAFF_TAB = MARKET_STAFF_TAB;
 const HUBS_TAB = MARKET_HUBS_TAB;
+const VEHICLES_TAB = MARKET_VEHICLES_TAB;
 
 /**
  * Read-only MarketDto fields for the detail column. The id is deliberately not
@@ -425,6 +429,12 @@ export class MarketEditComponent implements OnInit {
         if (tab === 'pricing') {
             this.selectedTab.set(PRICING_TAB);
             this.pricingTabLoaded.set(true);
+        } else if (tab === 'staff') {
+            this.selectedTab.set(STAFF_TAB);
+        } else if (tab === 'hubs') {
+            this.selectedTab.set(HUBS_TAB);
+        } else if (tab === 'vehicles') {
+            this.selectedTab.set(VEHICLES_TAB);
         }
     }
 

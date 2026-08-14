@@ -72,6 +72,7 @@ import {
 type RestaurantAction =
     | 'approve'
     | 'reactivate'
+    | 'accountStatus'
     | 'creditLimit'
     | 'settle'
     | 'unlock'
@@ -94,6 +95,8 @@ const INVOICES_TAB = 2;
 
 /** Both ledgers are served by the one credit-history read. */
 const LEDGER_TABS: readonly number[] = [HISTORY_TAB, INVOICES_TAB];
+
+type SettlementPaymentMethod = 'bank_transfer' | 'manual';
 
 interface ProfileField {
     /** Heroicons id, rendered with the `heroicons_outline:` prefix. */
@@ -177,12 +180,14 @@ export class RestaurantDetailComponent implements OnInit {
     readonly user = signal<AdminUserRow | null>(null);
     readonly credit = signal<AdminRestaurantCredit | null>(null);
     readonly loadingCredit = signal(false);
+    readonly creditError = signal<string | null>(null);
     readonly statements = signal<AdminCreditStatement[]>([]);
     readonly transactions = signal<AdminCreditTransaction[]>([]);
     /** This restaurant's invoices (`GET /invoices?restaurantId=`). */
     readonly invoices = signal<AdminInvoiceRow[]>([]);
     readonly exportingInvoiceId = signal<string | null>(null);
     readonly loadingCreditHistory = signal(false);
+    readonly creditHistoryError = signal<string | null>(null);
     readonly generatingStatement = signal(false);
     readonly downloadingStatementId = signal<string | null>(null);
 
@@ -335,7 +340,11 @@ export class RestaurantDetailComponent implements OnInit {
 
     readonly settleForm = this._formBuilder.nonNullable.group({
         amount: [0, [Validators.required, Validators.min(0.01)]],
-        paymentMethod: [''],
+        paymentMethod:
+            this._formBuilder.nonNullable.control<SettlementPaymentMethod>(
+                'bank_transfer',
+                Validators.required
+            ),
         // `SettleCreditRequest.reference` is required, 1–200 chars: a payment
         // without one is rejected 400, so the form asks for it up front.
         reference: [
@@ -346,8 +355,13 @@ export class RestaurantDetailComponent implements OnInit {
                 trimmedMaxLengthValidator(REFERENCE_MAX_LENGTH),
             ],
         ],
-        note: [''],
+        note: ['', [trimmedMaxLengthValidator(NOTE_MAX_LENGTH)]],
     });
+
+    readonly settlementPaymentMethods: readonly SettlementPaymentMethod[] = [
+        'bank_transfer',
+        'manual',
+    ];
 
     /**
      * The most recent billing period that has actually closed, in
@@ -610,6 +624,9 @@ export class RestaurantDetailComponent implements OnInit {
                         ? 'admin.users.activate.success'
                         : 'admin.users.deactivate.success'
                 );
+                // The optimistic flip above keeps the header honest; this
+                // re-reads what the server actually recorded.
+                void this._refreshUser(user.id);
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.busyAction.set(null));
@@ -735,6 +752,10 @@ export class RestaurantDetailComponent implements OnInit {
     startEditingCreditLimit(): void {
         clearServerErrors(this.creditLimitForm);
         this.actionError.set(null);
+        this.creditLimitForm.controls.creditLimit.setValidators([
+            Validators.required,
+            Validators.min(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
         this.creditLimitForm.reset({
             creditLimit: this.creditLimit(),
             note: '',
@@ -810,10 +831,18 @@ export class RestaurantDetailComponent implements OnInit {
         }
         this.settleForm.reset({
             amount: 0,
-            paymentMethod: '',
+            paymentMethod: 'bank_transfer',
             reference: '',
             note: '',
         });
+        this.settleForm.controls.amount.setValidators([
+            Validators.required,
+            Validators.min(0.01),
+            Validators.max(Math.max(0, this.outstandingBalance() ?? 0)),
+        ]);
+        this.settleForm.controls.amount.updateValueAndValidity();
+        clearServerErrors(this.settleForm);
+        this.actionError.set(null);
         this._dialogRef = this._dialog.open(template, {
             autoFocus: 'first-tabbable',
             maxWidth: '95vw',
@@ -836,9 +865,9 @@ export class RestaurantDetailComponent implements OnInit {
         this._admin
             .settleCredit(restaurantId, {
                 amount,
-                paymentMethod: paymentMethod || null,
+                paymentMethod,
                 reference: reference.trim(),
-                note: note || null,
+                note: note.trim() || null,
             })
             .then(() => {
                 this._notify('admin.restaurants.settle.success');
@@ -1315,6 +1344,7 @@ export class RestaurantDetailComponent implements OnInit {
 
     private _loadCreditSnapshot(restaurantId: string): void {
         this.credit.set(null);
+        this.creditError.set(null);
         this.editingCreditLimit.set(false);
         this.creditLimitForm.reset({ creditLimit: 0, note: '' });
         this.statements.set([]);
@@ -1331,6 +1361,15 @@ export class RestaurantDetailComponent implements OnInit {
                             : 0,
                     note: '',
                 });
+            })
+            .catch(async (err) => {
+                this.creditError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.restaurants.credit.loadError'
+                    )
+                );
             })
             .finally(() => this.loadingCredit.set(false));
         // Statements, transactions and invoices belong to the two money tabs
@@ -1354,7 +1393,8 @@ export class RestaurantDetailComponent implements OnInit {
 
     private _loadCreditHistory(restaurantId: string): Promise<void> {
         this.loadingCreditHistory.set(true);
-        return Promise.all([
+        this.creditHistoryError.set(null);
+        return Promise.allSettled([
             this._admin.getCreditStatements(restaurantId),
             this._admin.getCreditTransactions(restaurantId),
             // Invoices are a separate endpoint and a separate failure: a 403
@@ -1364,14 +1404,46 @@ export class RestaurantDetailComponent implements OnInit {
                 .then((result) => result.invoices)
                 .catch(() => []),
         ])
-            .then(([statements, transactions, invoices]) => {
+            .then(async ([statements, transactions, invoices]) => {
                 // Newest period, movement and invoice first — a ledger is read
                 // from the top, and none of these endpoints promises an order.
-                this.statements.set(newestActiveFirst(statements));
-                this.transactions.set(newestActiveFirst(transactions));
-                this.invoices.set(newestActiveFirst(invoices));
+                if (statements.status === 'fulfilled') {
+                    this.statements.set(newestActiveFirst(statements.value));
+                }
+                if (transactions.status === 'fulfilled') {
+                    this.transactions.set(
+                        newestActiveFirst(transactions.value)
+                    );
+                }
+                if (invoices.status === 'fulfilled') {
+                    this.invoices.set(newestActiveFirst(invoices.value));
+                }
+                // A half-loaded ledger says so, rather than reading as a
+                // restaurant that never traded.
+                const failure =
+                    statements.status === 'rejected'
+                        ? statements.reason
+                        : transactions.status === 'rejected'
+                          ? transactions.reason
+                          : null;
+                if (failure) {
+                    this.creditHistoryError.set(
+                        await describeApiError(
+                            failure,
+                            (key) => this._transloco.translate(key),
+                            'admin.restaurants.credit.historyLoadError'
+                        )
+                    );
+                }
             })
             .finally(() => this.loadingCreditHistory.set(false));
+    }
+
+    reloadCredit(): void {
+        const restaurantId = this.user()?.restaurantId;
+        if (restaurantId) {
+            this._loadCreditSnapshot(restaurantId);
+        }
     }
 
     private _notify(key: string): void {

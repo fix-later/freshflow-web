@@ -264,23 +264,6 @@
         </div>
         <div class="flex flex-wrap items-center gap-3">
             <button
-                mat-stroked-button
-                type="button"
-                [disabled]="!canPlan()"
-                [matTooltip]="
-                    blockedReason()
-                        ? t(blockedReason()!)
-                        : t('admin.routes.create.planHint')
-                "
-                (click)="plan()"
-            >
-                <mat-icon
-                    class="icon-size-5"
-                    svgIcon="heroicons_outline:sparkles"
-                ></mat-icon>
-                <span class="ml-2">{{ t('admin.routes.create.plan') }}</span>
-            </button>
-            <button
                 mat-flat-button
                 color="primary"
                 type="button"

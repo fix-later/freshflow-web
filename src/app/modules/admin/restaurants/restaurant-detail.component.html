@@ -881,6 +881,25 @@
                                     <mat-progress-bar
                                         mode="indeterminate"
                                     ></mat-progress-bar>
+                                } @else if (creditHistoryError(); as message) {
+                                    <!-- An unread ledger and an empty one look
+                                         alike, so a failure says so and offers
+                                         the retry rather than showing nothing. -->
+                                    <div
+                                        class="ff-rd__alert flex flex-wrap items-center gap-3 rounded-2xl p-3.5 text-sm"
+                                    >
+                                        <span class="min-w-0 flex-1">{{
+                                            message
+                                        }}</span>
+                                        <button
+                                            mat-stroked-button
+                                            type="button"
+                                            data-testid="restaurant-credit-history-retry"
+                                            (click)="reloadCredit()"
+                                        >
+                                            {{ t('admin.restaurants.retry') }}
+                                        </button>
+                                    </div>
                                 } @else {
                                     <!-- What the month adds up to on the left,
                                          what to do with it on the right. -->

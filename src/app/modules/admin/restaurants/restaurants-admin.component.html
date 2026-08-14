@@ -197,6 +197,9 @@
                             {{ t('admin.users.actions.unlock') }}
                         </div>
                         <div class="text-right">
+                            {{ t('admin.users.table.status') }}
+                        </div>
+                        <div class="text-right">
                             {{ t('admin.crud.details') }}
                         </div>
                     </div>
@@ -281,7 +284,10 @@
                                     class="h-7 min-h-7 min-w-10 px-2 leading-6"
                                     mat-stroked-button
                                     type="button"
-                                    [disabled]="unlocking()"
+                                    [disabled]="
+                                        !user.lockedUntil ||
+                                        unlockingId() !== null
+                                    "
                                     [matTooltip]="
                                         t('admin.users.actions.unlock')
                                     "
@@ -290,6 +296,31 @@
                                     <mat-icon
                                         class="icon-size-5"
                                         svgIcon="heroicons_outline:key"
+                                    ></mat-icon>
+                                </button>
+                            </div>
+                            <div class="flex justify-end">
+                                <button
+                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
+                                    mat-stroked-button
+                                    type="button"
+                                    [disabled]="accountStatusId() !== null"
+                                    [matTooltip]="
+                                        t(
+                                            user.isActive === false
+                                                ? 'admin.users.actions.activate'
+                                                : 'admin.users.actions.deactivate'
+                                        )
+                                    "
+                                    (click)="toggleAccountActive(user)"
+                                >
+                                    <mat-icon
+                                        class="icon-size-5"
+                                        [svgIcon]="
+                                            user.isActive === false
+                                                ? 'heroicons_outline:play'
+                                                : 'heroicons_outline:pause'
+                                        "
                                     ></mat-icon>
                                 </button>
                             </div>

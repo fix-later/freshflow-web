@@ -92,6 +92,41 @@ export interface PlanRoutesInput {
     optimizationCriteria: OptimizationCriterion;
 }
 
+export interface RoutePlanResult {
+    planId: string | null;
+    status: string;
+    hubId: string;
+    serviceDate: string;
+    optimizationCriteria: string;
+    routingProvider: string;
+    isEstimated: boolean;
+    inputRevision: string;
+    vehiclesUsed: number;
+    totalLoadKg: number;
+    totalDistanceKm: number;
+    estimatedDurationMinutes: number;
+    estimatedCost: number;
+    routes: CrudRoutePlanRow[];
+    unassigned: unknown[];
+    warnings: string[];
+    createdAt?: string | null;
+}
+
+export interface RouteDeliveryStatus {
+    deliveryId: string;
+    orderId: string;
+    sequenceNumber: number;
+    status: string;
+    estimatedArrival?: string | null;
+    actualArrival?: string | null;
+    proofUrl?: string | null;
+}
+
+export interface CrudRoutePlanRow extends Record<string, unknown> {
+    id: string;
+    routeId?: string;
+}
+
 /**
  * `GET /logistics/routes/{id}/eligibility` — whether a vehicle (+ driver) may
  * take a route. `reasons` are machine codes (`VEHICLE_DOUBLE_BOOKED`, …);

@@ -104,7 +104,16 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     // session past what the chợ planned to move that day.
     MARKET_SESSION_CAPACITY_EXCEEDED:
         'errors.api.marketSessionCapacityExceeded',
-    MARKET_SESSION_CONFLICT: 'errors.api.concurrencyConflict',
+    // Session-specific wording, not the generic concurrency line: what changed
+    // underneath is the session, and that is what the admin must refresh.
+    MARKET_SESSION_CONFLICT: 'errors.api.marketSessionConflict',
+    // The administration side of the same lifecycle — reached from the market
+    // session screens rather than checkout.
+    MARKET_SESSION_NOT_FOUND: 'errors.api.marketSessionNotFound',
+    MARKET_SESSION_NOT_READY: 'errors.api.marketSessionNotReady',
+    INVALID_MARKET_SESSION: 'errors.api.invalidMarketSession',
+    INVALID_MARKET_SESSION_CLOSE_TIME:
+        'errors.api.invalidMarketSessionCloseTime',
 
     // Orders
     RESTAURANT_NOT_APPROVED: 'errors.api.restaurantNotApproved',

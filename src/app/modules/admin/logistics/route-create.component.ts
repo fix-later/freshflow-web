@@ -56,9 +56,9 @@ const MAX_ROUTE_STOPS = MAX_STOPS + 1;
  * at the hub can't be silently left off the truck. "Show all" falls back to
  * the full restaurant list for a day the suggestions come back empty.
  *
- * "Plan the day" hands the same hub + date to `POST /logistics/routes/plan`
- * and lets the backend split the stops across as many routes as it needs,
- * instead of Admin building each one by hand.
+ * Whole-session planning now starts from the market-session screen because
+ * the backend requires `marketSessionId`; this page remains the manual route
+ * calculator for an explicitly selected hub and restaurants.
  */
 @Component({
     selector: 'admin-route-create',
@@ -115,22 +115,18 @@ export class RouteCreateComponent implements OnInit {
      *
      * The gates below are `computed()`, and a `FormControl`'s `.value` is not a
      * signal — reading it inside a computed creates no dependency, so the
-     * computed never recomputes when the hub changes. `canPlan` depended on
-     * nothing else, so it evaluated once at first render (hub still empty),
-     * cached `false`, and the "Plan the day" button stayed disabled forever
-     * even after `hubOptions()` resolved and selected a hub.
+     * computed never recomputes when the hub changes.
      */
     readonly selectedHubId = signal('');
 
     readonly loading = signal(false);
     readonly calculating = signal(false);
-    readonly planning = signal(false);
     readonly showingAll = signal(false);
 
     /** The hub is the origin, so the stops are the delivery destinations. */
     readonly stopCount = computed(() => this.selectedRestaurants().size);
     readonly tooManyStops = computed(() => this.stopCount() > MAX_STOPS);
-    readonly busy = computed(() => this.calculating() || this.planning());
+    readonly busy = computed(() => this.calculating());
 
     readonly canCalculate = computed(
         () =>
@@ -138,12 +134,6 @@ export class RouteCreateComponent implements OnInit {
             this.selectedHubHasCoordinates() &&
             this.selectedRestaurants().size > 0 &&
             !this.tooManyStops() &&
-            !this.busy()
-    );
-    readonly canPlan = computed(
-        () =>
-            !!this.selectedHubId() &&
-            this.selectedHubHasCoordinates() &&
             !this.busy()
     );
 
@@ -294,49 +284,6 @@ export class RouteCreateComponent implements OnInit {
                     void this._notifyError(err, 'admin.routes.create.error')
             )
             .finally(() => this.calculating.set(false));
-    }
-
-    /**
-     * Lets the backend build every route the hub needs for the day.
-     *
-     * The endpoint plans a **market session**, so the hub and date chosen here
-     * are resolved to one first. A day with no session open cannot be planned —
-     * said plainly, rather than as the 404 the API would answer with.
-     */
-    plan(): void {
-        const isoDate = this._isoDate();
-        if (!isoDate || !this.canPlan()) {
-            return;
-        }
-        this.planning.set(true);
-        void this._logistics
-            .marketSessionIdFor(this.hubId.value, isoDate)
-            .then((marketSessionId) => {
-                if (!marketSessionId) {
-                    this._notify('admin.routes.create.noSession');
-                    return [];
-                }
-                return this._logistics.planRoutes({
-                    marketSessionId,
-                    optimizationCriteria: this.criteria.value,
-                });
-            })
-            .then((routes) => {
-                if (!routes.length) {
-                    return;
-                }
-                this._notify('admin.routes.create.planSuccess', {
-                    count: routes.length,
-                });
-                void this._router.navigate(['/admin/routes'], {
-                    queryParams: { serviceDate: isoDate },
-                });
-            })
-            .catch(
-                (err) =>
-                    void this._notifyError(err, 'admin.routes.create.error')
-            )
-            .finally(() => this.planning.set(false));
     }
 
     private _loadSuggestions(): void {
