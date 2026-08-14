@@ -129,6 +129,39 @@ export function claimAmountValidator(
 }
 
 /**
+ * A market product is only ever ordered in whole multiples of one case's
+ * weight — `OrderItem.packingWeightKg`, once the backend sends it (not yet as
+ * of 14/08/2026: `OrderItemDto` only carries the string `packingCode`, no
+ * numeric weight — see `docs/05-app-be-audit.md` §9). `packSize` is read
+ * lazily so the validator follows whichever line is being edited; `null`/
+ * `undefined`/`<= 0` means "not known yet", and the rule is skipped rather
+ * than invented — the backend does not enforce this either yet, so rejecting
+ * a value here that the server would still accept would be worse than not
+ * checking at all.
+ */
+export function packingMultipleValidator(
+    packSize: () => number | null | undefined
+): (control: AbstractControl) => ValidationErrors | null {
+    return (control) => {
+        const size = packSize();
+        const raw = control.value;
+        if (
+            !size ||
+            size <= 0 ||
+            raw === null ||
+            raw === undefined ||
+            raw === ''
+        ) {
+            return null;
+        }
+        const value = typeof raw === 'number' ? raw : Number(raw);
+        return Number.isFinite(value) && value % size !== 0
+            ? { packingMultiple: { size } }
+            : null;
+    };
+}
+
+/**
  * "Claim amount cannot exceed the amount charged for the order" — the
  * handler's second rule (`INVALID_CLAIM_AMOUNT`). `limit` is read lazily so the
  * validator follows the order once it has loaded; a `null` total means the

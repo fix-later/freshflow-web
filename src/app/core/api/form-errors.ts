@@ -31,6 +31,7 @@ const FIELD_ERROR_KEYS: Record<string, string> = {
     amountPositive: 'errors.field.amountPositive',
     quantityNonNegative: 'errors.field.quantityNonNegative',
     quantityTooLarge: 'errors.field.quantityTooLarge',
+    packingMultiple: 'errors.field.packingMultiple',
     dateInvalid: 'errors.field.dateInvalid',
     datePast: 'errors.field.datePast',
     min: 'errors.field.min',

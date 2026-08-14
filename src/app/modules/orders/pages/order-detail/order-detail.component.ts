@@ -57,6 +57,7 @@ import {
     ORDER_ISSUE_DESCRIPTION_MAX_LENGTH,
     ORDER_TEXT_MAX_LENGTH,
     orderQuantityValidator,
+    packingMultipleValidator,
 } from '../../orders.validation';
 
 @Component({
@@ -120,9 +121,28 @@ export class OrderDetailComponent implements OnInit {
     readonly editingItemId = signal<string | null>(null);
     readonly quantityForm = this._fb.group({
         quantity: this._fb.control<number | null>(null, {
-            validators: [Validators.required, orderQuantityValidator],
+            validators: [
+                Validators.required,
+                orderQuantityValidator,
+                packingMultipleValidator(() => this.editingItemPackSize()),
+            ],
         }),
     });
+
+    /**
+     * Kg per case for the line currently being edited — `null` until the
+     * backend sends `OrderItem.packingWeightKg` (not yet as of 14/08/2026), in
+     * which case {@link packingMultipleValidator} skips its check entirely.
+     */
+    editingItemPackSize(): number | null {
+        const id = this.editingItemId();
+        if (!id) {
+            return null;
+        }
+        const item = this.order()?.items?.find((i) => i.orderItemId === id);
+        const size = item?.['packingWeightKg'];
+        return typeof size === 'number' && size > 0 ? size : null;
+    }
 
     readonly issueTypes = ORDER_ISSUE_TYPES;
     readonly issueOpen = signal(false);

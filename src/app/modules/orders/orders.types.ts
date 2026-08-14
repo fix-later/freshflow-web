@@ -7,6 +7,14 @@ export interface OrderItem {
     unitPrice?: number | null;
     subtotal?: number | null;
     actualQuantity?: number | null;
+    packingCode?: string | null;
+    /**
+     * Kg per case ("kiện") — `quantity` must be a whole multiple of this, since a
+     * market product is only ever picked/shipped by the case. Not yet sent by the
+     * backend (`OrderItemDto` has no numeric weight field as of 14/08/2026 — only
+     * the string `packingCode`) — always `undefined` until BE adds it.
+     */
+    packingWeightKg?: number | null;
     [key: string]: unknown;
 }
 
