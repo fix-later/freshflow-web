@@ -66,6 +66,13 @@ interface CandidateRow {
     position: string;
     /** Already on this chợ — listed, but not pickable again. */
     alreadyHere: boolean;
+    /**
+     * Deactivated accounts are listed but not pickable:
+     * `ReplaceHubStaffAssignmentsCommandHandler` rejects the *whole* roster with
+     * `INVALID_ASSIGNMENT_TARGET` if one entry is inactive, so one stale pick
+     * would fail every other pick with it.
+     */
+    inactive: boolean;
 }
 
 /**
@@ -151,6 +158,49 @@ export class MarketStaffPanelComponent implements OnInit {
     /** Hubs of this market — where a hub-scoped role gets tracked. */
     readonly hubs = signal<{ id: string; name: string }[]>([]);
 
+    /** Header filters over the roster itself (the dialog has its own search). */
+    readonly listSearch = signal('');
+    readonly roleFilter = signal('');
+    readonly positionFilter = signal('');
+
+    /** Only the roles and places this chợ actually has people in. */
+    readonly roleOptions = computed(() => [
+        ...new Set(this.rows().map((row) => row.role)),
+    ]);
+    readonly positionOptions = computed(() =>
+        [
+            ...new Set(
+                this.rows()
+                    .map((row) => row.position)
+                    .filter((name) => !!name)
+            ),
+        ].sort((a, b) => a.localeCompare(b))
+    );
+
+    readonly hasActiveFilters = computed(
+        () => !!this.roleFilter() || !!this.positionFilter()
+    );
+
+    readonly visibleRows = computed(() => {
+        const term = this.listSearch().trim();
+        const role = this.roleFilter();
+        const position = this.positionFilter();
+        return this.rows().filter((row) => {
+            if (role && row.role !== role) {
+                return false;
+            }
+            if (position && row.position !== position) {
+                return false;
+            }
+            return (
+                !term ||
+                includesFolded(row.email, term) ||
+                includesFolded(row.phone, term) ||
+                includesFolded(row.position, term)
+            );
+        });
+    });
+
     readonly candidates = signal<CandidateRow[]>([]);
     readonly loadingCandidates = signal(false);
     readonly picked = signal<Set<string>>(new Set());
@@ -206,6 +256,11 @@ export class MarketStaffPanelComponent implements OnInit {
     /** First letter of the email — the stand-in when there is no photo. */
     initial(row: { email: string }): string {
         return (row.email.trim()[0] ?? '?').toUpperCase();
+    }
+
+    clearFilters(): void {
+        this.roleFilter.set('');
+        this.positionFilter.set('');
     }
 
     openAdd(template: TemplateRef<unknown>): void {
@@ -308,18 +363,41 @@ export class MarketStaffPanelComponent implements OnInit {
         hubId: string,
         userIds: string[]
     ): Promise<void> {
-        const staff = await this._logistics.getHubStaffAssignments(hubId);
+        const keep = await this._writableRoster(hubId);
         await this._logistics.replaceHubStaffAssignments(hubId, [
-            ...new Set([...staff, ...userIds]),
+            ...new Set([...keep, ...userIds]),
         ]);
     }
 
     private async _dropHubStaff(hubId: string, userId: string): Promise<void> {
-        const staff = await this._logistics.getHubStaffAssignments(hubId);
+        const keep = await this._writableRoster(hubId);
         await this._logistics.replaceHubStaffAssignments(
             hubId,
-            staff.filter((id) => id !== userId)
+            keep.filter((id) => id !== userId)
         );
+    }
+
+    /**
+     * The hub's current roster, minus anyone the replace endpoint would now
+     * refuse. Adding and removing both send the *whole* roster back, and
+     * `ReplaceHubStaffAssignmentsCommandHandler` validates every id in it — so
+     * one member who has since been deactivated (or moved off `hub_staff`)
+     * would fail every later edit of that hub with `INVALID_ASSIGNMENT_TARGET`,
+     * including the removals meant to clean it up. They are dropped instead:
+     * the roster cannot hold them either way, and the alternative is a hub
+     * nobody can edit at all.
+     */
+    private async _writableRoster(hubId: string): Promise<string[]> {
+        const [roster, people] = await Promise.all([
+            this._logistics.getHubStaffAssignments(hubId),
+            this._usersOf(HUB_STAFF),
+        ]);
+        const assignable = new Set(
+            people
+                .filter((person) => person.isActive !== false)
+                .map((person) => person.id)
+        );
+        return roster.filter((id) => assignable.has(id));
     }
 
     private async _load(): Promise<void> {
@@ -453,6 +531,7 @@ export class MarketStaffPanelComponent implements OnInit {
                     avatarUrl: String(person['avatarUrl'] ?? '').trim(),
                     position: positions.get(person.id) ?? '',
                     alreadyHere: taken.has(person.id),
+                    inactive: person.isActive === false,
                 }))
             );
         } finally {

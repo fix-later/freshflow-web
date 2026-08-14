@@ -2,25 +2,108 @@
     <div
         class="flex flex-0 flex-wrap items-center justify-between gap-3 border-b px-6 py-4 md:px-8"
     >
-        <div class="text-lg font-semibold tracking-tight">
-            {{ t('admin.markets.staff.title') }}
+        <!-- Filters on the left, search and add on the right — the tab already
+             names this list, so no heading competes for the room. -->
+        <div class="flex min-w-0 flex-wrap items-end gap-3">
+            <mat-form-field
+                class="fuse-mat-dense w-44"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.users.table.role') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="roleFilter()"
+                    (selectionChange)="roleFilter.set($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (role of roleOptions(); track role) {
+                        <mat-option [value]="role">{{
+                            role | roleLabel
+                        }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            <mat-form-field
+                class="fuse-mat-dense w-44"
+                subscriptSizing="dynamic"
+            >
+                <mat-label>{{ t('admin.markets.staff.position') }}</mat-label>
+                <mat-icon
+                    matPrefix
+                    svgIcon="heroicons_outline:funnel"
+                ></mat-icon>
+                <mat-select
+                    [value]="positionFilter()"
+                    (selectionChange)="positionFilter.set($event.value)"
+                >
+                    <mat-option [value]="''">{{
+                        t('admin.crud.filterAll')
+                    }}</mat-option>
+                    @for (name of positionOptions(); track name) {
+                        <mat-option [value]="name">{{ name }}</mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
+
+            @if (hasActiveFilters()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    (click)="clearFilters()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+                    <span class="ml-2 mr-1">{{
+                        t('admin.crud.clearFilters')
+                    }}</span>
+                </button>
+            }
         </div>
-        <button
-            mat-flat-button
-            color="primary"
-            type="button"
-            [disabled]="!marketId() || saving()"
-            (click)="openAdd(addDialog)"
-        >
-            <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-            <span class="ml-2 mr-1">{{ t('admin.markets.staff.add') }}</span>
-        </button>
+
+        <div class="flex min-w-0 shrink items-center gap-3">
+            <mat-form-field
+                class="admin-header-search fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                subscriptSizing="dynamic"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    matPrefix
+                    svgIcon="heroicons_solid:magnifying-glass"
+                ></mat-icon>
+                <input
+                    matInput
+                    class="overflow-hidden text-ellipsis whitespace-nowrap"
+                    autocomplete="off"
+                    [value]="listSearch()"
+                    [placeholder]="t('admin.markets.staff.searchPlaceholder')"
+                    (input)="listSearch.set($any($event.target).value)"
+                />
+            </mat-form-field>
+            <button
+                mat-flat-button
+                color="primary"
+                class="shrink-0"
+                type="button"
+                [disabled]="!marketId() || saving()"
+                (click)="openAdd(addDialog)"
+            >
+                <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
+                <span class="ml-2 mr-1">{{
+                    t('admin.markets.staff.add')
+                }}</span>
+            </button>
+        </div>
     </div>
 
     <div class="flex min-h-0 flex-auto flex-col overflow-y-auto">
         @if (loading()) {
             <admin-loading-state />
-        } @else if (rows().length === 0) {
+        } @else if (visibleRows().length === 0) {
             <div class="text-secondary p-6 md:p-8">
                 {{ t('admin.crud.empty') }}
             </div>
@@ -37,7 +120,10 @@
                     <div class="text-right">{{ t('admin.crud.actions') }}</div>
                 </div>
 
-                @for (row of rows(); track row.role + row.id + row.hubId) {
+                @for (
+                    row of visibleRows();
+                    track row.role + row.id + row.hubId
+                ) {
                     <div
                         class="market-staff-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
                     >
@@ -221,12 +307,18 @@
                             <mat-checkbox
                                 [checked]="isPicked(person.id)"
                                 [disabled]="
-                                    person.alreadyHere || readOnlyRole()
+                                    person.alreadyHere ||
+                                    person.inactive ||
+                                    readOnlyRole()
                                 "
                                 [matTooltip]="
                                     person.alreadyHere
                                         ? t('admin.markets.staff.alreadyHere')
-                                        : ''
+                                        : person.inactive
+                                          ? t(
+                                                'admin.markets.staff.inactiveNotAssignable'
+                                            )
+                                          : ''
                                 "
                                 (change)="togglePick(person.id, $event.checked)"
                             ></mat-checkbox>
@@ -248,6 +340,12 @@
                             </div>
                             <div class="min-w-0 truncate">
                                 {{ person.email }}
+                                @if (person.inactive) {
+                                    <span
+                                        class="admin-pill admin-pill-neutral ml-1"
+                                        >{{ t('admin.crud.inactive') }}</span
+                                    >
+                                }
                             </div>
                             <div class="text-secondary min-w-0 truncate">
                                 {{ person.position || '—' }}
