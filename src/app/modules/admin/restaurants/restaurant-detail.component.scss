@@ -1,19 +1,129 @@
 .ff-rd__header {
-    border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
     flex-shrink: 0;
+    /* The tab bar under it draws its own divider, so the block is lifted with
+       a shadow instead of a second line. */
+    box-shadow:
+        0 1px 3px rgb(0 0 0 / 0.08),
+        0 1px 2px rgb(0 0 0 / 0.04);
+    z-index: 1;
+}
+
+/* Dimmed, because it is decoration: the identity strip sits on top of it and
+   has to stay readable whatever the photograph does. */
+.ff-rd__cover {
+    filter: saturate(0.85) brightness(0.92);
+}
+
+/* The back button rides on the cover, so it carries its own contrast. */
+.ff-rd__back {
+    background: rgb(255 255 255 / 0.9);
+    color: rgb(31 41 55);
+
+    &:hover {
+        background: rgb(255 255 255);
+    }
+}
+
+/* Anchors the verified badge; the ring lives on the avatar itself so it holds
+   whether that is a photo or the initial. */
+.ff-rd__avatar-slot {
+    position: relative;
+    flex: 0 0 auto;
+    line-height: 0;
+}
+
+/* Same shape and fallback as `.market-staff-avatar` on the staff lists, at the
+   size a page header wants. Fuse's `ring-4 ring-bg-card` makes it read as a
+   cut-out of the cover rather than a sticker on top of it. */
+.ff-rd__avatar {
+    width: 7rem;
+    height: 7rem;
+    border-radius: 9999px;
+    box-shadow: 0 0 0 4px var(--fuse-bg-card, #fff);
+    object-fit: cover;
+    font-size: 2.25rem;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/**
+ * The initial's fill, which has to be **opaque**: `bg-hover` is a 12% slate
+ * wash, and the avatar hangs over the cover photograph — through a translucent
+ * fill the picture reads straight through the circle.
+ */
+.ff-rd__avatar--fallback {
+    background-color: var(--fuse-bg-card, #fff);
+    background-image: linear-gradient(
+        var(--fuse-bg-hover, rgb(148 163 184 / 0.12)),
+        var(--fuse-bg-hover, rgb(148 163 184 / 0.12))
+    );
+}
+
+/**
+ * A deactivated account, struck out over the avatar: the whole disc is veiled
+ * and crossed, so "this one is switched off" is legible at a glance instead of
+ * being one grey pill among several under the name.
+ */
+.ff-rd__avatar-veil {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgb(15 23 42 / 0.55);
+    color: rgb(248 113 113);
+}
+
+.ff-rd__avatar-veil-icon {
+    width: 3.25rem !important;
+    height: 3.25rem !important;
+    min-width: 3.25rem;
+    min-height: 3.25rem;
+    font-size: 3.25rem;
+}
+
+/* Approved, as a mark rather than a word — see `isApproved()`. */
+.ff-rd__verified {
+    color: #1d9bf0;
+}
+
+/* The same mark riding the avatar, the way a profile photo carries one. The
+   white disc behind it keeps the tick legible over any picture. */
+.ff-rd__verified--badge {
+    position: absolute;
+    right: 0.125rem;
+    bottom: 0.125rem;
+    width: 1.75rem !important;
+    height: 1.75rem !important;
+    min-width: 1.75rem;
+    min-height: 1.75rem;
+    font-size: 1.75rem;
+    border-radius: 9999px;
+    background: #fff;
+    /* Sits on the ring, so it is cut out of it the same way the avatar is. */
+    box-shadow: 0 0 0 2px var(--fuse-bg-card, #fff);
+}
+
+.ff-rd__mini-value {
+    font-size: 1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.ff-rd__mini-label {
+    color: rgb(107 114 128);
+    font-size: 0.75rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    white-space: nowrap;
 }
 
 .ff-rd__body {
     /* Flex child must be allowed to shrink so overflow-y-auto works. */
     min-height: 0;
-}
-
-.ff-rd__eyebrow {
-    color: rgb(107 114 128);
-    font-size: 0.6875rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
 }
 
 .ff-rd__empty {
@@ -91,6 +201,79 @@
     font-weight: 600;
 }
 
+/**
+ * The credit card in the profile rail. Three stat tiles side by side needed
+ * ~40rem to hold a nine-digit số tiền; the rail is 20rem, so the amounts wrapped
+ * mid-number. One headline and two rows fit, and read in the order the question
+ * is asked: what is owed, against what limit, leaving what.
+ */
+.ff-rd__credit-total {
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.2;
+}
+
+.ff-rd__credit-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 2rem;
+}
+
+.ff-rd__credit-label {
+    color: rgb(107 114 128);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.ff-rd__credit-value {
+    margin-left: auto;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Keeps the pencil from stretching the row it sits in. */
+.ff-rd__credit-edit {
+    width: 1.75rem;
+    height: 1.75rem;
+    min-height: 1.75rem;
+    padding: 0;
+    line-height: 1.75rem;
+}
+
+.ff-rd__meter {
+    overflow: hidden;
+    height: 0.5rem;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 9999px;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.05));
+}
+
+.ff-rd__meter-fill {
+    height: 100%;
+    border-radius: 9999px;
+    transition: width 200ms ease;
+}
+
+.ff-rd__meter-fill--ok {
+    background: rgb(22 163 74);
+}
+
+.ff-rd__meter-fill--tight {
+    background: rgb(217 119 6);
+}
+
+.ff-rd__meter-fill--full {
+    background: rgb(220 38 38);
+}
+
 .ff-rd__stat {
     display: flex;
     flex-direction: column;
@@ -137,8 +320,67 @@
     gap: 0.75rem 1rem;
 }
 
+/* A ledger row opens its own detail, so it has to look pressable. */
+.ff-rd__row--clickable {
+    cursor: pointer;
+    text-align: left;
+    transition: background-color 150ms ease;
+
+    &:hover,
+    &:focus-visible {
+        background: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
+    }
+}
+
 .ff-rd__alert {
     border: 1px solid rgb(252 165 165);
     background: rgb(254 242 242);
     color: rgb(185 28 28);
+}
+
+/**
+ * The statement, laid out as the document it is (Fuse's printable "modern"
+ * invoice). It wants paper proportions, so the dialog is sized to the sheet
+ * and the sheet scrolls inside it rather than the columns collapsing.
+ */
+.ff-rd__doc-shell {
+    width: 62rem;
+    max-width: 95vw;
+}
+
+.ff-rd__doc-scroll {
+    /* Below the sheet's own width the grid would fold; scroll it instead. */
+    min-width: 0;
+}
+
+.ff-rd__doc {
+    min-width: 44rem;
+    padding: 3rem;
+}
+
+@media (max-width: 40rem) {
+    .ff-rd__doc {
+        padding: 1.5rem;
+    }
+}
+
+/* The warning disc in the disable-account confirmation. */
+.ff-rd__danger-icon {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 3rem;
+    height: 3rem;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--fuse-warn, #dc2626) 12%, transparent);
+}
+
+/**
+ * The issuer panel of the compact invoice. Fuse bleeds it off the sheet's right
+ * edge (`-mr-16`); inside a dialog that would clip, so it is a tinted block
+ * instead — same weight, no overflow.
+ */
+.ff-rd__doc-issuer {
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
 }

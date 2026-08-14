@@ -255,6 +255,11 @@ export interface AdminOrderItem {
     actualQuantity?: number | null;
     /** Packing code snapshotted onto the line (`OrderItemDto.PackingCode`). */
     packingCode?: string | null;
+    /** Per-line VAT, when the product's rate was resolved at confirmation. */
+    vatRateCode?: string | null;
+    vatRatePercent?: number | null;
+    vatAmount?: number | null;
+    imageUrl?: string | null;
     [key: string]: unknown;
 }
 
@@ -272,6 +277,23 @@ export interface AdminOrderDetail {
     createdAt?: string | null;
     cancelledAt?: string | null;
     cancellationReason?: string | null;
+    /** Where it ships, snapshotted at confirmation (`DeliveryAddressSnapshotDto`). */
+    deliveryAddress?: AdminOrderDeliveryAddress | null;
+    /** The priced breakdown `OrderDto` carries; `totalAmount` is their sum. */
+    subtotalAmount?: number | null;
+    vatAmount?: number | null;
+    deliveryFee?: number | null;
+    deliveryDistanceKm?: number | null;
+    confirmedAt?: string | null;
+    confirmedReceiptAt?: string | null;
+    [key: string]: unknown;
+}
+
+/** `OrderDto.DeliveryAddress` — a snapshot, not a live address-book row. */
+export interface AdminOrderDeliveryAddress {
+    recipientName?: string | null;
+    phone?: string | null;
+    addressLine?: string | null;
     [key: string]: unknown;
 }
 
@@ -523,11 +545,24 @@ export interface AdminCreditStatementDetail extends AdminCreditStatement {
 export interface AdminCreditTransaction {
     id: string;
     createdAt?: string;
+    /** `charge` | `settlement` | `refund` | `adjustment`, snake-cased server-side. */
     type?: string;
+    /** `bank_transfer` | `manual`; only settlements carry one. */
+    paymentMethod?: string | null;
     amount?: number;
     balanceAfter?: number;
+    /** What the entry says (`CreditTransactionDto.Note`). */
+    note?: string | null;
+    /**
+     * Never sent by the API — kept only because the screens read it before
+     * `note` was identified, and a stale alias is cheaper than a wrong field.
+     */
     description?: string;
     reference?: string;
+    /** The order a charge came from; absent on settlements and adjustments. */
+    orderId?: string | null;
+    recordedByUserId?: string | null;
+    restaurantId?: string | null;
     [key: string]: unknown;
 }
 

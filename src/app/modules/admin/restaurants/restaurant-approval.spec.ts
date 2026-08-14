@@ -107,7 +107,32 @@ describe('Restaurant approval actions', () => {
         expect(component.canApprove(component.users()[0])).toBeFalse();
     });
 
-    it('shows exactly one lifecycle action per state on the detail page', () => {
+    /**
+     * Approving an account that cannot sign in leaves it approved and still
+     * locked out, which reads as done and is not — and credit is a relationship
+     * with a restaurant that has actually traded.
+     */
+    it('withholds approval from a stopped account, and credit from an unapproved one', () => {
+        configure({
+            getUsers: () => Promise.resolve({ users: [], totalCount: 0 }),
+        });
+        const component = TestBed.createComponent(
+            RestaurantDetailComponent
+        ).componentInstance;
+
+        component.user.set(row({ isActive: false }));
+        expect(component.canApprove()).toBeFalse();
+
+        component.user.set(pending);
+        expect(component.canApprove()).toBeTrue();
+        expect(component.canManageCredit()).toBeFalse();
+
+        // Suspended still owes money, so settling and the limit stay reachable.
+        component.user.set(row({ restaurantStatus: 'suspended' }));
+        expect(component.canManageCredit()).toBeTrue();
+    });
+
+    it('offers approval or reactivation, never both, on the detail page', () => {
         configure({
             getUsers: () => Promise.resolve({ users: [], totalCount: 0 }),
         });
@@ -116,27 +141,24 @@ describe('Restaurant approval actions', () => {
         ).componentInstance;
 
         component.user.set(pending);
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([true, false, false]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            true,
+            false,
+        ]);
 
         component.user.set(
             row({ restaurantStatus: 'active', isApproved: true })
         );
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([false, true, false]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            false,
+            false,
+        ]);
 
         component.user.set(row({ restaurantStatus: 'suspended' }));
-        expect([
-            component.canApprove(),
-            component.canSuspend(),
-            component.canReactivate(),
-        ]).toEqual([false, false, true]);
+        expect([component.canApprove(), component.canReactivate()]).toEqual([
+            false,
+            true,
+        ]);
     });
 });
 
