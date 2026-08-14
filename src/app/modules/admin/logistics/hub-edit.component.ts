@@ -6,7 +6,6 @@ import {
     computed,
     inject,
     input,
-    output,
     signal,
 } from '@angular/core';
 import {
@@ -117,13 +116,12 @@ export class HubEditComponent implements OnInit {
     private readonly _confirmation = inject(FuseConfirmationService);
 
     /**
-     * Rendered inside a chợ's hub tab: no page shell, and "back" hands control
-     * to the host instead of navigating, so the chợ page and its tabs stay put.
+     * Rendered inside a chợ's hub tab: no page shell, and no back button — a
+     * market has one hub, so the tab is the hub and there is nothing behind it.
      */
     readonly embedded = input(false);
     /** The hub to show when embedded; routed mode reads the URL instead. */
     readonly hubId = input('');
-    readonly closed = output<void>();
 
     readonly hub = signal<CrudRow | null>(null);
     readonly loading = signal(false);
@@ -226,10 +224,6 @@ export class HubEditComponent implements OnInit {
      * list if the hub has not loaded yet, or carries no market.
      */
     goBack(): void {
-        if (this.embedded()) {
-            this.closed.emit();
-            return;
-        }
         const marketId = String(this.hub()?.['marketId'] ?? '');
         void this._router.navigate(
             marketId ? ['/admin/markets', marketId] : ['/admin/markets']

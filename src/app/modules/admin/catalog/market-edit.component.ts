@@ -51,9 +51,14 @@ import {
 } from './catalog-admin.service';
 import { MarketProductsComponent } from './market-products.component';
 import { MarketStaffPanelComponent } from './market-staff-panel.component';
-import { MARKET_PRODUCTS_TAB, MARKET_TABS } from './market-tabs';
+import {
+    MARKET_HUBS_TAB,
+    MARKET_PRODUCTS_TAB,
+    MARKET_TABS,
+} from './market-tabs';
 
 const PRICING_TAB = MARKET_PRODUCTS_TAB;
+const HUBS_TAB = MARKET_HUBS_TAB;
 
 /**
  * Read-only MarketDto fields for the detail column. The id is deliberately not
@@ -121,10 +126,15 @@ export class MarketEditComponent implements OnInit {
     readonly pricingTabLoaded = signal(false);
 
     /**
-     * Which hub the tab is showing, or `null` for the list. Opening one keeps
-     * the chợ page and its tabs on screen instead of routing away.
+     * The chợ's hub. A market has exactly one, so the tab shows it outright —
+     * a list of one, with a row to click before anything can be read, was the
+     * shape of a screen that expected many.
+     *
+     * `null` with {@link hubLoaded} true means this chợ has none yet, which is
+     * the only time the tab offers the create form instead.
      */
-    readonly openHubId = signal<string | null>(null);
+    readonly hubId = signal<string | null>(null);
+    readonly hubLoaded = signal(false);
 
     /**
      * Hubs and vehicles are managed right here — neither has a nav entry of its
@@ -142,7 +152,10 @@ export class MarketEditComponent implements OnInit {
                   (key) => this._transloco.translate(key),
                   {
                       marketId,
-                      openDetail: (hubId) => this.openHubId.set(hubId),
+                      openDetail: (hubId) => this.hubId.set(hubId),
+                      // Creating the chợ's hub is the last thing this form is
+                      // for: the tab turns into the hub itself right after.
+                      onCreated: () => void this._loadHub(marketId),
                   }
               )
             : null;
@@ -252,15 +265,35 @@ export class MarketEditComponent implements OnInit {
         void this._router.navigate(['/admin/markets']);
     }
 
-    /** Back from a hub returns to this market's hub list, not another page. */
-    onHubClosed(): void {
-        this.openHubId.set(null);
-    }
-
     onTabChange(index: number): void {
         this.selectedTab.set(index);
         if (index === PRICING_TAB) {
             this.pricingTabLoaded.set(true);
+        }
+        if (index === HUBS_TAB && !this.hubLoaded()) {
+            const marketId = this.market()?.id;
+            if (marketId) {
+                void this._loadHub(marketId);
+            }
+        }
+    }
+
+    /**
+     * Reads the chợ's hub. Tolerates a market that somehow has several — the
+     * backend does not enforce one — by showing the first, which is what the
+     * list used to put at the top.
+     */
+    private async _loadHub(marketId: string): Promise<void> {
+        try {
+            const hubs = await this._logistics.listHubs();
+            const mine = hubs.find(
+                (row) => String(row['marketId'] ?? '') === marketId
+            );
+            this.hubId.set(mine?.id ?? null);
+        } catch {
+            this.hubId.set(null);
+        } finally {
+            this.hubLoaded.set(true);
         }
     }
 

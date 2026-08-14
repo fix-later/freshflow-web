@@ -308,12 +308,12 @@
                         ></admin-market-products>
                     }
                 } @else if (selectedTab() === 3) {
-                    @if (openHubId(); as hubId) {
-                        <admin-hub-edit
-                            [embedded]="true"
-                            [hubId]="hubId"
-                            (closed)="onHubClosed()"
-                        />
+                    <!-- One chợ, one hub: the tab is the hub, and only falls
+                         back to the create form while there is none. -->
+                    @if (!hubLoaded()) {
+                        <admin-loading-state />
+                    } @else if (hubId(); as hubId) {
+                        <admin-hub-edit [embedded]="true" [hubId]="hubId" />
                     } @else if (hubResource(); as hubs) {
                         <admin-resource-crud
                             [resource]="hubs"
