@@ -6,7 +6,7 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { rawApi } from 'contract';
+import { claimsApi } from 'contract';
 import {
     AdminClaimFilters,
     AdminClaimRow,
@@ -16,14 +16,6 @@ import {
 
 /**
  * Order-claim review (`/api/v1/claims`) for the admin console.
- *
- * Every call goes through `rawApi`: the claims routes exist on the backend but
- * are missing from the `openapi.json` snapshot, so no generated client method
- * covers them yet. `rawApi` still applies the shared configuration — bearer
- * auth, the no-store cache policy, 401 refresh-and-retry and the typed error
- * classes — so failures read exactly like a generated call's and
- * `describeApiError` can localize them. Replace with the generated methods once
- * `npm run generate:api` catches up.
  *
  * RBAC: the controller is `admin,operations_manager,restaurant`, and
  * approve/reject narrow to `admin,operations_manager`. Admin is "privileged",
@@ -35,13 +27,13 @@ export class ClaimsService {
     async listClaims(
         filters: AdminClaimFilters = {}
     ): Promise<AdminClaimsPage> {
-        const res = await rawApi.send('/api/v1/claims', 'GET', undefined, {
+        const res = await claimsApi.apiV1ClaimsGetRaw({
             restaurantId: filters.restaurantId || undefined,
             status: filters.status || undefined,
             cursor: filters.cursor || undefined,
             pageSize: CLAIM_PAGE_SIZE,
         });
-        const body = await parseJson(res);
+        const body = await parseJson(res.raw);
         return {
             claims: withId<AdminClaimRow>(
                 extractList(body),
@@ -63,11 +55,8 @@ export class ClaimsService {
      * typed into the lookup box gets when it belongs to nothing).
      */
     async getClaim(claimId: string): Promise<AdminClaimRow | null> {
-        const res = await rawApi.send(
-            `/api/v1/claims/${encodeURIComponent(claimId)}`,
-            'GET'
-        );
-        return this._claimOf(await parseJson(res));
+        const res = await claimsApi.apiV1ClaimsClaimIdGetRaw({ claimId });
+        return this._claimOf(await parseJson(res.raw));
     }
 
     /**
@@ -82,12 +71,13 @@ export class ClaimsService {
         claimId: string,
         decisionNote?: string
     ): Promise<AdminClaimRow | null> {
-        const res = await rawApi.send(
-            `/api/v1/claims/${encodeURIComponent(claimId)}/approve`,
-            'PATCH',
-            { decisionNote: decisionNote?.trim() || null }
-        );
-        return this._claimOf(await parseJson(res));
+        const res = await claimsApi.apiV1ClaimsClaimIdApprovePatchRaw({
+            claimId,
+            approveClaimRequest: {
+                decisionNote: decisionNote?.trim() || null,
+            },
+        });
+        return this._claimOf(await parseJson(res.raw));
     }
 
     /**
@@ -99,12 +89,11 @@ export class ClaimsService {
         claimId: string,
         decisionNote: string
     ): Promise<AdminClaimRow | null> {
-        const res = await rawApi.send(
-            `/api/v1/claims/${encodeURIComponent(claimId)}/reject`,
-            'PATCH',
-            { decisionNote: decisionNote.trim() }
-        );
-        return this._claimOf(await parseJson(res));
+        const res = await claimsApi.apiV1ClaimsClaimIdRejectPatchRaw({
+            claimId,
+            rejectClaimRequest: { decisionNote: decisionNote.trim() },
+        });
+        return this._claimOf(await parseJson(res.raw));
     }
 
     /** Parses a single-claim envelope into a row with a usable `id`. */

@@ -7,7 +7,7 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { DraftOrderItemRequest, ordersApi, rawApi } from 'contract';
+import { DraftOrderItemRequest, ordersApi } from 'contract';
 import { parseConfirmPreview } from './confirm-preview';
 import {
     OrderConfirmPreview,
@@ -108,39 +108,33 @@ export class OrdersService {
         // route resolves the address to `Guid.Empty` and answers
         // `404 DELIVERY_ADDRESS_NOT_FOUND`, and the priced breakdown
         // (`subtotalAmount` / `deliveryFee` / `vatAmount`) never arrives.
-        const res = await rawApi.send(
-            `/api/v1/orders/${encodeURIComponent(orderId)}/confirm-preview`,
-            'GET',
-            undefined,
-            { deliveryAddressId }
-        );
+        const res = await ordersApi.apiV1OrdersOrderIdConfirmPreviewGetRaw({
+            orderId,
+            deliveryAddressId,
+        });
         return parseConfirmPreview(
-            unwrapData<Record<string, unknown>>(await parseJson(res))
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw))
         );
     }
 
     /**
      * Commits a draft order to the delivery address it ships to.
      *
-     * `deliveryAddressId` is **required**, and the snapshot in
-     * `src/contract/openapi.json` predates it: the spec declares no request
-     * body for this route, so the generated client sends none and the backend
-     * answers `415` (no content type) or
-     * `400 VALIDATION_ERROR — 'Delivery Address Id' must not be empty`. Every
-     * checkout therefore created a draft it could never confirm, which is what
-     * filled the restaurant's order list with drafts and left auto-batching
-     * with `no_eligible_orders`. Passed through `initOverrides` until the
-     * contract is regenerated.
+     * `deliveryAddressId` is **required**: without a body the backend answers
+     * `415` (no content type) or `400 VALIDATION_ERROR — 'Delivery Address Id'
+     * must not be empty`, which once left every checkout with a draft it could
+     * never confirm — the restaurant's order list filled with drafts and
+     * auto-batching reported `no_eligible_orders`. The spec now declares
+     * `ConfirmOrderRequest`, so this rides the generated client again.
      */
     async confirmOrder(
         orderId: string,
         deliveryAddressId: string
     ): Promise<void> {
-        await rawApi.send(
-            `/api/v1/orders/${encodeURIComponent(orderId)}/confirm`,
-            'POST',
-            { deliveryAddressId }
-        );
+        await ordersApi.apiV1OrdersOrderIdConfirmPostRaw({
+            orderId,
+            confirmOrderRequest: { deliveryAddressId },
+        });
     }
 
     /** Marks a delivered order as received by the restaurant. Takes no body. */
