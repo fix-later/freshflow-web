@@ -173,13 +173,7 @@
                                     ></mat-icon>
                                 </button>
                             } @else {
-                                <span
-                                    class="text-secondary"
-                                    [matTooltip]="
-                                        t('admin.markets.staff.driverReadOnly')
-                                    "
-                                    >—</span
-                                >
+                                <span class="text-secondary">—</span>
                             }
                         </div>
                     </div>
@@ -268,21 +262,6 @@
                 />
             </mat-form-field>
 
-            @if (readOnlyRole()) {
-                <div
-                    class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-                    role="note"
-                >
-                    <mat-icon
-                        class="shrink-0 text-amber-500 icon-size-5"
-                        svgIcon="heroicons_outline:information-circle"
-                    ></mat-icon>
-                    <span class="min-w-0">{{
-                        t('admin.markets.staff.driverReadOnly')
-                    }}</span>
-                </div>
-            }
-
             <div class="max-h-96 overflow-y-auto rounded-xl border">
                 @if (loadingCandidates()) {
                     <admin-loading-state />
@@ -307,9 +286,7 @@
                             <mat-checkbox
                                 [checked]="isPicked(person.id)"
                                 [disabled]="
-                                    person.alreadyHere ||
-                                    person.inactive ||
-                                    readOnlyRole()
+                                    person.alreadyHere || person.inactive
                                 "
                                 [matTooltip]="
                                     person.alreadyHere

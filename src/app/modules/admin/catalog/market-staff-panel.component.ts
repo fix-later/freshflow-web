@@ -36,13 +36,11 @@ const MARKET_AGENT = 'market_agent';
 const HUB_STAFF = 'hub_staff';
 const DRIVER = 'driver';
 
-/**
- * Roles the dialog lists. Driver is browsable but not attachable — nothing in
- * the backend ties a driver to a hub or a chợ (see the class comment) — so its
- * rows come up read-only and Save stays disabled, rather than the role being
- * hidden as if no drivers existed.
- */
+/** Roles this chợ can be staffed with, in the order the dialog offers them. */
 const PICKER_ROLES = [MARKET_AGENT, HUB_STAFF, DRIVER] as const;
+
+/** The two that belong to a hub rather than to the chợ itself. */
+const HUB_SCOPED_ROLES: readonly string[] = [HUB_STAFF, DRIVER];
 
 interface StaffRow {
     id: string;
@@ -54,7 +52,7 @@ interface StaffRow {
     hubId: string;
     /** Where they are attached: a hub name, or the chợ for an agent. */
     position: string;
-    /** False for drivers, which have nothing tying them to a chợ to undo. */
+    /** False only while an assignment cannot be undone from here. */
     removable: boolean;
 }
 
@@ -85,9 +83,10 @@ interface CandidateRow {
  *   chợ itself
  * - **hub staff** → the roster of one of this market's hubs
  *   (`PUT /hubs/{hubId}/staff-assignments`), so the assignment is to a hub
- * - **driver** → nothing. `DriverProfile` carries no hub or market, and the one
- *   hub-shaped endpoint (`/hubs/{hubId}/drivers/eligible`) ignores its hub id.
- *   Drivers are therefore listed but not attachable.
+ * - **driver** → the roster of one of this market's hubs
+ *   (`PUT /hubs/{hubId}/driver-assignments`), so the assignment is to a hub. This
+ *   says where a driver is stationed, not what they are driving: a delivery job
+ *   is still assigned per route (`DeliveryRoute.DriverUserId`).
  */
 @Component({
     selector: 'admin-market-staff-panel',
@@ -212,14 +211,9 @@ export class MarketStaffPanelComponent implements OnInit {
         hubId: new FormControl<string>('', { nonNullable: true }),
     });
 
-    /** Hub staff are tracked per hub, so the dialog asks which one. */
-    readonly needsHub = computed(
-        () => this.addForm.controls.role.value === HUB_STAFF
-    );
-
-    /** Drivers can be browsed but not attached — see PICKER_ROLES. */
-    readonly readOnlyRole = computed(
-        () => this.addForm.controls.role.value === DRIVER
+    /** Hub staff and drivers are tracked per hub, so the dialog asks which one. */
+    readonly needsHub = computed(() =>
+        HUB_SCOPED_ROLES.includes(this.addForm.controls.role.value)
     );
 
     readonly visibleCandidates = computed(() => {
@@ -302,7 +296,6 @@ export class MarketStaffPanelComponent implements OnInit {
 
     canSave(): boolean {
         return (
-            !this.readOnlyRole() &&
             this.pickedCount() > 0 &&
             (!this.needsHub() || !!this.addForm.controls.hubId.value) &&
             !this.saving()
@@ -319,7 +312,7 @@ export class MarketStaffPanelComponent implements OnInit {
         const assign =
             role === MARKET_AGENT
                 ? this._assignAgents(ids)
-                : this._assignHubStaff(hubId, ids);
+                : this._assignToHub(role, hubId, ids);
         void assign
             .then(() => {
                 this._notify('admin.markets.staff.addSuccess');
@@ -338,7 +331,7 @@ export class MarketStaffPanelComponent implements OnInit {
         const drop =
             row.role === MARKET_AGENT
                 ? this._admin.setMarketAgents(this.marketId(), [], [row.id])
-                : this._dropHubStaff(row.hubId, row.id);
+                : this._dropFromHub(row.role, row.hubId, row.id);
         void drop
             .then(() => {
                 this._notify('admin.markets.staff.removeSuccess');
@@ -359,38 +352,64 @@ export class MarketStaffPanelComponent implements OnInit {
         );
     }
 
-    private async _assignHubStaff(
+    private async _assignToHub(
+        role: string,
         hubId: string,
         userIds: string[]
     ): Promise<void> {
-        const keep = await this._writableRoster(hubId);
-        await this._logistics.replaceHubStaffAssignments(hubId, [
+        const keep = await this._writableRoster(role, hubId);
+        await this._writeRoster(role, hubId, [
             ...new Set([...keep, ...userIds]),
         ]);
     }
 
-    private async _dropHubStaff(hubId: string, userId: string): Promise<void> {
-        const keep = await this._writableRoster(hubId);
-        await this._logistics.replaceHubStaffAssignments(
+    private async _dropFromHub(
+        role: string,
+        hubId: string,
+        userId: string
+    ): Promise<void> {
+        const keep = await this._writableRoster(role, hubId);
+        await this._writeRoster(
+            role,
             hubId,
             keep.filter((id) => id !== userId)
         );
+    }
+
+    /** The two hub rosters are the same shape behind two endpoints. */
+    private _readRoster(role: string, hubId: string): Promise<string[]> {
+        return role === DRIVER
+            ? this._logistics.getHubDriverAssignments(hubId)
+            : this._logistics.getHubStaffAssignments(hubId);
+    }
+
+    private _writeRoster(
+        role: string,
+        hubId: string,
+        userIds: string[]
+    ): Promise<void> {
+        return role === DRIVER
+            ? this._logistics.replaceHubDriverAssignments(hubId, userIds)
+            : this._logistics.replaceHubStaffAssignments(hubId, userIds);
     }
 
     /**
      * The hub's current roster, minus anyone the replace endpoint would now
      * refuse. Adding and removing both send the *whole* roster back, and
      * `ReplaceHubStaffAssignmentsCommandHandler` validates every id in it — so
-     * one member who has since been deactivated (or moved off `hub_staff`)
+     * one member who has since been deactivated (or moved off the role)
      * would fail every later edit of that hub with `INVALID_ASSIGNMENT_TARGET`,
      * including the removals meant to clean it up. They are dropped instead:
      * the roster cannot hold them either way, and the alternative is a hub
      * nobody can edit at all.
      */
-    private async _writableRoster(hubId: string): Promise<string[]> {
+    private async _writableRoster(
+        role: string,
+        hubId: string
+    ): Promise<string[]> {
         const [roster, people] = await Promise.all([
-            this._logistics.getHubStaffAssignments(hubId),
-            this._usersOf(HUB_STAFF),
+            this._readRoster(role, hubId),
+            this._usersOf(role),
         ]);
         const assignable = new Set(
             people
@@ -412,15 +431,13 @@ export class MarketStaffPanelComponent implements OnInit {
             );
 
             // Only people actually attached to this chợ or one of its hubs.
-            // Drivers are absent by construction: nothing attaches them (see
-            // the class comment), so listing them here would be listing the
-            // whole fleet under a heading that says "of this market".
             const hubIds = hubs.map((hub) => hub.value);
-            const [agents, staff] = await Promise.all([
+            const [agents, staff, drivers] = await Promise.all([
                 this._agentRows(marketId),
-                this._hubStaffRows(hubIds),
+                this._hubRoleRows(HUB_STAFF, hubIds),
+                this._hubRoleRows(DRIVER, hubIds),
             ]);
-            this.rows.set([...agents, ...staff]);
+            this.rows.set([...agents, ...staff, ...drivers]);
         } finally {
             this.loading.set(false);
         }
@@ -442,19 +459,21 @@ export class MarketStaffPanelComponent implements OnInit {
         );
     }
 
-    private async _hubStaffRows(hubIds: string[]): Promise<StaffRow[]> {
+    /** Everyone holding `role` on any of this market's hubs. */
+    private async _hubRoleRows(
+        role: string,
+        hubIds: string[]
+    ): Promise<StaffRow[]> {
         if (hubIds.length === 0) {
             return [];
         }
-        const people = await this._usersOf(HUB_STAFF);
+        const people = await this._usersOf(role);
         const byId = new Map(people.map((person) => [person.id, person]));
         const hubNames = new Map(this.hubs().map((hub) => [hub.id, hub.name]));
         const perHub = await Promise.all(
             hubIds.map(async (hubId) => ({
                 hubId,
-                ids: await this._logistics
-                    .getHubStaffAssignments(hubId)
-                    .catch(() => []),
+                ids: await this._readRoster(role, hubId).catch(() => []),
             }))
         );
         return perHub.flatMap(({ hubId, ids }) =>
@@ -464,7 +483,7 @@ export class MarketStaffPanelComponent implements OnInit {
                 .map((person) =>
                     this._toRow(
                         person,
-                        HUB_STAFF,
+                        role,
                         hubId,
                         hubNames.get(hubId) ?? '',
                         true
@@ -575,9 +594,7 @@ export class MarketStaffPanelComponent implements OnInit {
         const rosters = await Promise.all(
             hubs.map(async (hub) => ({
                 label: hub.label,
-                ids: await this._logistics
-                    .getHubStaffAssignments(hub.value)
-                    .catch(() => []),
+                ids: await this._readRoster(role, hub.value).catch(() => []),
             }))
         );
         for (const { label, ids } of rosters) {
