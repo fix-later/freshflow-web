@@ -87,14 +87,15 @@ export class RestaurantsAdminComponent implements OnInit {
 
     /**
      * True when this list lives inside another page's tab (Admin ▸ Users ▸
-     * restaurant). The page chrome — title, own search box, create button,
-     * active/inactive filter — then belongs to the host, which feeds its own
-     * values in through {@link search} and {@link isActive}. The approval
-     * filter stays, having no counterpart on the users page.
+     * restaurant). The whole header — title, search box, create button, and
+     * every filter, approval included — then belongs to the host, which feeds
+     * its values in through {@link search}, {@link isActive} and
+     * {@link restaurantStatus}.
      */
     readonly embedded = input(false);
     readonly search = input('');
     readonly isActive = input('');
+    readonly restaurantStatus = input('');
 
     readonly users = signal<AdminUserRow[]>([]);
     readonly sort = new TableSort<AdminUserRow>();
@@ -124,10 +125,6 @@ export class RestaurantsAdminComponent implements OnInit {
 
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
-        if (this.embedded()) {
-            // Search and status are the host's to clear.
-            return !!(v.restaurantStatus ?? '');
-        }
         return (
             (v.search ?? '').trim() !== '' ||
             !!(v.isActive ?? '') ||
@@ -136,9 +133,9 @@ export class RestaurantsAdminComponent implements OnInit {
     });
 
     /**
-     * Mirrors the host's search / status filters into the form the reload
-     * pipeline already watches, so a keystroke on the users page reaches this
-     * list through the same debounce-and-refetch path as a local edit.
+     * Mirrors the host's filters into the form the reload pipeline already
+     * watches, so a keystroke on the users page reaches this list through the
+     * same debounce-and-refetch path as a local edit.
      */
     private readonly _hostFilters = effect(() => {
         if (!this.embedded()) {
@@ -147,6 +144,7 @@ export class RestaurantsAdminComponent implements OnInit {
         this.filterForm.patchValue({
             search: this.search(),
             isActive: this.isActive(),
+            restaurantStatus: this.restaurantStatus(),
         });
     });
 
@@ -254,10 +252,6 @@ export class RestaurantsAdminComponent implements OnInit {
     }
 
     clearFilters(): void {
-        if (this.embedded()) {
-            this.filterForm.patchValue({ restaurantStatus: '' });
-            return;
-        }
         this.filterForm.reset({
             search: '',
             isActive: '',
@@ -304,8 +298,12 @@ export class RestaurantsAdminComponent implements OnInit {
         });
     }
 
+    /**
+     * Creating a restaurant is creating a user with that role, which the users
+     * page's own button does — this list is a tab inside it.
+     */
     openCreatePanel(): void {
-        void this._router.navigate(['/admin/restaurants/new']);
+        void this._router.navigate(['/admin/users']);
     }
 
     trackById(_: number, row: { id: string }): string {

@@ -387,8 +387,14 @@ export class RestaurantDetailComponent implements OnInit {
         void this._loadUser(userId);
     }
 
+    /**
+     * Back to the users page — restaurants are a tab there now, not a screen of
+     * their own. `?role=` lands on that tab rather than "tất cả vai trò".
+     */
     goBack(): void {
-        void this._router.navigate(['/admin/restaurants']);
+        void this._router.navigate(['/admin/users'], {
+            queryParams: { role: 'restaurant' },
+        });
     }
 
     detailTitle(): string {

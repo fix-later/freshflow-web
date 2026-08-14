@@ -16,6 +16,7 @@ import {
     Validators,
 } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -23,7 +24,6 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import {
@@ -41,14 +41,13 @@ const HUB_STAFF_ROLE = 'hub_staff';
 const RESTAURANT_NAME_MAX_LENGTH = 200;
 const PHONE_MAX_LENGTH = 20;
 
-/** Admin ▸ Users ▸ New — full-page create form. */
+/** Admin ▸ Users ▸ New — the create form, shown as a dialog from the list. */
 @Component({
     selector: 'admin-users-create',
     templateUrl: './users-create.component.html',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    host: { class: 'flex flex-auto flex-col' },
     imports: [
         MatButtonModule,
         MatFormFieldModule,
@@ -66,8 +65,12 @@ const PHONE_MAX_LENGTH = 20;
 export class UsersCreateComponent implements OnInit {
     private readonly _admin = inject(AdminService);
     private readonly _logistics = inject(LogisticsAdminService);
-    private readonly _router = inject(Router);
-    private readonly _route = inject(ActivatedRoute);
+    private readonly _dialogRef =
+        inject<MatDialogRef<UsersCreateComponent, boolean>>(MatDialogRef);
+    /** Optional `{ role }` from the caller — see `_loadRoles`. */
+    private readonly _data = inject<{ role?: string } | null>(MAT_DIALOG_DATA, {
+        optional: true,
+    });
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
@@ -116,8 +119,9 @@ export class UsersCreateComponent implements OnInit {
             .subscribe((role) => this._applyRoleValidators(role));
     }
 
-    goBack(): void {
-        void this._router.navigate(['/admin/users']);
+    /** Closes the dialog; `true` tells the list a user was created. */
+    close(created = false): void {
+        this._dialogRef.close(created);
     }
 
     passwordRuleFailing(rule: string): boolean {
@@ -157,7 +161,7 @@ export class UsersCreateComponent implements OnInit {
                 } else {
                     this._notify('admin.users.create.success');
                 }
-                this.goBack();
+                this.close(true);
             })
             .catch(async (err) => {
                 this.createForm.enable();
@@ -228,17 +232,17 @@ export class UsersCreateComponent implements OnInit {
     }
 
     /**
-     * `?role=` preselects the role, so a screen that knows which kind of
-     * account it needs — the chợ's driver tab, say — can hand the job over
-     * without the admin picking it again. Applied only if the backend really
-     * offers that role, so a stale link cannot submit an invalid one.
+     * A caller can preselect the role through `MAT_DIALOG_DATA` — a screen
+     * that knows which kind of account it needs hands the job over without the
+     * admin picking it again. Applied only if the backend really offers that
+     * role, so a stale caller cannot submit an invalid one.
      */
     private _loadRoles(): void {
         this._admin
             .getRoles()
             .then((roles) => {
                 this.roles.set(roles);
-                const wanted = this._route.snapshot.queryParamMap.get('role');
+                const wanted = this._data?.role;
                 if (wanted && roles.includes(wanted)) {
                     this.createForm.controls.role.setValue(wanted);
                 }
