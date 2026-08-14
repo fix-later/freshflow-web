@@ -28,6 +28,8 @@ export type RestaurantApprovalStatusValue =
 export interface AdminUserRow {
     id: string;
     email?: string;
+    /** `UserSummaryDto.FullName` — may be empty; email is the fallback. */
+    fullName?: string | null;
     role?: string;
     isActive?: boolean;
     /** `true` / `false` for restaurants, `null` for every other role. */
@@ -88,6 +90,9 @@ export interface AdminCreateUserPayload {
     email: string;
     password: string;
     role: string;
+    /** `CreateUserCommand.FullName` — optional, and the only display name a
+     *  non-restaurant account has. */
+    fullName?: string | null;
     marketId?: string | null;
     restaurantName?: string | null;
     phone?: string | null;
@@ -107,18 +112,15 @@ export interface AdminSettleCreditPayload {
 }
 
 /**
- * Platform-wide operational settings (`GET/PUT /admin/operational-settings`).
- * Mirrors `UpdateOperationalSettingsRequest`; `dailyCutoffTime` is an
- * `HH:mm[:ss]` time-of-day string, not a full timestamp.
- */
-/**
- * `GET/PUT /admin/operational-settings`.
+ * `GET/PUT /admin/operational-settings` — every platform-wide setting there
+ * is, since `/admin/pricing-settings` was folded into it. `dailyCutoffTime` is
+ * an `HH:mm[:ss]` time-of-day string, not a full timestamp.
  *
- * The PUT body is a **positional record** on the server
- * (`UpdateOperationalSettingsRequest`), so every field must be sent on every
- * save: an omitted `deliveryWindowDays` binds to `0` and fails its `1..30`
- * validator (400), and an omitted `deliveryFeePerKm` falls back to the
- * constructor default of `5000`, silently overwriting whatever was configured.
+ * The four leading fields are **positional and non-nullable** on the server
+ * (`UpdateOperationalSettingsRequest`), so each must be sent on every save: an
+ * omitted `deliveryWindowDays` binds to `0` and fails its `1..30` validator
+ * (400). The four money fields are nullable and the handler reads them as
+ * `?? current`, so omitting one keeps what is stored.
  */
 export interface AdminOperationalSettings {
     dailyCutoffTime?: string;
@@ -128,12 +130,12 @@ export interface AdminOperationalSettings {
     deliveryWindowDays?: number;
     /** VND per km used to price delivery on order confirmation (0–1,000,000). */
     deliveryFeePerKm?: number;
-}
-
-/** Pricing settings (`GET/PUT /admin/pricing-settings`). */
-export interface AdminPricingSettings {
-    /** Percent (0.01–100) swing that triggers a price alert. */
-    priceAlertThresholdPercent?: number;
+    /** Flat VND added to every delivery, before the minimum applies (0–10,000,000). */
+    baseFee?: number;
+    /** Floor in VND for a delivery charge (0–10,000,000). */
+    minimumFee?: number;
+    /** VND step the final fee is rounded to; `0` disables rounding (0–1,000,000). */
+    roundingUnit?: number;
 }
 
 /**
@@ -204,7 +206,14 @@ export interface AdminOrderGroupRow {
     status?: string | null;
     marketId?: string | null;
     marketName?: string | null;
+    /** First agent the batch's items are assigned to — see {@link agentIds}. */
     agentId?: string | null;
+    /**
+     * Every agent shopping this batch. Items carry the assignment now
+     * (`ProcurementBatchItemDto.assignedAgentUserId`); the batch-level field is
+     * deprecated server-side and no longer written.
+     */
+    agentIds?: string[];
     agentEmail?: string | null;
     orderCount?: number | null;
     itemCount?: number | null;
@@ -222,6 +231,9 @@ export interface AdminBatchItem {
     actualQuantity?: number | null;
     actualUnitPrice?: number | null;
     purchasedAt?: string | null;
+    /** The agent shopping this line (`PUT /admin/batches/{id}/item-assignments`). */
+    assignedAgentUserId?: string | null;
+    productImageUrl?: string | null;
     [key: string]: unknown;
 }
 

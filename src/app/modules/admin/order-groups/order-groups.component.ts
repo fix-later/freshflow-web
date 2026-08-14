@@ -43,6 +43,7 @@ import { AdminService } from '../admin.service';
 import {
     AdminAutoBatchBatch,
     AdminAutoBatchResult,
+    AdminBatchItem,
     AdminBatchMember,
     AdminOrderDetail,
     AdminOrderGroupProgress,
@@ -1119,6 +1120,21 @@ export class OrderGroupsComponent implements OnInit {
         return agent.email || String(agent['name'] ?? '');
     }
 
+    /** Market products in the batch that can still be handed to an agent. */
+    assignableItemIds(row: AdminOrderGroupRow | null): string[] {
+        const items = row?.['items'];
+        if (!Array.isArray(items)) {
+            return [];
+        }
+        const ids = items
+            .filter((item) => !(item as AdminBatchItem)?.purchasedAt)
+            .map((item) =>
+                String((item as AdminBatchItem)?.marketProductId ?? '').trim()
+            )
+            .filter((id) => !!id);
+        return [...new Set(ids)];
+    }
+
     openAgentDialog(
         row: AdminOrderGroupRow,
         template: TemplateRef<unknown>
@@ -1140,11 +1156,25 @@ export class OrderGroupsComponent implements OnInit {
         this._agentDialogRef?.close();
     }
 
+    /**
+     * Hands the batch to one agent, which the API now expresses as assigning
+     * each of its line items to them: `POST /order-groups/{id}/agent` is gone,
+     * and a batch is shopped per product. Items already purchased are left
+     * alone — the command rejects the whole call with `ITEM_ALREADY_PURCHASED`
+     * if one is included.
+     */
     saveAgentAssignment(): void {
         const row = this.agentDialogBatch();
         const batchId = row ? this.batchIdOf(row) : '';
         const agentUserId = this.agentForm.getRawValue().agentUserId;
         if (!batchId || !agentUserId) {
+            return;
+        }
+        const assignments = this.assignableItemIds(row).map(
+            (marketProductId) => ({ marketProductId, agentUserId })
+        );
+        if (assignments.length === 0) {
+            this._notifyKey('admin.orderGroups.assignAgent.noItems');
             return;
         }
         this.agentDialogSaving.set(true);
@@ -1153,7 +1183,7 @@ export class OrderGroupsComponent implements OnInit {
                 ? this._admin.generateManifest(batchId)
                 : Promise.resolve();
         prepareSession
-            .then(() => this._admin.assignBatchAgent(batchId, agentUserId))
+            .then(() => this._admin.assignBatchItems(batchId, assignments))
             .then(() => {
                 this._notifyKey('admin.orderGroups.assignAgent.success');
                 this.closeAgentDialog();

@@ -40,7 +40,6 @@ import {
     AdminOrderGroupsResult,
     AdminOrderListFilters,
     AdminOrdersResult,
-    AdminPricingSettings,
     AdminResetOrderGroupsPayload,
     AdminRestaurantCredit,
     AdminRestaurantProfile,
@@ -64,6 +63,26 @@ const MAX_USER_PAGE_SIZE = 100;
 
 /** Stops a broken `total` from turning the walk into an endless loop. */
 const MAX_USER_PAGES = 50;
+
+/**
+ * Every distinct agent the batch's items are assigned to, in the order the
+ * items list them. A batch is shopped per product now, so this is a list —
+ * usually of one, but nothing stops an admin splitting it between agents.
+ */
+function itemAgentIds(row: Record<string, unknown>): string[] {
+    const items = row['items'];
+    if (!Array.isArray(items)) {
+        return [];
+    }
+    const ids = items
+        .map((item) =>
+            String(
+                (item as Record<string, unknown>)?.['assignedAgentUserId'] ?? ''
+            ).trim()
+        )
+        .filter((id) => !!id);
+    return [...new Set(ids)];
+}
 
 /**
  * The zone statement period boundaries are computed in server-side
@@ -541,17 +560,6 @@ export class AdminService {
         });
     }
 
-    async getPricingSettings(): Promise<AdminPricingSettings> {
-        const res = await adminApi.apiV1AdminPricingSettingsGetRaw();
-        return unwrapData<AdminPricingSettings>(await parseJson(res.raw)) ?? {};
-    }
-
-    async updatePricingSettings(payload: AdminPricingSettings): Promise<void> {
-        await adminApi.apiV1AdminPricingSettingsPutRaw({
-            updatePricingSettingsRequest: payload,
-        });
-    }
-
     // -------------------------------------------------------------------
     // Order groups (procurement batching)
     // -------------------------------------------------------------------
@@ -609,11 +617,16 @@ export class AdminService {
                     row.marketName ??
                     marketNames.get(String(row.marketId ?? '')) ??
                     null,
+                // Who is shopping this batch now lives on its items;
+                // `assignedAgentUserId` on the batch is deprecated server-side
+                // and no longer written, so it is read last rather than first.
                 agentId:
                     row.agentId ??
+                    itemAgentIds(row)[0] ??
                     (row['assignedAgentUserId'] as string | null) ??
                     (row['AssignedAgentUserId'] as string | null) ??
                     null,
+                agentIds: itemAgentIds(row),
                 orderCount:
                     row.orderCount ??
                     (Array.isArray(members)
@@ -709,13 +722,28 @@ export class AdminService {
         await adminApi.apiV1AdminOrderGroupsBatchIdManifestPostRaw({ batchId });
     }
 
-    async assignBatchAgent(
+    /**
+     * Assigns the batch's line items to market agents
+     * (`PUT /admin/batches/{batchId}/item-assignments`).
+     *
+     * This replaced `POST /admin/order-groups/{batchId}/agent`, which put one
+     * agent on the whole batch: a batch is now shopped per product, so who buys
+     * what is recorded per item and `ProcurementBatch.AssignedAgentUserId` is
+     * marked deprecated server-side. An `agentUserId` of
+     * `00000000-0000-0000-0000-000000000000` unassigns that item.
+     *
+     * The command refuses the batch unless it is `manifested` or `purchasing`,
+     * refuses a product that is not in it or already bought, and refuses an
+     * agent who is not an active agent of the batch's chợ (and, when the batch
+     * belongs to a market session, not assigned to that session).
+     */
+    async assignBatchItems(
         batchId: string,
-        agentUserId: string
+        assignments: { marketProductId: string; agentUserId: string }[]
     ): Promise<void> {
-        await adminApi.apiV1AdminOrderGroupsBatchIdAgentPostRaw({
+        await adminApi.apiV1AdminBatchesBatchIdItemAssignmentsPutRaw({
             batchId,
-            assignAgentRequest: { agentUserId },
+            assignBatchItemsRequest: { assignments },
         });
     }
 
