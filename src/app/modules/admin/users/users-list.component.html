@@ -72,6 +72,29 @@
                     </mat-select>
                 </mat-form-field>
 
+                <!-- Approval is a restaurant-only lifecycle; the tab's list
+                     applies it, this header only holds the control. -->
+                @if (showRestaurants()) {
+                    <mat-form-field
+                        class="fuse-mat-dense w-48"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.users.filters.approval')
+                        }}</mat-label>
+                        <mat-select formControlName="restaurantStatus">
+                            <mat-option value="">{{
+                                t('admin.users.filters.allApprovals')
+                            }}</mat-option>
+                            @for (status of approvalStatuses; track status) {
+                                <mat-option [value]="status">{{
+                                    t('admin.users.approval.' + status)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                }
+
                 @if (hasActiveFilters()) {
                     <button
                         mat-stroked-button
@@ -115,6 +138,7 @@
                 [embedded]="true"
                 [search]="searchTerm()"
                 [isActive]="statusFilter()"
+                [restaurantStatus]="approvalFilter()"
             />
         } @else {
             <div

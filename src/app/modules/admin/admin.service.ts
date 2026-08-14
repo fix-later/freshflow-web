@@ -236,12 +236,16 @@ export class AdminService {
      * Loads every `market_agent` user and their market-assignments, then
      * builds marketId → agents. A market can be worked by several agents, so
      * each entry is a list; the order follows the agent list itself.
+     *
+     * Walks the pages: `GetUsersQuery` defaults to **20** per page, so asking
+     * without one silently capped this at the first twenty agents — every agent
+     * past that read as belonging to no chợ at all.
      */
     async getMarketAgentsWithAssignments(): Promise<{
         agents: AdminUserRow[];
         agentsByMarket: Map<string, AdminUserRow[]>;
     }> {
-        const { users } = await this.getUsers({ role: MARKET_AGENT_ROLE });
+        const users = await this.listUsersByRole(MARKET_AGENT_ROLE);
         const agents = users.filter((u) => !!u.id);
         const pairs = await Promise.all(
             agents.map(async (agent) => ({

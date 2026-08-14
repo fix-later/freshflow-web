@@ -24,12 +24,9 @@ import { OrderGroupsComponent } from './order-groups/order-groups.component';
 import { OrderDetailComponent } from './orders/order-detail.component';
 import { OrdersListComponent } from './orders/orders-list.component';
 import { RestaurantDetailComponent } from './restaurants/restaurant-detail.component';
-import { RestaurantsAdminComponent } from './restaurants/restaurants-admin.component';
-import { RestaurantsCreateComponent } from './restaurants/restaurants-create.component';
 import { ScheduledOrderDetailComponent } from './scheduled-orders/scheduled-order-detail.component';
 import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-orders-list.component';
 import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
-import { UsersCreateComponent } from './users/users-create.component';
 import { UsersListComponent } from './users/users-list.component';
 
 export default [
@@ -37,26 +34,18 @@ export default [
         path: '',
         component: AdminDashboardComponent,
     },
-    // Accounts (M13)
-    {
-        path: 'users/new',
-        component: UsersCreateComponent,
-    },
+    // Accounts (M13).
+    //
+    // Restaurants have no screen of their own: the list is the users page's
+    // restaurant tab, and creating one is creating a user with that role. Only
+    // the profile page stays, which that tab and the finance screen open.
     {
         path: 'users',
         component: UsersListComponent,
     },
     {
-        path: 'restaurants/new',
-        component: RestaurantsCreateComponent,
-    },
-    {
         path: 'restaurants/:userId',
         component: RestaurantDetailComponent,
-    },
-    {
-        path: 'restaurants',
-        component: RestaurantsAdminComponent,
     },
     // Catalog master data (M3)
     {

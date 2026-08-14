@@ -11,6 +11,7 @@ import {
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
@@ -19,14 +20,14 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTabsModule } from '@angular/material/tabs';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { collapseOnLeave, expandOnEnter } from '@fuse/animations';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { RoleLabelPipe } from 'app/core/i18n/role-label.pipe';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
-import { AdminUserRow } from '../admin.types';
+import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
 import { RestaurantsAdminComponent } from '../restaurants/restaurants-admin.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
@@ -36,6 +37,7 @@ import {
 } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
+import { UsersCreateComponent } from './users-create.component';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
@@ -55,6 +57,7 @@ const RESTAURANT_ROLE = 'restaurant';
     imports: [
         AdminLoadingStateComponent,
         MatButtonModule,
+        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
@@ -84,6 +87,8 @@ export class UsersListComponent implements OnInit {
     protected readonly collapseOnLeave = collapseOnLeave;
 
     private readonly _admin = inject(AdminService);
+    private readonly _dialog = inject(MatDialog);
+    private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
@@ -112,10 +117,14 @@ export class UsersListComponent implements OnInit {
         return id ? this.users().find((u) => u.id === id) ?? null : null;
     });
 
+    readonly approvalStatuses = RESTAURANT_APPROVAL_STATUSES;
+
     readonly filterForm = this._formBuilder.nonNullable.group({
         search: [''],
         role: [''],
         isActive: [''],
+        // Only meaningful on the restaurant tab, where the embedded list reads it.
+        restaurantStatus: [''],
     });
 
     /** Latest filter form values (for template reactivity). */
@@ -143,14 +152,21 @@ export class UsersListComponent implements OnInit {
     /** The header filters, handed to the embedded restaurants list. */
     readonly searchTerm = computed(() => this._filterValues().search ?? '');
     readonly statusFilter = computed(() => this._filterValues().isActive ?? '');
+    readonly approvalFilter = computed(
+        () => this._filterValues().restaurantStatus ?? ''
+    );
 
     /**
-     * True when search / status is non-empty. The role tab is deliberately left
-     * out: it is navigation, not a filter to be cleared.
+     * True when search / status / approval is non-empty. The role tab is
+     * deliberately left out: it is navigation, not a filter to be cleared.
      */
     readonly hasActiveFilters = computed(() => {
         const v = this._filterValues();
-        return (v.search ?? '').trim() !== '' || !!(v.isActive ?? '');
+        return (
+            (v.search ?? '').trim() !== '' ||
+            !!(v.isActive ?? '') ||
+            (this.showRestaurants() && !!(v.restaurantStatus ?? ''))
+        );
     });
 
     readonly roleForm = this._formBuilder.nonNullable.group({
@@ -158,6 +174,13 @@ export class UsersListComponent implements OnInit {
     });
 
     ngOnInit(): void {
+        // `?role=` opens straight on that tab — the restaurant profile page
+        // sends it on the way back, so leaving a restaurant returns to the tab
+        // it was opened from rather than to "tất cả vai trò".
+        const role = this._route.snapshot.queryParamMap.get('role');
+        if (role) {
+            this.filterForm.controls.role.setValue(role, { emitEvent: false });
+        }
         this._loadRoles();
         this._load();
 
@@ -183,17 +206,25 @@ export class UsersListComponent implements OnInit {
         this._load();
     }
 
-    /** Switches the role tab; `''` selects the all-roles tab. */
+    /**
+     * Switches the role tab; `''` selects the all-roles tab. Approval belongs
+     * to the restaurant tab alone, so it is dropped on the way out rather than
+     * left applying invisibly.
+     */
     selectRole(role: string): void {
-        if (this.activeRole() !== role) {
-            this.filterForm.controls.role.setValue(role);
+        if (this.activeRole() === role) {
+            return;
         }
+        this.filterForm.patchValue(
+            role === RESTAURANT_ROLE ? { role } : { role, restaurantStatus: '' }
+        );
     }
 
     clearFilters(): void {
         this.filterForm.patchValue({
             search: '',
             isActive: '',
+            restaurantStatus: '',
         });
     }
 
@@ -210,8 +241,20 @@ export class UsersListComponent implements OnInit {
         this.selectedId.set(null);
     }
 
+    /** The create form is a dialog now — same shape as the product one. */
     openCreatePanel(): void {
-        void this._router.navigate(['/admin/users/new']);
+        this._dialog
+            .open(UsersCreateComponent, {
+                width: '720px',
+                maxWidth: '95vw',
+                autoFocus: 'first-tabbable',
+            })
+            .afterClosed()
+            .subscribe((created) => {
+                if (created) {
+                    this._load();
+                }
+            });
     }
 
     saveRole(): void {

@@ -182,7 +182,7 @@ export class AdminDashboardComponent implements OnInit, OnDestroy {
         },
         {
             icon: 'heroicons_outline:building-storefront',
-            link: '/admin/restaurants',
+            link: '/admin/users?role=restaurant',
             titleKey: 'admin.dashboard.restaurants.title',
             descriptionKey: 'admin.dashboard.restaurants.description',
         },

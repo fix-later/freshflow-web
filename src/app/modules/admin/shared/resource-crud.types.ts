@@ -16,14 +16,25 @@ export interface CrudRow {
 export type CrudFormValue = Record<string, string | number | null>;
 
 /**
- * Markets-style “assign user” cell: stroked button + dialog to pick / clear a
- * related user (hub manager, market agent, …).
+ * Markets-style “assign” cell: stroked button + dialog to pick / clear the
+ * related record — a user (hub manager, market agent) or another entity the
+ * row points at (the hub a vehicle is stationed at).
  */
 export interface CrudAssignColumn {
     /** Current assignee id key on the row (e.g. `managedBy`). */
     idKey: string;
-    /** i18n key when no user is assigned. */
+    /** i18n key when nothing is assigned. */
     noneLabel: string;
+    /** Heroicons id for the cell button (default `user`). */
+    icon?: string;
+    /** Dialog headline for the row; defaults to the row's `name`. */
+    rowLabel?: (row: CrudRow) => string;
+    /**
+     * Set `false` when the endpoint behind {@link save} cannot unassign, so the
+     * dialog offers no empty option and no clear button rather than a control
+     * that silently does nothing (`PUT /vehicles/{id}/hub` requires a hub).
+     */
+    allowClear?: boolean;
     /** i18n keys for the assign dialog chrome. */
     dialogTitle: string;
     dialogCurrent: string;
@@ -32,10 +43,10 @@ export interface CrudAssignColumn {
     dialogSave: string;
     dialogSuccess: string;
     dialogError: string;
-    /** Options for the select (value = user id, label = email/name). */
+    /** Options for the select (value = assignee id, label = its name/email). */
     options: () => Promise<CrudOption[]>;
-    /** Persist the assignment (`userId` null clears). */
-    save: (row: CrudRow, userId: string | null) => Promise<void>;
+    /** Persist the assignment (null clears; only reachable with `allowClear`). */
+    save: (row: CrudRow, assigneeId: string | null) => Promise<void>;
 }
 
 export interface CrudColumn {

@@ -39,7 +39,7 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
         label: 'Nhà hàng',
         description: 'Duyệt hồ sơ và mã số thuế',
         icon: 'heroicons_outline:building-office-2',
-        link: '/admin/restaurants',
+        link: '/admin/users?role=restaurant',
         useRouter: true,
     },
     {

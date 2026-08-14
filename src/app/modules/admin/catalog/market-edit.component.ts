@@ -136,10 +136,15 @@ export class MarketEditComponent implements OnInit {
     readonly hubResource = computed<CrudResource | null>(() => {
         const marketId = this.market()?.id;
         return marketId
-            ? createHubResource(this._logistics, this._router, {
-                  marketId,
-                  openDetail: (hubId) => this.openHubId.set(hubId),
-              })
+            ? createHubResource(
+                  this._logistics,
+                  this._router,
+                  (key) => this._transloco.translate(key),
+                  {
+                      marketId,
+                      openDetail: (hubId) => this.openHubId.set(hubId),
+                  }
+              )
             : null;
     });
 
