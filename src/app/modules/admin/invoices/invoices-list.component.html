@@ -95,7 +95,12 @@
                             </div>
                             <div>
                                 <span [class]="statusPillClass(row.status)">
-                                    {{ row.status || '—' }}
+                                    {{
+                                        (row.status
+                                            | apiLabel
+                                                : 'admin.finance.invoiceStatus') ||
+                                            '—'
+                                    }}
                                 </span>
                             </div>
                             <div class="hidden truncate tabular-nums md:block">
