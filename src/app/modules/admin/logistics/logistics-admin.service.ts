@@ -864,6 +864,26 @@ export class LogisticsAdminService {
         });
     }
 
+    /**
+     * Stations a vehicle at a hub (`PUT /logistics/vehicles/{id}/hub`).
+     *
+     * Separate from {@link updateVehicle} on purpose: this writes only the hub,
+     * so moving a vehicle needs neither the plate number nor the capacity nor
+     * the type — which `UpdateVehicleCommand` requires and would re-validate
+     * (`PLATE_NUMBER_DUPLICATE`, the `VehicleType` enum) on every move.
+     *
+     * There is no matching unassign: `AssignVehicleToHubCommandValidator`
+     * demands a hub id, and `UpdateVehicleCommandHandler` applies `HubId` only
+     * when it is non-null, so a vehicle cannot be taken off a hub through the
+     * API at all.
+     */
+    async assignVehicleToHub(vehicleId: string, hubId: string): Promise<void> {
+        await vehiclesApi.apiV1LogisticsVehiclesIdHubPut({
+            id: vehicleId,
+            assignVehicleToHubRequest: { hubId },
+        });
+    }
+
     async deleteVehicle(id: string): Promise<void> {
         await vehiclesApi.apiV1LogisticsVehiclesIdDelete({ id });
     }

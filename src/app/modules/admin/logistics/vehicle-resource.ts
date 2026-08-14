@@ -4,6 +4,11 @@ import { LogisticsAdminService } from './logistics-admin.service';
 /** Types the backend accepts (`VehicleType`); anything else is rejected 400. */
 const VEHICLE_TYPES = ['van', 'truck', 'motorbike'];
 
+/** i18n key for a stored type; unknown values fall back to the raw string. */
+function typeKey(value: string): string {
+    return VEHICLE_TYPES.includes(value) ? `admin.vehicles.type.${value}` : '';
+}
+
 interface VehicleResourceOptions {
     /**
      * Scopes the fleet to one market: a vehicle is stationed at a hub, and a hub
@@ -28,9 +33,22 @@ export function createVehicleResource(
 ): CrudResource {
     const { marketId } = options;
 
-    /** Hub ids of this market — the set a scoped list is filtered to. */
-    const marketHubIds = async (): Promise<Set<string>> =>
-        new Set((await logistics.hubOptions(marketId)).map((hub) => hub.value));
+    /**
+     * hubId → name for the hubs in scope. Doubles as the membership test for a
+     * market's fleet: a vehicle is stationed at a hub, and a hub belongs to a
+     * market, so "this market's vehicles" are the ones whose hub is in here.
+     */
+    const hubNames = async (): Promise<Map<string, string>> =>
+        new Map(
+            (await logistics.hubOptions(marketId)).map(
+                (hub): [string, string] => [hub.value, hub.label]
+            )
+        );
+
+    const typeLabel = (value: string): string => {
+        const key = typeKey(value);
+        return key ? label(key) : value;
+    };
 
     return {
         title: 'admin.vehicles.title',
@@ -47,7 +65,7 @@ export function createVehicleResource(
             {
                 label: 'admin.vehicles.vehicleType',
                 sortable: true,
-                cell: (row) => String(row['vehicleType'] ?? ''),
+                cell: (row) => typeLabel(String(row['vehicleType'] ?? '')),
             },
             {
                 label: 'admin.vehicles.capacityKg',
@@ -57,6 +75,36 @@ export function createVehicleResource(
                         ? null
                         : Number(row['capacityKg']),
                 cell: (row) => String(row['capacityKg'] ?? ''),
+            },
+            // Which hub a vehicle sits at is editable from the cell itself: it
+            // is the one field that changes without the vehicle changing, and
+            // the API has an endpoint for exactly that move.
+            {
+                label: 'admin.vehicles.hub',
+                width: 'minmax(0, 1fr)',
+                sortable: true,
+                cell: (row) => String(row['hubName'] ?? ''),
+                assign: {
+                    idKey: 'hubId',
+                    icon: 'building-office-2',
+                    noneLabel: 'admin.vehicles.hubNone',
+                    rowLabel: (row) => String(row['plateNumber'] ?? ''),
+                    dialogTitle: 'admin.vehicles.assignHub.title',
+                    dialogCurrent: 'admin.vehicles.assignHub.current',
+                    dialogSelect: 'admin.vehicles.hub',
+                    dialogClear: 'admin.crud.clearFilters',
+                    dialogSave: 'admin.crud.save',
+                    dialogSuccess: 'admin.vehicles.assignHub.success',
+                    dialogError: 'admin.vehicles.assignHub.error',
+                    // `PUT /vehicles/{id}/hub` takes a hub id and nothing else,
+                    // so there is no "unassign" to offer.
+                    allowClear: false,
+                    options: () => logistics.hubOptions(marketId),
+                    save: (row, hubId) =>
+                        hubId
+                            ? logistics.assignVehicleToHub(row.id, hubId)
+                            : Promise.resolve(),
+                },
             },
             {
                 label: 'admin.vehicles.availability',
@@ -87,7 +135,7 @@ export function createVehicleResource(
                     Promise.resolve(
                         VEHICLE_TYPES.map((value) => ({
                             value,
-                            label: value,
+                            label: typeLabel(value),
                         }))
                     ),
             },
@@ -111,6 +159,27 @@ export function createVehicleResource(
         ],
         filters: [
             {
+                name: 'vehicleType',
+                label: 'admin.vehicles.vehicleType',
+                options: () =>
+                    Promise.resolve(
+                        VEHICLE_TYPES.map((value) => ({
+                            value,
+                            label: typeLabel(value),
+                        }))
+                    ),
+                match: (row, value) =>
+                    String(row['vehicleType'] ?? '') === value,
+            },
+            // Which hub a vehicle is parked at is the question a chợ asks of its
+            // fleet; the standalone screen asks it across every hub.
+            {
+                name: 'hubId',
+                label: 'admin.vehicles.hub',
+                options: () => logistics.hubOptions(marketId),
+                match: (row, value) => String(row['hubId'] ?? '') === value,
+            },
+            {
                 name: 'availability',
                 label: 'admin.vehicles.availability',
                 options: () =>
@@ -131,17 +200,23 @@ export function createVehicleResource(
             },
         ],
         list: async () => {
-            if (!marketId) {
-                return logistics.listVehicles();
-            }
             // `GET /vehicles?hub_id=` takes one hub, and a market can have
             // several, so the market's fleet is the union — fetched once and
-            // filtered on the hub set.
-            const hubIds = await marketHubIds();
-            const rows = await logistics.listVehicles();
-            return rows.filter((row: CrudRow) =>
-                hubIds.has(String(row['hubId'] ?? ''))
-            );
+            // filtered on the hub set. The names come along for the hub column,
+            // which the rows carry only as an id.
+            const [rows, names] = await Promise.all([
+                logistics.listVehicles(),
+                hubNames(),
+            ]);
+            const scoped = marketId
+                ? rows.filter((row: CrudRow) =>
+                      names.has(String(row['hubId'] ?? ''))
+                  )
+                : rows;
+            return scoped.map((row: CrudRow) => ({
+                ...row,
+                hubName: names.get(String(row['hubId'] ?? '')) ?? '',
+            }));
         },
         create: (value) => logistics.createVehicle(value),
         update: (id, value) => logistics.updateVehicle(id, value),
