@@ -821,6 +821,7 @@ export class LogisticsAdminService {
                           .map((line) => ({
                               orderId: str(line['orderId']),
                               orderItemId: str(line['orderItemId']),
+                              marketProductId: str(line['marketProductId']),
                               productName: str(line['productName']),
                               quantity: optNum(line['quantity']) ?? 0,
                               capacityKg: optNum(line['capacityKg']) ?? null,

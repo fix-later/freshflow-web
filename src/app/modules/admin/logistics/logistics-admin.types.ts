@@ -109,6 +109,8 @@ export interface RouteEligibility {
 export interface LoadingManifestLine {
     orderId: string;
     orderItemId: string;
+    /** The catalog product behind the line — what a scan resolves to. */
+    marketProductId: string;
     productName: string;
     quantity: number;
     capacityKg: number | null;

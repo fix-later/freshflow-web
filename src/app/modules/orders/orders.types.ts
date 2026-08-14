@@ -7,6 +7,8 @@ export interface OrderItem {
     unitPrice?: number | null;
     subtotal?: number | null;
     actualQuantity?: number | null;
+    /** Packing code snapshotted onto the line (`OrderItemDto.PackingCode`). */
+    packingCode?: string | null;
     [key: string]: unknown;
 }
 
