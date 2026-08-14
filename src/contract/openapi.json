@@ -10491,20 +10491,14 @@
       },
       "PlanRoutesRequest": {
         "required": [
-          "hubId",
-          "serviceDate"
+          "marketSessionId"
         ],
         "type": "object",
         "properties": {
-          "hubId": {
+          "marketSessionId": {
             "minLength": 1,
             "type": "string",
             "format": "uuid"
-          },
-          "serviceDate": {
-            "minLength": 1,
-            "type": "string",
-            "format": "date"
           },
           "optimizationCriteria": {
             "type": "string",
@@ -10768,6 +10762,14 @@
             "nullable": true
           },
           "taxCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceLegalName": {
+            "type": "string",
+            "nullable": true
+          },
+          "invoiceAddress": {
             "type": "string",
             "nullable": true
           }

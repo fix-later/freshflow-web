@@ -296,7 +296,13 @@ export class RouteCreateComponent implements OnInit {
             .finally(() => this.calculating.set(false));
     }
 
-    /** Lets the backend build every route the hub needs for the day. */
+    /**
+     * Lets the backend build every route the hub needs for the day.
+     *
+     * The endpoint plans a **market session**, so the hub and date chosen here
+     * are resolved to one first. A day with no session open cannot be planned —
+     * said plainly, rather than as the 404 the API would answer with.
+     */
     plan(): void {
         const isoDate = this._isoDate();
         if (!isoDate || !this.canPlan()) {
@@ -304,12 +310,21 @@ export class RouteCreateComponent implements OnInit {
         }
         this.planning.set(true);
         void this._logistics
-            .planRoutes({
-                hubId: this.hubId.value,
-                serviceDate: isoDate,
-                optimizationCriteria: this.criteria.value,
+            .marketSessionIdFor(this.hubId.value, isoDate)
+            .then((marketSessionId) => {
+                if (!marketSessionId) {
+                    this._notify('admin.routes.create.noSession');
+                    return [];
+                }
+                return this._logistics.planRoutes({
+                    marketSessionId,
+                    optimizationCriteria: this.criteria.value,
+                });
             })
             .then((routes) => {
+                if (!routes.length) {
+                    return;
+                }
                 this._notify('admin.routes.create.planSuccess', {
                     count: routes.length,
                 });

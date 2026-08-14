@@ -87,8 +87,8 @@ export interface CalculateRouteInput {
  * instead of Admin hand-picking restaurants per route.
  */
 export interface PlanRoutesInput {
-    hubId: string;
-    serviceDate: string;
+    /** The session being planned; a hub and a service date belong to it. */
+    marketSessionId: string;
     optimizationCriteria: OptimizationCriterion;
 }
 

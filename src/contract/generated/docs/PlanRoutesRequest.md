@@ -6,8 +6,7 @@
 
 Name | Type
 ------------ | -------------
-`hubId` | string
-`serviceDate` | Date
+`marketSessionId` | string
 `optimizationCriteria` | string
 
 ## Example
@@ -17,8 +16,7 @@ import type { PlanRoutesRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "hubId": null,
-  "serviceDate": null,
+  "marketSessionId": null,
   "optimizationCriteria": null,
 } satisfies PlanRoutesRequest
 

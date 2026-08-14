@@ -15,6 +15,7 @@ import {
     hubStaffAssignmentsApi,
     hubsApi,
     marketsApi,
+    rawApi,
     routesApi,
     shippingApi,
     vehiclesApi,
@@ -274,6 +275,37 @@ export class LogisticsAdminService {
     }
 
     /**
+     * Drivers stationed at `hubId` (`GET /hubs/{hubId}/driver-assignments`).
+     *
+     * Through `rawApi` rather than a generated method: the route is newer than
+     * the checked-in `openapi.json`. It still applies the shared configuration —
+     * bearer auth, no-store, 401 refresh-and-retry, the typed error classes — so
+     * failures read like a generated call's. Swap both of these for the
+     * generated methods after the next `npm run generate:api`.
+     */
+    async getHubDriverAssignments(hubId: string): Promise<string[]> {
+        const res = await rawApi.send(
+            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
+            'GET'
+        );
+        return this._assignmentUserIds(
+            unwrapData<unknown>(await parseJson(res))
+        );
+    }
+
+    /** Replaces the full driver roster for `hubId` (mirrors the staff one). */
+    async replaceHubDriverAssignments(
+        hubId: string,
+        driverUserIds: string[]
+    ): Promise<void> {
+        await rawApi.send(
+            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
+            'PUT',
+            { driverUserIds }
+        );
+    }
+
+    /**
      * Pulls assigned user ids out of the (untyped) staff-assignments body,
      * tolerating a bare array or an object wrapper (`staffUserIds` / `items` /
      * …), and entries that are either plain id strings or objects.
@@ -286,6 +318,7 @@ export class LogisticsAdminService {
             const record = data as Record<string, unknown>;
             for (const key of [
                 'staffUserIds',
+                'driverUserIds',
                 'userIds',
                 'assignments',
                 'items',
@@ -611,20 +644,51 @@ export class LogisticsAdminService {
     }
 
     /**
-     * Plans the whole day for a hub in one call — the backend groups that
-     * day's restaurants into as many routes as it needs. Returns the created
-     * routes so the list can refresh without a second round-trip.
+     * Plans the whole day in one call — the backend groups that day's
+     * restaurants into as many routes as it needs. Returns the created routes
+     * so the list can refresh without a second round-trip.
+     *
+     * Keyed on the **market session** now, not the hub and the date:
+     * `PlanRoutesCommandHandler` reads the hub and the service date off the
+     * session, and plans are stored against it. {@link marketSessionIdFor}
+     * turns the pair the form still asks for into that id.
      */
     async planRoutes(input: PlanRoutesInput): Promise<CrudRow[]> {
         const res = await routesApi.apiV1LogisticsRoutesPlanPostRaw({
             planRoutesRequest: {
-                hubId: input.hubId,
-                serviceDate: new Date(input.serviceDate),
+                marketSessionId: input.marketSessionId,
                 optimizationCriteria: input.optimizationCriteria.toUpperCase(),
             },
         });
         const body = await parseJson(res.raw);
         return withId<CrudRow>(extractList(body), 'routeId');
+    }
+
+    /**
+     * The market session trading at `hubId` on `serviceDate` (`yyyy-MM-dd`),
+     * or `null` when the chợ has not opened one — which is the honest answer to
+     * "plan this day": there is nothing to plan against yet.
+     */
+    async marketSessionIdFor(
+        hubId: string,
+        serviceDate: string
+    ): Promise<string | null> {
+        try {
+            const day = new Date(serviceDate);
+            const res = await adminApi.apiV1AdminMarketSessionsGetRaw({
+                from: day,
+                to: day,
+            });
+            const sessions = extractList<Record<string, unknown>>(
+                await parseJson(res.raw)
+            );
+            const match = sessions.find(
+                (session) => str(session['hubId']) === hubId
+            );
+            return match ? str(match['id']) || null : null;
+        } catch {
+            return null;
+        }
     }
 
     /** `planned` → `selected`: adopts the calculated model for optimization. */

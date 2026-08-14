@@ -11,6 +11,8 @@ Name | Type
 `restaurantName` | string
 `phone` | string
 `taxCode` | string
+`invoiceLegalName` | string
+`invoiceAddress` | string
 
 ## Example
 
@@ -24,6 +26,8 @@ const example = {
   "restaurantName": null,
   "phone": null,
   "taxCode": null,
+  "invoiceLegalName": null,
+  "invoiceAddress": null,
 } satisfies RegisterRestaurantRequest
 
 console.log(example)

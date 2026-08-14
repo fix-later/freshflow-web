@@ -24,13 +24,7 @@ export interface PlanRoutesRequest {
      * @type {string}
      * @memberof PlanRoutesRequest
      */
-    hubId: string;
-    /**
-     * 
-     * @type {Date}
-     * @memberof PlanRoutesRequest
-     */
-    serviceDate: Date;
+    marketSessionId: string;
     /**
      * 
      * @type {string}
@@ -43,8 +37,7 @@ export interface PlanRoutesRequest {
  * Check if a given object implements the PlanRoutesRequest interface.
  */
 export function instanceOfPlanRoutesRequest(value: object): value is PlanRoutesRequest {
-    if (!('hubId' in value) || value['hubId'] === undefined) return false;
-    if (!('serviceDate' in value) || value['serviceDate'] === undefined) return false;
+    if (!('marketSessionId' in value) || value['marketSessionId'] === undefined) return false;
     return true;
 }
 
@@ -58,8 +51,7 @@ export function PlanRoutesRequestFromJSONTyped(json: any, ignoreDiscriminator: b
     }
     return {
         
-        'hubId': json['hubId'],
-        'serviceDate': (new Date(json['serviceDate'])),
+        'marketSessionId': json['marketSessionId'],
         'optimizationCriteria': json['optimizationCriteria'] == null ? undefined : json['optimizationCriteria'],
     };
 }
@@ -75,8 +67,7 @@ export function PlanRoutesRequestToJSONTyped(value?: PlanRoutesRequest | null, i
 
     return {
         
-        'hubId': value['hubId'],
-        'serviceDate': value['serviceDate'].toISOString().substring(0,10),
+        'marketSessionId': value['marketSessionId'],
         'optimizationCriteria': value['optimizationCriteria'],
     };
 }
