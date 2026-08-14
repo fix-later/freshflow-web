@@ -219,13 +219,44 @@ export class MarketProductsComponent implements OnInit {
         return visible.every((row) => selected.has(row.id));
     });
 
+    /** Header filters: a category name, and in-stock vs out-of-stock. */
+    readonly categoryFilter = signal('');
+    readonly stockFilter = signal('');
+
+    /** Categories actually listed at this chợ — filtering by any other is empty. */
+    readonly categoryOptions = computed(() =>
+        [
+            ...new Set(
+                this.rows()
+                    .map((row) => row.category)
+                    .filter((name) => !!name)
+            ),
+        ].sort((a, b) => a.localeCompare(b))
+    );
+
+    readonly hasActiveFilters = computed(
+        () => !!this.categoryFilter() || !!this.stockFilter()
+    );
+
     readonly filteredRows = computed(() => {
         const term = this.search().trim();
-        const list = this.rows();
-        if (!term) {
-            return list;
-        }
-        return list.filter((row) => includesFolded(row.name, term));
+        const category = this.categoryFilter();
+        const stock = this.stockFilter();
+        return this.rows().filter((row) => {
+            if (term && !includesFolded(row.name, term)) {
+                return false;
+            }
+            if (category && row.category !== category) {
+                return false;
+            }
+            if (!stock) {
+                return true;
+            }
+            // A listing with no quantity recorded reads as out of stock: it is
+            // the same thing to a buyer, and to the picker that seeds it at 0.
+            const inStock = (row.quantity ?? 0) > 0;
+            return stock === 'in' ? inStock : !inStock;
+        });
     });
 
     /**
@@ -333,6 +364,11 @@ export class MarketProductsComponent implements OnInit {
 
     onSearch(value: string): void {
         this.search.set(value);
+    }
+
+    clearFilters(): void {
+        this.categoryFilter.set('');
+        this.stockFilter.set('');
     }
 
     openQuickAdd(): void {

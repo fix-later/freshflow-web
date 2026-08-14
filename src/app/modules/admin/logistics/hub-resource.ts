@@ -6,6 +6,20 @@ import {
 } from '../shared/resource-crud.types';
 import { LogisticsAdminService } from './logistics-admin.service';
 
+/**
+ * Share of a hub's capacity currently taken, or `null` when the hub declares no
+ * capacity (nothing to be a share of). Same bands as the meter on the hub page,
+ * so "sắp đầy" in the filter means what the amber bar means.
+ */
+function utilization(row: CrudRow): number | null {
+    const capacity = Number(row['capacityKg'] ?? 0);
+    if (!Number.isFinite(capacity) || capacity <= 0) {
+        return null;
+    }
+    const occupied = Number(row['occupiedCapacityKg'] ?? 0);
+    return (Number.isFinite(occupied) ? occupied : 0) / capacity;
+}
+
 interface HubResourceOptions {
     /**
      * Scopes the list to one market and pins new hubs to it, for the market
@@ -32,6 +46,7 @@ interface HubResourceOptions {
 export function createHubResource(
     logistics: LogisticsAdminService,
     router: Router,
+    label: (key: string) => string,
     options: HubResourceOptions = {}
 ): CrudResource {
     const { marketId, openDetail } = options;
@@ -136,6 +151,55 @@ export function createHubResource(
                 latField: 'latitude',
                 lngField: 'longitude',
                 addressField: 'address',
+            },
+        ],
+        filters: [
+            {
+                name: 'status',
+                label: 'admin.crud.status',
+                options: () =>
+                    Promise.resolve([
+                        { value: 'active', label: label('admin.crud.active') },
+                        {
+                            value: 'inactive',
+                            label: label('admin.crud.inactive'),
+                        },
+                    ]),
+                match: (row, value) =>
+                    value === 'active'
+                        ? row['isActive'] !== false
+                        : row['isActive'] === false,
+            },
+            {
+                name: 'utilization',
+                label: 'admin.hubs.utilizationPercent',
+                options: () =>
+                    Promise.resolve([
+                        {
+                            value: 'free',
+                            label: label('admin.hubs.utilization.free'),
+                        },
+                        {
+                            value: 'tight',
+                            label: label('admin.hubs.utilization.tight'),
+                        },
+                        {
+                            value: 'full',
+                            label: label('admin.hubs.utilization.full'),
+                        },
+                    ]),
+                match: (row, value) => {
+                    const used = utilization(row);
+                    if (used === null) {
+                        return false;
+                    }
+                    if (value === 'full') {
+                        return used >= 0.9;
+                    }
+                    return value === 'tight'
+                        ? used >= 0.7 && used < 0.9
+                        : used < 0.7;
+                },
             },
         ],
         list: async () => {

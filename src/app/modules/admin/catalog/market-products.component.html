@@ -62,13 +62,76 @@
                     </div>
                 </div>
             } @else {
-                <div class="min-w-0">
-                    <div class="text-lg font-semibold tracking-tight">
-                        {{ t('admin.markets.editPage.tabs.pricing') }}
-                    </div>
-                    <p class="text-secondary mt-1 text-sm">
-                        {{ t('admin.markets.pricingTitle') }}
-                    </p>
+                <!-- The tab is already titled, so the room on the left goes to
+                     the filters instead of repeating it. -->
+                <div class="flex min-w-0 flex-wrap items-end gap-3">
+                    <mat-form-field
+                        class="fuse-mat-dense w-44"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.products.category')
+                        }}</mat-label>
+                        <mat-icon
+                            matPrefix
+                            svgIcon="heroicons_outline:funnel"
+                        ></mat-icon>
+                        <mat-select
+                            [value]="categoryFilter()"
+                            (selectionChange)="categoryFilter.set($event.value)"
+                        >
+                            <mat-option [value]="''">{{
+                                t('admin.crud.filterAll')
+                            }}</mat-option>
+                            @for (name of categoryOptions(); track name) {
+                                <mat-option [value]="name">{{
+                                    name
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field
+                        class="fuse-mat-dense w-44"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.markets.pricing.stock')
+                        }}</mat-label>
+                        <mat-icon
+                            matPrefix
+                            svgIcon="heroicons_outline:funnel"
+                        ></mat-icon>
+                        <mat-select
+                            [value]="stockFilter()"
+                            (selectionChange)="stockFilter.set($event.value)"
+                        >
+                            <mat-option [value]="''">{{
+                                t('admin.crud.filterAll')
+                            }}</mat-option>
+                            <mat-option value="in">{{
+                                t('admin.markets.pricing.inStock')
+                            }}</mat-option>
+                            <mat-option value="out">{{
+                                t('admin.markets.pricing.outOfStock')
+                            }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    @if (hasActiveFilters()) {
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            (click)="clearFilters()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:x-mark"
+                            ></mat-icon>
+                            <span class="ml-2 mr-1">{{
+                                t('admin.crud.clearFilters')
+                            }}</span>
+                        </button>
+                    }
                 </div>
             }
             <div class="flex min-w-0 shrink items-center gap-3">

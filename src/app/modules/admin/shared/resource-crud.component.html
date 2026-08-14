@@ -95,11 +95,18 @@
             <div
                 class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
             >
-                <div class="min-w-0">
+                <div class="flex min-w-0 flex-wrap items-end gap-3">
                     @if (!embedded) {
                         <div class="text-4xl font-extrabold tracking-tight">
                             {{ t(resource.title) }}
                         </div>
+                    } @else {
+                        <!-- Hosted in a tab there is no page title, so the
+                             filters take the left of the search/create row
+                             instead of opening a second one under it. -->
+                        <ng-container
+                            *ngTemplateOutlet="crudFilters; context: { t: t }"
+                        ></ng-container>
                     }
                 </div>
                 <div
@@ -158,53 +165,11 @@
                 </div>
             </div>
 
-            @if (resource.filters?.length) {
+            @if (!embedded && resource.filters?.length) {
                 <div class="mt-6 flex flex-wrap items-end gap-3">
-                    @for (filter of resource.filters; track filter.name) {
-                        <mat-form-field
-                            class="fuse-mat-dense w-56"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{ t(filter.label) }}</mat-label>
-                            <mat-icon
-                                matPrefix
-                                svgIcon="heroicons_outline:funnel"
-                            ></mat-icon>
-                            <mat-select
-                                [value]="filterValues()[filter.name] ?? ''"
-                                (selectionChange)="
-                                    onFilterChange(filter, $event.value)
-                                "
-                            >
-                                <mat-option [value]="''">{{
-                                    t('admin.crud.filterAll')
-                                }}</mat-option>
-                                @for (
-                                    opt of filterOptions()[filter.name];
-                                    track opt.value
-                                ) {
-                                    <mat-option [value]="opt.value">{{
-                                        opt.label
-                                    }}</mat-option>
-                                }
-                            </mat-select>
-                        </mat-form-field>
-                    }
-
-                    @if (hasActiveFilters()) {
-                        <button
-                            mat-stroked-button
-                            type="button"
-                            (click)="clearFilters()"
-                        >
-                            <mat-icon
-                                svgIcon="heroicons_outline:x-mark"
-                            ></mat-icon>
-                            <span class="ml-2 mr-1">{{
-                                t('admin.crud.clearFilters')
-                            }}</span>
-                        </button>
-                    }
+                    <ng-container
+                        *ngTemplateOutlet="crudFilters; context: { t: t }"
+                    ></ng-container>
                 </div>
             }
         </div>
@@ -337,7 +302,11 @@
                                             >
                                                 <mat-icon
                                                     class="flex-shrink-0 icon-size-5"
-                                                    svgIcon="heroicons_outline:user"
+                                                    [svgIcon]="
+                                                        'heroicons_outline:' +
+                                                        (col.assign.icon ||
+                                                            'user')
+                                                    "
                                                 ></mat-icon>
                                                 <span
                                                     class="agent-label ml-1"
@@ -632,6 +601,40 @@
     </div>
 }
 
+<!-- The dropdown filters, rendered either on their own row (page) or on the
+     left of the search/create row (embedded in a tab). -->
+<ng-template #crudFilters let-t="t">
+    @for (filter of resource.filters; track filter.name) {
+        <mat-form-field
+            class="fuse-mat-dense"
+            subscriptSizing="dynamic"
+            [class.w-56]="!embedded"
+            [class.w-44]="embedded"
+        >
+            <mat-label>{{ t(filter.label) }}</mat-label>
+            <mat-icon matPrefix svgIcon="heroicons_outline:funnel"></mat-icon>
+            <mat-select
+                [value]="filterValues()[filter.name] ?? ''"
+                (selectionChange)="onFilterChange(filter, $event.value)"
+            >
+                <mat-option [value]="''">{{
+                    t('admin.crud.filterAll')
+                }}</mat-option>
+                @for (opt of filterOptions()[filter.name]; track opt.value) {
+                    <mat-option [value]="opt.value">{{ opt.label }}</mat-option>
+                }
+            </mat-select>
+        </mat-form-field>
+    }
+
+    @if (hasActiveFilters()) {
+        <button mat-stroked-button type="button" (click)="clearFilters()">
+            <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            <span class="ml-2 mr-1">{{ t('admin.crud.clearFilters') }}</span>
+        </button>
+    }
+</ng-template>
+
 <!-- Create / edit dialog (Fuse compose / scrumboard card pattern) -->
 <ng-template #formDialog>
     <div [class]="dialogShellClass" *transloco="let t">
@@ -724,7 +727,11 @@
             >
                 @if (assignDialogRow(); as row) {
                     <div class="mb-1 text-base font-medium">
-                        {{ row['name'] || '—' }}
+                        {{
+                            (assign.rowLabel
+                                ? assign.rowLabel(row)
+                                : row['name']) || '—'
+                        }}
                     </div>
                     <div class="text-secondary mb-6 text-sm">
                         {{ row['address'] || '' }}
@@ -747,9 +754,11 @@
                 <mat-form-field class="w-full" subscriptSizing="dynamic">
                     <mat-label>{{ t(assign.dialogSelect) }}</mat-label>
                     <mat-select formControlName="userId">
-                        <mat-option value="">{{
-                            t(assign.noneLabel)
-                        }}</mat-option>
+                        @if (assign.allowClear !== false) {
+                            <mat-option value="">{{
+                                t(assign.noneLabel)
+                            }}</mat-option>
+                        }
                         @for (opt of assignDialogOptions(); track opt.value) {
                             <mat-option [value]="opt.value">{{
                                 opt.label
@@ -758,23 +767,23 @@
                     </mat-select>
                 </mat-form-field>
 
-                <div
-                    class="mt-6 flex flex-wrap items-center justify-between gap-3"
-                >
-                    <button
-                        class="-ml-2"
-                        mat-button
-                        color="warn"
-                        type="button"
-                        [disabled]="
-                            assignDialogSaving() ||
-                            (!assignForm.controls.userId.value &&
-                                !assignCurrentId())
-                        "
-                        (click)="clearAssignSelection()"
-                    >
-                        {{ t(assign.dialogClear) }}
-                    </button>
+                <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+                    @if (assign.allowClear !== false) {
+                        <button
+                            class="-ml-2 mr-auto"
+                            mat-button
+                            color="warn"
+                            type="button"
+                            [disabled]="
+                                assignDialogSaving() ||
+                                (!assignForm.controls.userId.value &&
+                                    !assignCurrentId())
+                            "
+                            (click)="clearAssignSelection()"
+                        >
+                            {{ t(assign.dialogClear) }}
+                        </button>
+                    }
                     <div class="flex items-center gap-3">
                         <button
                             mat-stroked-button
@@ -787,7 +796,11 @@
                             mat-flat-button
                             color="primary"
                             type="submit"
-                            [disabled]="assignDialogSaving()"
+                            [disabled]="
+                                assignDialogSaving() ||
+                                (assign.allowClear === false &&
+                                    !assignForm.controls.userId.value)
+                            "
                         >
                             {{ t(assign.dialogSave) }}
                         </button>
