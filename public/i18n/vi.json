@@ -1699,6 +1699,7 @@
     "errors.field.quantityNonNegative": "Số lượng phải bằng 0 hoặc lớn hơn",
     "errors.field.quantityPositive": "Số lượng phải lớn hơn 0",
     "errors.field.quantityTooLarge": "Số lượng quá lớn",
+    "errors.field.packingMultiple": "Số lượng phải là bội số của {{size}}kg (1 kiện)",
     "errors.field.required": "Trường này là bắt buộc",
     "errors.field.roleInvalid": "Vai trò phải là một trong các giá trị được chấp nhận",
     "errors.field.uuidInvalid": "Không lưu được mục này — mã định danh không hợp lệ",

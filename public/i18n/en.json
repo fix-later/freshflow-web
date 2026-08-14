@@ -1699,6 +1699,7 @@
     "errors.field.quantityNonNegative": "Quantity must be 0 or greater",
     "errors.field.quantityPositive": "Quantity must be greater than 0",
     "errors.field.quantityTooLarge": "Quantity is too large",
+    "errors.field.packingMultiple": "Quantity must be a multiple of {{size}}kg (1 case)",
     "errors.field.required": "This field is required",
     "errors.field.roleInvalid": "Role must be one of the accepted values",
     "errors.field.uuidInvalid": "This item cannot be saved — its identifier is not valid",
