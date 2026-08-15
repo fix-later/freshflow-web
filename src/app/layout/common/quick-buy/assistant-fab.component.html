@@ -1,0 +1,23 @@
+<ng-container *transloco="let t">
+    @if (available() && !opened()) {
+        <button
+            class="ff-assistant-fab print:hidden"
+            [class.ff-assistant-fab--raised]="raised()"
+            type="button"
+            data-testid="assistant-fab"
+            [attr.aria-label]="t('assistant.launch')"
+            [matTooltip]="t('assistant.launch')"
+            matTooltipPosition="left"
+            (click)="open()"
+        >
+            <img
+                class="ff-assistant-fab__art"
+                src="assistant.svg"
+                alt=""
+                width="32"
+                height="32"
+                decoding="async"
+            />
+        </button>
+    }
+</ng-container>

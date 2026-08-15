@@ -61,7 +61,53 @@ export class FavoritesDrawerComponent {
         void this.favoritesService.remove(marketProductId);
     }
 
+    /**
+     * Whether this favourite can still be ordered.
+     *
+     * Adding a line seeds one whole case (`DraftOrderService.add`), so anything
+     * sold out, under a case, or with no case defined cannot be added at all —
+     * the same rule the product tile applies, spelled here because a drawer row
+     * is a second place to press the same button.
+     */
+    canAddToDraft(product: CatalogProduct): boolean {
+        return (
+            product.active !== false && this.unavailableLabel(product) === null
+        );
+    }
+
+    /**
+     * Why a favourite cannot be ordered, as an i18n key, or `null` when it can.
+     *
+     * Sold out and "down to less than one case" are told apart on the product
+     * tile, where a shopper is choosing and the difference might change their
+     * mind. Here it would not: the row is a saved item they cannot buy today,
+     * and the case size is the platform's business rather than theirs — so both
+     * read simply as **hết hàng**.
+     */
+    unavailableLabel(product: CatalogProduct): string | null {
+        const pack = product.packWeightKg;
+        const stock = product.quantity;
+        const known = (value: number | null | undefined): value is number =>
+            value !== null && value !== undefined;
+
+        if (!known(pack) || pack <= 0) {
+            // `FavoriteItemDto` carries no packing weight, so an absent one here
+            // means "the favourites endpoint did not say", not "this product has
+            // no packing code" — only the catalog listing can tell those apart.
+            // Reporting it as unorderable marked every saved item unavailable.
+            // Fall back to the one thing this row does state: whether any stock
+            // is left.
+            return known(stock) && stock <= 0 ? 'productCard.outOfStock' : null;
+        }
+        return known(stock) && stock < pack ? 'productCard.outOfStock' : null;
+    }
+
     addToDraftOrder(product: CatalogProduct): void {
+        // The control is absent in this state, but a favourite can sell out
+        // while the drawer sits open.
+        if (!this.canAddToDraft(product)) {
+            return;
+        }
         this._draftOrderService.add(product);
     }
 

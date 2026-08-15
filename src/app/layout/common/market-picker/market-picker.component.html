@@ -18,17 +18,19 @@
     </button>
 </ng-container>
 
-<!-- Popup: market list -->
+<!-- Popup: the market board -->
 <ng-template #marketPickerPanel>
     <ng-container *transloco="let t">
-        <div class="flex max-h-[80vh] flex-col p-6">
+        <div class="ff-mp">
             <!-- Header -->
-            <div class="relative flex items-center justify-center">
-                <h2 class="text-2xl font-bold tracking-tight">
-                    {{ t('market.dialogTitle', { count: markets().length }) }}
-                </h2>
+            <div class="ff-mp__head">
+                <!-- A question, not a label: this is the first thing the
+                     storefront asks, and the line under it says what picking
+                     one does. -->
+                <h2 class="ff-mp__title">{{ t('market.dialogTitle') }}</h2>
+                <p class="ff-mp__hint">{{ t('market.dialogHint') }}</p>
                 <button
-                    class="absolute -right-2 -top-2"
+                    class="ff-mp__close"
                     mat-icon-button
                     type="button"
                     [attr.aria-label]="t('market.close')"
@@ -41,12 +43,8 @@
                 </button>
             </div>
 
-            <p class="text-secondary mt-2 text-center text-sm">
-                {{ t('market.dialogHint') }}
-            </p>
-
             @if (loading()) {
-                <div class="flex items-center justify-center py-12">
+                <div class="flex items-center justify-center py-16">
                     <mat-progress-spinner
                         [diameter]="32"
                         [mode]="'indeterminate'"
@@ -83,64 +81,87 @@
                     </button>
                 </div>
             } @else {
-                <!-- Search -->
-                <mat-form-field class="fuse-mat-dense mt-4 w-full">
-                    <mat-icon
-                        matPrefix
-                        class="icon-size-5"
-                        [svgIcon]="'heroicons_outline:magnifying-glass'"
-                    ></mat-icon>
-                    <input
-                        matInput
-                        type="text"
-                        [placeholder]="t('market.searchPlaceholder')"
-                        [value]="search()"
-                        (input)="search.set($any($event.target).value)"
-                    />
-                </mat-form-field>
-
-                <!-- List -->
-                <div class="-mx-2 mt-2 flex flex-col overflow-y-auto px-2">
-                    @for (market of filtered(); track market.id) {
-                        <button
-                            class="flex items-center gap-4 rounded-xl px-3 py-3 text-left hover:bg-hover"
-                            type="button"
-                            [class.bg-hover]="market.id === selected()?.id"
-                            (click)="select(market)"
-                        >
-                            <span
-                                class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-50 text-sm font-bold text-primary dark:bg-primary-500/10"
+                <!-- The board. No search: a city has a handful of chợ, and a
+                     filter over a board this size costs more attention than it
+                     saves. -->
+                <div class="ff-mp__body">
+                    <div class="ff-mp__grid">
+                        @for (market of markets(); track market.id) {
+                            <button
+                                class="ff-mp__card"
+                                type="button"
+                                [class.ff-mp__card--current]="
+                                    market.id === selected()?.id
+                                "
+                                [attr.aria-current]="
+                                    market.id === selected()?.id ? 'true' : null
+                                "
+                                (click)="select(market)"
                             >
-                                {{ initials(market.name) }}
-                            </span>
-                            <span class="flex min-w-0 flex-col">
-                                <span class="truncate font-semibold">
-                                    {{
-                                        t('market.displayName', {
-                                            name: market.name,
-                                        })
-                                    }}
-                                </span>
-                                @if (market.address) {
-                                    <span
-                                        class="text-secondary truncate text-sm"
-                                    >
-                                        {{ market.address }}
+                                @if (market.id === selected()?.id) {
+                                    <span class="ff-mp__badge">
+                                        <mat-icon
+                                            class="text-current icon-size-3.5"
+                                            [svgIcon]="
+                                                'heroicons_solid:check-circle'
+                                            "
+                                        ></mat-icon>
+                                        {{ t('market.currentBadge') }}
                                     </span>
                                 }
-                            </span>
-                            @if (market.id === selected()?.id) {
-                                <mat-icon
-                                    class="ml-auto shrink-0 text-primary icon-size-5"
-                                    [svgIcon]="'heroicons_solid:check-circle'"
-                                ></mat-icon>
-                            }
-                        </button>
-                    } @empty {
-                        <p class="text-secondary px-3 py-6 text-center text-sm">
-                            {{ t('market.noResults') }}
-                        </p>
-                    }
+
+                                <!-- The chợ's own artwork, when an admin has
+                                     uploaded one; its monogram otherwise. -->
+                                <span class="ff-mp__art">
+                                    @if (market.imageUrl) {
+                                        <img
+                                            [src]="market.imageUrl"
+                                            [alt]="market.name"
+                                            loading="lazy"
+                                            decoding="async"
+                                        />
+                                    } @else {
+                                        <span
+                                            class="ff-mp__monogram"
+                                            aria-hidden="true"
+                                            >{{ initials(market.name) }}</span
+                                        >
+                                    }
+                                </span>
+
+                                <span class="ff-mp__card-body">
+                                    <span class="ff-mp__name">
+                                        {{
+                                            t('market.displayName', {
+                                                name: market.name,
+                                            })
+                                        }}
+                                    </span>
+                                    <span class="ff-mp__rule"></span>
+
+                                    <!-- Only when the record carries one; a
+                                         speciality is never invented. -->
+                                    @if (market.description) {
+                                        <span class="ff-mp__specialty">
+                                            {{ market.description }}
+                                        </span>
+                                    }
+
+                                    @if (market.address) {
+                                        <span class="ff-mp__where">
+                                            <mat-icon
+                                                class="text-current icon-size-4"
+                                                [svgIcon]="
+                                                    'heroicons_outline:map-pin'
+                                                "
+                                            ></mat-icon>
+                                            <span>{{ market.address }}</span>
+                                        </span>
+                                    }
+                                </span>
+                            </button>
+                        }
+                    </div>
                 </div>
             }
         </div>

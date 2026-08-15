@@ -17,32 +17,23 @@ import { activeLang } from 'app/core/i18n/active-lang';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
 import { CatalogCategory } from 'app/modules/catalog/catalog.types';
+import { VideoPlayerComponent } from 'app/shared/video-player/video-player.component';
 
 /** Category shortcuts beside the search. Five is the brief's aisle count. */
 const QUICK_CATEGORIES = 5;
 
 /**
- * The market-scene footage, in the order the browser should try it.
+ * Cloudinary `public_id` of the market-scene footage.
  *
- * A WebM entry is deliberately absent: only the H.264 file exists, and listing
- * a source that 404s costs a wasted request that the SPA fallback answers with
- * `index.html`. Add it back above the MP4 when one is produced — VP9/AV1 is
- * materially smaller at the same quality, and the browser takes the first
- * source it can play.
- */
-export const MARKET_SCENE_SOURCES: readonly {
-    src: string;
-    type: string;
-}[] = [{ src: '/media/market-scene.mp4', type: 'video/mp4' }];
-
-/**
- * Connection classes that do not get the footage.
+ * An id, not a URL: `ff-video-player` derives the HLS manifest, the MP4
+ * fallback and the poster from it, so the streaming profile and the delivery
+ * transformations live in one place instead of being spelled out here. Empty
+ * string means no footage is configured and the hero keeps the built scene.
  *
- * The hero video is atmosphere. On a metered or slow link it is a large
- * download that buys the buyer nothing they came for, and the built scene
- * behind it says the same thing for free.
+ * Replaces a `/media/market-scene.mp4` in `public/` that this repository never
+ * shipped — the file 404'd and the hero fell back every time.
  */
-const SLOW_CONNECTIONS = new Set(['slow-2g', '2g', '3g']);
+export const MARKET_SCENE_PUBLIC_ID = 'market-scene_x7lbcm';
 
 /**
  * Section 1: the hero, "Hôm nay đi chợ mua gì?".
@@ -58,14 +49,18 @@ const SLOW_CONNECTIONS = new Set(['slow-2g', '2g', '3g']);
  *    stall roofline, crates, a hand cart. Authored, not photographed — it is
  *    architecture and silhouette, so it never pretends to be a photo of a
  *    market that was not shot.
- * 2. Footage, when {@link MARKET_SCENE_SOURCES} exists, laid over the top.
+ * 2. Footage, streamed from Cloudinary ({@link MARKET_SCENE_PUBLIC_ID}), laid
+ *    over the top.
  *
  * The built layer is the permanent backdrop rather than a swap-in fallback:
- * with no video file it simply shows, and with one it is covered. That means no
- * empty box, no flash between poster and first frame, and no state to get
- * wrong. This repository ships **no footage** — sourcing authentic Vietnamese
- * wholesale-market video is not something this component can do for itself — so
- * out of the box the hero renders the built scene.
+ * whenever the footage is absent, gated or unplayable it simply shows, and
+ * otherwise it is covered. That means no empty box, no flash between poster and
+ * first frame, and no state to get wrong.
+ *
+ * Three things keep the footage off the screen, and all three are deliberate:
+ * `prefers-reduced-motion` (a looping market is decoration, and the still
+ * composition says the same thing), an explicit `saveData` request, and a
+ * playback failure that neither HLS nor the MP4 fallback could recover from.
  *
  * The previous hero put four featured listings here. They moved out rather than
  * being lost: `today-highlights` directly below already renders the same
@@ -79,7 +74,13 @@ const SLOW_CONNECTIONS = new Set(['slow-2g', '2g', '3g']);
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [FormsModule, MatIconModule, RouterLink, TranslocoModule],
+    imports: [
+        FormsModule,
+        MatIconModule,
+        RouterLink,
+        TranslocoModule,
+        VideoPlayerComponent,
+    ],
 })
 export class MarketHeroComponent {
     private _catalog = inject(CatalogService);
@@ -95,7 +96,7 @@ export class MarketHeroComponent {
 
     searchQuery = '';
 
-    readonly sceneSources = MARKET_SCENE_SOURCES;
+    readonly sceneVideoId = MARKET_SCENE_PUBLIC_ID;
 
     /**
      * Set when the browser cannot play any source — the usual cause being that
@@ -116,32 +117,28 @@ export class MarketHeroComponent {
         window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     /**
-     * True when the visitor has asked for less data, or is on a link where a
-     * hero video is a bad trade.
+     * True when the visitor has explicitly asked to save data.
      *
-     * Not a micro-optimisation: the current footage is a 37MB, 32-second,
-     * 9.8 Mbps H.264 file whose `moov` atom sits after `mdat`, so a browser
-     * has to pull most of it before the first frame can paint. Even once that
-     * is fixed, a restaurant buyer checking prices on mobile data should not
-     * spend their allowance on set dressing. `connection` is Chromium-only;
-     * where it is absent this is simply false and the video plays.
+     * This used to bar slow connections too (`effectiveType` of 3g and below),
+     * and the reason was the footage: a 37MB progressive MP4 whose `moov` atom
+     * sat after `mdat`, so the browser had to pull most of it before painting a
+     * frame. That file is gone. The hero now streams adaptively from Cloudinary,
+     * which answers a slow link by serving the 400kbps rung instead of the
+     * 5.6Mbps one — the thing this gate existed to prevent is now the transport's
+     * job, and it was suppressing the video for people who could have watched it.
+     *
+     * `saveData` stays: that is not a guess about the network, it is the visitor
+     * saying they want less traffic, and set dressing is exactly what to drop.
+     * `connection` is Chromium-only; where it is absent this is false.
      */
     private readonly _sparesData = (() => {
         if (typeof navigator === 'undefined') {
             return false;
         }
         const conn = (
-            navigator as Navigator & {
-                connection?: { saveData?: boolean; effectiveType?: string };
-            }
+            navigator as Navigator & { connection?: { saveData?: boolean } }
         ).connection;
-        if (!conn) {
-            return false;
-        }
-        return (
-            conn.saveData === true ||
-            SLOW_CONNECTIONS.has(conn.effectiveType ?? '')
-        );
+        return conn?.saveData === true;
     })();
 
     readonly showVideo = computed(
@@ -201,20 +198,14 @@ export class MarketHeroComponent {
     }
 
     /**
-     * True once a frame exists to show. Drives a short fade, because the swap
-     * from the built scene to real footage is otherwise a hard cut — and with
-     * a heavy file it can land seconds after the page settles, which reads as
-     * something breaking rather than as the market coming to life.
+     * Neither HLS nor the MP4 fallback could play. Drops the player from the
+     * DOM so it stops retrying, leaving the built scene it was covering.
+     *
+     * The fade from built scene to footage now belongs to the player, which
+     * holds the element back until a frame is actually painting.
      */
-    readonly videoReady = signal(false);
-
-    onVideoReady(): void {
-        this.videoReady.set(true);
-    }
-
     onVideoUnavailable(): void {
         this._videoFailed.set(true);
-        this.videoReady.set(false);
     }
 
     /**

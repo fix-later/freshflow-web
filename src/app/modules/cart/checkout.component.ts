@@ -26,11 +26,15 @@ import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.ser
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { OrdersService } from 'app/modules/orders/orders.service';
-import { OrderConfirmPreview, OrderRow } from 'app/modules/orders/orders.types';
+import {
+    MarketSessionWindow,
+    OrderConfirmPreview,
+    OrderRow,
+} from 'app/modules/orders/orders.types';
 import { DeliveryAddressesComponent } from 'app/modules/restaurant/delivery-addresses/delivery-addresses.component';
 import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { DateTime } from 'luxon';
-import { cartLineIssues } from './cart-line-rules';
+import { cartLineIssues, caseCount } from './cart-line-rules';
 
 /** Daily order cutoff (BR-ORD-2): 22:00 — after this, earliest delivery +1 extra day. */
 const CUTOFF_HOUR = 22;
@@ -161,6 +165,47 @@ export class CheckoutComponent implements OnInit {
 
     readonly afterCutoff = signal(new Date().getHours() >= CUTOFF_HOUR);
 
+    /**
+     * The chợ's session for the chosen delivery day, once read. A chợ closes
+     * to its own `closesAt`, not the platform-wide cutoff above, so this is
+     * what decides whether the day can still be ordered for.
+     *
+     * `null` after {@link sessionChecked} turns true means the day has no
+     * session at all — the backend generates them, and one that does not exist
+     * cannot be ordered into.
+     */
+    readonly marketSession = signal<MarketSessionWindow | null>(null);
+    readonly sessionChecked = signal(false);
+
+    /**
+     * Why the chosen day cannot be ordered for, as an i18n key — or `null`
+     * while it can, or while the answer is not known yet. Silent until the
+     * session has actually been read, so a slow lookup never accuses a day
+     * that is fine.
+     */
+    readonly sessionBlocker = computed<string | null>(() => {
+        if (!this.sessionChecked()) {
+            return null;
+        }
+        const session = this.marketSession();
+        if (!session) {
+            return 'checkout.shipping.sessionMissing';
+        }
+        return session.status === 'open'
+            ? null
+            : 'checkout.shipping.sessionClosed';
+    });
+
+    /** The chợ's real deadline for the chosen day, when it is still open. */
+    readonly sessionClosesAt = computed<DateTime | null>(() => {
+        const session = this.marketSession();
+        if (!session?.closesAt || session.status !== 'open') {
+            return null;
+        }
+        const closes = DateTime.fromISO(session.closesAt);
+        return closes.isValid ? closes : null;
+    });
+
     /** The restaurant's default saved delivery address, once loaded. */
     readonly defaultAddress = computed(
         () =>
@@ -240,6 +285,7 @@ export class CheckoutComponent implements OnInit {
             void this._router.navigateByUrl('/cart');
         }
         this._applyOrderingWindow();
+        this._loadMarketSession();
         void this._restaurantProfile
             .loadDeliveryAddresses()
             .catch(() => {
@@ -358,6 +404,30 @@ export class CheckoutComponent implements OnInit {
         return this.isVi() ? product.name : product.nameEn;
     }
 
+    /**
+     * The short unit, for sitting beside a quantity or a price.
+     *
+     * Falls back to kilograms: a line restored from the server is rebuilt from
+     * the order item, which carries no unit at all
+     * (`DraftOrderService._degradedProduct`). Kilograms is not a guess — cart
+     * quantity *is* kg, and the stepper moves by a whole case of them.
+     */
+    unitShort(product: CatalogProduct): string {
+        const unit = this.isVi() ? product.unit : product.unitEn;
+        return product.unitShort || unit || 'kg';
+    }
+
+    /** Cases, matching the cart. The confirm still sends kilograms. */
+    readonly caseCount = caseCount;
+
+    /** "kiện" when there is a case to count in, else the product's own unit. */
+    caseUnit(line: DraftOrderLine): string {
+        const weight = line.product.packWeightKg;
+        return weight !== null && weight !== undefined && weight > 0
+            ? this._transloco.translate('cart.caseUnit')
+            : this.unitShort(line.product);
+    }
+
     lineTotal(line: DraftOrderLine): number {
         return line.unitPrice * line.quantity;
     }
@@ -374,11 +444,55 @@ export class CheckoutComponent implements OnInit {
             return;
         }
         this.deliveryDate.set(value.startOf('day'));
+        this._loadMarketSession();
         void this.refreshQuote();
+    }
+
+    /**
+     * Reads the chợ's session for the chosen day.
+     *
+     * The market comes from the cart itself — every line is a listing of one
+     * chợ — rather than the header's selection, which the restaurant can change
+     * after filling the cart.
+     */
+    private _loadMarketSession(): void {
+        const marketId = this.lines()[0]?.product.marketId;
+        const serviceDate = this.deliveryDate().toFormat('yyyy-MM-dd');
+        if (!marketId) {
+            this.sessionChecked.set(false);
+            return;
+        }
+        void this._orders
+            .getMarketSession(marketId, serviceDate)
+            .then((session) => {
+                // A date change in flight wins; this answer is for a day the
+                // restaurant has already moved off.
+                if (
+                    this.deliveryDate().toFormat('yyyy-MM-dd') !== serviceDate
+                ) {
+                    return;
+                }
+                this.marketSession.set(session);
+                this.sessionChecked.set(true);
+            })
+            .catch(() => {
+                // Unknown, not closed: the confirm call still enforces it.
+                this.marketSession.set(null);
+                this.sessionChecked.set(false);
+            });
     }
 
     placeOrder(): void {
         if (!this.lines().length || this.submitting()) {
+            return;
+        }
+        // The button is disabled for this, but a restored form or a session
+        // that closed while the page sat open can still reach here.
+        const blocker = this.sessionBlocker();
+        if (blocker) {
+            this._snackBar.open(this._transloco.translate(blocker), undefined, {
+                duration: 4000,
+            });
             return;
         }
         if (this.deliveryDate() < this.minDeliveryDate()) {

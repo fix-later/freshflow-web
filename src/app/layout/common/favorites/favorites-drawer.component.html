@@ -8,60 +8,90 @@
         [opened]="isOpen()"
         (openedChanged)="favoritesService.setDrawerOpen($event)"
     >
-        <div class="bg-card flex h-full w-full flex-col overflow-hidden">
+        <div class="ff-drawer">
             <!-- Header -->
-            <div
-                class="flex h-20 min-h-20 shrink-0 items-center bg-primary px-6 text-on-primary"
-            >
-                <div class="text-2xl font-semibold tracking-tight">
-                    {{ t('favorites.title') }}
-                </div>
-                <button class="ml-auto" mat-icon-button (click)="closeDrawer()">
+            <div class="ff-drawer__head">
+                <span class="ff-drawer__title">{{ t('favorites.title') }}</span>
+                @if (items().length) {
+                    <span class="ff-drawer__count">{{ items().length }}</span>
+                }
+                <button
+                    class="ff-drawer__close"
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="t('favorites.close')"
+                    (click)="closeDrawer()"
+                >
                     <mat-icon
-                        class="text-current"
+                        class="icon-size-5"
                         [svgIcon]="'heroicons_outline:x-mark'"
                     ></mat-icon>
                 </button>
             </div>
 
             <!-- Content -->
-            <div
-                class="flex min-h-0 flex-auto flex-col divide-y overflow-y-auto"
-            >
+            <div class="ff-drawer__body">
                 @for (product of items(); track trackById($index, product)) {
-                    <div class="flex items-center gap-4 px-6 py-4">
+                    <div
+                        class="ff-drawer__row"
+                        [class.ff-drawer__row--unavailable]="
+                            !canAddToDraft(product)
+                        "
+                    >
                         <img
-                            class="h-14 w-14 shrink-0 rounded-lg object-cover"
+                            class="ff-drawer__thumb"
                             [src]="product.thumbnail"
                             [alt]="productName(product)"
+                            loading="lazy"
+                            decoding="async"
                         />
-                        <div class="flex min-w-0 flex-auto flex-col">
-                            <span class="line-clamp-1 font-medium">{{
+                        <div class="ff-drawer__copy">
+                            <span class="ff-drawer__name">{{
                                 productName(product)
                             }}</span>
-                            <span class="text-secondary text-sm"
-                                >{{ product.marketSource }} ·
-                                {{ productUnit(product) }}</span
-                            >
+                            <span class="ff-drawer__meta">
+                                {{ product.marketSource }} ·
+                                {{ productUnit(product) }}
+                            </span>
+                            <!-- Says what the dimming means, rather than
+                                 leaving a faded row to be guessed at. -->
+                            @if (unavailableLabel(product); as reason) {
+                                <span class="ff-drawer__flag">{{
+                                    t(reason)
+                                }}</span>
+                            }
                         </div>
+
+                        <!--
+                          Offered only where it can be acted on: a favourite
+                          that is sold out, or under one whole case, cannot be
+                          added at all (`DraftOrderService.add` seeds a full
+                          case), so the control is absent rather than dead.
+                        -->
+                        @if (canAddToDraft(product)) {
+                            <button
+                                class="h-9 min-h-9 w-9 shrink-0"
+                                mat-icon-button
+                                type="button"
+                                [matTooltip]="t('favorites.addToDraft')"
+                                [attr.aria-label]="t('favorites.addToDraft')"
+                                (click)="addToDraftOrder(product)"
+                            >
+                                <mat-icon
+                                    class="icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:shopping-cart'
+                                    "
+                                ></mat-icon>
+                            </button>
+                        }
                         <button
-                            class="h-9 min-h-9 w-9"
+                            class="h-9 min-h-9 w-9 shrink-0"
                             mat-icon-button
-                            (click)="addToDraftOrder(product)"
-                            [matTooltip]="t('favorites.addToDraft')"
-                            [attr.aria-label]="t('favorites.addToDraft')"
-                        >
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="'heroicons_outline:shopping-cart'"
-                            ></mat-icon>
-                        </button>
-                        <button
-                            class="h-9 min-h-9 w-9"
-                            mat-icon-button
-                            (click)="remove(product.marketProductId)"
+                            type="button"
                             [matTooltip]="t('favorites.remove')"
                             [attr.aria-label]="t('favorites.remove')"
+                            (click)="remove(product.marketProductId)"
                         >
                             <mat-icon
                                 class="text-hint icon-size-5"
@@ -73,36 +103,24 @@
 
                 <!-- Empty state -->
                 @if (!items().length) {
-                    <div
-                        class="flex flex-auto flex-col items-center justify-center gap-4 px-8 py-12"
-                    >
-                        <div
-                            class="flex h-14 w-14 flex-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-600"
-                        >
+                    <div class="ff-drawer__empty">
+                        <span class="ff-drawer__empty-mark">
                             <mat-icon
-                                class="text-primary-700 dark:text-primary-50"
+                                class="text-current"
                                 [svgIcon]="'heroicons_outline:heart'"
                             ></mat-icon>
-                        </div>
-                        <div class="text-2xl font-semibold tracking-tight">
-                            {{ t('favorites.empty.title') }}
-                        </div>
-                        <div
-                            class="text-secondary w-full max-w-60 text-center text-md"
-                        >
-                            {{ t('favorites.empty.description') }}
-                        </div>
+                        </span>
+                        <span class="ff-drawer__empty-title">{{
+                            t('favorites.empty.title')
+                        }}</span>
+                        <span class="ff-drawer__empty-text">{{
+                            t('favorites.empty.description')
+                        }}</span>
                         <a
-                            class="mt-2 flex w-full max-w-60 items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                            class="ff-drawer__cta mt-2 w-full max-w-60"
                             routerLink="/catalog"
                             (click)="closeDrawer()"
                             >{{ t('favorites.viewCatalog') }}</a
-                        >
-                        <a
-                            class="flex w-full max-w-60 items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
-                            routerLink="/wishlist"
-                            (click)="closeDrawer()"
-                            >{{ t('favorites.viewWishlist') }}</a
                         >
                     </div>
                 }
@@ -110,15 +128,15 @@
 
             <!-- Footer (only when there are items) -->
             @if (items().length) {
-                <div class="bg-card flex shrink-0 flex-col gap-3 border-t p-4">
+                <div class="ff-drawer__foot">
                     <a
-                        class="flex items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                        class="ff-drawer__cta"
                         routerLink="/wishlist"
                         (click)="closeDrawer()"
                         >{{ t('favorites.viewWishlist') }}</a
                     >
                     <a
-                        class="flex items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
+                        class="ff-drawer__cta ff-drawer__cta--ghost"
                         routerLink="/catalog"
                         (click)="closeDrawer()"
                         >{{ t('favorites.viewCatalog') }}</a

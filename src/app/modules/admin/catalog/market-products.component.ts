@@ -15,6 +15,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -28,6 +29,10 @@ import {
     MAX_MARKET_PRODUCT_TAGS,
 } from 'app/modules/catalog/catalog.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import {
+    ADMIN_DEFAULT_PAGE_SIZE,
+    ADMIN_PAGE_SIZE_OPTIONS,
+} from '../shared/admin-pagination';
 import { CrudRow } from '../shared/resource-crud.types';
 import { TableSort } from '../shared/table-sort';
 import { CatalogAdminService } from './catalog-admin.service';
@@ -118,6 +123,7 @@ function decimalPlaces(value: number): number {
         MatFormFieldModule,
         MatIconModule,
         MatInputModule,
+        MatPaginatorModule,
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
@@ -285,6 +291,51 @@ export class MarketProductsComponent implements OnInit {
         })
     );
 
+    // ── Pagination ───────────────────────────────────────────────────────
+    //
+    // Client-side, over the sorted list, matching the markets list this tab
+    // sits inside. The search, category and stock filters all run across the
+    // whole inventory, so paging the fetch instead would narrow them to
+    // whichever page happened to be open — a filter that answers "no matches"
+    // while the match sits on page three is worse than no filter.
+
+    readonly pageIndex = signal(0);
+    readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
+    readonly pageSizeOptions = ADMIN_PAGE_SIZE_OPTIONS;
+
+    /** Counts what the filters left, not the whole inventory. */
+    readonly totalCount = computed(() => this.filteredRows().length);
+
+    readonly pagedRows = computed(() => {
+        const start = this.pageIndex() * this.pageSize();
+        return this.sortedRows().slice(start, start + this.pageSize());
+    });
+
+    onPageChange(event: PageEvent): void {
+        this.pageIndex.set(event.pageIndex);
+        this.pageSize.set(event.pageSize);
+    }
+
+    /**
+     * Back to the first page whenever the list underneath changes shape.
+     * Without it a filter applied from page four shows an empty table: the
+     * offset outlives the rows it was an offset into.
+     */
+    private _resetPaging(): void {
+        this.pageIndex.set(0);
+    }
+
+    /** Pulls the open page back onto the list when the list has shrunk under it. */
+    private _clampPaging(): void {
+        const lastPage = Math.max(
+            0,
+            Math.ceil(this.totalCount() / this.pageSize()) - 1
+        );
+        if (this.pageIndex() > lastPage) {
+            this.pageIndex.set(lastPage);
+        }
+    }
+
     /** Per-row draft edits, keyed by product id. */
     priceDraft: Record<string, number | null> = {};
     quantityDraft: Record<string, number | null> = {};
@@ -364,11 +415,23 @@ export class MarketProductsComponent implements OnInit {
 
     onSearch(value: string): void {
         this.search.set(value);
+        this._resetPaging();
+    }
+
+    setCategoryFilter(value: string): void {
+        this.categoryFilter.set(value);
+        this._resetPaging();
+    }
+
+    setStockFilter(value: string): void {
+        this.stockFilter.set(value);
+        this._resetPaging();
     }
 
     clearFilters(): void {
         this.categoryFilter.set('');
         this.stockFilter.set('');
+        this._resetPaging();
     }
 
     openQuickAdd(): void {
@@ -542,6 +605,9 @@ export class MarketProductsComponent implements OnInit {
             .then((rows) => {
                 const mapped = rows.map((row) => this._normalize(row));
                 this.rows.set(mapped);
+                // The open page may no longer exist — a quick-add reload can
+                // return fewer rows than the offset it is read at.
+                this._clampPaging();
                 for (const row of mapped) {
                     this.priceDraft[row.productId] = row.price;
                     this.quantityDraft[row.productId] = row.quantity;

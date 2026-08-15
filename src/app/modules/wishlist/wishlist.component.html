@@ -1,13 +1,6 @@
 <div class="wishlist ff-page" *transloco="let t">
-    <nav class="wishlist-breadcrumb" aria-label="Breadcrumb">
-        <a routerLink="/home">{{ t('wishlist.breadcrumb.home') }}</a>
-        <mat-icon
-            class="icon-size-4"
-            [svgIcon]="'heroicons_mini:chevron-right'"
-        ></mat-icon>
-        <span>{{ t('wishlist.breadcrumb.current') }}</span>
-    </nav>
-
+    <!-- No breadcrumb: with home dropped it was one unlinked word, and that
+         word was the page title repeated directly below it. -->
     <div class="wishlist-head">
         <h1 class="wishlist-title">{{ t('favorites.title') }}</h1>
         @if (count() > 0) {
@@ -89,17 +82,19 @@
                                     {{ productUnit(product) }}
                                 </div>
                             </div>
+                            <!-- Sold out and "under one case" read the same
+                                 here: either way it cannot be bought today,
+                                 and the case size is the platform's business,
+                                 not the buyer's. -->
                             <button
                                 type="button"
                                 mat-icon-button
                                 [disabled]="!canAddToDraft(product)"
                                 (click)="addToDraftOrder(product)"
                                 [matTooltip]="
-                                    hasNoPackingCode(product)
-                                        ? t('productCard.packMissing')
-                                        : hasInsufficientStock(product)
-                                          ? t('productCard.insufficientStock')
-                                          : t('favorites.addToDraft')
+                                    canAddToDraft(product)
+                                        ? t('favorites.addToDraft')
+                                        : t('productCard.outOfStock')
                                 "
                                 [attr.aria-label]="t('favorites.addToDraft')"
                             >

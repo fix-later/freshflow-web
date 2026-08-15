@@ -34,6 +34,26 @@ export function packSize(line: DraftOrderLine): number {
     return typeof weight === 'number' && weight > 0 ? weight : 1;
 }
 
+/**
+ * The line's quantity expressed in whole cases — what the buyer actually
+ * chose, and what one press of the stepper moves by.
+ *
+ * Quantity is *stored and sent* in kilograms, because that is what the backend
+ * prices and reserves; nothing about this changes the wire format. But kilos
+ * are the wrong thing to show beside a `+`: a line reading "15" that jumps to
+ * "20" on one press looks broken, where "3" going to "4" is the action that was
+ * taken. The kilos remain visible as "5 kg mỗi kiện" under the stepper, which
+ * is what ties the two figures together.
+ *
+ * Not rounded: a legacy line whose quantity is not a whole number of cases is
+ * shown as the fraction it is, rather than being quietly restated as a count it
+ * does not have. `packSize` falls back to 1, so a line with no packing code
+ * keeps showing its kilograms.
+ */
+export function caseCount(line: DraftOrderLine): number {
+    return line.quantity / packSize(line);
+}
+
 /** Fewest units the server will accept on this line, rounded up to a whole case. */
 export function minQuantity(line: DraftOrderLine): number {
     const step = packSize(line);

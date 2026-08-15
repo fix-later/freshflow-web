@@ -173,8 +173,15 @@
 
                         <!-- Right: the listings carrying the active tag -->
                         <div class="ff-hot-deals__products">
-                            <div class="ff-hot-deals__grid">
-                                @for (card of activeCards(); track card.id) {
+                            <!-- The shared carousel: infinite, auto-rotating,
+                                 arrows and dots. It owns the motion; this page
+                                 only says what a slide looks like. -->
+                            <ff-carousel
+                                class="ff-hot-deals__carousel"
+                                [items]="activeCards()"
+                                [perView]="dealsPerView()"
+                            >
+                                <ng-template let-card>
                                     <ff-product-card
                                         data-testid="hot-deal-card"
                                         [product]="card"
@@ -183,35 +190,8 @@
                                         "
                                         (addedToCart)="onAddedToCart(card)"
                                     ></ff-product-card>
-                                }
-                            </div>
-
-                            <!-- Only a named tag can be linked to: the catalog
-                                 filters `?tag=` by name, and the trailing
-                                 bucket has no name to send. -->
-                            @if (activeGroup(); as group) {
-                                @if (hasMoreInTag() && group.name) {
-                                    <a
-                                        class="mt-4 inline-flex items-center gap-1 self-start text-sm font-semibold text-primary no-underline hover:underline"
-                                        routerLink="/catalog"
-                                        [queryParams]="{
-                                            tag: group.name,
-                                            featured: '1',
-                                        }"
-                                        (click)="onClose()"
-                                    >
-                                        <span>{{
-                                            t('hotDeals.seeAllInTag')
-                                        }}</span>
-                                        <mat-icon
-                                            class="text-current icon-size-4"
-                                            [svgIcon]="
-                                                'heroicons_outline:arrow-right'
-                                            "
-                                        ></mat-icon>
-                                    </a>
-                                }
-                            }
+                                </ng-template>
+                            </ff-carousel>
                         </div>
                     </div>
                 } @else {

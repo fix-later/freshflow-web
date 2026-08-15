@@ -137,42 +137,52 @@
     color: var(--fuse-text-secondary, rgb(107 114 128));
 }
 
+/* Groups are separated by space rather than rules — four hairlines in a narrow
+   rail read as a table. */
 .account-shell__nav {
     padding: 0;
     margin-top: 1.25rem;
 }
 
+/* Same reasoning as the entries: the theme's own token, not a hand-picked
+   fallback that only happens to suit one scheme. */
 .account-shell__nav-heading {
-    padding: 0 0.75rem 0.5rem;
-    color: var(--fuse-text-hint, rgb(107 114 128));
+    padding: 0 0.75rem 0.375rem;
     font-size: 0.6875rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
+    @apply text-hint;
 }
 
 /**
- * Row. The active state is an accent bar plus a tint rather than a filled
- * chip: with four groups on screen at once, a solid block on every visited
- * section competes with the page itself for attention.
+ * Rail entry. The active state is an accent bar plus a tint rather than a
+ * filled chip: with four groups on screen at once, a solid block on every
+ * visited section competes with the page itself for attention.
+ *
+ * Ink comes from the theme's own utilities (`text-secondary`, `text-primary`)
+ * rather than raw `var(--fuse-text-*)` reads. Those utilities are what the rest
+ * of the app uses, Fuse defines them per scheme with `!important`, and they do
+ * not depend on this file guessing a fallback — the hand-rolled version paired a
+ * light-scheme background with the dark scheme's grey, which left every entry
+ * but the active one invisible on a white drawer.
  */
 .account-shell__nav-item {
     position: relative;
     min-height: 2.5rem;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
     padding: 0.5rem 0.75rem;
     border-radius: 0.5rem;
     box-sizing: border-box;
-    color: var(--fuse-text-secondary, rgb(75 85 99));
     gap: 0.75rem;
+    font-size: 0.875rem;
     transition:
         background-color 120ms ease,
         color 120ms ease;
+    @apply text-secondary;
 
-    .dark & {
-        color: rgb(209 213 219);
-    }
-
+    /* The active marker, drawn only when active — an always-present transparent
+       bar was one more thing to keep in step with the padding. */
     &::before {
         content: '';
         position: absolute;
@@ -186,30 +196,20 @@
     }
 
     &:hover {
-        background-color: var(--fuse-hover, rgb(0 0 0 / 0.04));
-        color: var(--fuse-text-default, inherit);
+        @apply text-default bg-hover;
     }
 
     &:focus-visible {
-        outline: 2px solid var(--fuse-primary, currentColor);
+        outline: 2px solid var(--fuse-primary);
         outline-offset: 2px;
     }
 
     &--active {
-        background-color: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
-        color: var(--fuse-primary, inherit);
         font-weight: 600;
+        @apply bg-primary-50 text-primary dark:bg-primary-500/10;
 
         &::before {
-            background: var(--fuse-primary, currentColor);
-        }
-
-        .account-shell__nav-icon {
-            color: var(--fuse-primary, inherit);
-        }
-
-        .dark & {
-            background-color: rgb(255 255 255 / 0.05);
+            background: var(--fuse-primary);
         }
     }
 }

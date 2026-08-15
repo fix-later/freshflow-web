@@ -97,7 +97,14 @@ export class LogisticsAdminService {
         const marketNameById = new Map(markets.map((m) => [m.value, m.label]));
         // Hub routes name the key both ways (`/hubs/{id}` but
         // `/hubs/{hubId}/...`), so accept either as the row identifier.
-        const rows = withId<CrudRow>(rawRows, 'hubId');
+        //
+        // A row carrying neither gets `id: ''` from `withId`, and every id here
+        // is destined for a path segment — an empty one builds `/hubs//staff-
+        // assignments` and 404s. Dropped rather than shipped, matching
+        // `hubOptions`: a hub that cannot be addressed cannot be operated on.
+        const rows = withId<CrudRow>(rawRows, 'hubId').filter(
+            (row) => !!row.id
+        );
         return rows.map((row) => ({
             ...row,
             // Attach a resolved manager name so the table shows it, not a UUID.
@@ -255,8 +262,30 @@ export class LogisticsAdminService {
 
     // ---- Hub staff assignments (M8 Hub management, admin = Full) ----------
 
+    /**
+     * Refuses a blank hub id before it reaches the generated client.
+     *
+     * That client guards its path params with `== null`, which passes an empty
+     * string straight through — the id is substituted into the template and the
+     * request goes out as `/api/v1/hubs//driver-assignments`, a URL the backend
+     * answers 404 to. The 404 then reads as "this hub has no drivers" rather
+     * than "no hub was named", which is the wrong problem to go looking at.
+     */
+    private _requireHubId(hubId: string, operation: string): string {
+        const id = (hubId ?? '').trim();
+        if (!id) {
+            throw new Error(`${operation} requires a hub id`);
+        }
+        return id;
+    }
+
     /** Hub-staff ids currently assigned to work at `hubId`. */
     async getHubStaffAssignments(hubId: string): Promise<string[]> {
+        // A read for no hub is an empty roster, not an error: the callers ask
+        // per hub while a page is still settling on which one it is showing.
+        if (!(hubId ?? '').trim()) {
+            return [];
+        }
         const res =
             await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsGetRaw({
                 hubId,
@@ -271,28 +300,24 @@ export class LogisticsAdminService {
         staffUserIds: string[]
     ): Promise<void> {
         await hubStaffAssignmentsApi.apiV1HubsHubIdStaffAssignmentsPutRaw({
-            hubId,
+            // A write, unlike a read, must not be quietly skipped — the caller
+            // believes it assigned somebody.
+            hubId: this._requireHubId(hubId, 'replaceHubStaffAssignments'),
             replaceHubStaffAssignmentsRequest: { staffUserIds },
         });
     }
 
-    /**
-     * Drivers stationed at `hubId` (`GET /hubs/{hubId}/driver-assignments`).
-     *
-     * Through `rawApi` rather than a generated method: the route is newer than
-     * the checked-in `openapi.json`. It still applies the shared configuration —
-     * bearer auth, no-store, 401 refresh-and-retry, the typed error classes — so
-     * failures read like a generated call's. Swap both of these for the
-     * generated methods after the next `npm run generate:api`.
-     */
+    /** Drivers stationed at `hubId` (`GET /hubs/{hubId}/driver-assignments`). */
     async getHubDriverAssignments(hubId: string): Promise<string[]> {
-        const res = await rawApi.send(
-            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
-            'GET'
-        );
-        return this._assignmentUserIds(
-            unwrapData<unknown>(await parseJson(res))
-        );
+        if (!(hubId ?? '').trim()) {
+            return [];
+        }
+        const res =
+            await hubStaffAssignmentsApi.apiV1HubsHubIdDriverAssignmentsGetRaw({
+                hubId,
+            });
+        const data = unwrapData<unknown>(await parseJson(res.raw));
+        return this._assignmentUserIds(data);
     }
 
     /** Replaces the full driver roster for `hubId` (mirrors the staff one). */
@@ -300,11 +325,10 @@ export class LogisticsAdminService {
         hubId: string,
         driverUserIds: string[]
     ): Promise<void> {
-        await rawApi.send(
-            `/api/v1/hubs/${encodeURIComponent(hubId)}/driver-assignments`,
-            'PUT',
-            { driverUserIds }
-        );
+        await hubStaffAssignmentsApi.apiV1HubsHubIdDriverAssignmentsPutRaw({
+            hubId: this._requireHubId(hubId, 'replaceHubDriverAssignments'),
+            replaceHubDriverAssignmentsRequest: { driverUserIds },
+        });
     }
 
     /**
@@ -508,6 +532,37 @@ export class LogisticsAdminService {
             'driverUserId',
             'userId'
         );
+    }
+
+    /**
+     * Hands a route's load to its driver at the hub gate.
+     *
+     * `CreateHandoverCommandHandler` accepts this only in a narrow state, and
+     * every one of these is a refusal rather than a warning: the route must
+     * belong to `hubId`, be **assigned** (so a vehicle and driver are already on
+     * it), and `driverUserId` must be the driver the route was assigned to — the
+     * handover records who actually took it out, so it cannot name someone else.
+     *
+     * `outboundEventId` is optional on the request (`Guid?`); it links the
+     * handover to a specific outbound shipment where one has been recorded, and
+     * is left off otherwise rather than invented.
+     */
+    async createHandover(
+        hubId: string,
+        deliveryRouteId: string,
+        driverUserId: string,
+        notes?: string
+    ): Promise<CrudRow | null> {
+        const res = await hubHandoverApi.apiV1HubsHubIdHandoverPostRaw({
+            hubId,
+            createHandoverRequest: {
+                deliveryRouteId,
+                driverUserId,
+                notes: notes?.trim() || undefined,
+            },
+        });
+        const data = unwrapData<CrudRow>(await parseJson(res.raw));
+        return data ? withId<CrudRow>([data], 'handoverId')[0] : null;
     }
 
     /** Outbound shipments dispatched from `hubId` on `date` (defaults to today). */

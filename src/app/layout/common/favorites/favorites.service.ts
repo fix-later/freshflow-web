@@ -63,10 +63,20 @@ export class FavoritesService {
      */
     private readonly _error = signal<unknown>(null);
 
+    /**
+     * Saved products.
+     *
+     * The "no packing code" listings are dropped in {@link _toFavoriteProduct}
+     * instead of here. That has to happen where the raw row is still in hand:
+     * on a `CatalogProduct` a missing packing weight and an absent one are both
+     * `null`, and filtering that here dropped **every** favourite the server
+     * returned — the row simply did not carry the field, so the list emptied
+     * itself on each reload and the wishlist looked like it never saved.
+     */
     readonly items = this._items.asReadonly();
     readonly loaded = this._loaded.asReadonly();
     readonly error = this._error.asReadonly();
-    readonly count = computed(() => this._items().length);
+    readonly count = computed(() => this.items().length);
 
     /** Clears the stored rejection once a surface has shown it. */
     clearError(): void {
@@ -232,10 +242,19 @@ export class FavoritesService {
             price: num(row, ['price', 'currentPrice']),
             quantity: num(row, ['availableQuantity', 'quantity']),
             totalQuantity: num(row, ['currentQuantity', 'quantity']),
-            // Packing weight and the listing's last-updated stamp are not on
-            // the favourites row; the catalog listing supplies both when the
-            // tile is rendered from there.
-            packWeightKg: null,
+            // `FavoriteItemDto` carries no packing weight today, so this is
+            // normally null and the surfaces treat that as "not stated" rather
+            // than "no packing code" (see `favorites-drawer.unavailableLabel`).
+            // Read anyway, in both the shapes the listing endpoints use, so the
+            // day the DTO gains the field the wishlist picks it up unchanged.
+            packWeightKg:
+                num(row, ['packingWeightKg', 'packWeightKg', 'capacityKg']) ??
+                (row['sellingUnit'] && typeof row['sellingUnit'] === 'object'
+                    ? num(row['sellingUnit'] as RawRow, [
+                          'weightKg',
+                          'capacityKg',
+                      ])
+                    : null),
             updatedAt: str(row, ['updatedAt']),
             // The favourites row does not carry it (see the note above about
             // base-product fields); 1 is the backend's own default, so a line

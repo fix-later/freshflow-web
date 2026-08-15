@@ -63,7 +63,16 @@ $neutral-overrides: (
     surface-container-high: #e2e8f0,
     surface-container-highest: #cbd5e1,
     surface-variant: #e2e8f0,
-    on-surface-variant: #475569,
+    /*
+     * Slate-600. Briefly set to translucent white, to make icons paired with
+     * primary read as white — but this token also backs `--fuse-text-secondary`,
+     * the app's most used text colour, so it turned every secondary line white
+     * on a white card: the cart's "5 kg mỗi kiện", table meta, drawer hints.
+     * White-on-primary is a *pairing*, not a theme colour, and the rules that
+     * need it say so at the surfaces that are filled (see `styles.scss` —
+     * `.ff-carousel__nav`, filled-primary buttons); they never read this token.
+     */
+        on-surface-variant: #475569,
     outline: #64748b,
     outline-variant: #e2e8f0,
     inverse-surface: #1e293b,

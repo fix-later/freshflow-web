@@ -120,13 +120,16 @@ const SUGGESTION_KEYS = [
  * panel whose every message would 403 — and an unapproved restaurant cannot
  * order yet, so the assistant that exists to build orders stays hidden too.
  *
- * **The panel is detached into a CDK overlay, not left inline.** The trigger
+ * **The box is detached into a CDK overlay, not left inline.** The trigger
  * sits in the header on desktop and inside the mobile bottom bar — and that bar
  * is `position: fixed; z-index: 50`, which opens a stacking context. Rendered
- * in place, the panel's own `z-index: 96` is scoped inside that 50, so
- * `contact-fab` (root, `z-index: 90`) painted over the sheet and swallowed
- * taps on the send button. Attaching to the overlay container puts the panel at
- * the document root, out of every ancestor's stacking context.
+ * in place, the box's own `z-index: 96` is scoped inside that 50, so the
+ * floating launcher (root, `z-index: 90`) painted over it and swallowed taps on
+ * the send button. Attaching to the overlay container puts the box at the
+ * document root, out of every ancestor's stacking context.
+ *
+ * **Two controls open it,** the header tool and `assistant-fab` in the corner,
+ * so the open flag lives on {@link AssistantService} rather than here.
  *
  * **Confirmation is two-phase and stays that way.** A turn that comes back with
  * a `pendingConfirmation` renders a receipt and a button; {@link confirmOrder}
@@ -180,7 +183,8 @@ export class QuickBuyComponent {
     readonly maxLength = ASSISTANT_MESSAGE_MAX_LENGTH;
     readonly suggestionKeys = SUGGESTION_KEYS;
 
-    readonly opened = signal(false);
+    /** Shared with the floating launcher — see `AssistantService.opened`. */
+    readonly opened = this._assistant.opened;
     readonly sending = signal(false);
     readonly query = signal('');
     readonly messages = signal<QuickBuyMessage[]>([]);
@@ -237,7 +241,55 @@ export class QuickBuyComponent {
         return pending ? readPreview(pending.previewJson) : null;
     });
 
+    /**
+     * True once the box is docked in the corner rather than covering the screen
+     * — the same 640px the stylesheet switches at.
+     *
+     * It decides `aria-modal`, which has to be honest: a docked box leaves the
+     * page behind it reachable, and claiming otherwise tells a screen-reader
+     * user there is nothing back there to return to.
+     */
+    readonly docked = signal(false);
+
+    /**
+     * Whether the box has been grown to fill the screen.
+     *
+     * Panel-local and deliberately not remembered: the assistant opens as a box
+     * beside the produce every time, and full screen is something asked for
+     * when a conversation gets long enough to want the room.
+     */
+    readonly expanded = signal(false);
+
     constructor() {
+        const dockQuery = window.matchMedia?.('(min-width: 640px)');
+        if (dockQuery) {
+            this.docked.set(dockQuery.matches);
+            const onChange = (event: MediaQueryListEvent): void =>
+                this.docked.set(event.matches);
+            dockQuery.addEventListener('change', onChange);
+            this._destroyRef.onDestroy(() =>
+                dockQuery.removeEventListener('change', onChange)
+            );
+        }
+
+        // The box follows the shared flag rather than the control that set it:
+        // `assistant-fab` lives in another corner of the layout and only flips
+        // `AssistantService.opened`, so mounting the overlay — and the focus
+        // that belongs to opening — has to happen here or not at all.
+        effect(() => {
+            // Availability is re-read here, not just at the launcher: signing
+            // out with the box up must take it down, rather than leave a
+            // composer whose every message would 403.
+            if (this.opened() && this.available()) {
+                // Reopening lands on the newest message, not where it was left.
+                this._pinNext = true;
+                this._attach();
+                setTimeout(() => this._composer()?.nativeElement.focus());
+            } else {
+                this._detach();
+            }
+        });
+
         // Anything that lengthens the transcript — a message, the typing
         // indicator, the receipt — pulls the view down to it, but only while the
         // user is actually following along. Yanking someone who scrolled up to
@@ -289,23 +341,11 @@ export class QuickBuyComponent {
 
     // ── Panel ────────────────────────────────────────────────────────────
 
-    toggle(): void {
-        if (this.opened()) {
-            this.close();
-        } else {
-            this.open();
-        }
-    }
-
     open(): void {
         if (this.opened() || !this.available()) {
             return;
         }
         this.opened.set(true);
-        // Reopening lands on the newest message, not wherever it was left.
-        this._pinNext = true;
-        this._attach();
-        setTimeout(() => this._composer()?.nativeElement.focus());
     }
 
     close(): void {
@@ -314,7 +354,22 @@ export class QuickBuyComponent {
         }
         this.query.set('');
         this.opened.set(false);
-        this._detach();
+        // Reopening starts as a box again, so the launcher always does the same
+        // thing however the last conversation was left.
+        this.expanded.set(false);
+    }
+
+    /**
+     * Grows the box to fill the screen, and back.
+     *
+     * The transcript is re-pinned because the surface changes height under it:
+     * the message that was at the bottom of a 24rem box is somewhere mid-screen
+     * once the panel is three times taller.
+     */
+    toggleExpanded(): void {
+        this.expanded.update((value) => !value);
+        this._pinNext = true;
+        this._scrollToLatest();
     }
 
     /**

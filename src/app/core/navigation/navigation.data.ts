@@ -146,30 +146,11 @@ const NAVIGATION: AreaNavItem[] = [
                 type: 'basic',
                 link: '/admin/order-groups/history',
             },
-            // chưa gộp vào config của phiên
-            {
-                id: 'admin-orders',
-                title: 'nav.admin.orders',
-                type: 'basic',
-                link: '/admin/orders',
-            },
             {
                 id: 'admin-scheduled-orders',
                 title: 'nav.admin.scheduledOrders',
                 type: 'basic',
                 link: '/admin/scheduled-orders',
-            },
-            {
-                id: 'admin-routes',
-                title: 'nav.admin.routes',
-                type: 'basic',
-                link: '/admin/routes',
-            },
-            {
-                id: 'admin-invoices',
-                title: 'nav.admin.invoices',
-                type: 'basic',
-                link: '/admin/invoices',
             },
             {
                 id: 'admin-order-group-settings',

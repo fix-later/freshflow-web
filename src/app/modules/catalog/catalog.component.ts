@@ -45,10 +45,22 @@ import {
 import {
     CatalogCategory,
     CatalogProduct,
+    isOrderableListing,
     normalizeTagNames,
 } from './catalog.types';
 
-type SortOption = '' | 'name-asc' | 'name-desc' | 'price-asc' | 'price-desc';
+/**
+ * How the grid is ordered. `default` is a real token, not an empty string:
+ * `mat-select` resolves its trigger text by matching the bound value against an
+ * option, and an empty-string sentinel left the control looking unset — the box
+ * read blank even though the grid was in its default order.
+ */
+type SortOption =
+    | 'default'
+    | 'name-asc'
+    | 'name-desc'
+    | 'price-asc'
+    | 'price-desc';
 
 /** Placeholder tiles rendered while the first page is in flight. */
 const SKELETON_TILES = 10;
@@ -111,7 +123,7 @@ export class CatalogComponent implements OnInit {
     readonly searchTerm = signal<string>(
         this._route.snapshot.queryParamMap.get('q') ?? ''
     );
-    readonly sortOption = signal<SortOption>('');
+    readonly sortOption = signal<SortOption>('default');
 
     /**
      * "Hot deals" — the listings carrying a tag that pins to top.
@@ -153,7 +165,17 @@ export class CatalogComponent implements OnInit {
     readonly tagClass = tagClass;
 
     readonly categories = this._catalogService.categories;
-    readonly products = this._catalogService.products;
+    private readonly _allProducts = this._catalogService.products;
+
+    /**
+     * The board, minus what cannot be bought — sold out, or under one whole
+     * case. Everything on this page counts from here rather than from the raw
+     * listing, so the result total, the tag facet and the grid agree: a facet
+     * built over hidden tiles would offer tags that filter down to nothing.
+     */
+    readonly products = computed(() =>
+        this._allProducts().filter(isOrderableListing)
+    );
 
     /**
      * Guests browse the full catalogue but cannot order; the page says so once
@@ -332,8 +354,16 @@ export class CatalogComponent implements OnInit {
         () => this.loading() && this.products().length === 0
     );
 
+    /** i18n key for the order currently in force — the select's own trigger. */
+    readonly sortLabel = computed(
+        () =>
+            this.sortOptions.find(
+                (option) => option.value === this.sortOption()
+            )?.label ?? 'catalog.sort.default'
+    );
+
     readonly sortOptions: readonly { value: SortOption; label: string }[] = [
-        { value: '', label: 'catalog.sort.default' },
+        { value: 'default', label: 'catalog.sort.default' },
         { value: 'name-asc', label: 'catalog.sort.nameAsc' },
         { value: 'name-desc', label: 'catalog.sort.nameDesc' },
         { value: 'price-asc', label: 'catalog.sort.priceAsc' },

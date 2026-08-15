@@ -39,6 +39,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { readApiError } from 'app/core/api/envelope';
 import { describeApiError } from 'app/core/api/error-codes';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { includesFolded } from 'app/core/util/text-search';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
@@ -62,9 +63,11 @@ import {
     OPTIMIZATION_CRITERIA,
     OptimizationCriterion,
     RouteDeliveryStatus,
+    RouteEligibility,
     RoutePlanResult,
     RouteStop,
 } from '../logistics/logistics-admin.types';
+import { RouteMapComponent } from '../logistics/route-map.component';
 import {
     routeStatusLabelKey,
     routeStatusPillClass,
@@ -154,6 +157,8 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        RouteMapComponent,
+        ApiLabelPipe,
         MatButtonModule,
         MatDatepickerModule,
         MatDialogModule,
@@ -811,11 +816,6 @@ export class OrderGroupsComponent implements OnInit {
             .finally(() => this.marketSessionRoutesLoading.set(false));
     }
 
-    openFullRouteDetail(routeId: string): void {
-        this.closeMarketSessionTracking();
-        void this._router.navigate(['/admin/routes', routeId]);
-    }
-
     private _startMarketSessionRoutePolling(): void {
         if (this._marketSessionRoutePollingId) return;
         this._marketSessionRoutePollingId = setInterval(
@@ -1324,9 +1324,38 @@ export class OrderGroupsComponent implements OnInit {
             .finally(() => this.routingSessionId.set(null));
     }
 
+    /**
+     * Approval is offered only where `ApproveRoutePlanCommandHandler` would
+     * accept it: a proposal, with nothing left unassigned
+     * (`PLAN_HAS_UNASSIGNED_ORDERS` is a refusal, not a warning). The handler's
+     * remaining gates — a changed input revision, a route without a suggested
+     * vehicle — cannot be seen from here and stay the server's to answer.
+     */
     canApproveMarketSessionRoutePlan(): boolean {
         const plan = this.marketSessionRoutePlan();
-        return !!plan?.planId && plan.status.toLowerCase() === 'proposed';
+        return (
+            !!plan?.planId &&
+            plan.status.toLowerCase() === 'proposed' &&
+            plan.unassigned.length === 0
+        );
+    }
+
+    /**
+     * Why approval is withheld on a plan that otherwise looks ready, as an i18n
+     * key — so the button's absence is explained rather than just felt.
+     */
+    marketSessionRoutePlanBlocker(): string | null {
+        const plan = this.marketSessionRoutePlan();
+        if (!plan?.planId) {
+            return null;
+        }
+        const status = plan.status.toLowerCase();
+        if (status === 'stale' || status === 'superseded') {
+            return 'admin.orderGroups.marketSessions.routing.planSpent';
+        }
+        return status === 'proposed' && plan.unassigned.length > 0
+            ? 'admin.orderGroups.marketSessions.routing.unassignedBlocks'
+            : null;
     }
 
     approveMarketSessionRoutePlan(): void {
@@ -1361,8 +1390,328 @@ export class OrderGroupsComponent implements OnInit {
                         'admin.orderGroups.marketSessions.routing.approveError'
                     )
                 );
+                // `PLAN_STALE` is the server telling us it has just marked this
+                // plan stale. Re-reading it replaces the spent proposal — and
+                // its approve button — with the real state, instead of leaving
+                // a button that can only fail the same way again.
+                const info = await readApiError(err);
+                if (info?.code === 'PLAN_STALE' && plan.planId) {
+                    const refreshed = await this._logistics
+                        .getRoutePlan(plan.planId)
+                        .catch(() => null);
+                    if (refreshed) {
+                        this.marketSessionRoutePlan.set(refreshed);
+                    }
+                }
             })
             .finally(() => this.approvingRoutePlan.set(false));
+    }
+
+    // ── Dispatch: assign a truck and driver, then hand the load over ──────
+
+    /** Vehicles and drivers for the tracked session's hub, read once per open. */
+    readonly dispatchVehicles = signal<CrudRow[]>([]);
+    readonly dispatchDrivers = signal<CrudRow[]>([]);
+    readonly handovers = signal<CrudRow[]>([]);
+
+    /** Which route's dispatch form is open, and what is picked in it. */
+    readonly dispatchRouteId = signal<string | null>(null);
+    readonly dispatchVehicleId = signal<string>('');
+    readonly dispatchDriverId = signal<string>('');
+    readonly dispatchNotes = signal<string>('');
+    readonly dispatchBusy = signal(false);
+    readonly dispatchError = signal<string | null>(null);
+
+    /** Which optimizer the re-order buttons ask for. */
+    readonly dispatchCriteria = signal<OptimizationCriterion>('distance');
+    readonly optimizationCriteria = OPTIMIZATION_CRITERIA;
+
+    private _routeStatus(route: CrudRow): string {
+        return String(route['status'] ?? '').toLowerCase();
+    }
+
+    /**
+     * `planned` → `selected`: adopts one calculated model as *the* route for
+     * the day. Until this is pressed the route is a proposal, and every later
+     * step refuses it.
+     */
+    canSelectRoute(route: CrudRow): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            ['planned', 'draft', 'calculated'].includes(
+                this._routeStatus(route)
+            )
+        );
+    }
+
+    /**
+     * Re-orders the stops. Optional and repeatable — the route stays
+     * `selected`, so an operator can try distance, look at the map, then try
+     * time before locking the sequence in.
+     */
+    canOptimizeRoute(route: CrudRow): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            this._routeStatus(route) === 'selected'
+        );
+    }
+
+    /**
+     * `selected` → `reviewed`: locks the stop order. The loading manifest is
+     * only built from `reviewed` onwards — the warehouse cannot pack a route
+     * whose sequence may still change.
+     */
+    canReviewRoute(route: CrudRow): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            this._routeStatus(route) === 'selected'
+        );
+    }
+
+    /**
+     * A route can be crewed once its stop order is locked.
+     * `AssignVehicleCommandHandler` re-runs its own eligibility check, so this
+     * only decides whether to *offer* the form.
+     *
+     * `selected` is deliberately not here: the backend takes an assignment
+     * only from `reviewed`, and offering the form a step early produced a
+     * button whose sole outcome was a rejection.
+     */
+    canAssignRoute(route: CrudRow): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            ['reviewed', 'assigned'].includes(this._routeStatus(route))
+        );
+    }
+
+    /**
+     * The gate between the hub and the road. `CreateHandoverCommandHandler`
+     * takes it only on an **assigned** route that already carries a driver —
+     * the handover records who took the load out, so there is nothing to record
+     * until someone has been put on it.
+     */
+    canHandOver(route: CrudRow): boolean {
+        return (
+            this.canOpenMarketSessions() &&
+            String(route['status'] ?? '').toLowerCase() === 'assigned' &&
+            !!this.routeDriverId(route)
+        );
+    }
+
+    /** The driver already on the route — the only one a handover may name. */
+    routeDriverId(route: CrudRow): string {
+        return String(route['driverUserId'] ?? '');
+    }
+
+    openDispatch(route: CrudRow): void {
+        this.dispatchRouteId.set(route.id);
+        this.dispatchError.set(null);
+        this.dispatchVehicleId.set(String(route['vehicleId'] ?? ''));
+        this.dispatchDriverId.set(this.routeDriverId(route));
+        this.dispatchNotes.set('');
+        this.dispatchEligibility.set(null);
+        void this._loadDispatchOptions().then(() =>
+            this._checkEligibility(route.id)
+        );
+    }
+
+    closeDispatch(): void {
+        this.dispatchRouteId.set(null);
+        this.dispatchError.set(null);
+        this.dispatchEligibility.set(null);
+    }
+
+    /**
+     * The busy / error / notify / re-read shell every lifecycle step needs.
+     * Written once because the four of them differ only in the call they make
+     * and the two keys they report with.
+     */
+    private _runDispatchStep(step: string, work: () => Promise<unknown>): void {
+        if (this.dispatchBusy()) {
+            return;
+        }
+        this.dispatchBusy.set(true);
+        this.dispatchError.set(null);
+        void work()
+            .then(async () => {
+                this._notifyKey(
+                    `admin.orderGroups.marketSessions.dispatch.${step}Success`
+                );
+                await this._refreshDispatch();
+            })
+            .catch(async (err) => {
+                this.dispatchError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        `admin.orderGroups.marketSessions.dispatch.${step}Error`
+                    )
+                );
+            })
+            .finally(() => this.dispatchBusy.set(false));
+    }
+
+    /** `planned` → `selected`. */
+    selectRoute(route: CrudRow): void {
+        this._runDispatchStep('select', () =>
+            this._logistics.selectRoute(route.id)
+        );
+    }
+
+    /** Re-orders the stops; the route stays `selected` so this can repeat. */
+    optimizeRoute(route: CrudRow): void {
+        this._runDispatchStep('optimize', () =>
+            this._logistics.optimizeRoute(route.id, this.dispatchCriteria())
+        );
+    }
+
+    /** `selected` → `reviewed`, approving the optimizer's order as it stands. */
+    reviewRoute(route: CrudRow): void {
+        this._runDispatchStep('review', () =>
+            this._logistics.reviewRoute(route.id)
+        );
+    }
+
+    /**
+     * Why an assignment would be refused, *before* it is attempted — capacity,
+     * double-booking, driver status. Read-only, so it costs nothing to ask on
+     * every change of truck or driver, and it turns a rejected POST into an
+     * answer the operator can act on while the form is still open.
+     */
+    readonly dispatchEligibility = signal<RouteEligibility | null>(null);
+
+    private _checkEligibility(routeId: string): void {
+        const vehicleId = this.dispatchVehicleId();
+        if (!vehicleId) {
+            this.dispatchEligibility.set(null);
+            return;
+        }
+        void this._logistics
+            .checkEligibility(routeId, vehicleId, this.dispatchDriverId())
+            .then((result) => this.dispatchEligibility.set(result))
+            .catch(() => this.dispatchEligibility.set(null));
+    }
+
+    /** Re-checks after the operator changes either half of the crew. */
+    pickDispatchVehicle(routeId: string, vehicleId: string): void {
+        this.dispatchVehicleId.set(vehicleId);
+        this._checkEligibility(routeId);
+    }
+
+    pickDispatchDriver(routeId: string, driverUserId: string): void {
+        this.dispatchDriverId.set(driverUserId);
+        this._checkEligibility(routeId);
+    }
+
+    /** Puts a truck and a driver on the route (`reviewed` → `assigned`). */
+    assignRouteCrew(route: CrudRow): void {
+        const vehicleId = this.dispatchVehicleId();
+        const driverUserId = this.dispatchDriverId();
+        if (!vehicleId || !driverUserId || this.dispatchBusy()) {
+            return;
+        }
+        this.dispatchBusy.set(true);
+        this.dispatchError.set(null);
+        void this._logistics
+            .assignVehicle(route.id, vehicleId, driverUserId)
+            .then(async () => {
+                this._notifyKey(
+                    'admin.orderGroups.marketSessions.dispatch.assignSuccess'
+                );
+                await this._refreshDispatch();
+            })
+            .catch(async (err) => {
+                this.dispatchError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.orderGroups.marketSessions.dispatch.assignError'
+                    )
+                );
+            })
+            .finally(() => this.dispatchBusy.set(false));
+    }
+
+    /** Records the driver taking the load out of the hub. */
+    handOverRoute(route: CrudRow): void {
+        const session = this.trackedMarketSession();
+        const driverUserId = this.routeDriverId(route);
+        if (!session?.hubId || !driverUserId || this.dispatchBusy()) {
+            return;
+        }
+        this.dispatchBusy.set(true);
+        this.dispatchError.set(null);
+        void this._logistics
+            .createHandover(
+                session.hubId,
+                route.id,
+                driverUserId,
+                this.dispatchNotes()
+            )
+            .then(async () => {
+                this._notifyKey(
+                    'admin.orderGroups.marketSessions.dispatch.handoverSuccess'
+                );
+                this.dispatchNotes.set('');
+                await this._refreshDispatch();
+            })
+            .catch(async (err) => {
+                this.dispatchError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'admin.orderGroups.marketSessions.dispatch.handoverError'
+                    )
+                );
+            })
+            .finally(() => this.dispatchBusy.set(false));
+    }
+
+    /** Label for a driver row, falling back to the id when unnamed. */
+    driverLabel(driver: CrudRow): string {
+        const name = String(driver['fullName'] ?? '').trim();
+        const email = String(driver['email'] ?? '').trim();
+        return name || email || `#${this.shortOrderId(driver.id)}`;
+    }
+
+    vehicleLabel(vehicle: CrudRow): string {
+        const plate = String(vehicle['plateNumber'] ?? '').trim();
+        const capacity = vehicle['capacityKg'];
+        return capacity ? `${plate} · ${capacity} kg` : plate;
+    }
+
+    /** Handovers already recorded for a route, newest first. */
+    routeHandovers(route: CrudRow): CrudRow[] {
+        return this.handovers().filter(
+            (row) => String(row['deliveryRouteId'] ?? '') === route.id
+        );
+    }
+
+    private async _loadDispatchOptions(): Promise<void> {
+        const session = this.trackedMarketSession();
+        if (!session?.hubId) {
+            return;
+        }
+        const [vehicles, drivers, handovers] = await Promise.all([
+            this._logistics.listVehicles(session.hubId).catch(() => []),
+            this._logistics.getEligibleDrivers(session.hubId).catch(() => []),
+            this._logistics.getHandovers(session.hubId).catch(() => []),
+        ]);
+        this.dispatchVehicles.set(vehicles);
+        this.dispatchDrivers.set(drivers);
+        this.handovers.set(handovers);
+    }
+
+    /** Re-reads the routes so a status change lands, then the handover list. */
+    private async _refreshDispatch(): Promise<void> {
+        const session = this.trackedMarketSession();
+        if (!session) {
+            return;
+        }
+        this.marketSessionRoutes.set(
+            await this._loadMarketSessionRouteViews(session)
+        );
+        await this._loadDispatchOptions();
     }
 
     marketSessionRouteStatusLabel(route: CrudRow): string {

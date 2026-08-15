@@ -78,7 +78,7 @@
                         ></mat-icon>
                         <mat-select
                             [value]="categoryFilter()"
-                            (selectionChange)="categoryFilter.set($event.value)"
+                            (selectionChange)="setCategoryFilter($event.value)"
                         >
                             <mat-option [value]="''">{{
                                 t('admin.crud.filterAll')
@@ -104,7 +104,7 @@
                         ></mat-icon>
                         <mat-select
                             [value]="stockFilter()"
-                            (selectionChange)="stockFilter.set($event.value)"
+                            (selectionChange)="setStockFilter($event.value)"
                         >
                             <mat-option [value]="''">{{
                                 t('admin.crud.filterAll')
@@ -458,7 +458,7 @@
                         </div>
                     </div>
 
-                    @for (row of sortedRows(); track row.productId) {
+                    @for (row of pagedRows(); track row.productId) {
                         <div
                             class="market-products-grid grid items-center gap-x-6 border-b px-6 py-3 md:px-8"
                         >
@@ -629,6 +629,17 @@
                         </div>
                     }
                 </div>
+
+                <mat-paginator
+                    class="z-10 border-t bg-gray-50 dark:bg-transparent"
+                    [class.pointer-events-none]="loading()"
+                    [length]="totalCount()"
+                    [pageIndex]="pageIndex()"
+                    [pageSize]="pageSize()"
+                    [pageSizeOptions]="pageSizeOptions"
+                    [showFirstLastButtons]="true"
+                    (page)="onPageChange($event)"
+                ></mat-paginator>
             } @else if (loading()) {
                 <admin-loading-state />
             } @else {

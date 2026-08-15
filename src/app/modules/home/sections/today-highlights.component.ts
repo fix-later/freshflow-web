@@ -2,6 +2,7 @@ import {
     ChangeDetectionStrategy,
     Component,
     computed,
+    DestroyRef,
     effect,
     inject,
     signal,
@@ -18,7 +19,11 @@ import { MarketSelectionService } from 'app/core/market/market-selection.service
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
-import { CatalogProduct } from 'app/modules/catalog/catalog.types';
+import {
+    CatalogProduct,
+    isOrderableListing,
+} from 'app/modules/catalog/catalog.types';
+import { CarouselComponent } from 'app/shared/carousel/carousel.component';
 import { categoryVisual } from 'app/shared/product-card/category-visual';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
@@ -42,6 +47,7 @@ import { ProductCardVm } from 'app/shared/product-card/product-card.types';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        CarouselComponent,
         MatIconModule,
         MatProgressSpinnerModule,
         ProductCardComponent,
@@ -55,6 +61,7 @@ export class TodayHighlightsComponent {
     private _draftOrder = inject(DraftOrderService);
     private _favorites = inject(FavoritesService);
     private _guestGate = inject(GuestGateService);
+    private readonly _destroyRef = inject(DestroyRef);
 
     private readonly _lang = activeLang();
     readonly isVi = computed(() => this._lang() === 'vi');
@@ -77,7 +84,15 @@ export class TodayHighlightsComponent {
         () => new Map(this._products().map((p) => [p.id, p]))
     );
 
+    /**
+     * How many tiles the row shows at once. Fractional on the way down so the
+     * next card is half-visible — on a phone that peek is the only thing saying
+     * the row goes on, since the arrows are small and easy to miss.
+     */
+    readonly todayPerView = signal(4);
+
     constructor() {
+        this._trackPerView();
         void this._markets.ensureLoaded();
         void this._favorites.ensureLoaded();
 
@@ -113,6 +128,30 @@ export class TodayHighlightsComponent {
         }
     }
 
+    /**
+     * Keeps {@link todayPerView} in step with the viewport. Two queries rather
+     * than a resize listener: the browser only wakes us when a threshold is
+     * actually crossed.
+     */
+    private _trackPerView(): void {
+        const wide = window.matchMedia?.('(min-width: 1024px)');
+        const medium = window.matchMedia?.('(min-width: 640px)');
+        if (!wide || !medium) {
+            return;
+        }
+        const apply = (): void =>
+            this.todayPerView.set(
+                wide.matches ? 4 : medium.matches ? 2.5 : 1.2
+            );
+        apply();
+        wide.addEventListener('change', apply);
+        medium.addEventListener('change', apply);
+        this._destroyRef.onDestroy(() => {
+            wide.removeEventListener('change', apply);
+            medium.removeEventListener('change', apply);
+        });
+    }
+
     private async _load(marketId: string): Promise<void> {
         this.loading.set(true);
         try {
@@ -120,7 +159,11 @@ export class TodayHighlightsComponent {
             if (marketId !== this._markets.selectedId()) {
                 return;
             }
-            this._products.set(featured);
+            // Nothing left, or under one whole case, cannot be ordered — the
+            // same rule the board and Hot Deals apply, so a pinned listing that
+            // has sold out drops out of the day's picks rather than leading
+            // with a tile whose button is dead.
+            this._products.set(featured.filter(isOrderableListing));
         } finally {
             this.loading.set(false);
         }

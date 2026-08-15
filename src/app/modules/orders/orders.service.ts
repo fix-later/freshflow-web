@@ -7,9 +7,11 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
-import { DraftOrderItemRequest, ordersApi } from 'contract';
+import { DraftOrderItemRequest, marketSessionsApi, ordersApi } from 'contract';
+import { DateTime } from 'luxon';
 import { parseConfirmPreview } from './confirm-preview';
 import {
+    MarketSessionWindow,
     OrderConfirmPreview,
     OrderingWindow,
     OrderRow,
@@ -210,15 +212,29 @@ export class OrdersService {
     }
 
     /**
-     * The server's view of today's ordering window (BR-ORD-2). The response is
-     * untyped in the spec and the backend has spelled these fields more than
-     * one way, so each is read tolerantly and left `null` when absent — the
-     * caller keeps its local cutoff rule as the fallback.
+     * The server's view of today's ordering window (BR-ORD-2).
+     *
+     * `OrderingWindowResponse` is `(dailyCutoffTime, deliveryWindowDays)` and
+     * nothing more, so "is ordering still open" and "what is the earliest day"
+     * are **derived** from the cutoff here. They used to be read from four
+     * candidate field names each, none of which the backend has ever sent: the
+     * open flag therefore resolved to `null`, defaulted to `true`, and the
+     * cutoff notice could not appear at all.
+     *
+     * The explicit names are still read first, so a response that grows one
+     * wins over the derivation. Times are compared in the browser's zone, the
+     * same assumption the picker's local seed makes.
      */
     async getOrderingWindow(): Promise<OrderingWindow> {
         const res = await ordersApi.apiV1OrdersOrderingWindowGetRaw();
         const data =
             unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
+        const cutoffTime = this._firstString(data, [
+            'cutoffTime',
+            'dailyCutoffTime',
+            'cutoff',
+        ]);
+        const beforeCutoff = this._isBeforeCutoff(cutoffTime);
         const open = this._firstOf(data, [
             'isOpen',
             'isOrderingOpen',
@@ -226,22 +242,95 @@ export class OrdersService {
             'canOrder',
         ]);
         return {
-            isOpen: open == null ? true : open === true,
-            cutoffTime: this._firstString(data, [
-                'cutoffTime',
-                'dailyCutoffTime',
-                'cutoff',
-            ]),
-            earliestServiceDate: this._firstString(data, [
-                'earliestServiceDate',
-                'nextServiceDate',
-                'earliestDeliveryDate',
-                'serviceDate',
-            ]),
+            isOpen: open == null ? beforeCutoff ?? true : open === true,
+            cutoffTime,
+            earliestServiceDate:
+                this._firstString(data, [
+                    'earliestServiceDate',
+                    'nextServiceDate',
+                    'earliestDeliveryDate',
+                    'serviceDate',
+                ]) ?? this._earliestServiceDate(beforeCutoff),
             deliveryWindowDays: this._firstNumber(data, [
                 'deliveryWindowDays',
                 'deliveryWindow',
             ]),
+        };
+    }
+
+    /**
+     * Whether today's cutoff is still ahead, from a `HH:mm[:ss]` time-of-day.
+     * `null` when there is no parseable cutoff, which means "unknown" rather
+     * than "closed" — the caller must not lock a restaurant out on a missing
+     * setting.
+     */
+    private _isBeforeCutoff(cutoffTime: string | null): boolean | null {
+        const parts = cutoffTime?.match(/^(\d{1,2}):(\d{2})/);
+        if (!parts) {
+            return null;
+        }
+        const now = DateTime.now();
+        return (
+            now <
+            now.set({
+                hour: Number(parts[1]),
+                minute: Number(parts[2]),
+                second: 0,
+                millisecond: 0,
+            })
+        );
+    }
+
+    /**
+     * The first deliverable day: tomorrow while the cutoff is ahead, the day
+     * after once it has passed — the rule the picker seeds itself with.
+     */
+    private _earliestServiceDate(beforeCutoff: boolean | null): string | null {
+        return beforeCutoff === null
+            ? null
+            : DateTime.now()
+                  .plus({ days: beforeCutoff ? 1 : 2 })
+                  .toFormat('yyyy-MM-dd');
+    }
+
+    /**
+     * The chợ's ordering session for one service date (`GET /market-sessions`).
+     *
+     * A chợ trades in sessions now: each has its own `closesAt`, which is what
+     * actually stops an order — `/orders/ordering-window` only knows the
+     * platform-wide default. `null` when the day has no session, which is not
+     * an error: the backend generates them, and a day without one simply cannot
+     * be ordered for.
+     */
+    async getMarketSession(
+        marketId: string,
+        serviceDate: string
+    ): Promise<MarketSessionWindow | null> {
+        // The generated client sends a `DateOnly` as
+        // `date.toISOString().substring(0, 10)` — UTC. A `Date` built at local
+        // midnight east of Greenwich would therefore query the *previous* day,
+        // so the instant is pinned to UTC midnight and survives the conversion.
+        const day = DateTime.fromISO(serviceDate, { zone: 'utc' }).toJSDate();
+        const res = await marketSessionsApi.apiV1MarketSessionsGetRaw({
+            marketId,
+            from: day,
+            to: day,
+        });
+        const rows = extractList(await parseJson(res.raw));
+        const match = rows.find(
+            (row) =>
+                String(row['serviceDate'] ?? '').slice(0, 10) === serviceDate
+        );
+        if (!match) {
+            return null;
+        }
+        return {
+            id: String(match['id'] ?? ''),
+            marketId: String(match['marketId'] ?? ''),
+            marketName: (match['marketName'] as string | null) ?? null,
+            serviceDate: String(match['serviceDate'] ?? '').slice(0, 10),
+            status: String(match['status'] ?? '').toLowerCase(),
+            closesAt: (match['closesAt'] as string | null) ?? null,
         };
     }
 

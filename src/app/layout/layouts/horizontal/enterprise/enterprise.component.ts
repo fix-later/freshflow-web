@@ -37,7 +37,6 @@ import { FuseRouteAnimationDirective } from 'app/core/animations/route-animation
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { Navigation } from 'app/core/navigation/navigation.types';
-import { ContactFabComponent } from 'app/layout/common/contact-fab/contact-fab.component';
 import { DraftOrderDrawerComponent } from 'app/layout/common/draft-order/draft-order-drawer.component';
 import { DraftOrderComponent } from 'app/layout/common/draft-order/draft-order.component';
 import { FavoritesDrawerComponent } from 'app/layout/common/favorites/favorites-drawer.component';
@@ -45,6 +44,7 @@ import { FavoritesComponent } from 'app/layout/common/favorites/favorites.compon
 import { MarketPickerComponent } from 'app/layout/common/market-picker/market-picker.component';
 import { NotificationsComponent } from 'app/layout/common/notifications/notifications.component';
 import { OrderTrackingComponent } from 'app/layout/common/order-tracking/order-tracking.component';
+import { AssistantFabComponent } from 'app/layout/common/quick-buy/assistant-fab.component';
 import { QuickBuyComponent } from 'app/layout/common/quick-buy/quick-buy.component';
 import { QuickSignInComponent } from 'app/layout/common/quick-sign-in/quick-sign-in.component';
 import { StorefrontFooterSimpleComponent } from 'app/layout/common/storefront-footer/storefront-footer-simple.component';
@@ -92,7 +92,7 @@ const FULL_FOOTER_PREFIXES = [
         OrderTrackingComponent,
         QuickBuyComponent,
         QuickSignInComponent,
-        ContactFabComponent,
+        AssistantFabComponent,
         StorefrontFooterComponent,
         StorefrontFooterSimpleComponent,
         StorefrontTopStripComponent,

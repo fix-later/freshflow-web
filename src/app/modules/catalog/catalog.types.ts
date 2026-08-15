@@ -142,3 +142,33 @@ export interface CatalogProduct {
      */
     featured: boolean;
 }
+
+/**
+ * Whether a listing is worth showing a buyer — which is to say, whether it can
+ * be ordered at all.
+ *
+ * Goods move by the case: adding a line seeds one whole case
+ * (`DraftOrderService.add`), and every legal quantity is a multiple of it
+ * (`cart-line-rules.ts`). Three states fail that, and each is hidden rather
+ * than shown as a tile whose button cannot be pressed:
+ *
+ * - **sold out** (`quantity` 0);
+ * - **under one case** — not a smaller offer, but no offer;
+ * - **no packing code** (`packWeightKg` absent), which has no case to sell by
+ *   at all. The listing is a catalog gap rather than something a buyer can act
+ *   on, so it waits out of sight until an admin gives the product a code.
+ *
+ * An **unreported** quantity (`null`) still shows: it means the market did not
+ * state a figure, not that it has none.
+ */
+export function isOrderableListing(product: CatalogProduct): boolean {
+    const pack = product.packWeightKg;
+    if (pack === null || pack === undefined || pack <= 0) {
+        return false;
+    }
+    const stock = product.quantity;
+    if (stock === null || stock === undefined) {
+        return true;
+    }
+    return stock > 0 && stock >= pack;
+}

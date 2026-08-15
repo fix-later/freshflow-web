@@ -4,8 +4,10 @@ import {
     OnInit,
     ViewEncapsulation,
     computed,
+    effect,
     inject,
     signal,
+    untracked,
 } from '@angular/core';
 import {
     FormControl,
@@ -33,8 +35,6 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
-import { AdminService } from '../admin.service';
-import { AdminUserRow } from '../admin.types';
 import { HubEditComponent } from '../logistics/hub-edit.component';
 import { createHubResource } from '../logistics/hub-resource';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
@@ -53,16 +53,12 @@ import { MarketProductsComponent } from './market-products.component';
 import { MarketStaffPanelComponent } from './market-staff-panel.component';
 import {
     MARKET_HUBS_TAB,
-    MARKET_PRODUCTS_TAB,
-    MARKET_STAFF_TAB,
     MARKET_TABS,
-    MARKET_VEHICLES_TAB,
+    marketTabIndexOf,
+    marketTabSlugOf,
 } from './market-tabs';
 
-const PRICING_TAB = MARKET_PRODUCTS_TAB;
-const STAFF_TAB = MARKET_STAFF_TAB;
 const HUBS_TAB = MARKET_HUBS_TAB;
-const VEHICLES_TAB = MARKET_VEHICLES_TAB;
 
 /**
  * Read-only MarketDto fields for the detail column. The id is deliberately not
@@ -110,7 +106,6 @@ const META_FIELDS: { key: string; label: string; kind?: 'date' }[] = [
 })
 export class MarketEditComponent implements OnInit {
     private readonly _catalog = inject(CatalogAdminService);
-    private readonly _admin = inject(AdminService);
     private readonly _logistics = inject(LogisticsAdminService);
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
@@ -122,12 +117,8 @@ export class MarketEditComponent implements OnInit {
     readonly loading = signal(false);
     readonly saving = signal(false);
     readonly notFound = signal(false);
-    readonly agentOptions = signal<AdminUserRow[]>([]);
-    /** Agents assigned when the page loaded — the baseline `save()` diffs against. */
-    readonly previousAgentIds = signal<string[]>([]);
     readonly tabs = MARKET_TABS;
     readonly selectedTab = signal(0);
-    readonly pricingTabLoaded = signal(false);
 
     /**
      * The chợ's hub. A market has exactly one, so the tab shows it outright —
@@ -139,6 +130,33 @@ export class MarketEditComponent implements OnInit {
      */
     readonly hubId = signal<string | null>(null);
     readonly hubLoaded = signal(false);
+    private _hubLoading = false;
+
+    constructor() {
+        /**
+         * The hub tab's data, read from state rather than from the click that
+         * opens the tab.
+         *
+         * It used to be fetched in `onTabChange`, which a click is not the only
+         * way to reach: `?tab=hubs` selects the tab with no click at all, and
+         * the tab then sat on its spinner forever because nothing had asked for
+         * the hub — which is what happened whenever another page linked
+         * straight into it.
+         *
+         * Two conditions, both required and neither guaranteed to arrive first:
+         * the tab has to be the open one, *and* the market has to have loaded
+         * (its id is what the hub is looked up by). An effect waits for
+         * whichever is last without either having to know about the other.
+         */
+        effect(() => {
+            const marketId = this.market()?.id;
+            const wantsHub = this.selectedTab() === HUBS_TAB;
+            if (!marketId || !wantsHub || this.hubLoaded()) {
+                return;
+            }
+            untracked(() => void this._loadHub(marketId));
+        });
+    }
 
     /**
      * Hubs and vehicles are managed right here — neither has a nav entry of its
@@ -205,7 +223,6 @@ export class MarketEditComponent implements OnInit {
             nonNullable: true,
             validators: [trimmedMaxLengthValidator(MARKET_LOCATION_MAX_LENGTH)],
         }),
-        agentUserIds: new FormControl<string[]>([], { nonNullable: true }),
         description: new FormControl('', {
             nonNullable: true,
             validators: [
@@ -249,17 +266,18 @@ export class MarketEditComponent implements OnInit {
     ngOnInit(): void {
         this._applyInitialTab();
 
+        // Only the market itself is read here. Everything a tab needs is read
+        // when that tab is opened — see `onTabChange` and the panels below,
+        // each of which fetches its own rows.
         const id = this._route.snapshot.paramMap.get('marketId') ?? '';
         const passed = (history.state?.market ?? null) as CrudRow | null;
         if (passed && passed.id === id) {
             this._apply(passed);
             this._fetch(id, /* keepVisible */ true);
-            void this._loadAgents(id);
             return;
         }
         if (id) {
             this._fetch(id);
-            void this._loadAgents(id);
             return;
         }
         this.notFound.set(true);
@@ -271,15 +289,15 @@ export class MarketEditComponent implements OnInit {
 
     onTabChange(index: number): void {
         this.selectedTab.set(index);
-        if (index === PRICING_TAB) {
-            this.pricingTabLoaded.set(true);
-        }
-        if (index === HUBS_TAB && !this.hubLoaded()) {
-            const marketId = this.market()?.id;
-            if (marketId) {
-                void this._loadHub(marketId);
-            }
-        }
+
+        // `replaceUrl` so tabbing across a page does not build a back-stack the
+        // user has to unwind one tab at a time to leave the market.
+        void this._router.navigate([], {
+            relativeTo: this._route,
+            queryParams: { tab: marketTabSlugOf(index) },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+        });
     }
 
     /**
@@ -288,15 +306,26 @@ export class MarketEditComponent implements OnInit {
      * list used to put at the top.
      */
     private async _loadHub(marketId: string): Promise<void> {
+        // `hubLoaded` is only set when the read finishes, so without this a
+        // second pass of the effect — the tab reselected while the first read
+        // is still out — would issue the same request again.
+        if (this._hubLoading) {
+            return;
+        }
+        this._hubLoading = true;
         try {
             const hubs = await this._logistics.listHubs();
             const mine = hubs.find(
                 (row) => String(row['marketId'] ?? '') === marketId
             );
-            this.hubId.set(mine?.id ?? null);
+            // Truthiness, not `??`: an id of `''` is not a hub this page can
+            // open, but `??` only replaces null/undefined and would keep it —
+            // which then travels into `/hubs/{hubId}/…` as an empty segment.
+            this.hubId.set(mine?.id || null);
         } catch {
             this.hubId.set(null);
         } finally {
+            this._hubLoading = false;
             this.hubLoaded.set(true);
         }
     }
@@ -309,7 +338,10 @@ export class MarketEditComponent implements OnInit {
         }
         this.saving.set(true);
         const value = this.form.getRawValue();
-        const agentUserIds = value.agentUserIds ?? [];
+        // Staff are not edited here — the staff tab owns that, and writes it
+        // itself. This used to also push an agent diff, from a control the
+        // template no longer renders; with nothing to diff it wrote nothing,
+        // while its baseline read every agent on the platform at page load.
         void this._catalog
             .updateMarket(row.id, {
                 name: value.name,
@@ -320,13 +352,6 @@ export class MarketEditComponent implements OnInit {
                 latitude: value.latitude,
                 longitude: value.longitude,
             })
-            .then(() =>
-                this._admin.setMarketAgents(
-                    row.id,
-                    agentUserIds,
-                    this.previousAgentIds()
-                )
-            )
             .then(() => {
                 this._notify('admin.crud.updateSuccess');
                 this.goBack();
@@ -418,24 +443,17 @@ export class MarketEditComponent implements OnInit {
         });
     }
 
-    agentLabel(agent: AdminUserRow): string {
-        return agent.email || String(agent['name'] ?? agent.id);
-    }
-
+    /**
+     * The tab named by the URL. `data.tab` is the legacy
+     * `markets/:marketId/products` route, which still resolves here; everything
+     * else travels as `?tab=`, so a tab is linkable and survives a reload
+     * without each one needing a route of its own.
+     */
     private _applyInitialTab(): void {
-        const tab =
-            this._route.snapshot.data['tab'] ??
+        const slug =
+            (this._route.snapshot.data['tab'] as string | undefined) ??
             this._route.snapshot.queryParamMap.get('tab');
-        if (tab === 'pricing') {
-            this.selectedTab.set(PRICING_TAB);
-            this.pricingTabLoaded.set(true);
-        } else if (tab === 'staff') {
-            this.selectedTab.set(STAFF_TAB);
-        } else if (tab === 'hubs') {
-            this.selectedTab.set(HUBS_TAB);
-        } else if (tab === 'vehicles') {
-            this.selectedTab.set(VEHICLES_TAB);
-        }
+        this.selectedTab.set(marketTabIndexOf(slug));
     }
 
     private _fetch(id: string, keepVisible = false): void {
@@ -457,21 +475,6 @@ export class MarketEditComponent implements OnInit {
                 }
             })
             .finally(() => this.loading.set(false));
-    }
-
-    private async _loadAgents(marketId: string): Promise<void> {
-        try {
-            const { agents, agentsByMarket } =
-                await this._admin.getMarketAgentsWithAssignments();
-            this.agentOptions.set(agents);
-            const assigned = (agentsByMarket.get(marketId) ?? []).map(
-                (agent) => agent.id
-            );
-            this.previousAgentIds.set(assigned);
-            this.form.controls.agentUserIds.setValue(assigned);
-        } catch {
-            this.agentOptions.set([]);
-        }
     }
 
     private _apply(row: CrudRow): void {

@@ -1,0 +1,96 @@
+/*
+ * Video player shell.
+ *
+ * Deliberately unopinionated: the host fills whatever box it is given, so a
+ * caller's existing framing — the hero's rounded viewport, for instance — keeps
+ * working unchanged. Only the play control and the fade-in belong here.
+ */
+
+.ff-video {
+    position: relative;
+    display: block;
+    height: 100%;
+    width: 100%;
+}
+
+.ff-video__el {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+    /* Held back until the first frame is actually painting, so the poster is
+       never swapped for a black box mid-attach. */
+    opacity: 0;
+    transition: opacity 400ms ease;
+
+    &--ready {
+        opacity: 1;
+    }
+}
+
+.ff-video__play {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: progress;
+    }
+}
+
+.ff-video__play-mark {
+    display: flex;
+    height: 4rem;
+    width: 4rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    /* Its own scrim: the control has to read over whatever frame the poster
+       happens to be, which cannot be known here. */
+    color: #fff;
+    background: rgb(0 0 0 / 0.45);
+    backdrop-filter: blur(2px);
+    transition:
+        transform 150ms ease,
+        background-color 150ms ease;
+
+    .ff-video__play:hover & {
+        transform: scale(1.05);
+        background: rgb(0 0 0 / 0.6);
+    }
+
+    .ff-video__play:focus-visible & {
+        outline: 2px solid #fff;
+        outline-offset: 3px;
+    }
+}
+
+.ff-video__spinner {
+    height: 1.5rem;
+    width: 1.5rem;
+    border: 2px solid rgb(255 255 255 / 0.4);
+    border-top-color: #fff;
+    border-radius: 999px;
+    animation: ff-video-spin 700ms linear infinite;
+}
+
+@keyframes ff-video-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-video__el,
+    .ff-video__play-mark {
+        transition: none;
+    }
+
+    .ff-video__spinner {
+        animation-duration: 2s;
+    }
+}

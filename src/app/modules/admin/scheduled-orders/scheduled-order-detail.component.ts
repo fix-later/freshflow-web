@@ -35,8 +35,8 @@ import {
     serverError,
 } from 'app/core/api/form-errors';
 import { trimmedMaxLengthValidator } from 'app/core/api/validators';
+import { orderStatusPillClass } from 'app/modules/orders/orders.types';
 import { DateTime } from 'luxon';
-import { orderStatusPillClass } from '../orders/orders-list.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ADMIN_DEFAULT_PAGE_SIZE, toApiPage } from '../shared/admin-pagination';
 import { ScheduledOrdersAdminService } from './scheduled-orders-admin.service';
@@ -55,8 +55,8 @@ import {
  * Three endpoints meet here: the schedule itself, the runs it has generated
  * (`…/instances`), and the two writes — `PATCH` to correct it and
  * `PATCH …/cancel` to stop it. Cancelling only stops *future* runs; the orders
- * already generated stay ordinary orders, which is why the instances list links
- * each one out to `/admin/orders/{id}` rather than offering a bulk action.
+ * already generated stay ordinary orders, and the instances list reports them
+ * without offering a way in — Admin has no order screen of its own.
  */
 @Component({
     selector: 'admin-scheduled-order-detail',
@@ -149,12 +149,6 @@ export class ScheduledOrderDetailComponent implements OnInit {
 
     goBack(): void {
         void this._router.navigate(['/admin/scheduled-orders']);
-    }
-
-    openOrder(instance: AdminScheduledOrderInstance): void {
-        if (instance.id) {
-            void this._router.navigate(['/admin/orders', instance.id]);
-        }
     }
 
     onInstancesPageChange(event: PageEvent): void {

@@ -1,0 +1,48 @@
+<!--
+  `preload="none"` and no `src`: the element fetches nothing at render. The
+  poster is a Cloudinary still, and the stream is attached only when `start()`
+  runs — from the play control below, or from the caller when the video is
+  decorative and autoplays.
+-->
+<video
+    class="ff-video__el"
+    #videoEl
+    preload="none"
+    playsinline
+    disablepictureinpicture
+    [class.ff-video__el--ready]="state() === 'playing'"
+    [attr.poster]="posterUrl()"
+    [attr.aria-label]="label() || null"
+    [attr.aria-hidden]="label() ? null : 'true'"
+    [muted]="muted()"
+    [loop]="loop()"
+    [controls]="controls()"
+    [tabindex]="controls() ? 0 : -1"
+    (playing)="onPlaying()"
+    (error)="onElementError()"
+></video>
+
+<!--
+  Offered only where the caller did not ask for autoplay — a decorative
+  background starts itself, and a button over it would invite a press that
+  stops the thing it is decorating.
+-->
+@if (!autoplay() && state() !== 'playing') {
+    <button
+        class="ff-video__play"
+        type="button"
+        data-testid="video-play"
+        [disabled]="state() === 'loading'"
+        (click)="onPlayRequested()"
+    >
+        <span class="ff-video__play-mark" aria-hidden="true">
+            @if (state() === 'loading') {
+                <span class="ff-video__spinner"></span>
+            } @else {
+                <svg viewBox="0 0 24 24" width="28" height="28" fill="none">
+                    <path d="M8 5.5v13l11-6.5-11-6.5Z" fill="currentColor" />
+                </svg>
+            }
+        </span>
+    </button>
+}

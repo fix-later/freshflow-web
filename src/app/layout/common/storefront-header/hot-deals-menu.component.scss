@@ -77,31 +77,34 @@ hot-deals-menu {
     }
 
     /*
-     * Full-bleed across the viewport, hanging off the header. `top` is set
-     * inline from the measured header bottom (CSS has no way to reach it) and
-     * follows it as the page scrolls.
+     * Full-bleed across the viewport and down to its bottom edge, hanging off
+     * the header. `top` is set inline from the measured header bottom (CSS has
+     * no way to reach it) and follows it as the page scrolls.
      *
-     * The height is **fixed**, not derived from the remaining viewport: the
-     * panel slides with the header, and a `bottom: 0` would have made it grow
-     * and shrink on every scrolled pixel. One row of tiles is the whole point
-     * of the panel, so that row sets the height and the content scrolls inside
-     * it. The inline `max-height` is only a guard for viewports too short to
-     * hold that row — on a normal desktop screen it never binds.
+     * `bottom: 0` rather than a fixed height: the board fills the screen it
+     * covers, so a market with three tiles and one with thirty both get the
+     * whole surface instead of a 33rem strip with the page showing beneath.
+     * The height does move as the header slides — that is the cost of pinning
+     * to the bottom, and the inner panes scroll rather than the panel itself.
      */
     &__panel {
         position: fixed;
         left: 0;
         right: 0;
+        bottom: 0;
         z-index: 999;
-        height: 33rem;
         overflow: hidden;
         border-bottom: 1px solid var(--fuse-border);
         @apply shadow-2xl;
     }
 
-    /* Aligns the panel's content with the header's own column, and gives the
-       body a definite height to distribute (so the rail and the tiles scroll
-       inside the panel instead of the panel itself growing). */
+    /* Aligns the panel's content with the header's own column — same `95rem`
+       cap and the same responsive inset — so the board starts and ends where
+       the logo and the cart do. The surface behind it is full-bleed; only the
+       content is held to the column.
+
+       Also gives the body a definite height to distribute, so the rail and the
+       tiles scroll inside the panel instead of the panel itself growing. */
     &__container {
         display: flex;
         height: 100%;
@@ -237,6 +240,11 @@ hot-deals-menu {
         min-height: 0;
         flex-direction: column;
         overflow-y: auto;
+        /* Stated, not left to the spec's default: `overflow-y: auto` computes
+           `overflow-x` from `visible` to `auto`, so anything a pixel too wide
+           in here would hang a scrollbar under the deals. The row scrolls by
+           its arrows, never sideways. */
+        overflow-x: hidden;
         overscroll-behavior: contain;
         padding-bottom: 1.5rem;
     }
@@ -253,22 +261,23 @@ hot-deals-menu {
      * neighbouring tile. `auto-fill` drops to four, three, two columns instead,
      * and the tiles wrap into the pane's own scroller.
      */
-    &__grid {
-        display: grid;
-        align-content: start;
-        grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-        gap: 1rem;
+    /* The shared carousel owns the row; this only gives it room for the
+       arrows that sit over its edges. */
+    /* The shared carousel owns the row, arrows and dots; there is nothing to
+       add here but the guarantee that it can shrink. */
+    &__carousel {
+        display: block;
+        min-width: 0;
     }
 }
 
 /*
- * A hovered tile lifts and casts a shadow. Without a stacking context of its
- * own it lifts *under* the tile to its right — later siblings paint on top —
- * so the shadow is sliced down the edge and the two cards read as overlapping.
- * Scoped to this panel: the catalog grid has room between tiles and does not
- * need it.
+ * A hovered tile casts a shadow. Without a stacking context of its own it
+ * casts *under* the tile to its right — later siblings paint on top — so the
+ * shadow is sliced down the edge and the two cards read as overlapping. Scoped
+ * to this panel: the catalog grid has room between tiles and does not need it.
  */
-.ff-hot-deals__grid ff-product-card {
+.ff-hot-deals__carousel ff-product-card {
     position: relative;
 
     &:hover,

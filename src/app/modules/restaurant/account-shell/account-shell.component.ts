@@ -53,12 +53,12 @@ export class AccountShellComponent {
     @ViewChild('drawer') drawer!: MatDrawer;
 
     readonly titleKey = input.required<string>();
-    readonly breadcrumbKey = input.required<string>();
-    /** Breadcrumb root — the account area, not any one page inside it. */
-    readonly breadcrumbRootKey = input('accountShell.group');
+
+    /** One line under the title saying what the page is for. Optional. */
+    readonly subtitleKey = input<string | null>(null);
 
     /**
-     * Set by a **detail** page to swap the breadcrumb for a back control.
+     * Set by a **detail** page to put a back control above the title.
      *
      * A detail page is reached from exactly one place at a time, and the thing
      * its reader wants is the way back to that place — not a trail restating
@@ -69,7 +69,7 @@ export class AccountShellComponent {
     readonly backLink = input<string | null>(null);
     readonly backLabelKey = input('accountShell.back');
 
-    /** True when this page renders a back control instead of a breadcrumb. */
+    /** True when this page renders a back control above its title. */
     readonly isDetail = computed(() => !!this.backLink());
 
     private readonly _user = toSignal(this._userService.user$, {

@@ -1,0 +1,176 @@
+/*
+ * Carousel — an infinite, auto-rotating row.
+ *
+ * The viewport clips; the track slides. Arrows sit over the row's edges rather
+ * than in gutters beside it, so the full width belongs to the slides, and the
+ * dots sit under it. Idle at half opacity and full on hover, following the
+ * reference this was modelled on.
+ */
+
+.ff-carousel {
+    display: block;
+    min-width: 0;
+}
+
+/* What the arrows are positioned against: the slides alone, so they sit at the
+   row's own middle however tall the dots below make the component. */
+.ff-carousel__stage {
+    position: relative;
+    min-width: 0;
+}
+
+.ff-carousel__viewport {
+    overflow: hidden;
+    /*
+     * Padding, and deliberately no negative margin to cancel it. The inset
+     * gives a slide's hover shadow somewhere to fall; pulling the viewport back
+     * out made it wider than its container, and any ancestor that scrolls —
+     * the deals pane sets `overflow-y: auto`, which computes `overflow-x` to
+     * `auto` too — answered that half-rem with a horizontal scrollbar.
+     */
+    padding: 0.25rem;
+}
+
+.ff-carousel__track {
+    display: flex;
+    will-change: transform;
+    transition: transform 420ms cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Set while the track is being re-pointed from a clone to the real slide —
+       the whole trick of the seamless loop is that this move is not animated. */
+    &--still {
+        transition: none;
+    }
+}
+
+.ff-carousel__slide {
+    display: flex;
+    min-width: 0;
+    /* `--ff-carousel-per-view` is written by the component; the gap is taken
+       out of each slide so the row's edges stay flush with the viewport. */
+    flex: 0 0 calc(100% / var(--ff-carousel-per-view, 1));
+    padding-inline: var(--ff-carousel-gap, 0.5rem);
+    box-sizing: border-box;
+
+    > * {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+/* ── Controls ──────────────────────────────────────────────────────────── */
+
+.ff-carousel__nav {
+    position: absolute;
+    top: 50%;
+    z-index: 2;
+    display: flex;
+    height: 2.5rem;
+    width: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--fuse-border);
+    border-radius: 999px;
+    transform: translateY(-50%);
+    cursor: pointer;
+    opacity: 0.5;
+    box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
+    transition:
+        opacity 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease,
+        box-shadow 150ms ease;
+    @apply text-default bg-card;
+
+    &:hover {
+        opacity: 1;
+        box-shadow: 0 8px 22px rgb(0 0 0 / 0.18);
+        @apply bg-primary text-on-primary;
+    }
+
+    &:focus-visible {
+        opacity: 1;
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 2px;
+    }
+
+    /*
+     * Inside the component's own box, never hanging off it. An ancestor that
+     * scrolls — the deals pane sets `overflow-y: auto`, which computes
+     * `overflow-x` to `auto` as well — clips anything outside, which sliced
+     * both arrows in half. Overlapping the edge slide is the usual carousel
+     * look anyway, and it costs the row no width.
+     */
+    &--prev {
+        left: 0.25rem;
+    }
+
+    &--next {
+        right: 0.25rem;
+    }
+}
+
+/* The whole row is hoverable, so the arrows come up together with it — they
+   are half-visible until the row is actually being looked at. */
+.ff-carousel:hover .ff-carousel__nav,
+.ff-carousel:focus-within .ff-carousel__nav {
+    opacity: 0.85;
+
+    &:hover,
+    &:focus-visible {
+        opacity: 1;
+    }
+}
+
+/* ── Dots ──────────────────────────────────────────────────────────────── */
+
+.ff-carousel__dots {
+    display: flex;
+    justify-content: center;
+    gap: 0.375rem;
+    padding-top: 0.875rem;
+    /* The dots take their colour from here: there is no `bg-secondary` token —
+       the theme publishes secondary as text only — so the ink is set once and
+       each dot fills with `currentColor`. */
+    @apply text-secondary;
+}
+
+.ff-carousel__dot {
+    height: 0.5rem;
+    width: 0.5rem;
+    border: none;
+    border-radius: 999px;
+    padding: 0;
+    cursor: pointer;
+    opacity: 0.45;
+    background-color: currentcolor;
+    transition:
+        width 200ms ease,
+        opacity 200ms ease,
+        background-color 200ms ease;
+
+    &:hover {
+        opacity: 0.8;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 2px;
+    }
+
+    /* The current slide's dot stretches rather than merely darkening — it reads
+       at a glance from across the row. */
+    &--active {
+        width: 1.25rem;
+        opacity: 1;
+        @apply text-primary;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-carousel__track,
+    .ff-carousel__nav,
+    .ff-carousel__dot {
+        transition: none;
+    }
+}

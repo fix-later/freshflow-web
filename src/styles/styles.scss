@@ -516,3 +516,308 @@ fuse-vertical-navigation.dark {
         opacity: 0.6;
     }
 }
+
+/* ----------------------------------------------------------------------------------------------------- */
+/*  @ Side drawers (favourites · cart)
+/*
+/*  Two panels with the same job — a short list you skim, act on, and leave —
+/*  so they share one visual language rather than drifting apart. Both are
+/*  `ViewEncapsulation.None`, which is why these live here once instead of being
+/*  emitted twice from two component stylesheets.
+/* ----------------------------------------------------------------------------------------------------- */
+
+.ff-drawer {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    @apply bg-default;
+}
+
+/* Header: on the card surface rather than a slab of primary — the panel's
+   content is the point, and a heavy bar shrank it on a phone. */
+.ff-drawer__head {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.125rem 1.25rem;
+    border-bottom: 1px solid var(--fuse-border);
+    @apply bg-card;
+}
+
+.ff-drawer__title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+}
+
+/* How many are in here, beside the title rather than under it. */
+.ff-drawer__count {
+    display: inline-flex;
+    min-width: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    padding: 0.125rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    @apply bg-primary-50 text-primary dark:bg-primary-500/10;
+}
+
+.ff-drawer__close {
+    margin-left: auto;
+}
+
+.ff-drawer__body {
+    display: flex;
+    min-height: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.5rem;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
+/* ── Row ───────────────────────────────────────────────────────────────── */
+
+.ff-drawer__row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border: 1px solid transparent;
+    border-radius: 0.875rem;
+    padding: 0.625rem 0.75rem;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease;
+    @apply bg-card;
+
+    &:hover {
+        border-color: var(--fuse-border);
+    }
+
+    /*
+     * Nothing left, or under one whole case. Dimmed rather than dropped: it is
+     * still a favourite, and hiding it would read as the list losing items.
+     * The add control is gone in this state, so the row is a record, not an
+     * offer.
+     */
+    &--unavailable {
+        opacity: 0.55;
+    }
+}
+
+.ff-drawer__thumb {
+    height: 3.25rem;
+    width: 3.25rem;
+    flex: none;
+    border-radius: 0.75rem;
+    object-fit: cover;
+    @apply bg-hover;
+}
+
+.ff-drawer__copy {
+    display: flex;
+    min-width: 0;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.ff-drawer__name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.35;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+}
+
+.ff-drawer__meta {
+    font-size: 0.75rem;
+    @apply text-secondary;
+}
+
+/* What the line comes to at its current quantity — the figure the buyer is
+   actually deciding on, so it carries more weight than the unit price above. */
+.ff-drawer__line-total {
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    @apply text-default;
+
+    strong {
+        font-weight: 700;
+    }
+}
+
+.ff-drawer__price {
+    font-weight: 700;
+    @apply text-default;
+}
+
+/* Why this row cannot be ordered, in the row itself — the dimming says
+   something is wrong, this says what. */
+.ff-drawer__flag {
+    align-self: flex-start;
+    border-radius: 999px;
+    padding: 0.0625rem 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    @apply bg-warn-50 text-warn-700 dark:bg-warn-500/10 dark:text-warn-200;
+}
+
+/* ── Stepper ───────────────────────────────────────────────────────────── */
+
+.ff-drawer__stepper {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 0.125rem;
+    border: 1px solid var(--fuse-border);
+    border-radius: 999px;
+    padding: 0.125rem;
+}
+
+.ff-drawer__qty {
+    min-width: 1.5rem;
+    text-align: center;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────── */
+
+.ff-drawer__foot {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    gap: 0.625rem;
+    border-top: 1px solid var(--fuse-border);
+    padding: 1rem;
+    @apply bg-card;
+}
+
+.ff-drawer__total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.ff-drawer__total-value {
+    font-size: 1.25rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+.ff-drawer__cta {
+    display: flex;
+    height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: filter 150ms ease;
+    @apply bg-primary text-on-primary;
+
+    &:hover {
+        filter: brightness(1.05);
+    }
+
+    &--ghost {
+        border: 1px solid var(--fuse-primary);
+        background: transparent;
+        @apply text-primary;
+
+        &:hover {
+            @apply bg-primary-50 dark:bg-primary-500/10;
+        }
+    }
+}
+
+/* ── Empty state ───────────────────────────────────────────────────────── */
+
+.ff-drawer__empty {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 2.5rem 1.5rem;
+    text-align: center;
+}
+
+.ff-drawer__empty-mark {
+    display: flex;
+    height: 3.5rem;
+    width: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    @apply bg-primary-50 text-primary dark:bg-primary-500/10;
+}
+
+.ff-drawer__empty-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+}
+
+.ff-drawer__empty-text {
+    max-width: 16rem;
+    font-size: 0.875rem;
+    @apply text-secondary;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-drawer__row,
+    .ff-drawer__cta {
+        transition: none;
+    }
+}
+
+/*
+ * Icons inside the carousel's round nav buttons follow the button, not the
+ * theme.
+ *
+ * `.mat-icon` publishes its own `color`, which wins over the colour the button
+ * inherits — so a chevron sat dark on the filled circle instead of turning
+ * white with it, and the control read as unlit. `currentColor` hands the icon
+ * back to whatever the button is: the default ink at rest, and `on-primary`
+ * (white) the moment it fills on hover or focus. Same `!important` the danger
+ * button above needs, and for the same reason.
+ */
+.ff-carousel__nav .mat-icon {
+    color: currentcolor !important;
+}
+
+/*
+ * Icons on a primary-filled surface are white, not the muted icon colour.
+ *
+ * Every `mat-icon` starts at `--fuse-mat-icon` (slate-500 light / slate-400
+ * dark) from Fuse's base layer. That is right on a card and wrong on a filled
+ * primary control, where it reads as a greyed-out glyph next to a white label —
+ * the icon looked switched off while the button it sits in was very much on.
+ *
+ * `--fuse-on-primary` rather than a literal white so the pairing stays correct
+ * if the primary ink is ever re-toned, and `!important` because the base rule
+ * and Material's own token both set `color` on the element directly.
+ */
+.mat-mdc-raised-button.mat-primary,
+.mat-mdc-fab.mat-primary,
+.mat-mdc-mini-fab.mat-primary,
+/* Filled buttons are primary unless a palette class or `.admin-btn-danger`
+   says otherwise — M3 dropped `color=` for this variant, so most of them carry
+   no class at all and would be missed by `.mat-primary`. The exclusions keep
+   this from out-specifying the rules that give those their own ink. */
+.mat-mdc-unelevated-button:not(.mat-accent):not(.mat-warn):not(.admin-btn-danger),
+.ff-drawer__cta:not(.ff-drawer__cta--ghost) {
+    .mat-icon {
+        color: var(--fuse-on-primary) !important;
+    }
+}

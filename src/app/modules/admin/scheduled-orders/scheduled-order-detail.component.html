@@ -263,23 +263,6 @@
                                 >
                                     {{ money(row.totalAmount) }}
                                 </span>
-                                <!-- A generated run is an ordinary order, so it
-                                     is managed on the order screen, not here. -->
-                                <button
-                                    mat-icon-button
-                                    type="button"
-                                    [matTooltip]="
-                                        t(
-                                            'admin.scheduledOrders.instances.openOrder'
-                                        )
-                                    "
-                                    (click)="openOrder(row)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:chevron-right"
-                                    ></mat-icon>
-                                </button>
                             </div>
                         }
                     </div>

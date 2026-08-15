@@ -75,6 +75,27 @@ export interface OrderingWindow {
 }
 
 /**
+ * One chợ's ordering session for a service date (`GET /market-sessions`, the
+ * buyer-facing list — the admin one lives in `admin.types.ts`).
+ *
+ * This is what actually closes ordering: `/orders/ordering-window` reports the
+ * platform-wide default, while each chợ trades to its own `closesAt`. A
+ * session outside `open` cannot be ordered into, and the server says so at
+ * confirm (`MARKET_SESSION_CLOSED`, `MARKET_SESSION_CUTOFF_PASSED`).
+ */
+export interface MarketSessionWindow {
+    id: string;
+    marketId: string;
+    marketName: string | null;
+    /** `yyyy-MM-dd`. */
+    serviceDate: string;
+    /** `draft` | `open` | `closed`, lower-cased by the backend's mapper. */
+    status: string;
+    /** ISO instant the chợ stops accepting orders for this day. */
+    closesAt: string | null;
+}
+
+/**
  * `GET /orders/{orderId}/confirm-preview` — the server's verdict on the
  * confirm gates (approval · cutoff · credit · order state, see role-flows
  * §4.3) *before* the restaurant commits. Untyped in the spec, so every field

@@ -560,9 +560,13 @@ export class AdminService {
     // -------------------------------------------------------------------
 
     /**
-     * Lists backend-generated sessions. This endpoint is newer than the
-     * checked-in OpenAPI snapshot, so it temporarily uses the authenticated
-     * raw client; auth refresh and standard API errors still apply.
+     * Lists backend-generated sessions.
+     *
+     * This and the market-session calls below go through the authenticated raw
+     * client — auth refresh, no-store and the typed error classes all still
+     * apply. They predate the snapshot that now describes them: every one has
+     * a generated counterpart on `adminApi` as of the 14/08/2026 regeneration,
+     * and the set should move across together rather than one at a time.
      */
     async getMarketSessions(
         filters: AdminMarketSessionFilters = {}

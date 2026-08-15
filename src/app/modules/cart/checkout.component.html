@@ -1,17 +1,7 @@
 <div class="cart checkout ff-page" *transloco="let t">
-    <nav class="cart-breadcrumb" aria-label="Breadcrumb">
-        <a routerLink="/home">{{ t('cart.breadcrumb.home') }}</a>
-        <mat-icon
-            class="icon-size-4"
-            [svgIcon]="'heroicons_mini:chevron-right'"
-        ></mat-icon>
-        <a routerLink="/cart">{{ t('cart.breadcrumb.order') }}</a>
-        <mat-icon
-            class="icon-size-4"
-            [svgIcon]="'heroicons_mini:chevron-right'"
-        ></mat-icon>
-        <span>{{ t('checkout.breadcrumb') }}</span>
-    </nav>
+    <!-- No breadcrumb: checkout is the end of a two-step flow the cart's own
+         "back" already covers, and a trail here invites leaving a form that is
+         part-filled. -->
 
     <h1 class="cart-title">{{ t('checkout.title') }}</h1>
 
@@ -151,13 +141,36 @@
                                     panelClass="checkout-datepicker"
                                 ></mat-datepicker>
                             </mat-form-field>
-                            <p class="checkout-shipping__hint">
-                                @if (afterCutoff()) {
-                                    {{ t('checkout.shipping.cutoffHint') }}
-                                } @else {
-                                    {{ t('checkout.shipping.minDateHint') }}
-                                }
-                            </p>
+                            <!-- The chợ's own session decides the day, so its
+                                 deadline is shown ahead of the platform-wide
+                                 cutoff rather than only as a 409 at confirm. -->
+                            @if (sessionBlocker(); as blocker) {
+                                <p
+                                    class="checkout-shipping__hint checkout-shipping__hint--warn"
+                                    data-testid="checkout-session-blocker"
+                                >
+                                    {{ t(blocker) }}
+                                </p>
+                            } @else if (sessionClosesAt(); as closesAt) {
+                                <p class="checkout-shipping__hint">
+                                    {{
+                                        t('checkout.shipping.sessionClosesAt', {
+                                            time: closesAt.toFormat('HH:mm'),
+                                            date: closesAt.toFormat(
+                                                'dd/MM/yyyy'
+                                            ),
+                                        })
+                                    }}
+                                </p>
+                            } @else {
+                                <p class="checkout-shipping__hint">
+                                    @if (afterCutoff()) {
+                                        {{ t('checkout.shipping.cutoffHint') }}
+                                    } @else {
+                                        {{ t('checkout.shipping.minDateHint') }}
+                                    }
+                                </p>
+                            }
                             <p class="checkout-shipping__hint">
                                 {{
                                     t('orders.deliveryWindow', {
@@ -218,10 +231,30 @@
                                 <div>
                                     <div class="checkout-order__name">
                                         {{ productName(line.product) }}
-                                        <span>× {{ line.quantity }}</span>
+                                        <!-- Cases, matching the cart — the same
+                                             line must not be restated in a
+                                             different unit at the last step. -->
+                                        <span
+                                            >×
+                                            {{
+                                                caseCount(line)
+                                                    | number: '1.0-2'
+                                            }}
+                                            {{ caseUnit(line) }}</span
+                                        >
                                     </div>
+                                    <!-- The unit price beside the market, so
+                                         the line total above is checkable
+                                         rather than taken on trust. -->
                                     <div class="checkout-order__meta">
                                         {{ line.product.marketSource }}
+                                        @if (line.unitPrice > 0) {
+                                            ·
+                                            {{
+                                                line.unitPrice
+                                                    | number: '1.0-0'
+                                            }}₫ / {{ unitShort(line.product) }}
+                                        }
                                     </div>
                                 </div>
                                 <strong
@@ -345,7 +378,11 @@
                             mat-flat-button
                             color="primary"
                             type="button"
-                            [disabled]="!lines().length || submitting()"
+                            [disabled]="
+                                !lines().length ||
+                                submitting() ||
+                                sessionBlocker() !== null
+                            "
                             (click)="placeOrder()"
                         >
                             {{ t('cart.totals.placeOrder') }}

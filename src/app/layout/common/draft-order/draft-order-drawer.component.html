@@ -8,74 +8,104 @@
         [opened]="isOpen()"
         (openedChanged)="draftOrderService.setDrawerOpen($event)"
     >
-        <div class="bg-card flex h-full w-full flex-col overflow-hidden">
+        <div class="ff-drawer">
             <!-- Header -->
-            <div
-                class="flex h-20 min-h-20 shrink-0 items-center bg-primary px-6 text-on-primary"
-            >
-                <div class="text-2xl font-semibold tracking-tight">
-                    {{ t('draftOrder.title') }}
-                </div>
+            <div class="ff-drawer__head">
+                <span class="ff-drawer__title">{{
+                    t('draftOrder.title')
+                }}</span>
                 @if (count() > 0) {
-                    <div class="ml-3 text-sm opacity-90">
-                        {{ t('draftOrder.itemCount', { count: count() }) }}
-                    </div>
+                    <span class="ff-drawer__count">{{ count() }}</span>
                 }
-                <button class="ml-auto" mat-icon-button (click)="closeDrawer()">
+                <button
+                    class="ff-drawer__close"
+                    mat-icon-button
+                    type="button"
+                    [attr.aria-label]="t('draftOrder.close')"
+                    (click)="closeDrawer()"
+                >
                     <mat-icon
-                        class="text-current"
+                        class="icon-size-5"
                         [svgIcon]="'heroicons_outline:x-mark'"
                     ></mat-icon>
                 </button>
             </div>
 
             <!-- Content -->
-            <div
-                class="flex min-h-0 flex-auto flex-col divide-y overflow-y-auto"
-            >
+            <div class="ff-drawer__body">
                 @for (line of lines(); track trackById($index, line)) {
-                    <div class="flex items-center gap-4 px-6 py-4">
+                    <div class="ff-drawer__row">
                         <img
-                            class="h-14 w-14 shrink-0 rounded-lg object-cover"
+                            class="ff-drawer__thumb"
                             [src]="line.product.thumbnail"
                             [alt]="productName(line.product)"
+                            loading="lazy"
+                            decoding="async"
                         />
-                        <div class="flex min-w-0 flex-auto flex-col">
-                            <span class="line-clamp-1 font-medium">{{
+                        <div class="ff-drawer__copy">
+                            <span class="ff-drawer__name">{{
                                 productName(line.product)
                             }}</span>
-                            <span class="text-secondary text-sm">
-                                {{ productUnit(line.product) }}
-                                @if (line.unitPrice > 0) {
-                                    ·
-                                    {{ line.unitPrice | number: '1.0-0' }}₫
-                                }
-                            </span>
+                            <!-- The unit price, then what the line adds up to
+                                 at the quantity on it — so the buyer is not
+                                 left multiplying kilos by đồng. -->
+                            @if (line.unitPrice > 0) {
+                                <span class="ff-drawer__meta">
+                                    {{ line.unitPrice | number: '1.0-0' }}₫ /
+                                    {{ unitShort(line.product) }}
+                                    <!-- Ties the per-kilo price to the count in
+                                         cases below; without it the two figures
+                                         do not reach the total. -->
+                                    @if (packLabel(line); as pack) {
+                                        · {{ pack }}
+                                    }
+                                </span>
+                                <span class="ff-drawer__line-total">
+                                    {{ caseCount(line) | number: '1.0-2' }}
+                                    {{ caseUnit(line) }} ·
+                                    <strong
+                                        >{{
+                                            lineTotal(line) | number: '1.0-0'
+                                        }}₫</strong
+                                    >
+                                </span>
+                            } @else {
+                                <span class="ff-drawer__meta">
+                                    {{ caseCount(line) | number: '1.0-2' }}
+                                    {{ caseUnit(line) }}
+                                    @if (packLabel(line); as pack) {
+                                        · {{ pack }}
+                                    }
+                                </span>
+                            }
                         </div>
 
                         <!-- Quantity stepper -->
-                        <div class="flex shrink-0 items-center gap-1">
+                        <div class="ff-drawer__stepper">
                             <button
                                 class="h-8 min-h-8 w-8"
                                 mat-icon-button
-                                (click)="decrement(line)"
+                                type="button"
                                 [disabled]="!canDecrease(line)"
                                 [attr.aria-label]="t('draftOrder.decrease')"
+                                (click)="decrement(line)"
                             >
                                 <mat-icon
                                     class="icon-size-4"
                                     [svgIcon]="'heroicons_outline:minus'"
                                 ></mat-icon>
                             </button>
-                            <span class="w-6 text-center text-sm font-medium">{{
-                                line.quantity
+                            <!-- Cases: one press of ± moves this by 1. -->
+                            <span class="ff-drawer__qty">{{
+                                caseCount(line) | number: '1.0-2'
                             }}</span>
                             <button
                                 class="h-8 min-h-8 w-8"
                                 mat-icon-button
-                                (click)="increment(line)"
+                                type="button"
                                 [disabled]="!canIncrease(line)"
                                 [attr.aria-label]="t('draftOrder.increase')"
+                                (click)="increment(line)"
                             >
                                 <mat-icon
                                     class="icon-size-4"
@@ -85,11 +115,12 @@
                         </div>
 
                         <button
-                            class="h-9 min-h-9 w-9"
+                            class="h-9 min-h-9 w-9 shrink-0"
                             mat-icon-button
-                            (click)="remove(line.product.id)"
+                            type="button"
                             [matTooltip]="t('draftOrder.remove')"
                             [attr.aria-label]="t('draftOrder.remove')"
+                            (click)="remove(line.product.id)"
                         >
                             <mat-icon
                                 class="text-hint icon-size-5"
@@ -101,27 +132,21 @@
 
                 <!-- Empty state -->
                 @if (!lines().length) {
-                    <div
-                        class="flex flex-auto flex-col items-center justify-center gap-4 px-8 py-12"
-                    >
-                        <div
-                            class="flex h-14 w-14 flex-0 items-center justify-center rounded-full bg-primary-100 dark:bg-primary-600"
-                        >
+                    <div class="ff-drawer__empty">
+                        <span class="ff-drawer__empty-mark">
                             <mat-icon
-                                class="text-primary-700 dark:text-primary-50"
+                                class="text-current"
                                 [svgIcon]="'heroicons_outline:shopping-cart'"
                             ></mat-icon>
-                        </div>
-                        <div class="text-2xl font-semibold tracking-tight">
-                            {{ t('draftOrder.empty.title') }}
-                        </div>
-                        <div
-                            class="text-secondary w-full max-w-60 text-center text-md"
-                        >
-                            {{ t('draftOrder.empty.description') }}
-                        </div>
+                        </span>
+                        <span class="ff-drawer__empty-title">{{
+                            t('draftOrder.empty.title')
+                        }}</span>
+                        <span class="ff-drawer__empty-text">{{
+                            t('draftOrder.empty.description')
+                        }}</span>
                         <a
-                            class="mt-2 flex w-full max-w-60 items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
+                            class="ff-drawer__cta mt-2 w-full max-w-60"
                             routerLink="/catalog"
                             (click)="closeDrawer()"
                             >{{ t('draftOrder.viewCatalog') }}</a
@@ -132,29 +157,29 @@
 
             <!-- Footer (only when there are items) -->
             @if (lines().length) {
-                <div class="bg-card flex shrink-0 flex-col gap-3 border-t p-4">
-                    <div class="flex items-center justify-between px-1">
-                        <span class="text-secondary text-sm font-medium">{{
+                <div class="ff-drawer__foot">
+                    <div class="ff-drawer__total">
+                        <span class="ff-drawer__meta">{{
                             t('draftOrder.subtotal')
                         }}</span>
-                        <span class="text-lg font-bold"
+                        <span class="ff-drawer__total-value"
                             >{{ subtotal() | number: '1.0-0' }}₫</span
                         >
                     </div>
-                    <div class="text-secondary text-center text-xs">
+                    <p class="ff-drawer__meta text-center">
                         {{ t('draftOrder.priceNote') }}
-                    </div>
+                    </p>
                     <a
-                        class="flex items-center justify-center rounded-full bg-primary py-3 text-center text-md font-semibold text-on-primary"
-                        routerLink="/cart"
-                        (click)="closeDrawer()"
-                        >{{ t('draftOrder.viewCart') }}</a
-                    >
-                    <a
-                        class="flex items-center justify-center rounded-full border border-primary py-3 text-center text-md font-semibold text-primary"
+                        class="ff-drawer__cta"
                         routerLink="/checkout"
                         (click)="closeDrawer()"
                         >{{ t('draftOrder.placeOrder') }}</a
+                    >
+                    <a
+                        class="ff-drawer__cta ff-drawer__cta--ghost"
+                        routerLink="/cart"
+                        (click)="closeDrawer()"
+                        >{{ t('draftOrder.viewCart') }}</a
                     >
                 </div>
             }

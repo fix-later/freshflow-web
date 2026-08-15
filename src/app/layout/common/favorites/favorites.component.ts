@@ -13,6 +13,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 
+/** How long the heart holds its "saved" state. Matches the CSS animation. */
+const BUMP_MS = 520;
+
 /**
  * Header trigger for the favorites drawer. The drawer panel itself
  * (`<favorites-drawer>`) renders at the layout root; open-state is shared
@@ -34,16 +37,22 @@ export class FavoritesComponent implements OnInit {
     protected readonly favoritesService = inject(FavoritesService);
 
     readonly count = this.favoritesService.count;
-    readonly popping = signal(false);
+
+    /**
+     * Set for one beat whenever the wishlist gains an item, so the heart can
+     * answer the press — the same reply, and the same name, the cart trigger
+     * uses (`DraftOrderComponent.justAdded`).
+     */
+    readonly justAdded = signal(false);
 
     private _baselineReady = false;
     private _prevCount = 0;
-    private _popTimer: ReturnType<typeof setTimeout> | null = null;
+    private _bumpTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor() {
         this._destroyRef.onDestroy(() => {
-            if (this._popTimer) {
-                clearTimeout(this._popTimer);
+            if (this._bumpTimer) {
+                clearTimeout(this._bumpTimer);
             }
         });
 
@@ -53,17 +62,22 @@ export class FavoritesComponent implements OnInit {
             if (!loaded) {
                 return;
             }
+            // The first load is not a save: without this the heart would bump
+            // on arrival at every page for a wishlist that already had items.
             if (!this._baselineReady) {
                 this._baselineReady = true;
                 this._prevCount = count;
                 return;
             }
             if (count > this._prevCount) {
-                this.popping.set(true);
-                if (this._popTimer) {
-                    clearTimeout(this._popTimer);
+                this.justAdded.set(true);
+                if (this._bumpTimer) {
+                    clearTimeout(this._bumpTimer);
                 }
-                this._popTimer = setTimeout(() => this.popping.set(false), 250);
+                this._bumpTimer = setTimeout(
+                    () => this.justAdded.set(false),
+                    BUMP_MS
+                );
             }
             this._prevCount = count;
         });

@@ -2640,11 +2640,28 @@
                                             <p
                                                 class="text-secondary mt-1 text-xs"
                                             >
-                                                #{{
-                                                    shortOrderId(plan.planId)
+                                                #{{ shortOrderId(plan.planId) }}
+                                                ·
+                                                {{
+                                                    plan.status
+                                                        | apiLabel
+                                                            : 'admin.orderGroups.marketSessions.routing.planStatus'
                                                 }}
-                                                · {{ plan.status }}
                                             </p>
+                                            <!-- The backend refuses approval in
+                                                 these states, so the reason is
+                                                 shown where the button was. -->
+                                            @if (
+                                                marketSessionRoutePlanBlocker();
+                                                as blocker
+                                            ) {
+                                                <p
+                                                    class="mt-1 text-xs font-semibold text-amber-700 dark:text-amber-200"
+                                                    data-testid="route-plan-blocker"
+                                                >
+                                                    {{ t(blocker) }}
+                                                </p>
+                                            }
                                         </div>
                                         @if (
                                             canApproveMarketSessionRoutePlan()
@@ -2840,21 +2857,6 @@
                                                         }}
                                                     </p>
                                                 </div>
-                                                <button
-                                                    mat-stroked-button
-                                                    type="button"
-                                                    (click)="
-                                                        openFullRouteDetail(
-                                                            view.route.id
-                                                        )
-                                                    "
-                                                >
-                                                    {{
-                                                        t(
-                                                            'admin.orderGroups.marketSessions.routing.fullConsole'
-                                                        )
-                                                    }}
-                                                </button>
                                             </div>
 
                                             <div
@@ -2868,6 +2870,21 @@
                                                             )
                                                         }}
                                                     </h4>
+
+                                                    <!-- The shape of the day:
+                                                         where the stops are in
+                                                         relation to each other,
+                                                         which a column of names
+                                                         and ETAs cannot show. -->
+                                                    <admin-route-map
+                                                        class="mt-3 block"
+                                                        [stops]="
+                                                            marketSessionRouteStops(
+                                                                view.route
+                                                            )
+                                                        "
+                                                    ></admin-route-map>
+
                                                     <div class="mt-3 space-y-2">
                                                         @for (
                                                             stop of marketSessionRouteStops(
@@ -3028,6 +3045,492 @@
                                                         </p>
                                                     }
                                                 </section>
+                                            </div>
+
+                                            <!--
+                                              Dispatch: crew the route, then
+                                              record it leaving the hub. Strictly
+                                              in that order — the backend takes a
+                                              handover only on an assigned route,
+                                              and only for the driver already on
+                                              it.
+                                            -->
+                                            <div class="border-t p-4">
+                                                <div
+                                                    class="flex flex-wrap items-center justify-between gap-3"
+                                                >
+                                                    <div class="min-w-0">
+                                                        <h4
+                                                            class="font-semibold"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.title'
+                                                                )
+                                                            }}
+                                                        </h4>
+                                                        <p
+                                                            class="text-secondary mt-0.5 text-xs"
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.hint'
+                                                                )
+                                                            }}
+                                                        </p>
+                                                    </div>
+
+                                                    @if (
+                                                        dispatchRouteId() ===
+                                                        view.route.id
+                                                    ) {
+                                                        <button
+                                                            mat-stroked-button
+                                                            type="button"
+                                                            (click)="
+                                                                closeDispatch()
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.crud.cancel'
+                                                                )
+                                                            }}
+                                                        </button>
+                                                    } @else if (
+                                                        canAssignRoute(
+                                                            view.route
+                                                        )
+                                                    ) {
+                                                        <button
+                                                            mat-flat-button
+                                                            color="primary"
+                                                            type="button"
+                                                            data-testid="route-dispatch-open"
+                                                            (click)="
+                                                                openDispatch(
+                                                                    view.route
+                                                                )
+                                                            "
+                                                        >
+                                                            <mat-icon
+                                                                class="icon-size-5"
+                                                                [svgIcon]="
+                                                                    'heroicons_outline:truck'
+                                                                "
+                                                            ></mat-icon>
+                                                            <span
+                                                                class="ml-2"
+                                                                >{{
+                                                                    t(
+                                                                        'admin.orderGroups.marketSessions.dispatch.open'
+                                                                    )
+                                                                }}</span
+                                                            >
+                                                        </button>
+                                                    }
+                                                </div>
+
+                                                <!--
+                                                  Before a route can be crewed
+                                                  it has to be adopted and its
+                                                  stop order locked. These are
+                                                  the two steps the backend
+                                                  walks between `planned` and
+                                                  `reviewed`; without them a
+                                                  freshly planned route had no
+                                                  way forward at all.
+                                                -->
+                                                @if (
+                                                    canSelectRoute(view.route)
+                                                ) {
+                                                    <button
+                                                        class="mt-3"
+                                                        mat-flat-button
+                                                        color="primary"
+                                                        type="button"
+                                                        data-testid="route-select"
+                                                        [disabled]="
+                                                            dispatchBusy()
+                                                        "
+                                                        (click)="
+                                                            selectRoute(
+                                                                view.route
+                                                            )
+                                                        "
+                                                    >
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.dispatch.select'
+                                                            )
+                                                        }}
+                                                    </button>
+                                                }
+
+                                                @if (
+                                                    canReviewRoute(view.route)
+                                                ) {
+                                                    <div
+                                                        class="mt-3 flex flex-wrap items-center gap-3"
+                                                    >
+                                                        <mat-form-field
+                                                            class="w-44"
+                                                            subscriptSizing="dynamic"
+                                                        >
+                                                            <mat-label>{{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.criteria'
+                                                                )
+                                                            }}</mat-label>
+                                                            <mat-select
+                                                                [value]="
+                                                                    dispatchCriteria()
+                                                                "
+                                                                (selectionChange)="
+                                                                    dispatchCriteria.set(
+                                                                        $event.value
+                                                                    )
+                                                                "
+                                                            >
+                                                                @for (
+                                                                    criterion of optimizationCriteria;
+                                                                    track criterion
+                                                                ) {
+                                                                    <mat-option
+                                                                        [value]="
+                                                                            criterion
+                                                                        "
+                                                                        >{{
+                                                                            t(
+                                                                                'admin.orderGroups.marketSessions.dispatch.criteriaOption.' +
+                                                                                    criterion
+                                                                            )
+                                                                        }}</mat-option
+                                                                    >
+                                                                }
+                                                            </mat-select>
+                                                        </mat-form-field>
+
+                                                        <button
+                                                            mat-stroked-button
+                                                            type="button"
+                                                            data-testid="route-optimize"
+                                                            [disabled]="
+                                                                dispatchBusy()
+                                                            "
+                                                            (click)="
+                                                                optimizeRoute(
+                                                                    view.route
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.optimize'
+                                                                )
+                                                            }}
+                                                        </button>
+
+                                                        <button
+                                                            mat-flat-button
+                                                            color="primary"
+                                                            type="button"
+                                                            data-testid="route-review"
+                                                            [disabled]="
+                                                                dispatchBusy()
+                                                            "
+                                                            (click)="
+                                                                reviewRoute(
+                                                                    view.route
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.review'
+                                                                )
+                                                            }}
+                                                        </button>
+                                                    </div>
+                                                }
+
+                                                <!-- Already recorded: who took
+                                                     this route out, and when. -->
+                                                @for (
+                                                    handover of routeHandovers(
+                                                        view.route
+                                                    );
+                                                    track handover.id
+                                                ) {
+                                                    <div
+                                                        class="mt-3 flex flex-wrap items-center gap-2 rounded-xl border p-3 text-sm"
+                                                    >
+                                                        <mat-icon
+                                                            class="text-primary icon-size-5"
+                                                            [svgIcon]="
+                                                                'heroicons_outline:check-badge'
+                                                            "
+                                                        ></mat-icon>
+                                                        <span>{{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.dispatch.handedOver'
+                                                            )
+                                                        }}</span>
+                                                        <span
+                                                            [class]="
+                                                                'admin-pill admin-pill-neutral'
+                                                            "
+                                                            >{{
+                                                                handover[
+                                                                    'status'
+                                                                ]
+                                                                    | apiLabel
+                                                                        : 'admin.orderGroups.marketSessions.dispatch.status'
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                }
+
+                                                @if (
+                                                    dispatchRouteId() ===
+                                                    view.route.id
+                                                ) {
+                                                    @if (
+                                                        dispatchError();
+                                                        as message
+                                                    ) {
+                                                        <p
+                                                            class="mt-3 text-sm font-semibold text-warn-700"
+                                                            role="alert"
+                                                        >
+                                                            {{ message }}
+                                                        </p>
+                                                    }
+
+                                                    <div
+                                                        class="mt-3 grid gap-3 sm:grid-cols-2"
+                                                    >
+                                                        <mat-form-field
+                                                            subscriptSizing="dynamic"
+                                                        >
+                                                            <mat-label>{{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.vehicle'
+                                                                )
+                                                            }}</mat-label>
+                                                            <mat-select
+                                                                [value]="
+                                                                    dispatchVehicleId()
+                                                                "
+                                                                (selectionChange)="
+                                                                    pickDispatchVehicle(
+                                                                        view
+                                                                            .route
+                                                                            .id,
+                                                                        $event.value
+                                                                    )
+                                                                "
+                                                            >
+                                                                @for (
+                                                                    vehicle of dispatchVehicles();
+                                                                    track vehicle.id
+                                                                ) {
+                                                                    <mat-option
+                                                                        [value]="
+                                                                            vehicle.id
+                                                                        "
+                                                                        >{{
+                                                                            vehicleLabel(
+                                                                                vehicle
+                                                                            )
+                                                                        }}</mat-option
+                                                                    >
+                                                                }
+                                                            </mat-select>
+                                                        </mat-form-field>
+
+                                                        <mat-form-field
+                                                            subscriptSizing="dynamic"
+                                                        >
+                                                            <mat-label>{{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.driver'
+                                                                )
+                                                            }}</mat-label>
+                                                            <mat-select
+                                                                [value]="
+                                                                    dispatchDriverId()
+                                                                "
+                                                                (selectionChange)="
+                                                                    pickDispatchDriver(
+                                                                        view
+                                                                            .route
+                                                                            .id,
+                                                                        $event.value
+                                                                    )
+                                                                "
+                                                            >
+                                                                @for (
+                                                                    driver of dispatchDrivers();
+                                                                    track driver.id
+                                                                ) {
+                                                                    <mat-option
+                                                                        [value]="
+                                                                            driver.id
+                                                                        "
+                                                                        >{{
+                                                                            driverLabel(
+                                                                                driver
+                                                                            )
+                                                                        }}</mat-option
+                                                                    >
+                                                                }
+                                                            </mat-select>
+                                                        </mat-form-field>
+                                                    </div>
+
+                                                    <!--
+                                                      What the backend would say
+                                                      if Assign were pressed now.
+                                                      Read-only, so it is asked on
+                                                      every change of truck or
+                                                      driver — a refusal shown
+                                                      here can still be fixed in
+                                                      the open form.
+                                                    -->
+                                                    @if (
+                                                        dispatchEligibility();
+                                                        as eligibility
+                                                    ) {
+                                                        <div
+                                                            id="dispatch-eligibility"
+                                                            class="mt-3 rounded-lg border p-3 text-sm"
+                                                            [class]="
+                                                                eligibility.isEligible
+                                                                    ? 'border-green-200 bg-green-50'
+                                                                    : 'border-warn-200 bg-warn-50'
+                                                            "
+                                                        >
+                                                            <div
+                                                                class="font-semibold"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        eligibility.isEligible
+                                                                            ? 'admin.orderGroups.marketSessions.dispatch.eligible'
+                                                                            : 'admin.orderGroups.marketSessions.dispatch.ineligible'
+                                                                    )
+                                                                }}
+                                                            </div>
+                                                            <p
+                                                                class="text-secondary mt-1"
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.marketSessions.dispatch.load',
+                                                                        {
+                                                                            load: eligibility.routeLoadKg,
+                                                                            capacity:
+                                                                                eligibility.vehicleCapacityKg,
+                                                                        }
+                                                                    )
+                                                                }}
+                                                            </p>
+                                                            @for (
+                                                                reason of eligibility.reasons;
+                                                                track reason
+                                                            ) {
+                                                                <p class="mt-1">
+                                                                    ·
+                                                                    {{ reason }}
+                                                                </p>
+                                                            }
+                                                            <!-- A route whose
+                                                                 lines have no
+                                                                 weight passes
+                                                                 the capacity
+                                                                 check only
+                                                                 because there is
+                                                                 nothing to
+                                                                 weigh. -->
+                                                            @if (
+                                                                !eligibility.isWeightComplete
+                                                            ) {
+                                                                <p class="mt-1">
+                                                                    ·
+                                                                    {{
+                                                                        t(
+                                                                            'admin.orderGroups.marketSessions.dispatch.weightIncomplete'
+                                                                        )
+                                                                    }}
+                                                                </p>
+                                                            }
+                                                        </div>
+                                                    }
+
+                                                    <div
+                                                        class="mt-3 flex flex-wrap items-center gap-2"
+                                                    >
+                                                        <button
+                                                            mat-flat-button
+                                                            color="primary"
+                                                            type="button"
+                                                            data-testid="route-assign-crew"
+                                                            [disabled]="
+                                                                dispatchBusy() ||
+                                                                !dispatchVehicleId() ||
+                                                                !dispatchDriverId()
+                                                            "
+                                                            [attr.aria-describedby]="
+                                                                dispatchEligibility()
+                                                                    ? 'dispatch-eligibility'
+                                                                    : null
+                                                            "
+                                                            (click)="
+                                                                assignRouteCrew(
+                                                                    view.route
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.dispatch.assign'
+                                                                )
+                                                            }}
+                                                        </button>
+
+                                                        <!-- Only once a driver
+                                                             is on the route:
+                                                             the handover names
+                                                             them, and cannot
+                                                             name anyone else. -->
+                                                        @if (
+                                                            canHandOver(
+                                                                view.route
+                                                            )
+                                                        ) {
+                                                            <button
+                                                                mat-stroked-button
+                                                                type="button"
+                                                                data-testid="route-handover"
+                                                                [disabled]="
+                                                                    dispatchBusy()
+                                                                "
+                                                                (click)="
+                                                                    handOverRoute(
+                                                                        view.route
+                                                                    )
+                                                                "
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.marketSessions.dispatch.handover'
+                                                                    )
+                                                                }}
+                                                            </button>
+                                                        }
+                                                    </div>
+                                                }
                                             </div>
 
                                             @if (view.manifest; as manifest) {
