@@ -29,6 +29,10 @@ export interface ApiV1InvoicesInvoiceIdGetRequest {
     invoiceId: string;
 }
 
+export interface ApiV1InvoicesInvoiceIdPdfGetRequest {
+    invoiceId: string;
+}
+
 /**
  * 
  */
@@ -190,6 +194,56 @@ export class InvoicesApi extends runtime.BaseAPI {
      */
     async apiV1InvoicesInvoiceIdGet(requestParameters: ApiV1InvoicesInvoiceIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1InvoicesInvoiceIdGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1InvoicesInvoiceIdPdfGet without sending the request
+     */
+    async apiV1InvoicesInvoiceIdPdfGetRequestOpts(requestParameters: ApiV1InvoicesInvoiceIdPdfGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['invoiceId'] == null) {
+            throw new runtime.RequiredError(
+                'invoiceId',
+                'Required parameter "invoiceId" was null or undefined when calling apiV1InvoicesInvoiceIdPdfGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/invoices/{invoiceId}/pdf`;
+        urlPath = urlPath.replace('{invoiceId}', encodeURIComponent(String(requestParameters['invoiceId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1InvoicesInvoiceIdPdfGetRaw(requestParameters: ApiV1InvoicesInvoiceIdPdfGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1InvoicesInvoiceIdPdfGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1InvoicesInvoiceIdPdfGet(requestParameters: ApiV1InvoicesInvoiceIdPdfGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1InvoicesInvoiceIdPdfGetRaw(requestParameters, initOverrides);
     }
 
 }

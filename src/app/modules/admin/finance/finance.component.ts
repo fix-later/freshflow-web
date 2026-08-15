@@ -5,6 +5,7 @@ import {
     ViewEncapsulation,
     computed,
     inject,
+    input,
     signal,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,7 +16,16 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import {
+    CHART_COLORS,
+    CHART_STATUS_COLORS,
+    ChartPoint,
+    barChart,
+    donutChart,
+    radialChart,
+} from '../shared/chart-theme';
 import { FinanceAdminService } from './finance-admin.service';
 import {
     FinanceInvoiceRow,
@@ -28,6 +38,9 @@ import {
 
 /** Invoices shown alongside the portfolio — enough to spot a backlog. */
 const INVOICE_PREVIEW_SIZE = 10;
+
+/** Restaurants named in the debtors chart — past this the bars are unreadable. */
+const TOP_DEBTORS = 8;
 
 /**
  * Operations ▸ Finance (`/admin/finance`).
@@ -55,6 +68,7 @@ const INVOICE_PREVIEW_SIZE = 10;
         MatProgressBarModule,
         MatSlideToggleModule,
         MatTooltipModule,
+        NgApexchartsModule,
         TranslocoModule,
     ],
     styles: [
@@ -88,8 +102,129 @@ export class FinanceComponent implements OnInit {
     readonly risk = creditRisk;
     readonly utilisation = creditUtilisation;
 
+    /**
+     * True when the dashboard's tab bar already names this section — the panel
+     * then drops its own page title and its full-viewport positioning, and
+     * scrolls with the dashboard instead of inside itself.
+     */
+    readonly embedded = input(false);
+
     readonly sortedRows = computed(() => [...this.rows()].sort(byRisk));
     readonly totals = computed(() => creditTotals(this.rows()));
+
+    // ---- Charts -----------------------------------------------------------
+    //
+    // The table below answers "who owes what"; these answer "how exposed are
+    // we", which is the question the table's first screenful cannot show once
+    // the portfolio is more than a dozen restaurants long.
+
+    /**
+     * How the portfolio splits across the risk bands. Fixed semantic colours:
+     * red is at-limit (ordering already blocked) and must not land on "ok"
+     * because the palette happened to rotate that way.
+     */
+    readonly riskChart = computed<ApexOptions>(() => {
+        const totals = this.totals();
+        const ok =
+            this.rows().length -
+            totals.atLimit -
+            totals.nearLimit -
+            totals.unavailable;
+        const points: ChartPoint[] = [
+            { label: this._t('admin.finance.risk.ok'), value: Math.max(ok, 0) },
+            {
+                label: this._t('admin.finance.risk.nearLimit'),
+                value: totals.nearLimit,
+            },
+            {
+                label: this._t('admin.finance.risk.atLimit'),
+                value: totals.atLimit,
+            },
+            {
+                label: this._t('admin.finance.risk.unavailable'),
+                value: totals.unavailable,
+            },
+        ].filter((point) => point.value > 0);
+
+        return donutChart(points, {
+            colors: [
+                CHART_STATUS_COLORS.good,
+                CHART_STATUS_COLORS.warn,
+                CHART_STATUS_COLORS.bad,
+                CHART_STATUS_COLORS.neutral,
+            ],
+            format: (value) => this._number(value),
+        });
+    });
+
+    /** Share of the granted limit currently drawn down, across the portfolio. */
+    readonly utilisationChart = computed<ApexOptions>(() => {
+        const percent = this.portfolioUsage() ?? 0;
+        const color =
+            percent >= 100
+                ? CHART_STATUS_COLORS.bad
+                : percent >= 80
+                  ? CHART_STATUS_COLORS.warn
+                  : CHART_COLORS[0];
+        return radialChart(
+            percent,
+            this._t('admin.finance.charts.utilisation'),
+            color
+        );
+    });
+
+    /**
+     * The largest debts, biggest first. Horizontal because restaurant names
+     * do not fit under a vertical axis.
+     */
+    readonly debtorsChart = computed<ApexOptions>(() =>
+        barChart(
+            [...this.rows()]
+                .filter((row) => (row.outstanding ?? 0) > 0)
+                .sort((a, b) => (b.outstanding ?? 0) - (a.outstanding ?? 0))
+                .slice(0, TOP_DEBTORS)
+                .map((row) => ({
+                    label: row.name || row.email || row.id,
+                    value: row.outstanding ?? 0,
+                })),
+            {
+                name: this._t('admin.finance.totals.outstanding'),
+                horizontal: true,
+                format: (value) => this.formatAmount(value),
+                colors: [CHART_STATUS_COLORS.bad],
+                height: 340,
+            }
+        )
+    );
+
+    /** The invoice backlog by status — what is issued versus still waiting. */
+    readonly invoiceStatusChart = computed<ApexOptions>(() => {
+        const byStatus = new Map<string, number>();
+        for (const invoice of this.invoices()) {
+            const status =
+                String(invoice.status ?? '').toLowerCase() || 'unknown';
+            byStatus.set(status, (byStatus.get(status) ?? 0) + 1);
+        }
+        return donutChart(
+            [...byStatus].map(([status, value]) => ({
+                label: this._t(this.invoiceStatusKey(status)),
+                value,
+            })),
+            { format: (value) => this._number(value) }
+        );
+    });
+
+    /** Whole-portfolio utilisation as a percent, or `null` with no limits set. */
+    readonly portfolioUsage = computed<number | null>(() => {
+        const { limit, outstanding } = this.totals();
+        if (limit <= 0) {
+            return outstanding > 0 ? 100 : null;
+        }
+        return (outstanding / limit) * 100;
+    });
+
+    /** True once there is a portfolio worth charting. */
+    readonly hasPortfolio = computed(() => this.rows().length > 0);
 
     ngOnInit(): void {
         this.load();
@@ -200,5 +335,13 @@ export class FinanceComponent implements OnInit {
             (key) => this._transloco.translate(key),
             fallbackKey
         );
+    }
+
+    private _t(key: string): string {
+        return this._transloco.translate(key);
+    }
+
+    private _number(value: number): string {
+        return value.toLocaleString(this._transloco.getActiveLang());
     }
 }

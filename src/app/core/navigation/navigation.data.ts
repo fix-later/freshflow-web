@@ -84,34 +84,22 @@ const NAVIGATION: AreaNavItem[] = [
     // that will absorb them (session detail, market config, product config) do
     // not exist yet. They come out of the nav as each set of tabs lands —
     // leaving them out now would only make working screens unreachable.
+    // One entry, not a branch. Phân tích · Tài chính · Khiếu nại · Nhật ký are
+    // tabs of a single dashboard page now, so the nav names the page and the
+    // tab bar names the section — a branch here would be a second, competing
+    // set of controls for the same four panels.
+    //
+    // `exactMatch` because `/admin` prefixes every console route; the old
+    // per-panel paths redirect onto `/admin?tab=…`, so they light this entry
+    // without needing the prefix match.
     {
-        id: 'admin.dashboard',
+        id: 'admin-dashboard',
         title: 'nav.admin.dashboard',
-        type: 'collapsable',
+        type: 'basic',
         icon: 'heroicons_outline:home',
+        link: '/admin',
         area: 'admin',
-        children: [
-            {
-                id: 'admin-finance',
-                title: 'nav.admin.finance',
-                type: 'basic',
-                link: '/admin/finance',
-            },
-            {
-                id: 'admin-claims',
-                title: 'nav.admin.claims',
-                type: 'basic',
-                link: '/admin/claims',
-            },
-            {
-                id: 'admin-analysis',
-                title: 'nav.admin.analysis',
-                type: 'basic',
-                link: '/admin',
-                // /admin prefixes every console route — exact only
-                exactMatch: true,
-            },
-        ],
+        exactMatch: true,
     },
     {
         id: 'admin.sessions',

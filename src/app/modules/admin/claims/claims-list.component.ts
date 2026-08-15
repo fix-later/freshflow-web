@@ -6,6 +6,7 @@ import {
     ViewEncapsulation,
     computed,
     inject,
+    input,
     signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -24,8 +25,13 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
-import { claimStatusPillClass } from 'app/modules/orders/claims.types';
+import {
+    claimStatusPillClass,
+    normalizeClaimStatus,
+} from 'app/modules/orders/claims.types';
+import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
+import { CHART_STATUS_COLORS, donutChart } from '../shared/chart-theme';
 import { newestActiveFirst } from '../shared/row-order';
 import { ClaimsService } from './claims.service';
 import {
@@ -74,6 +80,7 @@ export { claimStatusPillClass };
         MatSelectModule,
         MatSnackBarModule,
         MatTooltipModule,
+        NgApexchartsModule,
         ReactiveFormsModule,
         TranslocoModule,
     ],
@@ -96,6 +103,13 @@ export class ClaimsListComponent implements OnInit {
     private _dialogRef: MatDialogRef<unknown> | null = null;
     /** Kept apart from `_dialogRef`: the detail can open the review on top. */
     private _detailRef: MatDialogRef<unknown> | null = null;
+
+    /**
+     * True when the dashboard's tab bar already names this section — the queue
+     * then drops its own page title and its full-viewport positioning, and
+     * scrolls with the dashboard instead of inside itself.
+     */
+    readonly embedded = input(false);
 
     readonly statusPillClass = claimStatusPillClass;
     readonly statusOptions = CLAIM_STATUSES;
@@ -141,6 +155,58 @@ export class ClaimsListComponent implements OnInit {
 
     /** `NotEmpty` on reject only; approve tolerates a blank note. */
     readonly noteRequired = computed(() => this.decision() === 'reject');
+
+    // ---- Queue summary ----------------------------------------------------
+    //
+    // Derived from the claims currently loaded, which is a cursor page rather
+    // than the whole history — so this is "the queue as it stands", the same
+    // scope the table below shows, not an all-time report. The status filter
+    // narrows both together, which keeps the two consistent.
+
+    /** How many claims sit in each state, and what they are worth. */
+    readonly summary = computed(() => {
+        const rows = this.claims();
+        const counts = { submitted: 0, approved: 0, rejected: 0 };
+        let pendingAmount = 0;
+        for (const row of rows) {
+            const status = normalizeClaimStatus(row.status);
+            if (!status) {
+                continue;
+            }
+            counts[status] += 1;
+            if (status === 'submitted') {
+                pendingAmount += row.amount ?? 0;
+            }
+        }
+        return { total: rows.length, ...counts, pendingAmount };
+    });
+
+    /**
+     * The queue's split by state. Fixed semantic colours — amber is awaiting a
+     * decision, green approved, red rejected — so the chart reads the same way
+     * as the status pills in the table.
+     */
+    readonly statusChart = computed<ApexOptions>(() => {
+        const summary = this.summary();
+        const points = [
+            {
+                label: this.statusLabel('submitted'),
+                value: summary.submitted,
+            },
+            { label: this.statusLabel('approved'), value: summary.approved },
+            { label: this.statusLabel('rejected'), value: summary.rejected },
+        ].filter((point) => point.value > 0);
+
+        return donutChart(points, {
+            colors: [
+                CHART_STATUS_COLORS.warn,
+                CHART_STATUS_COLORS.good,
+                CHART_STATUS_COLORS.bad,
+            ],
+            format: (value) =>
+                value.toLocaleString(this._transloco.getActiveLang()),
+        });
+    });
 
     /**
      * The client-side verdict on the note, as an i18n key — mirroring

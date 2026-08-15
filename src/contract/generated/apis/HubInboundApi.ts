@@ -86,6 +86,11 @@ export interface ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostReq
     inboundId: string;
 }
 
+export interface ApiV1HubsHubIdInboundInboundIdLabelsGetRequest {
+    hubId: string;
+    inboundId: string;
+}
+
 export interface ApiV1HubsHubIdInboundPostRequest {
     hubId: string;
     recordInboundRequest?: RecordInboundRequest;
@@ -553,6 +558,64 @@ export class HubInboundApi extends runtime.BaseAPI {
      */
     async apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost(requestParameters: ApiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdInboundInboundIdLabelsGet without sending the request
+     */
+    async apiV1HubsHubIdInboundInboundIdLabelsGetRequestOpts(requestParameters: ApiV1HubsHubIdInboundInboundIdLabelsGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdInboundInboundIdLabelsGet().'
+            );
+        }
+
+        if (requestParameters['inboundId'] == null) {
+            throw new runtime.RequiredError(
+                'inboundId',
+                'Required parameter "inboundId" was null or undefined when calling apiV1HubsHubIdInboundInboundIdLabelsGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/inbound/{inboundId}/labels`;
+        urlPath = urlPath.replace('{hubId}', encodeURIComponent(String(requestParameters['hubId'])));
+        urlPath = urlPath.replace('{inboundId}', encodeURIComponent(String(requestParameters['inboundId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdInboundInboundIdLabelsGetRaw(requestParameters: ApiV1HubsHubIdInboundInboundIdLabelsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1HubsHubIdInboundInboundIdLabelsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdInboundInboundIdLabelsGet(requestParameters: ApiV1HubsHubIdInboundInboundIdLabelsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1HubsHubIdInboundInboundIdLabelsGetRaw(requestParameters, initOverrides);
     }
 
     /**

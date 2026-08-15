@@ -172,6 +172,11 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     INVOICE_NOT_FOUND: 'errors.api.invoiceNotFound',
     INVOICE_NOT_ISSUED: 'errors.api.invoiceNotIssued',
     INVOICE_EXPORT_INCOMPLETE: 'errors.api.invoiceExportIncomplete',
+    // `GET /invoices/{id}/pdf` renders sandbox drafts only. Once an invoice is
+    // provider-issued, the legal PDF is that provider's file and this app must
+    // not re-render it — a 422 the user reaches by pressing the button on an
+    // issued invoice.
+    INVOICE_PDF_PROVIDER_REQUIRED: 'errors.api.invoicePdfProviderRequired',
     BUYER_TAX_CODE_REQUIRED: 'errors.api.buyerTaxCodeRequired',
     BUYER_TAX_CODE_INVALID: 'errors.api.buyerTaxCodeInvalid',
     BUYER_LEGAL_NAME_REQUIRED: 'errors.api.buyerLegalNameRequired',

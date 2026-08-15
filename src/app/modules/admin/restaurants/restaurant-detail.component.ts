@@ -186,6 +186,7 @@ export class RestaurantDetailComponent implements OnInit {
     /** This restaurant's invoices (`GET /invoices?restaurantId=`). */
     readonly invoices = signal<AdminInvoiceRow[]>([]);
     readonly exportingInvoiceId = signal<string | null>(null);
+    readonly downloadingInvoicePdfId = signal<string | null>(null);
     readonly loadingCreditHistory = signal(false);
     readonly creditHistoryError = signal<string | null>(null);
     readonly generatingStatement = signal(false);
@@ -1193,6 +1194,35 @@ export class RestaurantDetailComponent implements OnInit {
             })
             .catch((err) => void this._notifyError(err))
             .finally(() => this.exportingInvoiceId.set(null));
+    }
+
+    /**
+     * Downloads an invoice's PDF (`GET /invoices/{id}/pdf`), alongside the XML
+     * export above: the XML is the machine-readable e-invoice, the PDF is the
+     * copy a person reads.
+     *
+     * The server renders sandbox invoices only. On a provider-issued one it
+     * answers 422 `INVOICE_PDF_PROVIDER_REQUIRED`, which `_notifyError` turns
+     * into that exact reason rather than a generic failure — the button stays
+     * enabled because whether an invoice is sandbox is not on this row.
+     */
+    downloadInvoicePdf(invoice: AdminInvoiceRow): void {
+        if (!invoice.id || this.downloadingInvoicePdfId()) {
+            return;
+        }
+        this.downloadingInvoicePdfId.set(invoice.id);
+        this._admin
+            .downloadInvoicePdf(invoice.id)
+            .then(({ blob, fileName }) => {
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = fileName;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch((err) => void this._notifyError(err))
+            .finally(() => this.downloadingInvoicePdfId.set(null));
     }
 
     private async _refreshUser(userId: string): Promise<void> {

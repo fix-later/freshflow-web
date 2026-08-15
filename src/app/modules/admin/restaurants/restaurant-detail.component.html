@@ -1189,6 +1189,30 @@
                                                         "
                                                     ></mat-icon>
                                                 </button>
+                                                <button
+                                                    class="h-8 min-h-8 min-w-10 px-2"
+                                                    mat-stroked-button
+                                                    type="button"
+                                                    [disabled]="
+                                                        downloadingInvoicePdfId() ===
+                                                        inv.id
+                                                    "
+                                                    [matTooltip]="
+                                                        t(
+                                                            'admin.invoices.downloadPdf'
+                                                        )
+                                                    "
+                                                    (click)="
+                                                        downloadInvoicePdf(inv)
+                                                    "
+                                                >
+                                                    <mat-icon
+                                                        class="icon-size-5"
+                                                        [svgIcon]="
+                                                            'heroicons_outline:document-text'
+                                                        "
+                                                    ></mat-icon>
+                                                </button>
                                             </div>
                                         }
                                     </div>

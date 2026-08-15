@@ -12,21 +12,26 @@
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div
-            class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
-        >
-            <div class="min-w-0">
-                <div class="text-4xl font-extrabold tracking-tight">
-                    {{ t('admin.auditLogs.title') }}
-                </div>
-                <div class="text-secondary mt-1 text-sm">
-                    {{ t('admin.auditLogs.subtitle') }}
+        @if (!embedded()) {
+            <div
+                class="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"
+            >
+                <div class="min-w-0">
+                    <div class="text-4xl font-extrabold tracking-tight">
+                        {{ t('admin.auditLogs.title') }}
+                    </div>
+                    <div class="text-secondary mt-1 text-sm">
+                        {{ t('admin.auditLogs.subtitle') }}
+                    </div>
                 </div>
             </div>
-        </div>
+        }
 
         <!-- Filters -->
-        <div class="mt-6 flex flex-wrap items-center gap-3">
+        <div
+            class="flex flex-wrap items-center gap-3"
+            [class.mt-6]="!embedded()"
+        >
             <mat-form-field
                 class="fuse-mat-dense fuse-mat-rounded w-48 max-w-full"
                 subscriptSizing="dynamic"

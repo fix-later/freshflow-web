@@ -1,5 +1,11 @@
+<!--
+  `sm:absolute sm:inset-0` makes this its own scroll region when it is the whole
+  route. Inside the dashboard's tab panel that would tear it out of the tab's
+  flow, so the full-viewport positioning is dropped when embedded.
+-->
 <div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
+    [class]="embedded() ? '' : 'sm:absolute sm:inset-0 sm:overflow-hidden'"
     *transloco="let t"
 >
     <!-- Header -->
@@ -12,15 +18,17 @@
         <div
             class="flex flex-col justify-between gap-4 sm:flex-row sm:items-center"
         >
-            <div class="min-w-0">
-                <div class="text-4xl font-extrabold tracking-tight">
-                    {{ t('admin.finance.title') }}
+            @if (!embedded()) {
+                <div class="min-w-0">
+                    <div class="text-4xl font-extrabold tracking-tight">
+                        {{ t('admin.finance.title') }}
+                    </div>
+                    <div class="text-secondary mt-1 text-sm">
+                        {{ t('admin.finance.subtitle') }}
+                    </div>
                 </div>
-                <div class="text-secondary mt-1 text-sm">
-                    {{ t('admin.finance.subtitle') }}
-                </div>
-            </div>
-            <div class="flex flex-wrap items-center gap-3">
+            }
+            <div class="flex flex-wrap items-center gap-3 sm:ml-auto">
                 <mat-slide-toggle
                     [color]="'primary'"
                     [checked]="approvedOnly()"
@@ -93,6 +101,76 @@
                 }
             </div>
         </div>
+
+        <!-- Exposure at a glance. The table below is the working list; these
+             three answer "how bad is it" without scrolling it. -->
+        @if (hasPortfolio()) {
+            <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+                <section class="flex flex-col rounded-2xl border p-5">
+                    <h3 class="truncate font-semibold">
+                        {{ t('admin.finance.charts.riskSplit') }}
+                    </h3>
+                    <div class="mt-2 flex flex-auto items-center">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="riskChart().chart!"
+                            [colors]="riskChart().colors!"
+                            [dataLabels]="riskChart().dataLabels!"
+                            [labels]="riskChart().labels!"
+                            [legend]="riskChart().legend!"
+                            [plotOptions]="riskChart().plotOptions!"
+                            [series]="riskChart().series!"
+                            [stroke]="riskChart().stroke!"
+                            [tooltip]="riskChart().tooltip!"
+                        ></apx-chart>
+                    </div>
+                </section>
+
+                <section class="flex flex-col rounded-2xl border p-5">
+                    <h3 class="truncate font-semibold">
+                        {{ t('admin.finance.charts.utilisation') }}
+                    </h3>
+                    @if (portfolioUsage() !== null) {
+                        <div class="mt-2 flex flex-auto items-center">
+                            <apx-chart
+                                class="w-full flex-auto"
+                                [chart]="utilisationChart().chart!"
+                                [colors]="utilisationChart().colors!"
+                                [labels]="utilisationChart().labels!"
+                                [plotOptions]="utilisationChart().plotOptions!"
+                                [series]="utilisationChart().series!"
+                                [stroke]="utilisationChart().stroke!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-4 text-sm">
+                            {{ t('admin.finance.charts.noLimits') }}
+                        </p>
+                    }
+                </section>
+
+                <section class="flex flex-col rounded-2xl border p-5">
+                    <h3 class="truncate font-semibold">
+                        {{ t('admin.finance.charts.topDebtors') }}
+                    </h3>
+                    <div class="mt-2 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="debtorsChart().chart!"
+                            [colors]="debtorsChart().colors!"
+                            [dataLabels]="debtorsChart().dataLabels!"
+                            [grid]="debtorsChart().grid!"
+                            [legend]="debtorsChart().legend!"
+                            [plotOptions]="debtorsChart().plotOptions!"
+                            [series]="debtorsChart().series!"
+                            [tooltip]="debtorsChart().tooltip!"
+                            [xaxis]="debtorsChart().xaxis!"
+                            [yaxis]="debtorsChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                </section>
+            </div>
+        }
     </div>
 
     <!-- Body -->
@@ -276,55 +354,94 @@
                         {{ t('admin.finance.invoices.empty') }}
                     </p>
                 } @else {
-                    <div
-                        class="flex flex-col divide-y overflow-hidden rounded-2xl border"
-                    >
-                        <!-- Read-only: an invoice has no screen of its own, so
-                             the row states it rather than offering a way in. -->
-                        @for (invoice of invoices(); track invoice.id) {
+                    <!-- The split first: a backlog is a shape, not a list. The
+                         rows underneath say which invoices make it up. -->
+                    <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
+                        <section
+                            class="flex flex-col rounded-2xl border p-5 lg:col-span-1"
+                        >
+                            <h3 class="truncate font-semibold">
+                                {{ t('admin.finance.charts.invoiceSplit') }}
+                            </h3>
+                            <div class="mt-2 flex flex-auto items-center">
+                                <apx-chart
+                                    class="w-full flex-auto"
+                                    [chart]="invoiceStatusChart().chart!"
+                                    [colors]="invoiceStatusChart().colors!"
+                                    [dataLabels]="
+                                        invoiceStatusChart().dataLabels!
+                                    "
+                                    [labels]="invoiceStatusChart().labels!"
+                                    [legend]="invoiceStatusChart().legend!"
+                                    [plotOptions]="
+                                        invoiceStatusChart().plotOptions!
+                                    "
+                                    [series]="invoiceStatusChart().series!"
+                                    [stroke]="invoiceStatusChart().stroke!"
+                                    [tooltip]="invoiceStatusChart().tooltip!"
+                                ></apx-chart>
+                            </div>
+                        </section>
+
+                        <div class="lg:col-span-2">
                             <div
-                                class="flex w-full items-center gap-4 px-5 py-3 text-left"
+                                class="flex flex-col divide-y overflow-hidden rounded-2xl border"
                             >
-                                <div class="min-w-0 flex-1">
+                                <!-- Read-only: an invoice has no screen of its own, so
+                             the row states it rather than offering a way in. -->
+                                @for (invoice of invoices(); track invoice.id) {
                                     <div
-                                        class="flex flex-wrap items-center gap-2"
+                                        class="flex w-full items-center gap-4 px-5 py-3 text-left"
                                     >
-                                        <span
-                                            class="font-mono text-sm font-semibold"
-                                            >{{
-                                                invoice.number ||
-                                                    (invoice.id || '').slice(
-                                                        0,
-                                                        8
+                                        <div class="min-w-0 flex-1">
+                                            <div
+                                                class="flex flex-wrap items-center gap-2"
+                                            >
+                                                <span
+                                                    class="font-mono text-sm font-semibold"
+                                                    >{{
+                                                        invoice.number ||
+                                                            (
+                                                                invoice.id || ''
+                                                            ).slice(0, 8)
+                                                    }}</span
+                                                >
+                                                <span
+                                                    [class]="
+                                                        invoiceStatusPillClass(
+                                                            invoice.status
+                                                        )
+                                                    "
+                                                >
+                                                    {{
+                                                        t(
+                                                            invoiceStatusKey(
+                                                                invoice.status
+                                                            )
+                                                        )
+                                                    }}
+                                                </span>
+                                            </div>
+                                            <div
+                                                class="text-secondary mt-0.5 text-xs"
+                                            >
+                                                {{
+                                                    formatDate(
+                                                        invoice.createdAt
                                                     )
+                                                }}
+                                            </div>
+                                        </div>
+                                        <span
+                                            class="shrink-0 font-mono text-sm font-bold tabular-nums"
+                                            >{{
+                                                formatAmount(invoice.total)
                                             }}</span
                                         >
-                                        <span
-                                            [class]="
-                                                invoiceStatusPillClass(
-                                                    invoice.status
-                                                )
-                                            "
-                                        >
-                                            {{
-                                                t(
-                                                    invoiceStatusKey(
-                                                        invoice.status
-                                                    )
-                                                )
-                                            }}
-                                        </span>
                                     </div>
-                                    <div class="text-secondary mt-0.5 text-xs">
-                                        {{ formatDate(invoice.createdAt) }}
-                                    </div>
-                                </div>
-                                <span
-                                    class="shrink-0 font-mono text-sm font-bold tabular-nums"
-                                    >{{ formatAmount(invoice.total) }}</span
-                                >
+                                }
                             </div>
-                        }
+                        </div>
                     </div>
                 }
             </section>

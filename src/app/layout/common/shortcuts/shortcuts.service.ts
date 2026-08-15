@@ -118,13 +118,12 @@ export class ShortcutsService {
             }
             const parsed = JSON.parse(stored) as Shortcut[];
             // A hand-edited or truncated entry must not blank the panel.
-            return Array.isArray(parsed)
-                ? parsed.filter(
-                      (shortcut) =>
-                          shortcut.id !== 'audit-logs' &&
-                          shortcut.link !== '/admin/audit-logs'
-                  )
-                : [...DEFAULT_SHORTCUTS];
+            //
+            // Saved `/admin/audit-logs` shortcuts used to be stripped here,
+            // because the audit-log screen had no route and the shortcut led
+            // nowhere. It is the dashboard's activity tab now and that path
+            // redirects onto it, so the shortcut works and is kept.
+            return Array.isArray(parsed) ? parsed : [...DEFAULT_SHORTCUTS];
         } catch {
             return [...DEFAULT_SHORTCUTS];
         }

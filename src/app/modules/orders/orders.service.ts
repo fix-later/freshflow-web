@@ -11,6 +11,7 @@ import { DraftOrderItemRequest, marketSessionsApi, ordersApi } from 'contract';
 import { DateTime } from 'luxon';
 import { parseConfirmPreview } from './confirm-preview';
 import {
+    MarketSessionAvailability,
     MarketSessionWindow,
     OrderConfirmPreview,
     OrderingWindow,
@@ -294,23 +295,111 @@ export class OrdersService {
     }
 
     /**
-     * The chợ's ordering session for one service date (`GET /market-sessions`).
+     * The chợ's ordering session for one service date.
      *
      * A chợ trades in sessions now: each has its own `closesAt`, which is what
      * actually stops an order — `/orders/ordering-window` only knows the
      * platform-wide default. `null` when the day has no session, which is not
      * an error: the backend generates them, and a day without one simply cannot
      * be ordered for.
+     *
+     * Two endpoints answer this, and both are needed:
+     *  - `GET /market-sessions/availability` decides **whether** the day can be
+     *    ordered into. The server resolves the session for that exact date
+     *    itself, so its `exists` / `status` beat matching `serviceDate` strings
+     *    against a filtered list on this side.
+     *  - `GET /market-sessions` supplies **`closesAt`** (and `marketName`),
+     *    which availability does not return and which the checkout counts down
+     *    to.
+     *
+     * They run in parallel, so this still costs one round-trip of latency, and
+     * either one failing leaves the other in charge: only when *both* fail does
+     * this reject, which is what tells the caller the answer is unknown rather
+     * than "no session". (Availability is `restaurant`-only, so a non-buyer
+     * session gets 403 there and falls back to the list, as before.)
      */
     async getMarketSession(
         marketId: string,
         serviceDate: string
     ): Promise<MarketSessionWindow | null> {
-        // The generated client sends a `DateOnly` as
-        // `date.toISOString().substring(0, 10)` — UTC. A `Date` built at local
-        // midnight east of Greenwich would therefore query the *previous* day,
-        // so the instant is pinned to UTC midnight and survives the conversion.
-        const day = DateTime.fromISO(serviceDate, { zone: 'utc' }).toJSDate();
+        const [availability, listed] = await Promise.allSettled([
+            this.getMarketSessionAvailability(marketId, serviceDate),
+            this._listedMarketSession(marketId, serviceDate),
+        ]);
+        if (
+            availability.status === 'rejected' &&
+            listed.status === 'rejected'
+        ) {
+            throw availability.reason;
+        }
+        const verdict =
+            availability.status === 'fulfilled' ? availability.value : null;
+        const row = listed.status === 'fulfilled' ? listed.value : null;
+
+        // The server says there is nothing to order into: authoritative, even
+        // when the list happened to return a row for a neighbouring day.
+        if (verdict && !verdict.exists) {
+            return null;
+        }
+        if (!row) {
+            // No list row — either it failed or it filtered nothing out. Build
+            // the window from the verdict, minus the deadline it cannot carry.
+            return verdict?.exists
+                ? {
+                      id: verdict.sessionId ?? '',
+                      marketId: verdict.marketId || marketId,
+                      marketName: null,
+                      serviceDate: verdict.serviceDate || serviceDate,
+                      status: (verdict.status ?? '').toLowerCase(),
+                      closesAt: null,
+                  }
+                : null;
+        }
+        return {
+            ...row,
+            // Prefer the server's own verdict on the status — it is what the
+            // confirm call will enforce.
+            status: verdict?.status ? verdict.status.toLowerCase() : row.status,
+        };
+    }
+
+    /**
+     * `GET /market-sessions/availability` — whether `marketId` can be ordered
+     * into on `serviceDate`, decided server-side.
+     *
+     * Restaurant-scoped, and it answers `400 VALIDATION_ERROR` when either
+     * argument is missing, so both are required here too.
+     */
+    async getMarketSessionAvailability(
+        marketId: string,
+        serviceDate: string
+    ): Promise<MarketSessionAvailability> {
+        const res =
+            await marketSessionsApi.apiV1MarketSessionsAvailabilityGetRaw({
+                marketId,
+                serviceDate: this._utcDay(serviceDate),
+            });
+        const data =
+            unwrapData<Record<string, unknown>>(await parseJson(res.raw)) ?? {};
+        return {
+            marketId: String(data['marketId'] ?? marketId),
+            serviceDate: String(data['serviceDate'] ?? serviceDate).slice(
+                0,
+                10
+            ),
+            exists: data['exists'] === true,
+            isOpen: data['isOpen'] === true,
+            status: (data['status'] as string | null) ?? null,
+            sessionId: (data['sessionId'] as string | null) ?? null,
+        };
+    }
+
+    /** The session row for one day, read off the buyer-facing list endpoint. */
+    private async _listedMarketSession(
+        marketId: string,
+        serviceDate: string
+    ): Promise<MarketSessionWindow | null> {
+        const day = this._utcDay(serviceDate);
         const res = await marketSessionsApi.apiV1MarketSessionsGetRaw({
             marketId,
             from: day,
@@ -332,6 +421,19 @@ export class OrdersService {
             status: String(match['status'] ?? '').toLowerCase(),
             closesAt: (match['closesAt'] as string | null) ?? null,
         };
+    }
+
+    /**
+     * `yyyy-MM-dd` as the instant the generated client will serialise back to
+     * that same day.
+     *
+     * It sends a `DateOnly` as `date.toISOString().substring(0, 10)` — UTC. A
+     * `Date` built at local midnight east of Greenwich would therefore query
+     * the *previous* day, so the instant is pinned to UTC midnight and survives
+     * the conversion.
+     */
+    private _utcDay(serviceDate: string): Date {
+        return DateTime.fromISO(serviceDate, { zone: 'utc' }).toJSDate();
     }
 
     private _firstOf(

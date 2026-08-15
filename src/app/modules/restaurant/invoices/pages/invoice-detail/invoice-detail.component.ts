@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { describeApiError } from 'app/core/api/error-codes';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantInvoicesService } from '../../restaurant-invoices.service';
 import { invoiceStatusPillClass } from '../../restaurant-invoices.status';
@@ -48,6 +49,14 @@ export class InvoiceDetailComponent implements OnInit {
     readonly notFound = signal(false);
     readonly statusPillClass = invoiceStatusPillClass;
 
+    readonly downloadingPdf = signal(false);
+    /**
+     * Localized reason the PDF download was refused — most often the 422 for an
+     * invoice the provider issued, whose legal PDF this app may not re-render.
+     * Shown inline next to the button, the way the list names a failed read.
+     */
+    readonly downloadError = signal<string | null>(null);
+
     ngOnInit(): void {
         const id = this._route.snapshot.paramMap.get('invoiceId') ?? '';
         if (!id) {
@@ -63,6 +72,42 @@ export class InvoiceDetailComponent implements OnInit {
             })
             .catch(() => this.notFound.set(true))
             .finally(() => this.loading.set(false));
+    }
+
+    /**
+     * Saves this invoice as a PDF (`GET /invoices/{id}/pdf`).
+     *
+     * The list and this page show the invoice's fields; the PDF is the copy a
+     * restaurant files or forwards to its accountant, which is why the action
+     * lives on the detail rather than behind a row menu.
+     */
+    downloadPdf(): void {
+        const id = this.invoice()?.id;
+        if (!id || this.downloadingPdf()) {
+            return;
+        }
+        this.downloadingPdf.set(true);
+        this.downloadError.set(null);
+        this._service
+            .downloadInvoicePdf(id)
+            .then(({ blob, fileName }) => {
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = fileName;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            })
+            .catch(async (err) =>
+                this.downloadError.set(
+                    await describeApiError(
+                        err,
+                        (key) => this._transloco.translate(key),
+                        'restaurantInvoices.downloadPdfError'
+                    )
+                )
+            )
+            .finally(() => this.downloadingPdf.set(false));
     }
 
     detailEntries(row: InvoiceRow): { label: string; value: string }[] {

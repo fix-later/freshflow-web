@@ -190,6 +190,35 @@ export async function apiErrorMessage(
     return info.message?.trim() ? info.message : undefined;
 }
 
+/**
+ * Reads the filename out of a `Content-Disposition` header.
+ *
+ * Prefers RFC 5987 `filename*=UTF-8''…` when present — invoice and statement
+ * names can carry Vietnamese diacritics, and the plain `filename=` fallback is
+ * where servers put an ASCII-mangled version of the same name.
+ *
+ * Lives here rather than beside one caller because every binary download the
+ * app offers (invoice XML, invoice PDF, statement PDF, analytics export) reads
+ * the same header off a raw `Response`.
+ */
+export function fileNameFromContentDisposition(
+    header: string | null
+): string | undefined {
+    if (!header) {
+        return undefined;
+    }
+    const extended = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (extended) {
+        try {
+            return decodeURIComponent(extended[1].trim());
+        } catch {
+            // Malformed percent-encoding — fall through to the plain form.
+        }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(header);
+    return plain ? plain[1].trim() : undefined;
+}
+
 /** Parses a JSON body, tolerating an empty (`void`) response. */
 export async function parseJson<T>(response: Response): Promise<T | undefined> {
     const text = await response.text();

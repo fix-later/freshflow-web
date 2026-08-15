@@ -1,5 +1,11 @@
+<!--
+  `sm:absolute sm:inset-0` makes the queue its own scroll region when it is the
+  whole route. Inside the dashboard's tab panel that would tear it out of the
+  tab's flow, so the full-viewport positioning is dropped when embedded.
+-->
 <div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
+    [class]="embedded() ? '' : 'sm:absolute sm:inset-0 sm:overflow-hidden'"
     *transloco="let t"
 >
     <!-- Header -->
@@ -9,14 +15,97 @@
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div class="min-w-0">
-            <div class="text-4xl font-extrabold tracking-tight">
-                {{ t('admin.claims.title') }}
+        @if (!embedded()) {
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.claims.title') }}
+                </div>
+                <div class="text-secondary mt-1 text-sm">
+                    {{ t('admin.claims.subtitle') }}
+                </div>
             </div>
-            <div class="text-secondary mt-1 text-sm">
-                {{ t('admin.claims.subtitle') }}
+        }
+
+        <!-- Where the queue stands, before the list of what is in it. Scoped to
+             the claims loaded (a cursor page, narrowed by the filters below),
+             which is the same scope the table shows. -->
+        @if (claims().length) {
+            <div
+                class="grid grid-cols-1 gap-6 lg:grid-cols-3"
+                [class.mt-6]="!embedded()"
+            >
+                <div
+                    class="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-2"
+                >
+                    <div class="rounded-xl border p-4">
+                        <div
+                            class="text-secondary text-xs uppercase tracking-wide"
+                        >
+                            {{ t('admin.claims.summary.pending') }}
+                        </div>
+                        <div
+                            class="mt-1 text-3xl font-bold tabular-nums text-amber-600"
+                        >
+                            {{ summary().submitted }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <div
+                            class="text-secondary text-xs uppercase tracking-wide"
+                        >
+                            {{ t('admin.claims.summary.pendingAmount') }}
+                        </div>
+                        <div class="mt-1 text-3xl font-bold tabular-nums">
+                            {{ money(summary().pendingAmount) }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <div
+                            class="text-secondary text-xs uppercase tracking-wide"
+                        >
+                            {{ t('admin.claims.summary.approved') }}
+                        </div>
+                        <div
+                            class="mt-1 text-3xl font-bold tabular-nums text-green-600"
+                        >
+                            {{ summary().approved }}
+                        </div>
+                    </div>
+                    <div class="rounded-xl border p-4">
+                        <div
+                            class="text-secondary text-xs uppercase tracking-wide"
+                        >
+                            {{ t('admin.claims.summary.rejected') }}
+                        </div>
+                        <div
+                            class="mt-1 text-3xl font-bold tabular-nums text-red-600"
+                        >
+                            {{ summary().rejected }}
+                        </div>
+                    </div>
+                </div>
+
+                <section class="flex flex-col rounded-2xl border p-5">
+                    <h3 class="truncate font-semibold">
+                        {{ t('admin.claims.summary.chartTitle') }}
+                    </h3>
+                    <div class="mt-2 flex flex-auto items-center">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="statusChart().chart!"
+                            [colors]="statusChart().colors!"
+                            [dataLabels]="statusChart().dataLabels!"
+                            [labels]="statusChart().labels!"
+                            [legend]="statusChart().legend!"
+                            [plotOptions]="statusChart().plotOptions!"
+                            [series]="statusChart().series!"
+                            [stroke]="statusChart().stroke!"
+                            [tooltip]="statusChart().tooltip!"
+                        ></apx-chart>
+                    </div>
+                </section>
             </div>
-        </div>
+        }
 
         <div class="mt-6 flex flex-wrap items-center gap-3">
             <mat-form-field

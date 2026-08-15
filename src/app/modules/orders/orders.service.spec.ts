@@ -180,43 +180,138 @@ describe('OrdersService', () => {
     });
 
     describe('getMarketSession', () => {
-        it('asks for the service date in UTC, so the day survives the client encoding', async () => {
-            const get = spyOn(
+        /** The `/market-sessions` row the list endpoint would return. */
+        const listedRow = {
+            id: 's-1',
+            marketId: 'm-1',
+            marketName: 'Chợ A',
+            serviceDate: '2026-08-15',
+            status: 'open',
+            closesAt: '2026-08-14T15:00:00Z',
+        };
+
+        it('asks both endpoints for the service date in UTC, so the day survives the client encoding', async () => {
+            const list = spyOn(
                 marketSessionsApi,
                 'apiV1MarketSessionsGetRaw'
+            ).and.resolveTo(rawResponse({ data: [listedRow] }));
+            const availability = spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsAvailabilityGetRaw'
             ).and.resolveTo(
                 rawResponse({
-                    data: [
-                        {
-                            id: 's-1',
-                            marketId: 'm-1',
-                            marketName: 'Chợ A',
-                            serviceDate: '2026-08-15',
-                            status: 'open',
-                            closesAt: '2026-08-14T15:00:00Z',
-                        },
-                    ],
+                    data: {
+                        marketId: 'm-1',
+                        serviceDate: '2026-08-15',
+                        exists: true,
+                        isOpen: true,
+                        status: 'open',
+                        sessionId: 's-1',
+                    },
                 })
             );
 
             const session = await service.getMarketSession('m-1', '2026-08-15');
 
-            const sent = get.calls.mostRecent().args[0] as {
+            const listed = list.calls.mostRecent().args[0] as {
                 from: Date;
                 to: Date;
                 marketId: string;
             };
             // What the generated client will put on the wire.
-            expect(sent.from.toISOString().substring(0, 10)).toBe('2026-08-15');
-            expect(sent.to.toISOString().substring(0, 10)).toBe('2026-08-15');
-            expect(sent.marketId).toBe('m-1');
+            expect(listed.from.toISOString().substring(0, 10)).toBe(
+                '2026-08-15'
+            );
+            expect(listed.to.toISOString().substring(0, 10)).toBe('2026-08-15');
+            expect(listed.marketId).toBe('m-1');
+
+            const asked = availability.calls.mostRecent().args[0] as {
+                marketId: string;
+                serviceDate: Date;
+            };
+            expect(asked.marketId).toBe('m-1');
+            expect(asked.serviceDate.toISOString().substring(0, 10)).toBe(
+                '2026-08-15'
+            );
+
+            expect(session?.status).toBe('open');
+            // Only the list carries the deadline the checkout counts down to.
+            expect(session?.closesAt).toBe('2026-08-14T15:00:00Z');
+        });
+
+        it('trusts availability over a list row for a neighbouring day', async () => {
+            spyOn(marketSessionsApi, 'apiV1MarketSessionsGetRaw').and.resolveTo(
+                rawResponse({ data: [listedRow] })
+            );
+            spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsAvailabilityGetRaw'
+            ).and.resolveTo(
+                rawResponse({
+                    data: {
+                        marketId: 'm-1',
+                        serviceDate: '2026-08-15',
+                        exists: false,
+                        isOpen: false,
+                        status: null,
+                        sessionId: null,
+                    },
+                })
+            );
+
+            expect(
+                await service.getMarketSession('m-1', '2026-08-15')
+            ).toBeNull();
+        });
+
+        it('falls back to the list when availability is refused (it is restaurant-only)', async () => {
+            spyOn(marketSessionsApi, 'apiV1MarketSessionsGetRaw').and.resolveTo(
+                rawResponse({ data: [listedRow] })
+            );
+            spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsAvailabilityGetRaw'
+            ).and.rejectWith(new Error('403'));
+
+            const session = await service.getMarketSession('m-1', '2026-08-15');
+
             expect(session?.status).toBe('open');
             expect(session?.closesAt).toBe('2026-08-14T15:00:00Z');
+        });
+
+        it('rejects when neither endpoint answers, so the caller knows it is unknown rather than closed', async () => {
+            spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsGetRaw'
+            ).and.rejectWith(new Error('offline'));
+            spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsAvailabilityGetRaw'
+            ).and.rejectWith(new Error('offline'));
+
+            await expectAsync(
+                service.getMarketSession('m-1', '2026-08-15')
+            ).toBeRejected();
         });
 
         it('returns null for a day the chợ has no session for', async () => {
             spyOn(marketSessionsApi, 'apiV1MarketSessionsGetRaw').and.resolveTo(
                 rawResponse({ data: [] })
+            );
+            spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsAvailabilityGetRaw'
+            ).and.resolveTo(
+                rawResponse({
+                    data: {
+                        marketId: 'm-1',
+                        serviceDate: '2026-08-15',
+                        exists: false,
+                        isOpen: false,
+                        status: null,
+                        sessionId: null,
+                    },
+                })
             );
 
             expect(
