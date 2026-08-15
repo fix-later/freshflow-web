@@ -77,6 +77,7 @@ jobs:
                       API_BASE_URL=${{ secrets.API_BASE_URL || vars.API_BASE_URL || 'https://api.freshflow.fishfix.vn' }}
                       GOONG_MAPS_KEY=${{ secrets.GOONG_MAPS_KEY }}
                       GOONG_PLACES_KEY=${{ secrets.GOONG_PLACES_KEY }}
+                      CLOUDINARY_CLOUD_NAME=${{ secrets.CLOUDINARY_CLOUD_NAME || vars.CLOUDINARY_CLOUD_NAME || 'dqpstirdk' }}
 
             - name: Deploy to VPS
               uses: appleboy/ssh-action@v1
