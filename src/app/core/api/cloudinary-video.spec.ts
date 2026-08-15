@@ -11,7 +11,7 @@ import {
  * least visible in development.
  */
 describe('Cloudinary video URLs', () => {
-    const cloud = environment.cloudinaryCloudName;
+    const cloud = environment.cloudinaryCloudName?.trim() || 'dqpstirdk';
 
     it('builds an adaptive-bitrate manifest from the public id', () => {
         // `sp_auto` is what makes Cloudinary generate and serve the ladder, so
