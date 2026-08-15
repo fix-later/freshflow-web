@@ -15,4 +15,6 @@ export const environment = {
     apiBaseUrl: env.API_BASE_URL,
     goongMapsKey: env.GOONG_MAPS_KEY,
     goongPlacesKey: env.GOONG_PLACES_KEY,
+    /** Delivery-side Cloudinary cloud; no key or secret ships to the browser. */
+    cloudinaryCloudName: env.CLOUDINARY_CLOUD_NAME,
 };

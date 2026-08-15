@@ -19,6 +19,7 @@ import {
     canDecrease,
     canIncrease,
     cartLineIssues,
+    caseCount,
     packSize,
 } from './cart-line-rules';
 
@@ -60,9 +61,6 @@ export class CartComponent {
     readonly syncState = this._draftOrder.syncState;
     readonly syncError = this._draftOrder.syncError;
 
-    /** Short id for display — the full UUID says nothing to a buyer. */
-    readonly draftLabel = computed(() => this.draftId()?.slice(0, 8) ?? '');
-
     /** Re-reads the draft after a failed write, so the cart shows the truth. */
     retrySync(): void {
         void this._draftOrder.restore();
@@ -85,6 +83,36 @@ export class CartComponent {
 
     productUnit(product: CatalogProduct): string {
         return this.isVi() ? product.unit : product.unitEn;
+    }
+
+    /**
+     * The short unit, for sitting beside a quantity or a price.
+     *
+     * Falls back to kilograms: a line restored from the server is rebuilt from
+     * the order item, which carries no unit at all
+     * (`DraftOrderService._degradedProduct`). Kilograms is not a guess — cart
+     * quantity *is* kg, and the stepper moves by a whole case of them.
+     */
+    unitShort(product: CatalogProduct): string {
+        return product.unitShort || this.productUnit(product) || 'kg';
+    }
+
+    /**
+     * What the stepper shows: whole cases, not kilograms. The quantity sent to
+     * the server is untouched — see {@link caseCount}.
+     */
+    readonly caseCount = caseCount;
+
+    /**
+     * The unit beside that count. "kiện" whenever the line has a case size to
+     * count in; the product's own unit when it has none, since then
+     * {@link caseCount} is still reporting kilograms.
+     */
+    caseUnit(line: DraftOrderLine): string {
+        const weight = line.product.packWeightKg;
+        return weight !== null && weight !== undefined && weight > 0
+            ? this._transloco.translate('cart.caseUnit')
+            : this.unitShort(line.product);
     }
 
     lineTotal(line: DraftOrderLine): number {

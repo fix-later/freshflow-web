@@ -174,9 +174,15 @@ export class ProductDetailComponent implements OnInit {
         void this._favoritesService.toggle(product);
     }
 
-    /** Same draft-order entry point the catalog grid and wishlist use. */
+    /**
+     * Same draft-order entry point the catalog grid and wishlist use.
+     *
+     * `canOrder` is re-checked rather than trusted to the disabled button: this
+     * page is reachable by link for a listing the board hides, and the stock it
+     * judges on can fall under a case while the page is open.
+     */
     addToDraftOrder(product: CatalogProduct): void {
-        if (!this._guestGate.requireAccount()) {
+        if (!this.canOrder(product) || !this._guestGate.requireAccount()) {
             return;
         }
         this._draftOrder.add(product);

@@ -28,43 +28,9 @@
         </div>
     }
 
-    <!-- Page head: breadcrumb + title (market or selected category) -->
+    <!-- Page head: title (market or selected category) -->
     <header>
-        <nav
-            class="text-secondary flex flex-wrap items-center gap-1 text-sm"
-            aria-label="Breadcrumb"
-        >
-            <a
-                routerLink="/home"
-                class="font-medium text-primary hover:underline"
-            >
-                {{ t('catalog.breadcrumb.home') }}
-            </a>
-            <mat-icon
-                class="text-hint icon-size-4"
-                svgIcon="heroicons_mini:chevron-right"
-            ></mat-icon>
-            @if (selectedTrail().length) {
-                <button
-                    type="button"
-                    class="font-medium text-primary hover:underline"
-                    (click)="filterByCategory('')"
-                >
-                    {{ t('catalog.breadcrumb.catalog') }}
-                </button>
-                @for (crumb of selectedTrail(); track crumb.id) {
-                    <mat-icon
-                        class="text-hint icon-size-4"
-                        svgIcon="heroicons_mini:chevron-right"
-                    ></mat-icon>
-                    <span>{{ categoryLabel(crumb) }}</span>
-                }
-            } @else {
-                <span>{{ t('catalog.breadcrumb.catalog') }}</span>
-            }
-        </nav>
-
-        <h1 class="mt-2 text-3xl font-bold tracking-tight md:text-4xl">
+        <h1 class="text-3xl font-bold tracking-tight md:text-4xl">
             @if (selectedCategory()) {
                 {{ categoryName(selectedCategory()) }}
             } @else if (market(); as m) {
@@ -408,6 +374,14 @@
                             [aria-label]="t('catalog.sort.label')"
                             (selectionChange)="setSort($event.value)"
                         >
+                            <!-- Stated rather than left to Material to derive
+                                 from the selected option: the panel showed the
+                                 right row ticked while the closed control read
+                                 blank, so the order in force was invisible
+                                 until you opened it. -->
+                            <mat-select-trigger>{{
+                                t(sortLabel())
+                            }}</mat-select-trigger>
                             @for (option of sortOptions; track option.value) {
                                 <mat-option [value]="option.value">{{
                                     t(option.label)

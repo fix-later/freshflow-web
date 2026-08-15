@@ -267,8 +267,15 @@
                                             track cat.id
                                         ) {
                                             <div class="flex min-w-0 flex-col">
+                                                <!-- Artwork beside the heading,
+                                                     not above the list: the
+                                                     column is a list of links
+                                                     and a full-width image per
+                                                     column would push the
+                                                     children below the fold of
+                                                     the panel. -->
                                                 <a
-                                                    class="text-default truncate text-base font-bold no-underline hover:text-primary"
+                                                    class="text-default flex min-w-0 items-center gap-2.5 no-underline hover:text-primary"
                                                     routerLink="/catalog"
                                                     [queryParams]="{
                                                         category: cat.id,
@@ -276,12 +283,44 @@
                                                     (click)="
                                                         megaMenuOpen = false
                                                     "
-                                                    >{{
-                                                        isVi()
-                                                            ? cat.name
-                                                            : cat.nameEn
-                                                    }}</a
                                                 >
+                                                    <span
+                                                        class="bg-hover flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg"
+                                                    >
+                                                        @if (cat.imageUrl) {
+                                                            <img
+                                                                class="h-full w-full object-cover"
+                                                                [src]="
+                                                                    cat.imageUrl
+                                                                "
+                                                                [alt]="''"
+                                                                loading="lazy"
+                                                                decoding="async"
+                                                            />
+                                                        } @else {
+                                                            <!-- A category with
+                                                                 no artwork yet
+                                                                 keeps its slot,
+                                                                 so the headings
+                                                                 stay on one
+                                                                 baseline. -->
+                                                            <mat-icon
+                                                                class="text-hint icon-size-5"
+                                                                [svgIcon]="
+                                                                    'heroicons_outline:squares-2x2'
+                                                                "
+                                                            ></mat-icon>
+                                                        }
+                                                    </span>
+                                                    <span
+                                                        class="truncate text-base font-bold"
+                                                        >{{
+                                                            isVi()
+                                                                ? cat.name
+                                                                : cat.nameEn
+                                                        }}</span
+                                                    >
+                                                </a>
                                                 @if (cat.children.length) {
                                                     <ul
                                                         class="mt-3 flex flex-col gap-2.5"
@@ -331,40 +370,6 @@
                                         </p>
                                     </div>
                                 }
-
-                                <a
-                                    class="relative m-10 mt-2 flex min-h-24 items-center gap-8 overflow-hidden rounded-xl bg-gradient-to-r from-red-600 to-orange-600 px-8 py-5"
-                                    routerLink="/catalog"
-                                    [queryParams]="{ featured: '1' }"
-                                >
-                                    <div class="flex flex-col gap-1 text-white">
-                                        <span
-                                            class="self-start rounded-full bg-fuchsia-800/80 px-2.5 py-0.5 text-xs font-extrabold uppercase tracking-widest text-white"
-                                            >{{ t('header.promo.badge') }}</span
-                                        >
-                                        <p
-                                            class="flex items-center gap-1 text-4xl font-black"
-                                        >
-                                            <span>FLASH</span>
-                                            <mat-icon
-                                                class="icon-size-9 text-yellow-300"
-                                                [svgIcon]="
-                                                    'heroicons_solid:bolt'
-                                                "
-                                            ></mat-icon>
-                                            <span>SALE</span>
-                                        </p>
-                                    </div>
-                                    <p
-                                        class="border-l-2 border-white/40 pl-8 text-xl font-bold text-white"
-                                    >
-                                        {{ t('header.promo.line') }}
-                                    </p>
-                                    <span
-                                        class="absolute right-8 text-7xl opacity-90"
-                                        >🛍️</span
-                                    >
-                                </a>
                             </div>
                         </div>
                     }
@@ -384,7 +389,6 @@
                             <quick-sign-in></quick-sign-in>
                         }
 
-                        <quick-buy></quick-buy>
                         <favorites></favorites>
                         <draft-order></draft-order>
                     </div>
@@ -405,7 +409,6 @@
                     >
                         <favorites></favorites>
                     </div>
-                    <quick-buy></quick-buy>
                     <div
                         class="text-default flex h-11 w-11 items-center justify-center"
                     >
@@ -462,8 +465,11 @@
 <favorites-drawer></favorites-drawer>
 <draft-order-drawer></draft-order-drawer>
 
-<!-- Floating contact + scroll to top (pinned bottom-right) -->
-<contact-fab [raised]="showScrollTop()"></contact-fab>
+<!-- Floating assistant launcher + scroll to top (pinned bottom-right).
+     `quick-buy` renders nothing here — it hosts the chat box the launcher
+     opens, and is mounted once at the root now that no toolbar carries it. -->
+<assistant-fab [raised]="showScrollTop()"></assistant-fab>
+<quick-buy></quick-buy>
 
 @if (showScrollTop()) {
     <ng-container *transloco="let t">

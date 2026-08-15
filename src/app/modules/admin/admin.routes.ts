@@ -12,17 +12,10 @@ import { TagsComponent } from './catalog/tags.component';
 import { UnitsComponent } from './catalog/units.component';
 import { ClaimsListComponent } from './claims/claims-list.component';
 import { FinanceComponent } from './finance/finance.component';
-import { InvoiceDetailComponent } from './invoices/invoice-detail.component';
-import { InvoicesListComponent } from './invoices/invoices-list.component';
 import { HubEditComponent } from './logistics/hub-edit.component';
-import { RouteCreateComponent } from './logistics/route-create.component';
-import { RouteDetailComponent } from './logistics/route-detail.component';
-import { RoutesListComponent } from './logistics/routes-list.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupDetailComponent } from './order-groups/order-group-detail.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
-import { OrderDetailComponent } from './orders/order-detail.component';
-import { OrdersListComponent } from './orders/orders-list.component';
 import { RestaurantDetailComponent } from './restaurants/restaurant-detail.component';
 import { ScheduledOrderDetailComponent } from './scheduled-orders/scheduled-order-detail.component';
 import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-orders-list.component';
@@ -103,29 +96,8 @@ export default [
         component: HubEditComponent,
     },
     {
-        path: 'routes',
-        component: RoutesListComponent,
-    },
-    {
-        path: 'routes/new',
-        component: RouteCreateComponent,
-    },
-    {
-        path: 'routes/:routeId',
-        component: RouteDetailComponent,
-    },
-    {
         path: 'vehicles',
         component: VehiclesComponent,
-    },
-    // Orders (M5)
-    {
-        path: 'orders',
-        component: OrdersListComponent,
-    },
-    {
-        path: 'orders/:orderId',
-        component: OrderDetailComponent,
     },
     // Recurring orders (M5 — UC-ORD-09/10/11; the endpoints are
     // `admin,restaurant`, so Operations sees every restaurant's schedules)
@@ -158,15 +130,6 @@ export default [
     {
         path: 'order-group-settings',
         component: OrderGroupSettingsPageComponent,
-    },
-    // Financial oversight (extends M6 Credit)
-    {
-        path: 'invoices',
-        component: InvoicesListComponent,
-    },
-    {
-        path: 'invoices/:invoiceId',
-        component: InvoiceDetailComponent,
     },
     // Shortage/damage claims — approving refunds against the restaurant's
     // credit, so this sits with the financial oversight screens (M6 Credit).

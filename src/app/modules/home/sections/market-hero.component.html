@@ -132,25 +132,16 @@
           flag browsers test before allowing autoplay. As a plain attribute this
           hero either played with sound or, in real Chrome, refused to start.
         -->
-        @if (showVideo()) {
-            <video
+        @if (showVideo() && sceneVideoId) {
+            <ff-video-player
                 class="ff-hero__video"
-                [class.ff-hero__video--ready]="videoReady()"
                 data-testid="hero-market-video"
-                autoplay
-                loop
-                playsinline
-                disablepictureinpicture
-                preload="metadata"
+                [publicId]="sceneVideoId"
+                [autoplay]="true"
+                [loop]="true"
                 [muted]="true"
-                tabindex="-1"
-                (loadeddata)="onVideoReady()"
-                (error)="onVideoUnavailable()"
-            >
-                @for (source of sceneSources; track source.src) {
-                    <source [src]="source.src" [type]="source.type" />
-                }
-            </video>
+                (failed)="onVideoUnavailable()"
+            ></ff-video-player>
         }
 
         <!--

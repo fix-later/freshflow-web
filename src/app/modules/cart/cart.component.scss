@@ -12,13 +12,21 @@
     box-sizing: border-box;
 }
 
+/*
+ * Cart and checkout share this shell, and both carry `.ff-page` — the storefront
+ * column (`max-w-[95rem]` centred, with the layout's own gutters).
+ *
+ * It used to force `width` and `max-width` with `!important`, from when the
+ * element was `class="cart w-full"` and there was no shared page class. Once
+ * `.ff-page` was added alongside, those two declarations were quietly cancelling
+ * it, so these two pages ran edge to edge while every other page sat in the
+ * column.
+ */
 .cart {
     display: flex;
     flex: 1 1 auto;
     flex-direction: column;
     align-items: stretch;
-    width: 100% !important;
-    max-width: none !important;
     min-width: 0;
     box-sizing: border-box;
 }
@@ -176,9 +184,11 @@
     background: #fff;
 }
 
+/* Must track `.cart-row`'s columns exactly — the head is a separate grid, so a
+   change to one and not the other slides every label off its column. */
 .cart-table__head {
     display: none;
-    grid-template-columns: minmax(0, 1.6fr) 7rem 8rem 7rem;
+    grid-template-columns: minmax(0, 1.4fr) 8.5rem 9.5rem 7rem;
     gap: 1rem;
     padding: 0.85rem 1.25rem;
     background: #f8fafc;
@@ -191,6 +201,13 @@
     @media (min-width: 768px) {
         display: grid;
     }
+
+    /* Product reads left off its image; the three figure columns are centred,
+       so each label sits over its own values instead of hugging the gap to the
+       column on its left. */
+    span:not(:first-child) {
+        text-align: center;
+    }
 }
 
 .cart-row {
@@ -199,8 +216,10 @@
     padding: 1rem 1.25rem;
     border-top: 1px solid #e2e8f0;
 
+    /* Price and quantity each carry a unit now, so both columns are wider than
+       the bare figures needed; the product column gives up the difference. */
     @media (min-width: 768px) {
-        grid-template-columns: minmax(0, 1.6fr) 7rem 8rem 7rem;
+        grid-template-columns: minmax(0, 1.4fr) 8.5rem 9.5rem 7rem;
         align-items: center;
         gap: 1rem;
     }
@@ -261,6 +280,21 @@
     &__price,
     &__subtotal {
         font-weight: 600;
+
+        /* Centred only once the grid exists — stacked on a phone these are
+           plain lines under the product and belong at the left margin. */
+        @media (min-width: 768px) {
+            text-align: center;
+        }
+    }
+
+    /* The denominator, quieter than the figure it qualifies — it answers
+       "per what", it is not part of the price. */
+    &__unit {
+        font-weight: 500;
+        font-size: 0.8125rem;
+        white-space: nowrap;
+        @apply text-secondary;
     }
 
     &__qty {
@@ -268,6 +302,12 @@
         flex-direction: column;
         align-items: flex-start;
         gap: 0.25rem;
+
+        /* The stepper is `width: fit-content`, so without this it pins to the
+           left of a column sized for "15 kg" plus both buttons. */
+        @media (min-width: 768px) {
+            align-items: center;
+        }
     }
 
     &__qty-stepper {
@@ -290,8 +330,13 @@
             line-height: 1;
         }
 
+        /* Wide enough for "120 kg". The slot used to be sized for a bare
+           number (1.5rem), so once the unit joined it the stepper grew with
+           the quantity — and a centred box of a different width per row put
+           every − and + on its own vertical line. Fixing the slot fixes the
+           column: same stepper width for 5 kg and 120 kg alike. */
         span {
-            min-width: 1.5rem;
+            min-width: 3.75rem;
             text-align: center;
             font-weight: 600;
             font-size: 0.875rem;

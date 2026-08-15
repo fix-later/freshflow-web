@@ -9,12 +9,14 @@
     >
         @if (count() > 0) {
             <span
-                class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
+                class="ff-cart-badge absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
+                [class.ff-cart-badge--bump]="justAdded()"
                 >{{ count() }}</span
             >
         }
         <mat-icon
-            class="icon-size-6"
+            class="ff-cart-icon icon-size-6"
+            [class.ff-cart-icon--bump]="justAdded()"
             [svgIcon]="'heroicons_outline:shopping-cart'"
         ></mat-icon>
     </button>

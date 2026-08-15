@@ -1,0 +1,212 @@
+/*
+ * The market dialog, set as a card board rather than a list.
+ *
+ * Choosing a market is the storefront's opening decision and it is made once,
+ * so it gets the room a decision deserves: each chợ is a card with its own
+ * artwork, what it is known for, and where it is — the same shape the pricing
+ * board uses, where the one you are on is ringed and badged rather than merely
+ * ticked.
+ */
+
+.ff-mp {
+    display: flex;
+    max-height: 82vh;
+    flex-direction: column;
+}
+
+.ff-mp__head {
+    position: relative;
+    flex: none;
+    padding: 1.75rem 1.75rem 0;
+    text-align: center;
+}
+
+.ff-mp__title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.ff-mp__hint {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    @apply text-secondary;
+}
+
+/*
+ * Two classes deep on purpose: Material's own `.mat-mdc-icon-button` sets
+ * `position`, and at equal specificity it loads last and wins — which dropped
+ * the close button into the middle of the centred header instead of its corner.
+ */
+.ff-mp .ff-mp__close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+}
+
+.ff-mp__body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding: 1.25rem 1.75rem 1.75rem;
+}
+
+/* Two across from `sm`, three from `lg` — a chợ card stops being readable
+   under about 16rem, which is what caps the columns rather than the count. */
+.ff-mp__grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+
+    @media (min-width: 640px) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @media (min-width: 1024px) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.ff-mp__card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid var(--fuse-border);
+    border-radius: 1rem;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    transition:
+        transform 150ms ease,
+        box-shadow 150ms ease,
+        border-color 150ms ease;
+    @apply bg-card;
+
+    &:hover {
+        transform: translateY(-2px);
+        border-color: var(--fuse-primary);
+        box-shadow: 0 12px 28px rgb(0 0 0 / 0.1);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 2px;
+    }
+
+    /* The chosen chợ, ringed and badged — the reference board's treatment for
+       the card you are already on. */
+    &--current {
+        border-color: var(--fuse-primary);
+        box-shadow: 0 0 0 1px var(--fuse-primary);
+    }
+}
+
+.ff-mp__badge {
+    position: absolute;
+    top: 0.75rem;
+    left: 0.75rem;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    border-radius: 999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.6875rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--fuse-primary);
+}
+
+/* ── Artwork ───────────────────────────────────────────────────────────── */
+
+.ff-mp__art {
+    position: relative;
+    display: flex;
+    height: 7.5rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    /* Tinted through the theme's own primary scale, the way the rest of the
+       storefront tints — the raw `--fuse-primary` is a colour, not a channel
+       triple, so it cannot carry an alpha here. */
+    @apply bg-primary-50 dark:bg-primary-500/10;
+
+    img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+    }
+}
+
+/* Shown when the market has no artwork: its monogram, which at least differs
+   per chợ — a shared placeholder photo would make every card look the same. */
+.ff-mp__monogram {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: var(--fuse-primary);
+}
+
+/* ── Body ──────────────────────────────────────────────────────────────── */
+
+.ff-mp__card-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 0.375rem;
+    padding: 1rem 1.125rem 1.125rem;
+}
+
+.ff-mp__name {
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+/* The short rule under the name, as on the reference board. */
+.ff-mp__rule {
+    width: 1.5rem;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--fuse-primary);
+    opacity: 0.6;
+}
+
+/*
+ * Shown whole. What a chợ is known for is the thing being chosen between, so
+ * it is not worth truncating — the cards in a row simply stretch to the tallest
+ * description, which is why the address below is pushed down by `margin-top`
+ * rather than sitting at a fixed offset.
+ */
+.ff-mp__specialty {
+    font-size: 0.8125rem;
+    line-height: 1.45;
+    @apply text-secondary;
+}
+
+.ff-mp__where {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.375rem;
+    margin-top: auto;
+    padding-top: 0.625rem;
+    font-size: 0.75rem;
+    @apply text-secondary;
+
+    span {
+        min-width: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-mp__card {
+        transition: none;
+
+        &:hover {
+            transform: none;
+        }
+    }
+}

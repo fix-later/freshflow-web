@@ -115,6 +115,7 @@ docs/RegisterVehicleRequest.md
 docs/RejectClaimRequest.md
 docs/ReorderFromHistoryRequest.md
 docs/ReorderRouteRequest.md
+docs/ReplaceHubDriverAssignmentsRequest.md
 docs/ReplaceHubStaffAssignmentsRequest.md
 docs/ReplaceMarketAssignmentsRequest.md
 docs/ReportDeliveryIssueRequest.md
@@ -219,6 +220,7 @@ models/RegisterVehicleRequest.ts
 models/RejectClaimRequest.ts
 models/ReorderFromHistoryRequest.ts
 models/ReorderRouteRequest.ts
+models/ReplaceHubDriverAssignmentsRequest.ts
 models/ReplaceHubStaffAssignmentsRequest.ts
 models/ReplaceMarketAssignmentsRequest.ts
 models/ReportDeliveryIssueRequest.ts

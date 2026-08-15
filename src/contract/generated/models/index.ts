@@ -61,6 +61,7 @@ export * from './RegisterVehicleRequest';
 export * from './RejectClaimRequest';
 export * from './ReorderFromHistoryRequest';
 export * from './ReorderRouteRequest';
+export * from './ReplaceHubDriverAssignmentsRequest';
 export * from './ReplaceHubStaffAssignmentsRequest';
 export * from './ReplaceMarketAssignmentsRequest';
 export * from './ReportDeliveryIssueRequest';

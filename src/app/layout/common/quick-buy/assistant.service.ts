@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
 import { parseJson, unwrapData } from 'app/core/api/envelope';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { assistantApi } from 'contract';
@@ -40,6 +40,15 @@ export interface AssistantReply {
 @Injectable({ providedIn: 'root' })
 export class AssistantService {
     private readonly _marketSelection = inject(MarketSelectionService);
+
+    /**
+     * Whether the chat box is up.
+     *
+     * Shared rather than owned by the panel, because two controls open the same
+     * box — the header tool and the floating launcher — and they sit in
+     * different corners of the layout tree.
+     */
+    readonly opened = signal(false);
 
     private _sessionId = newSessionId();
 

@@ -90,7 +90,8 @@ export class ScheduledOrdersAdminService {
 
     /**
      * The concrete orders this schedule has generated so far. These are
-     * ordinary orders — the ids link straight into `/admin/orders/{id}`.
+     * ordinary orders, listed here for the record — Admin no longer has an
+     * order screen to open them in.
      */
     async getInstances(
         scheduledOrderId: string,

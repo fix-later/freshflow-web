@@ -301,12 +301,12 @@
                 } @else if (selectedTab() === 1) {
                     <admin-market-staff-panel [marketId]="currentMarket.id" />
                 } @else if (selectedTab() === 2) {
-                    @if (pricingTabLoaded()) {
-                        <admin-market-products
-                            [marketId]="currentMarket.id"
-                            [embedded]="true"
-                        ></admin-market-products>
-                    }
+                    <!-- Each panel is created only while its tab is the open
+                         one, so its rows are read then and not before. -->
+                    <admin-market-products
+                        [marketId]="currentMarket.id"
+                        [embedded]="true"
+                    ></admin-market-products>
                 } @else if (selectedTab() === 3) {
                     <!-- One chợ, one hub: the tab is the hub, and only falls
                          back to the create form while there is none. -->

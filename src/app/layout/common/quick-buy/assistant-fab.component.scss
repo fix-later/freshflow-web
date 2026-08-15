@@ -1,0 +1,82 @@
+/*
+ * The assistant's floating launcher. Inherits the contact FAB's footprint —
+ * same corner, same offsets, same lift over the scroll-top control — so the
+ * storefront's bottom-right corner behaves exactly as it did; only what the
+ * button opens has changed.
+ */
+.ff-assistant-fab {
+    position: fixed;
+    right: 1rem;
+    bottom: 1.5rem;
+    z-index: 90;
+    display: flex;
+    height: 3.5rem;
+    width: 3.5rem;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border-radius: 999px;
+    border: none;
+    cursor: pointer;
+    /* White, like the scroll-top control it shares the corner with — the mark
+       is the colour here, and a tinted disc behind it only competed. */
+    background: #fff;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
+    transition:
+        bottom 200ms ease,
+        transform 150ms ease,
+        box-shadow 150ms ease;
+
+    /*
+     * Below Fuse's `md` the storefront keeps a fixed bottom bar (`h-13`), so
+     * the corner is not free: the launcher sits above it rather than on top of
+     * its buttons, which is where the old contact FAB landed.
+     */
+    @media (max-width: 959.98px) {
+        bottom: 4.5rem;
+    }
+
+    @media (min-width: 768px) {
+        right: 1.5rem;
+    }
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 10px 28px rgb(0 0 0 / 0.22);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 3px;
+    }
+
+    /* Lifted clear of the scroll-to-top control, which claims the corner first
+       (bottom 5rem on a phone, 1.5rem on desktop; 3rem tall either way). */
+    &--raised {
+        bottom: 8.5rem;
+
+        @media (min-width: 960px) {
+            bottom: 5.5rem;
+        }
+    }
+
+    /* The assistant's own mark — the whole content of the button, so the disc
+       is sized around it rather than the other way round. The name it carries
+       lives in the tooltip and the accessible label. */
+    &__art {
+        height: 2.25rem;
+        width: 2.25rem;
+        flex: none;
+        object-fit: contain;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-assistant-fab {
+        transition: none;
+
+        &:hover {
+            transform: none;
+        }
+    }
+}

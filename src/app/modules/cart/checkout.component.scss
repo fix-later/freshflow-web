@@ -90,6 +90,13 @@
         font-size: 0.75rem;
         line-height: 1.35;
         color: #64748b;
+
+        // A chợ that has closed for the chosen day stops the order, so it
+        // reads as a refusal rather than as one more grey line of guidance.
+        &--warn {
+            color: var(--fuse-warn);
+            font-weight: 600;
+        }
     }
 
     &__notes {

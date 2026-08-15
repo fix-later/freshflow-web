@@ -9,6 +9,7 @@ import {
     input,
     signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -211,9 +212,26 @@ export class MarketStaffPanelComponent implements OnInit {
         hubId: new FormControl<string>('', { nonNullable: true }),
     });
 
+    /**
+     * The role currently picked in the dialog, as a signal.
+     *
+     * A `computed()` reading `addForm.controls.role.value` directly took no
+     * dependency on anything — a FormControl is not reactive state — so it
+     * memoised the value it happened to see first (`market_agent`) and never
+     * recomputed. {@link needsHub} was therefore false forever: the hub select
+     * never rendered, `hubId` stayed `''`, `canSave` waved it through, and the
+     * assignment went out as `/api/v1/hubs//driver-assignments`, which matches
+     * no route and 404s with no body — surfacing as the generic "thao tác thất
+     * bại" rather than as the missing hub it was.
+     */
+    private readonly _pickedRole = toSignal(
+        this.addForm.controls.role.valueChanges,
+        { initialValue: this.addForm.controls.role.value }
+    );
+
     /** Hub staff and drivers are tracked per hub, so the dialog asks which one. */
     readonly needsHub = computed(() =>
-        HUB_SCOPED_ROLES.includes(this.addForm.controls.role.value)
+        HUB_SCOPED_ROLES.includes(this._pickedRole())
     );
 
     readonly visibleCandidates = computed(() => {
@@ -352,11 +370,19 @@ export class MarketStaffPanelComponent implements OnInit {
         );
     }
 
+    /**
+     * Both hub writes send the whole roster back, so both start by reading it.
+     * Neither can proceed without a hub: the roster is per hub, and a blank id
+     * would ask the server for the roster of no hub at all.
+     */
     private async _assignToHub(
         role: string,
         hubId: string,
         userIds: string[]
     ): Promise<void> {
+        if (!hubId) {
+            throw new Error('MISSING_HUB');
+        }
         const keep = await this._writableRoster(role, hubId);
         await this._writeRoster(role, hubId, [
             ...new Set([...keep, ...userIds]),
@@ -368,6 +394,9 @@ export class MarketStaffPanelComponent implements OnInit {
         hubId: string,
         userId: string
     ): Promise<void> {
+        if (!hubId) {
+            throw new Error('MISSING_HUB');
+        }
         const keep = await this._writableRoster(role, hubId);
         await this._writeRoster(
             role,

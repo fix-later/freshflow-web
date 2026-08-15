@@ -21,7 +21,11 @@ import { MarketSelectionService } from 'app/core/market/market-selection.service
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
-import { CatalogProduct } from 'app/modules/catalog/catalog.types';
+import {
+    CatalogProduct,
+    isOrderableListing,
+} from 'app/modules/catalog/catalog.types';
+import { CarouselComponent } from 'app/shared/carousel/carousel.component';
 import { categoryVisual } from 'app/shared/product-card/category-visual';
 import { ProductCardComponent } from 'app/shared/product-card/product-card.component';
 import { ProductCardVm } from 'app/shared/product-card/product-card.types';
@@ -40,11 +44,14 @@ export interface HotDealGroup {
 }
 
 /**
- * Tiles shown for the active tag before "see all" takes over. Fills the
- * panel's row at the widths the grid settles on (see the stylesheet, which
- * sizes columns by a minimum rather than a fixed count).
+ * Tiles shown for the active tag before "see all" takes over.
+ *
+ * Higher than the row can hold on purpose: the tiles are a carousel now, so
+ * this is how far it can be slid rather than how many fit at once. Still
+ * capped — past a dozen the panel stops being a glance at today's deals and
+ * "see all" is the better door.
  */
-const MAX_TILES_PER_TAG = 5;
+const MAX_TILES_PER_TAG = 12;
 
 /**
  * Grace period before a mouse-out closes the panel. The panel is full-bleed
@@ -86,6 +93,7 @@ const CLOSE_DELAY_MS = 140;
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        CarouselComponent,
         MatIconModule,
         MatProgressSpinnerModule,
         ProductCardComponent,
@@ -114,6 +122,13 @@ export class HotDealsMenuComponent {
     readonly panelTop = signal(0);
 
     private _closeTimer: ReturnType<typeof setTimeout> | null = null;
+
+    /**
+     * How many tiles the deals row shows at once. The rail takes a fixed 16rem
+     * beside it, so this is deliberately conservative — four readable cards
+     * beat six squeezed ones, and the carousel supplies the rest.
+     */
+    readonly dealsPerView = signal(4);
 
     /** The market the deals belong to — drives the "pick a market" state. */
     readonly market = this._marketSelection.selected;
@@ -410,7 +425,10 @@ export class HotDealsMenuComponent {
             if (marketId !== this._marketSelection.selectedId()) {
                 return;
             }
-            this._featured.set(featured);
+            // Sold out, or under one whole case, is not a deal — filtered here
+            // rather than at the tiles so the tag rail and its counts are built
+            // from what can actually be bought.
+            this._featured.set(featured.filter(isOrderableListing));
         } finally {
             this.loading.set(false);
         }

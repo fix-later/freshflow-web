@@ -22,7 +22,14 @@ const envFile = resolve(projectRoot, process.env.ENV_FILE ?? '.env');
 const outFile = resolve(projectRoot, 'src/environments/env.generated.ts');
 
 /** Keys read into the bundle. Anything else in `.env` is ignored. */
-const KEYS = ['API_BASE_URL', 'GOONG_MAPS_KEY', 'GOONG_PLACES_KEY'];
+const KEYS = [
+    'API_BASE_URL',
+    'GOONG_MAPS_KEY',
+    'GOONG_PLACES_KEY',
+    // Delivery-side only: the cloud assets are served from. The API key and
+    // secret stay on the backend, which is what mints upload signatures.
+    'CLOUDINARY_CLOUD_NAME',
+];
 
 /**
  * Keys the app cannot run without. There is no literal fallback for these in

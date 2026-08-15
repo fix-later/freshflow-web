@@ -2,20 +2,17 @@
     @if (product(); as product) {
         <!-- Header: breadcrumb + title -->
         <div>
+            <!--
+              Starts at the catalog, not at the home page. Home is not a step on
+              the way here — a shopper reaches a product from the board, from
+              search or from a link — so leading with it padded every trail with
+              a hop nobody took, and pushed the one useful link (back to the
+              board) into the middle.
+            -->
             <nav
                 class="text-hint flex items-center gap-1 text-sm"
                 aria-label="Breadcrumb"
             >
-                <a
-                    routerLink="/home"
-                    class="font-medium text-primary hover:underline"
-                >
-                    {{ t('catalog.breadcrumb.home') }}
-                </a>
-                <mat-icon
-                    class="text-hint icon-size-4"
-                    svgIcon="heroicons_mini:chevron-right"
-                ></mat-icon>
                 <a
                     routerLink="/catalog"
                     class="font-medium text-primary hover:underline"

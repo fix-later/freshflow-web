@@ -2,7 +2,6 @@
     <!-- Favorites trigger (drawer panel lives at the layout root) -->
     <button
         class="ff-header-icon text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
-        [class.ff-header-icon--pop]="popping()"
         type="button"
         (click)="favoritesService.toggleDrawer()"
         [attr.aria-label]="t('header.favorites')"
@@ -10,12 +9,14 @@
     >
         @if (count() > 0) {
             <span
-                class="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
+                class="ff-fav-badge absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
+                [class.ff-fav-badge--bump]="justAdded()"
                 >{{ count() }}</span
             >
         }
         <mat-icon
             class="icon-size-6"
+            [class.ff-fav-icon--bump]="justAdded()"
             [svgIcon]="'heroicons_outline:heart'"
         ></mat-icon>
     </button>

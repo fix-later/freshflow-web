@@ -82,6 +82,17 @@ export const API_ERROR_MESSAGE_KEYS: Record<string, string> = {
     // Logistics — route planning / dispatch
     DELIVERY_ROUTE_NOT_FOUND: 'errors.api.routeNotFound',
     ROUTE_INVALID_TRANSITION: 'errors.api.routeInvalidTransition',
+    // Session route planning. Every one of these reaches an operations manager
+    // on the market-session screen — planning a day's routes, then approving
+    // the proposal — and arrived as the backend's English until now.
+    ROUTE_PLAN_NOT_FOUND: 'errors.api.routePlanNotFound',
+    ROUTE_PLAN_CONFLICT: 'errors.api.routePlanConflict',
+    ROUTE_PLAN_NOT_PROPOSED: 'errors.api.routePlanNotProposed',
+    // The server marks the plan stale as it answers this, so the proposal on
+    // screen is spent: it has to be planned again, not retried.
+    PLAN_STALE: 'errors.api.routePlanStale',
+    PLAN_HAS_UNASSIGNED_ORDERS: 'errors.api.routePlanHasUnassigned',
+    ROUTE_PLAN_APPROVAL_CONFLICT: 'errors.api.routePlanApprovalConflict',
     STOP_LIMIT_EXCEEDED: 'errors.api.stopLimitExceeded',
     MISSING_COORDINATES: 'errors.api.missingCoordinates',
     HUB_RELAY_NOT_SUPPORTED: 'errors.api.hubRelayNotSupported',

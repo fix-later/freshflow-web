@@ -1,49 +1,28 @@
 <ng-container *transloco="let t">
-    @if (available()) {
-        <!--
-          Trigger stays in the header toolbar, beside the other tools. It keeps
-          `ff-header-icon` so it inherits the same hover/focus motion as its
-          siblings, and adds an open state — a tinted, filled circle — because
-          this one toggles a surface that stays up, unlike the icons around it.
-        -->
-        <button
-            class="ff-header-icon ff-qb-trigger text-default relative flex h-10 w-10 items-center justify-center rounded-full hover:bg-hover"
-            type="button"
-            [class.ff-qb-trigger--active]="opened()"
-            [attr.aria-expanded]="opened()"
-            [attr.aria-label]="t('header.quickBuy')"
-            [matTooltip]="
-                opened() ? t('assistant.close') : t('header.quickBuy')
-            "
-            (click)="toggle()"
-        >
-            <mat-icon
-                class="icon-size-6"
-                [svgIcon]="
-                    opened()
-                        ? 'heroicons_solid:sparkles'
-                        : 'heroicons_outline:sparkles'
-                "
-            ></mat-icon>
-        </button>
-    }
+    <!--
+      No inline trigger: the assistant is opened from the floating launcher
+      (`assistant-fab`) alone, so this component is now purely the host for the
+      chat box below and renders nothing where it sits.
+    -->
 
     <!--
       Hoisted into the CDK overlay container at the document root. Left inline
       it renders inside the mobile bottom bar, which is `fixed; z-index: 50` and
-      therefore a stacking context — the panel's own z-index would be trapped
-      under it and `contact-fab` would paint over the composer.
+      therefore a stacking context — the box's own z-index would be trapped
+      under it and the floating launcher would paint over the composer.
     -->
     <ng-template #panelTemplate>
         <!--
-          Full-screen, dropping in from the top edge. `aria-modal` is true now
-          that it covers the page: nothing behind it is reachable, and telling
-          assistive tech otherwise would invite a user to go looking.
+          A chat box docked bottom-right — full-screen on a phone, or on demand
+          from the expand control. `aria-modal` follows the actual geometry:
+          only a full-screen surface seals the page off, and claiming it while
+          docked would tell assistive tech there is nothing behind to go back to.
         -->
         <section
             class="ff-qb-panel"
             role="dialog"
-            aria-modal="true"
+            [class.ff-qb-panel--full]="expanded()"
+            [attr.aria-modal]="docked() && !expanded() ? null : 'true'"
             [attr.aria-label]="t('assistant.title')"
         >
             <!--
@@ -56,11 +35,17 @@
                      surface the close control belongs at the screen's own
                      corner, not floating in from it. -->
                 <div class="ff-qb-head__inner">
+                    <!-- The same mark the launcher carries, so the box reads as
+                         the thing that button opened. -->
                     <span class="ff-qb-head__mark" aria-hidden="true">
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="'heroicons_solid:sparkles'"
-                        ></mat-icon>
+                        <img
+                            class="ff-qb-head__art"
+                            src="assistant.svg"
+                            alt=""
+                            width="32"
+                            height="32"
+                            decoding="async"
+                        />
                     </span>
                     <div class="ff-qb-head__copy">
                         <p class="ff-qb-head__title">
@@ -83,6 +68,36 @@
                             [svgIcon]="'heroicons_outline:arrow-path'"
                         ></mat-icon>
                     </button>
+                    <!-- Only offered where there is a box to grow out of: on a
+                         phone the surface already fills the screen. -->
+                    @if (docked()) {
+                        <button
+                            class="ff-qb-icon-btn"
+                            type="button"
+                            data-testid="assistant-expand"
+                            [matTooltip]="
+                                expanded()
+                                    ? t('assistant.collapse')
+                                    : t('assistant.expand')
+                            "
+                            [attr.aria-label]="
+                                expanded()
+                                    ? t('assistant.collapse')
+                                    : t('assistant.expand')
+                            "
+                            [attr.aria-pressed]="expanded()"
+                            (click)="toggleExpanded()"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                [svgIcon]="
+                                    expanded()
+                                        ? 'heroicons_outline:arrows-pointing-in'
+                                        : 'heroicons_outline:arrows-pointing-out'
+                                "
+                            ></mat-icon>
+                        </button>
+                    }
                     <button
                         class="ff-qb-icon-btn"
                         type="button"
@@ -110,10 +125,14 @@
                          a blank box. Bodies come from the bundles. -->
                         <div class="ff-qb-empty">
                             <span class="ff-qb-empty__mark" aria-hidden="true">
-                                <mat-icon
-                                    class="icon-size-7"
-                                    [svgIcon]="'heroicons_outline:sparkles'"
-                                ></mat-icon>
+                                <img
+                                    class="ff-qb-empty__art"
+                                    src="assistant.svg"
+                                    alt=""
+                                    width="40"
+                                    height="40"
+                                    decoding="async"
+                                />
                             </span>
                             <p class="ff-qb-empty__title">
                                 {{ t('assistant.greeting') }}

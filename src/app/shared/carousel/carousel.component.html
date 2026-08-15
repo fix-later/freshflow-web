@@ -1,0 +1,75 @@
+<ng-container *transloco="let t">
+    <!-- Slides and arrows share a stage; the dots sit outside it, so the arrows
+         centre on the row rather than on the row-plus-dots. -->
+    <div class="ff-carousel__stage">
+        <div class="ff-carousel__viewport">
+            <!-- One long flex row, shifted by whole slides.
+                 `--ff-carousel-per-view` is what the slides size against. -->
+            <div
+                class="ff-carousel__track"
+                [class.ff-carousel__track--still]="!animating()"
+                [style.--ff-carousel-per-view]="perView()"
+                [style.transform]="'translate3d(-' + offset() + '%, 0, 0)'"
+            >
+                @for (item of slides(); track $index) {
+                    <div class="ff-carousel__slide">
+                        <ng-container
+                            [ngTemplateOutlet]="slideTemplate()"
+                            [ngTemplateOutletContext]="{ $implicit: item }"
+                        ></ng-container>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Controls only earn their place once there is somewhere to go. -->
+        @if (canLoop()) {
+            <button
+                class="ff-carousel__nav ff-carousel__nav--prev"
+                type="button"
+                data-testid="carousel-prev"
+                [attr.aria-label]="t('carousel.previous')"
+                (click)="previous()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:chevron-left'"
+                ></mat-icon>
+            </button>
+            <button
+                class="ff-carousel__nav ff-carousel__nav--next"
+                type="button"
+                data-testid="carousel-next"
+                [attr.aria-label]="t('carousel.next')"
+                (click)="next()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [svgIcon]="'heroicons_outline:chevron-right'"
+                ></mat-icon>
+            </button>
+        }
+    </div>
+
+    @if (canLoop() && showDots()) {
+        <div
+            class="ff-carousel__dots"
+            role="tablist"
+            [attr.aria-label]="t('carousel.dots')"
+        >
+            @for (item of items(); track $index) {
+                <button
+                    class="ff-carousel__dot"
+                    type="button"
+                    role="tab"
+                    [class.ff-carousel__dot--active]="activeDot() === $index"
+                    [attr.aria-selected]="activeDot() === $index"
+                    [attr.aria-label]="
+                        t('carousel.goTo', { index: $index + 1 })
+                    "
+                    (click)="goTo($index)"
+                ></button>
+            }
+        </div>
+    }
+</ng-container>

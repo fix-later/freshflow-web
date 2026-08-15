@@ -258,13 +258,6 @@
                     <h2 class="text-lg font-semibold">
                         {{ t('admin.finance.invoices.title') }}
                     </h2>
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        (click)="openInvoices()"
-                    >
-                        {{ t('admin.finance.invoices.viewAll') }}
-                    </button>
                 </div>
 
                 @if (invoiceError(); as message) {
@@ -286,11 +279,11 @@
                     <div
                         class="flex flex-col divide-y overflow-hidden rounded-2xl border"
                     >
+                        <!-- Read-only: an invoice has no screen of its own, so
+                             the row states it rather than offering a way in. -->
                         @for (invoice of invoices(); track invoice.id) {
-                            <button
-                                type="button"
-                                class="flex w-full items-center gap-4 px-5 py-3 text-left transition hover:bg-hover"
-                                (click)="openInvoice(invoice)"
+                            <div
+                                class="flex w-full items-center gap-4 px-5 py-3 text-left"
                             >
                                 <div class="min-w-0 flex-1">
                                     <div
@@ -330,7 +323,7 @@
                                     class="shrink-0 font-mono text-sm font-bold tabular-nums"
                                     >{{ formatAmount(invoice.total) }}</span
                                 >
-                            </button>
+                            </div>
                         }
                     </div>
                 }

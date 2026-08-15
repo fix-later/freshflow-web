@@ -63,19 +63,12 @@ market-hero {
 }
 
 /*
- * Transparent until a frame exists, so the built scene behind shows through
- * and the hero is never a black rectangle while the file loads. Fades in when
- * the first frame lands — with a heavy file that can be seconds after the page
- * settles, and a hard cut there reads as something breaking.
+ * The player holds its own element back until a frame is painting, so the
+ * built scene behind shows through until then and the hero is never a black
+ * rectangle. Only the stacking order is the hero's business.
  */
 .ff-hero__video {
     z-index: 1;
-    opacity: 0;
-    transition: opacity 700ms ease;
-
-    &--ready {
-        opacity: 1;
-    }
 }
 
 /* ---- The grade -------------------------------------------------------- */

@@ -7,15 +7,11 @@ import {
     TemplateRef,
     ViewChild,
     ViewEncapsulation,
-    computed,
     inject,
-    signal,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
-import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
@@ -39,6 +35,7 @@ import { whenSplashHidden } from 'app/core/splash/wait-for-splash';
 @Component({
     selector: 'market-picker',
     templateUrl: './market-picker.component.html',
+    styleUrl: './market-picker.component.scss',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
@@ -47,9 +44,7 @@ import { whenSplashHidden } from 'app/core/splash/wait-for-splash';
     },
     imports: [
         MatButtonModule,
-        MatFormFieldModule,
         MatIconModule,
-        MatInputModule,
         MatProgressSpinnerModule,
         MatTooltipModule,
         TranslocoModule,
@@ -63,23 +58,9 @@ export class MarketPickerComponent implements AfterViewInit, OnDestroy {
     private _marketSelection = inject(MarketSelectionService);
     private _dialogRef: MatDialogRef<unknown> | null = null;
 
-    readonly search = signal('');
     readonly markets = this._marketSelection.markets;
     readonly selected = this._marketSelection.selected;
     readonly loading = this._marketSelection.loading;
-
-    readonly filtered = computed(() => {
-        const query = this.search().trim().toLowerCase();
-        const markets = this.markets();
-        if (!query) {
-            return markets;
-        }
-        return markets.filter(
-            (market) =>
-                market.name.toLowerCase().includes(query) ||
-                (market.address ?? '').toLowerCase().includes(query)
-        );
-    });
 
     ngAfterViewInit(): void {
         void this._marketSelection.ensureLoaded().then(() => {
@@ -113,13 +94,16 @@ export class MarketPickerComponent implements AfterViewInit, OnDestroy {
         }
         void this._marketSelection.ensureLoaded();
         this._dialogRef = this._dialog.open(this._panel, {
-            width: '36rem',
+            // Three cards across at `lg`, so the dialog has to be wide enough
+            // to hold them without squeezing each below readable width.
+            width: '64rem',
             maxWidth: 'calc(100vw - 2rem)',
-            autoFocus: 'input',
+            // There is no input to land on any more; the first card is what a
+            // keyboard user wants under the cursor.
+            autoFocus: 'first-tabbable',
         });
         this._dialogRef.afterClosed().subscribe(() => {
             this._dialogRef = null;
-            this.search.set('');
         });
     }
 

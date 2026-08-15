@@ -46,6 +46,7 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
+import { orderStatusPillClass } from 'app/modules/orders/orders.types';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
@@ -59,7 +60,6 @@ import {
     AdminRestaurantProfile,
     AdminUserRow,
 } from '../admin.types';
-import { orderStatusPillClass } from '../orders/orders-list.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { newestActiveFirst } from '../shared/row-order';
 import {

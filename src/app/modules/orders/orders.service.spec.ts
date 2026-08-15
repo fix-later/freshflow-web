@@ -1,4 +1,4 @@
-import { ordersApi } from 'contract';
+import { marketSessionsApi, ordersApi } from 'contract';
 import { OrdersService } from './orders.service';
 
 /**
@@ -121,6 +121,107 @@ describe('OrdersService', () => {
             expect(preview.deliveryFee).toBe(16250);
             expect(preview.deliveryDistanceKm).toBe(3.25);
             expect(preview.totalAmount).toBe(126250);
+        });
+    });
+
+    /**
+     * `OrderingWindowResponse` is `(dailyCutoffTime, deliveryWindowDays)` and
+     * nothing else. The open flag used to be read from four names the backend
+     * has never sent, so it defaulted to "open" and the cutoff notice could
+     * never appear.
+     */
+    describe('getOrderingWindow', () => {
+        it('derives the cutoff from dailyCutoffTime alone', async () => {
+            jasmine.clock().install();
+            jasmine.clock().mockDate(new Date(2026, 7, 15, 23, 30));
+            spyOn(ordersApi, 'apiV1OrdersOrderingWindowGetRaw').and.resolveTo(
+                rawResponse({
+                    data: {
+                        dailyCutoffTime: '22:00:00',
+                        deliveryWindowDays: 7,
+                    },
+                })
+            );
+
+            const window = await service.getOrderingWindow();
+
+            expect(window.isOpen).toBeFalse();
+            expect(window.cutoffTime).toBe('22:00:00');
+            // Past the cutoff, so the first deliverable day is the one after.
+            expect(window.earliestServiceDate).toBe('2026-08-17');
+            expect(window.deliveryWindowDays).toBe(7);
+            jasmine.clock().uninstall();
+        });
+
+        it('stays open before the cutoff, and delivers tomorrow', async () => {
+            jasmine.clock().install();
+            jasmine.clock().mockDate(new Date(2026, 7, 15, 9, 0));
+            spyOn(ordersApi, 'apiV1OrdersOrderingWindowGetRaw').and.resolveTo(
+                rawResponse({ data: { dailyCutoffTime: '22:00:00' } })
+            );
+
+            const window = await service.getOrderingWindow();
+
+            expect(window.isOpen).toBeTrue();
+            expect(window.earliestServiceDate).toBe('2026-08-16');
+            jasmine.clock().uninstall();
+        });
+
+        it('treats a missing cutoff as unknown rather than closed', async () => {
+            spyOn(ordersApi, 'apiV1OrdersOrderingWindowGetRaw').and.resolveTo(
+                rawResponse({ data: {} })
+            );
+
+            const window = await service.getOrderingWindow();
+
+            expect(window.isOpen).toBeTrue();
+            expect(window.earliestServiceDate).toBeNull();
+        });
+    });
+
+    describe('getMarketSession', () => {
+        it('asks for the service date in UTC, so the day survives the client encoding', async () => {
+            const get = spyOn(
+                marketSessionsApi,
+                'apiV1MarketSessionsGetRaw'
+            ).and.resolveTo(
+                rawResponse({
+                    data: [
+                        {
+                            id: 's-1',
+                            marketId: 'm-1',
+                            marketName: 'Chợ A',
+                            serviceDate: '2026-08-15',
+                            status: 'open',
+                            closesAt: '2026-08-14T15:00:00Z',
+                        },
+                    ],
+                })
+            );
+
+            const session = await service.getMarketSession('m-1', '2026-08-15');
+
+            const sent = get.calls.mostRecent().args[0] as {
+                from: Date;
+                to: Date;
+                marketId: string;
+            };
+            // What the generated client will put on the wire.
+            expect(sent.from.toISOString().substring(0, 10)).toBe('2026-08-15');
+            expect(sent.to.toISOString().substring(0, 10)).toBe('2026-08-15');
+            expect(sent.marketId).toBe('m-1');
+            expect(session?.status).toBe('open');
+            expect(session?.closesAt).toBe('2026-08-14T15:00:00Z');
+        });
+
+        it('returns null for a day the chợ has no session for', async () => {
+            spyOn(marketSessionsApi, 'apiV1MarketSessionsGetRaw').and.resolveTo(
+                rawResponse({ data: [] })
+            );
+
+            expect(
+                await service.getMarketSession('m-1', '2026-08-15')
+            ).toBeNull();
         });
     });
 });

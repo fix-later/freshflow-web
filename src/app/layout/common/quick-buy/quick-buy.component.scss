@@ -20,36 +20,6 @@ quick-buy {
     display: contents;
 }
 
-/* ── Trigger ───────────────────────────────────────────────────────────── */
-
-/*
- * Lives in the header toolbar with the other tools, and inherits their
- * hover/focus motion from `ff-header-icon`. Only the open state is added here:
- * this control toggles a surface that stays up, so unlike its siblings it needs
- * to look pressed while that surface is on screen.
- */
-.ff-qb-trigger {
-    transition: background-color 150ms $ff-qb-ease-standard;
-
-    &--active {
-        @apply bg-primary text-on-primary;
-
-        &:hover {
-            @apply bg-primary-600;
-        }
-    }
-}
-
-/* On the dark header surface navy reads as a hole; mint is the token for the
-   dark case (TOKENS.md § Color usage). */
-.dark .ff-qb-trigger--active {
-    @apply bg-accent text-on-accent;
-
-    &:hover {
-        @apply bg-accent-400;
-    }
-}
-
 /* ── Panel ─────────────────────────────────────────────────────────────── */
 
 /*
@@ -60,6 +30,15 @@ quick-buy {
  * viewport — the composer would sit below the fold until the user scrolled a
  * page that no longer scrolls. `vh` stays as the fallback for engines without
  * dynamic viewport units.
+ */
+/*
+ * A chat box, not a takeover.
+ *
+ * On a phone it still fills the screen — a 24rem box on a 360px handset is the
+ * screen anyway, and a half-covered page behind a keyboard is worse than none.
+ * From 640px up it docks into the bottom-right corner, above its own launcher,
+ * and the page stays readable and usable behind it: the whole point of asking
+ * the assistant for produce is being able to look at the produce.
  */
 .ff-qb-panel {
     position: fixed;
@@ -72,6 +51,55 @@ quick-buy {
     overflow: hidden;
     animation: ff-qb-drop-in 250ms $ff-qb-ease-decelerate;
     @apply bg-card;
+
+    @media (min-width: 640px) {
+        inset: auto 1.5rem 1.5rem auto;
+        width: 24rem;
+        /* Tall enough to hold a conversation, never taller than the viewport
+           it has to leave room in. */
+        height: min(40rem, calc(100dvh - 3rem));
+        border: 1px solid var(--fuse-border);
+        border-radius: 1.25rem;
+        box-shadow: 0 24px 60px rgb(0 0 0 / 0.24);
+        animation: ff-qb-box-in 220ms $ff-qb-ease-decelerate;
+
+        /* The bands inside widen themselves off the *viewport*, which is no
+           longer what they sit in: 1.5rem of inset is a lot of a 24rem box. */
+        .ff-qb-head {
+            padding-inline: 1rem;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        width: 26rem;
+    }
+
+    /*
+     * Grown to full screen from the header's expand control.
+     *
+     * Everything the docked case set is handed back — corner offsets, width,
+     * the rounded outline — and the drop-from-above animation returns with it,
+     * because at this size the surface arrives over the page rather than out of
+     * a corner. Declared after the media queries above so it wins over them at
+     * every width without needing `!important`.
+     */
+    &--full {
+        inset: 0;
+        width: 100%;
+        height: 100vh;
+        height: 100dvh;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+        animation: ff-qb-drop-in 250ms $ff-qb-ease-decelerate;
+
+        /* Back to the full-screen band inset the centred column expects. */
+        .ff-qb-head {
+            @media (min-width: 600px) {
+                padding-inline: 1.5rem;
+            }
+        }
+    }
 }
 
 /*
@@ -111,7 +139,16 @@ quick-buy {
         align-items: center;
         justify-content: center;
         border-radius: 9999px;
-        @apply bg-primary-50 text-primary;
+        overflow: hidden;
+        @apply bg-primary-50;
+    }
+
+    /* The mark is artwork now, not a glyph, so it fills its disc rather than
+       being tinted by it. */
+    &__art {
+        height: 1.75rem;
+        width: 1.75rem;
+        object-fit: contain;
     }
 
     &__copy {
@@ -140,8 +177,9 @@ quick-buy {
 }
 
 .dark .ff-qb-head__mark {
-    /* Navy is unreadable on the dark card; mint is the token for that case. */
-    @apply bg-accent-900 text-accent-100;
+    /* Navy is unreadable on the dark card; mint is the token for that case.
+       Only the disc is tinted — what sits on it is artwork, not a glyph. */
+    @apply bg-accent-900;
 }
 
 .ff-qb-icon-btn {
@@ -536,7 +574,14 @@ quick-buy {
         align-items: center;
         justify-content: center;
         border-radius: 9999px;
-        @apply bg-primary-50 text-primary;
+        overflow: hidden;
+        @apply bg-primary-50;
+    }
+
+    &__art {
+        height: 2.5rem;
+        width: 2.5rem;
+        object-fit: contain;
     }
 
     &__title {
@@ -555,7 +600,7 @@ quick-buy {
 }
 
 .dark .ff-qb-empty__mark {
-    @apply bg-accent-900 text-accent-100;
+    @apply bg-accent-900;
 }
 
 .ff-qb-chips {
@@ -877,6 +922,22 @@ quick-buy {
     }
 }
 
+/*
+ * The docked box grows out of its launcher in the same corner, rather than
+ * dropping from the top edge as the full-screen sheet does.
+ */
+@keyframes ff-qb-box-in {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 1rem, 0) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0) scale(1);
+    }
+}
+
 @keyframes ff-qb-message-in {
     from {
         opacity: 0;
@@ -922,7 +983,6 @@ quick-buy {
         animation: none;
     }
 
-    .ff-qb-trigger,
     .ff-qb-chip,
     .ff-qb-icon-btn,
     .ff-qb-btn-filled,

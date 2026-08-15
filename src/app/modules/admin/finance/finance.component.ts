@@ -154,16 +154,6 @@ export class FinanceComponent implements OnInit {
         void this._router.navigate(['/admin/restaurants', row.userId]);
     }
 
-    openInvoices(): void {
-        void this._router.navigate(['/admin/invoices']);
-    }
-
-    openInvoice(invoice: FinanceInvoiceRow): void {
-        if (invoice.id) {
-            void this._router.navigate(['/admin/invoices', invoice.id]);
-        }
-    }
-
     /** i18n key for an invoice status, falling back when unrecognised. */
     invoiceStatusKey(status: string | null | undefined): string {
         const normalized = String(status ?? '')

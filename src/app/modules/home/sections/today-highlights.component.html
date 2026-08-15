@@ -36,20 +36,23 @@
                 ></mat-progress-spinner>
             </div>
         } @else if (cards().length) {
-            <!-- Rail, not a grid: breadth beats depth here, and a rail keeps
-                 the next section above the fold on a laptop. -->
-            <ul class="ff-today__rail">
-                @for (card of cards(); track card.id) {
-                    <li class="ff-today__item">
-                        <ff-product-card
-                            data-testid="landing-today-card"
-                            [product]="card"
-                            (addedToCart)="onAddedToCart(card)"
-                            (favoriteToggled)="onFavoriteToggled(card)"
-                        ></ff-product-card>
-                    </li>
-                }
-            </ul>
+            <!-- A carousel, not a grid: breadth beats depth here, it keeps the
+                 next section above the fold on a laptop, and the day's picks
+                 cycle themselves rather than waiting to be scrolled. -->
+            <ff-carousel
+                class="ff-today__carousel"
+                [items]="cards()"
+                [perView]="todayPerView()"
+            >
+                <ng-template let-card>
+                    <ff-product-card
+                        data-testid="landing-today-card"
+                        [product]="card"
+                        (addedToCart)="onAddedToCart(card)"
+                        (favoriteToggled)="onFavoriteToggled(card)"
+                    ></ff-product-card>
+                </ng-template>
+            </ff-carousel>
         } @else {
             <div class="ff-section__state">
                 <span class="text-4xl" aria-hidden="true">🧺</span>

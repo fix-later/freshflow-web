@@ -3,11 +3,7 @@
   web push, each row a label + one line of what it does, and any state that
   blocks the control explained in place instead of a dead toggle.
 -->
-<account-shell
-    [titleKey]="'user.settings'"
-    [breadcrumbKey]="'user.settings'"
-    *transloco="let t"
->
+<account-shell [titleKey]="'user.settings'" *transloco="let t">
     <div class="flex w-full min-w-0 flex-auto flex-col gap-6">
         @if (error(); as message) {
             <div
@@ -92,6 +88,105 @@
                     ></mat-slide-toggle>
                 </div>
             </div>
+        </section>
+
+        <!--
+          Security. The only account-auth control the API actually exposes for
+          a signed-in user is `POST /auth/change-password`; nothing here offers
+          a session list or 2FA, because no endpoint backs them.
+        -->
+        <section class="rounded-xl border p-5 sm:p-6">
+            <h3 class="text-default text-base font-semibold">
+                {{ t('settings.security.title') }}
+            </h3>
+            <p class="text-secondary mt-0.5 text-sm">
+                {{ t('settings.security.hint') }}
+            </p>
+
+            @if (passwordError(); as message) {
+                <div
+                    class="mt-4 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                    role="alert"
+                >
+                    <mat-icon
+                        class="shrink-0 text-red-500 icon-size-5"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                    <span>{{ message }}</span>
+                </div>
+            }
+
+            <form
+                class="mt-5 flex max-w-md flex-col gap-1"
+                [formGroup]="passwordForm"
+                (ngSubmit)="changePassword()"
+            >
+                <mat-form-field>
+                    <mat-label>{{
+                        t('settings.security.password.current')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="password"
+                        autocomplete="current-password"
+                        formControlName="currentPassword"
+                    />
+                    @if (
+                        errorKey(passwordForm.controls.currentPassword);
+                        as key
+                    ) {
+                        <mat-error>{{ t(key) }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field>
+                    <mat-label>{{
+                        t('settings.security.password.next')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="password"
+                        autocomplete="new-password"
+                        formControlName="newPassword"
+                    />
+                    <mat-hint>{{
+                        t('settings.security.password.rule')
+                    }}</mat-hint>
+                    @if (errorKey(passwordForm.controls.newPassword); as key) {
+                        <mat-error>{{ t(key) }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <mat-form-field>
+                    <mat-label>{{
+                        t('settings.security.password.confirm')
+                    }}</mat-label>
+                    <input
+                        matInput
+                        type="password"
+                        autocomplete="new-password"
+                        formControlName="confirmPassword"
+                    />
+                    <!-- Checked outside the form so the message sits under the
+                         box it is about rather than on the group. -->
+                    @if (passwordMismatch()) {
+                        <mat-error>{{
+                            t('settings.security.password.mismatch')
+                        }}</mat-error>
+                    }
+                </mat-form-field>
+
+                <div class="mt-2">
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="submit"
+                        [disabled]="changingPassword()"
+                    >
+                        {{ t('settings.security.password.submit') }}
+                    </button>
+                </div>
+            </form>
         </section>
     </div>
 </account-shell>
