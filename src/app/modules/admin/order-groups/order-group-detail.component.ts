@@ -30,6 +30,7 @@ import { AdminService } from '../admin.service';
 import {
     AdminBatchItem,
     AdminBatchMember,
+    AdminMarketSessionTrackingOrder,
     AdminOrderDetail,
     AdminOrderGroupRow,
     AdminOrderItem,
@@ -37,6 +38,7 @@ import {
 } from '../admin.types';
 import { CatalogAdminService } from '../catalog/catalog-admin.service';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
+import { RouteDeliveryStatus } from '../logistics/logistics-admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { CrudRow } from '../shared/resource-crud.types';
 import {
@@ -50,6 +52,19 @@ import {
 export interface DetailField {
     label: string;
     value: string;
+}
+
+interface SessionRouteDetail {
+    route: CrudRow;
+    deliveries: RouteDeliveryStatus[];
+}
+
+interface SessionEvidence {
+    id: string;
+    url: string;
+    title: string;
+    meta: string;
+    source: 'driver' | 'market_agent' | 'hub';
 }
 
 /**
@@ -166,6 +181,10 @@ export class OrderGroupDetailComponent implements OnInit {
     readonly loadingOrders = signal<Set<string>>(new Set());
     /** True while member orders are being prefetched for the Orders tab. */
     readonly ordersPrefetching = signal(false);
+    readonly sessionContextLoading = signal(false);
+    readonly sessionRoutes = signal<SessionRouteDetail[]>([]);
+    readonly sessionResourceVehicleIds = signal<string[]>([]);
+    readonly hubDiscrepancies = signal<CrudRow[]>([]);
 
     readonly batchId = computed(() => this.batch()?.id ?? '');
     /** Header title — batch id (UUID). */
@@ -201,6 +220,16 @@ export class OrderGroupDetailComponent implements OnInit {
             (sum, order) => sum + Number(order.totalAmount ?? 0),
             0
         )
+    );
+    readonly totalMerchandiseValue = computed(() =>
+        this.loadedOrders().reduce((sum, order) => {
+            const storedSubtotal = Number(order.subtotalAmount ?? 0);
+            const itemSubtotal = this.orderItemsOf(order).reduce(
+                (itemSum, item) => itemSum + Number(item.subtotal ?? 0),
+                0
+            );
+            return sum + (storedSubtotal || itemSubtotal);
+        }, 0)
     );
     readonly totalOrderLines = computed(() =>
         this.loadedOrders().reduce(
@@ -249,6 +278,82 @@ export class OrderGroupDetailComponent implements OnInit {
             0
         )
     );
+    readonly sessionVehicleIds = computed(() => {
+        const ids = new Set(this.sessionResourceVehicleIds());
+        for (const detail of this.sessionRoutes()) {
+            const vehicleId = String(detail.route['vehicleId'] ?? '');
+            if (vehicleId) ids.add(vehicleId);
+        }
+        return [...ids];
+    });
+    readonly sessionEvidence = computed<SessionEvidence[]>(() => {
+        const evidence: SessionEvidence[] = [];
+        const seen = new Set<string>();
+        const push = (item: SessionEvidence): void => {
+            if (!item.url || seen.has(item.url)) return;
+            seen.add(item.url);
+            evidence.push(item);
+        };
+
+        for (const order of this.loadedOrders()) {
+            const url = String(order.proofUrl ?? '').trim();
+            if (url) {
+                push({
+                    id: `order-${order.orderId ?? url}`,
+                    url,
+                    title: this._t(
+                        'admin.orderGroups.historyDetail.driverProof'
+                    ),
+                    meta: `${this._t('admin.orderGroups.orderField.orderId')}: ${order.orderId ?? '—'}`,
+                    source: 'driver',
+                });
+            }
+        }
+        for (const detail of this.sessionRoutes()) {
+            for (const delivery of detail.deliveries) {
+                const url = String(delivery.proofUrl ?? '').trim();
+                if (!url) continue;
+                push({
+                    id: `delivery-${delivery.deliveryId || url}`,
+                    url,
+                    title: this._t(
+                        'admin.orderGroups.historyDetail.driverProof'
+                    ),
+                    meta: `${this._t('admin.orderGroups.orderField.orderId')}: ${delivery.orderId || '—'}`,
+                    source: 'driver',
+                });
+            }
+        }
+        for (const exception of this.exceptionsOf(this.batch())) {
+            const url = String(exception['proofImageUrl'] ?? '').trim();
+            if (!url) continue;
+            push({
+                id: `procurement-${String(exception['id'] ?? url)}`,
+                url,
+                title: this._t(
+                    'admin.orderGroups.historyDetail.marketAgentProof'
+                ),
+                meta:
+                    String(exception['note'] ?? '').trim() ||
+                    this.exceptionTypeLabel(String(exception['type'] ?? '')),
+                source: 'market_agent',
+            });
+        }
+        for (const discrepancy of this.hubDiscrepancies()) {
+            const url = String(discrepancy['proofImageUrl'] ?? '').trim();
+            if (!url) continue;
+            push({
+                id: `hub-${discrepancy.id || url}`,
+                url,
+                title: this._t('admin.orderGroups.historyDetail.hubProof'),
+                meta:
+                    String(discrepancy['notes'] ?? '').trim() ||
+                    String(discrepancy['conditionStatus'] ?? ''),
+                source: 'hub',
+            });
+        }
+        return evidence;
+    });
 
     ngOnInit(): void {
         this._loadLookups();
@@ -258,6 +363,7 @@ export class OrderGroupDetailComponent implements OnInit {
         if (passed && passed.id === id) {
             this.batch.set(passed);
             this._prefetchMemberOrders(passed);
+            this._loadSessionContext(passed);
         } else if (id) {
             this._fetch(id);
         } else {
@@ -659,6 +765,43 @@ export class OrderGroupDetailComponent implements OnInit {
         return [...ids];
     }
 
+    allVehicleIds(row: AdminOrderGroupRow): string[] {
+        return [
+            ...new Set([...this.vehicleIds(row), ...this.sessionVehicleIds()]),
+        ];
+    }
+
+    routeId(detail: SessionRouteDetail): string {
+        return String(detail.route['routeId'] ?? detail.route.id ?? '');
+    }
+
+    routeStatus(detail: SessionRouteDetail): string {
+        return this.statusLabel(String(detail.route['status'] ?? ''));
+    }
+
+    routeVehicleId(detail: SessionRouteDetail): string {
+        return String(detail.route['vehicleId'] ?? '');
+    }
+
+    routeDriver(detail: SessionRouteDetail): string {
+        const id = String(detail.route['driverUserId'] ?? '');
+        return id ? this.participantName(id) : '—';
+    }
+
+    routeStops(detail: SessionRouteDetail): number {
+        const stops = detail.route['stops'];
+        if (!Array.isArray(stops)) {
+            return detail.deliveries.length;
+        }
+        return stops.filter((stop) => {
+            if (!stop || typeof stop !== 'object') return false;
+            const entityType = String(
+                (stop as Record<string, unknown>)['entityType'] ?? ''
+            ).toLowerCase();
+            return entityType !== 'hub';
+        }).length;
+    }
+
     vehicleLabel(vehicleId: string): string {
         const row = this.vehiclesById().get(vehicleId);
         return String(row?.['plateNumber'] ?? vehicleId);
@@ -705,6 +848,20 @@ export class OrderGroupDetailComponent implements OnInit {
 
     restaurantName(restaurantId: string): string {
         return this.restaurantNames().get(restaurantId) || restaurantId;
+    }
+
+    restaurantAddress(restaurantId: string): string {
+        const order = this.loadedOrders().find(
+            (item) => String(item.restaurantId ?? '') === restaurantId
+        );
+        return String(order?.deliveryAddress?.addressLine ?? '').trim();
+    }
+
+    restaurantPhone(restaurantId: string): string {
+        const order = this.loadedOrders().find(
+            (item) => String(item.restaurantId ?? '') === restaurantId
+        );
+        return String(order?.deliveryAddress?.phone ?? '').trim();
     }
 
     toggleOrder(orderId: string | null | undefined): void {
@@ -808,6 +965,7 @@ export class OrderGroupDetailComponent implements OnInit {
                 this.batch.set(batch);
                 this.notFound.set(!batch);
                 this._prefetchMemberOrders(batch);
+                this._loadSessionContext(batch);
             })
             .catch(() => this.notFound.set(true))
             .finally(() => this.loading.set(false));
@@ -911,14 +1069,227 @@ export class OrderGroupDetailComponent implements OnInit {
                             ? detail['id']
                             : '') ||
                         orderId;
+                    const existing = cache.get(orderId);
                     cache.set(orderId, {
+                        ...existing,
                         ...detail,
+                        restaurantName:
+                            detail.restaurantName ?? existing?.restaurantName,
                         orderId: normalizedId,
                     });
                 }
                 this.orderDetails.set(cache);
             })
             .finally(() => this.ordersPrefetching.set(false));
+    }
+
+    private _loadSessionContext(batch: AdminOrderGroupRow | null): void {
+        if (!batch) return;
+        const sessionId = String(batch['marketSessionId'] ?? '').trim();
+        const hubId = String(batch['hubId'] ?? '').trim();
+        const serviceDate = String(
+            batch['batchDate'] ?? batch.targetDate ?? ''
+        ).slice(0, 10);
+        const memberOrderIds = new Set(
+            this.membersOf(batch)
+                .map((member) => String(member.orderId ?? '').trim())
+                .filter(Boolean)
+        );
+
+        this.sessionContextLoading.set(true);
+        const tasks: Promise<unknown>[] = [];
+
+        if (sessionId) {
+            tasks.push(
+                this._loadAllSessionOrders(sessionId).then((orders) => {
+                    const cache = new Map(this.orderDetails());
+                    for (const order of orders) {
+                        if (!memberOrderIds.has(order.orderId)) continue;
+                        const existing = cache.get(order.orderId);
+                        cache.set(
+                            order.orderId,
+                            this._trackingOrderDetail(order, existing)
+                        );
+                        if (order.restaurantId && order.restaurantName) {
+                            this.restaurantNames.update((names) => {
+                                const next = new Map(names);
+                                next.set(
+                                    order.restaurantId,
+                                    order.restaurantName
+                                );
+                                return next;
+                            });
+                        }
+                    }
+                    this.orderDetails.set(cache);
+                })
+            );
+            tasks.push(
+                this._admin
+                    .getMarketSessionResources(sessionId)
+                    .then((resources) => {
+                        const selected = resources.vehicles.filter(
+                            (vehicle) => vehicle.selected
+                        );
+                        this.sessionResourceVehicleIds.set(
+                            selected.map((vehicle) => vehicle.vehicleId)
+                        );
+                        this.vehiclesById.update((rows) => {
+                            const next = new Map(rows);
+                            for (const vehicle of selected) {
+                                next.set(vehicle.vehicleId, {
+                                    id: vehicle.vehicleId,
+                                    plateNumber: vehicle.plateNumber,
+                                    vehicleType: vehicle.vehicleType,
+                                    capacityKg: vehicle.capacityKg,
+                                });
+                            }
+                            return next;
+                        });
+                    })
+                    .catch(() => this.sessionResourceVehicleIds.set([]))
+            );
+        }
+
+        if (serviceDate) {
+            tasks.push(
+                this._loadRelatedRoutes(serviceDate, hubId, memberOrderIds)
+            );
+        }
+        if (hubId) {
+            tasks.push(
+                this._logistics
+                    .getDiscrepancies(hubId)
+                    .then((rows) =>
+                        this.hubDiscrepancies.set(
+                            rows.filter((row) =>
+                                memberOrderIds.has(String(row['orderId'] ?? ''))
+                            )
+                        )
+                    )
+                    .catch(() => this.hubDiscrepancies.set([]))
+            );
+            tasks.push(
+                this._logistics
+                    .getEligibleDrivers(hubId)
+                    .then((drivers) =>
+                        this.usersById.update((users) => {
+                            const next = new Map(users);
+                            for (const driver of drivers) {
+                                const id = String(
+                                    driver['userId'] ??
+                                        driver['driverUserId'] ??
+                                        driver.id
+                                );
+                                if (!id) continue;
+                                next.set(id, {
+                                    id,
+                                    fullName: String(driver['fullName'] ?? ''),
+                                    email: String(driver['email'] ?? ''),
+                                    phone: String(driver['phone'] ?? ''),
+                                });
+                            }
+                            return next;
+                        })
+                    )
+                    .catch(() => undefined)
+            );
+        }
+
+        void Promise.allSettled(tasks).finally(() =>
+            this.sessionContextLoading.set(false)
+        );
+    }
+
+    private async _loadAllSessionOrders(
+        sessionId: string
+    ): Promise<AdminMarketSessionTrackingOrder[]> {
+        const pageSize = 100;
+        const first = await this._admin.getMarketSessionTracking(
+            sessionId,
+            1,
+            pageSize
+        );
+        const orders = [...first.orders];
+        const pageCount = Math.ceil(first.ordersPagination.total / pageSize);
+        if (pageCount > 1) {
+            const pages = await Promise.all(
+                Array.from({ length: pageCount - 1 }, (_, index) =>
+                    this._admin.getMarketSessionTracking(
+                        sessionId,
+                        index + 2,
+                        pageSize
+                    )
+                )
+            );
+            orders.push(...pages.flatMap((page) => page.orders));
+        }
+        return [
+            ...new Map(orders.map((order) => [order.orderId, order])).values(),
+        ];
+    }
+
+    private _trackingOrderDetail(
+        order: AdminMarketSessionTrackingOrder,
+        existing?: AdminOrderDetail
+    ): AdminOrderDetail {
+        return {
+            ...existing,
+            orderId: order.orderId,
+            restaurantId: order.restaurantId,
+            restaurantName: order.restaurantName,
+            status: order.status,
+            subtotalAmount: order.subtotalAmount,
+            vatAmount: order.vatAmount,
+            deliveryFee: order.deliveryFee,
+            totalAmount: order.totalAmount,
+            confirmedAt: order.confirmedAt,
+            items: order.items.map((item) => ({
+                marketProductId: item.marketProductId,
+                productNameSnapshot: item.productName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                subtotal: item.subtotal,
+            })),
+        };
+    }
+
+    private async _loadRelatedRoutes(
+        serviceDate: string,
+        hubId: string,
+        memberOrderIds: ReadonlySet<string>
+    ): Promise<void> {
+        const routes: CrudRow[] = [];
+        let cursor: string | undefined;
+        do {
+            const page = await this._logistics.listRoutes({
+                serviceDate,
+                hubId: hubId || undefined,
+                cursor,
+            });
+            routes.push(...page.rows);
+            cursor = page.nextCursor;
+        } while (cursor);
+
+        const details = await Promise.all(
+            routes.map(async (route): Promise<SessionRouteDetail | null> => {
+                try {
+                    const deliveries = await this._logistics.getRouteDeliveries(
+                        String(route['routeId'] ?? route.id)
+                    );
+                    return deliveries.some((delivery) =>
+                        memberOrderIds.has(delivery.orderId)
+                    )
+                        ? { route, deliveries }
+                        : null;
+                } catch {
+                    return null;
+                }
+            })
+        );
+        this.sessionRoutes.set(
+            details.filter((detail): detail is SessionRouteDetail => !!detail)
+        );
     }
 
     private _loadProductUnits(batch: AdminOrderGroupRow | null): void {

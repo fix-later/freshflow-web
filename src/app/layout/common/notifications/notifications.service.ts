@@ -22,6 +22,24 @@ function str(row: RawRow, keys: string[]): string {
     return '';
 }
 
+function payload(row: RawRow): RawRow {
+    const value = row['payload'];
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+        return value as RawRow;
+    }
+    if (typeof value !== 'string' || !value.trim()) {
+        return {};
+    }
+    try {
+        const parsed: unknown = JSON.parse(value);
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? (parsed as RawRow)
+            : {};
+    } catch {
+        return {};
+    }
+}
+
 const PAGE_SIZE = 20;
 
 /**
@@ -152,13 +170,17 @@ export class NotificationsService {
     }
 
     private _toView(row: RawRow): NotificationView {
+        const details = payload(row);
         return {
             id: str(row, ['id', 'notificationId']),
+            type: str(row, ['type', 'notificationType']).toLowerCase(),
             title: str(row, ['title', 'subject', 'heading']),
             description: str(row, ['body', 'message', 'description']),
             link: str(row, ['link', 'url']) || null,
             createdAt: str(row, ['createdAt', 'time', 'sentAt']),
             isRead: row['isRead'] === true || row['read'] === true,
+            serviceDate: str(details, ['service_date', 'serviceDate']) || null,
+            marketName: str(details, ['market_name', 'marketName']) || null,
         };
     }
 }

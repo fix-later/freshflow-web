@@ -119,6 +119,34 @@ export function procurementItemAssignments(
         .filter((assignment) => !!assignment.marketProductId);
 }
 
+/**
+ * Finds the hub inbound created for a procurement batch. The Hub module uses
+ * the batch id as `deliveryScheduleId`, so this remains stable when Hub Staff
+ * scans the shipment and its status changes from PENDING to ARRIVED_AT_HUB.
+ */
+export function findMarketSessionInbound(
+    rows: CrudRow[],
+    batchId: string
+): CrudRow | null {
+    const expectedId = batchId.trim().toLowerCase();
+    if (!expectedId) return null;
+    return (
+        rows.find(
+            (row) =>
+                String(row['deliveryScheduleId'] ?? '')
+                    .trim()
+                    .toLowerCase() === expectedId
+        ) ?? null
+    );
+}
+
+/** Cancelled proposals are retained by the backend for audit, not operation. */
+export function activeMarketSessionRouteRows(rows: CrudRow[]): CrudRow[] {
+    return rows.filter(
+        (row) => String(row['status'] ?? '').toLowerCase() !== 'cancelled'
+    );
+}
+
 function driverOptionLabel(driver: CrudRow): string {
     const name = String(driver['fullName'] ?? '').trim();
     const email = String(driver['email'] ?? '').trim();
@@ -155,6 +183,13 @@ interface MarketSessionRouteView {
     route: CrudRow;
     deliveries: RouteDeliveryStatus[];
     manifest: LoadingManifest | null;
+}
+
+interface MarketSessionRouteOrderView {
+    orderId: string;
+    restaurantName: string;
+    orderStatus: string;
+    delivery: RouteDeliveryStatus | null;
 }
 
 /** Optional Luxon day from the Material datepicker. */
@@ -269,9 +304,6 @@ export class OrderGroupsComponent implements OnInit {
     private _marketSessionConfigurationDialogRef: MatDialogRef<unknown> | null =
         null;
     private _marketSessionCloseDialogRef: MatDialogRef<unknown> | null = null;
-    private _marketSessionRoutePollingId: ReturnType<
-        typeof setInterval
-    > | null = null;
     private readonly _restaurantAddressCache = new Map<
         string,
         Promise<string | null>
@@ -306,6 +338,9 @@ export class OrderGroupsComponent implements OnInit {
     readonly marketSessionTrackingPageSize = signal(20);
     readonly marketSessionTrackingTabIndex = signal(0);
     readonly expandedTrackingOrderIds = signal<ReadonlySet<string>>(new Set());
+    readonly marketSessionInbound = signal<CrudRow | null>(null);
+    readonly marketSessionInboundLoading = signal(false);
+    readonly marketSessionInboundError = signal(false);
     readonly marketSessionAssignmentBatch = signal<AdminOrderGroupRow | null>(
         null
     );
@@ -313,6 +348,26 @@ export class OrderGroupsComponent implements OnInit {
     readonly marketSessionAssignmentSaving = signal(false);
     readonly marketSessionAssignmentError = signal<string | null>(null);
     readonly marketSessionItemAssignments = signal<Record<string, string>>({});
+    readonly savedMarketSessionItemAssignments = signal<Record<string, string>>(
+        {}
+    );
+    readonly marketSessionAssignmentsDirty = computed(() => {
+        const items = this.marketSessionAssignmentBatch()?.['items'];
+        if (!Array.isArray(items)) return false;
+
+        const current = this.marketSessionItemAssignments();
+        const saved = this.savedMarketSessionItemAssignments();
+        return (items as AdminBatchItem[])
+            .filter(
+                (item) =>
+                    !!String(item.marketProductId ?? '') && !item.purchasedAt
+            )
+            .some((item) => {
+                const id = String(item.marketProductId);
+                return (current[id] ?? '') !== (saved[id] ?? '');
+            });
+    });
+    readonly selectedMarketSessionAgentId = signal('');
     readonly marketSessionAgentOptions = computed(() => {
         const selectedIds = new Set(
             (this.trackedMarketSession()?.agentUserIds ?? []).map((id) =>
@@ -321,6 +376,14 @@ export class OrderGroupsComponent implements OnInit {
         );
         return this.agents().filter((agent) =>
             selectedIds.has(agent.id.toLowerCase())
+        );
+    });
+    readonly selectedMarketSessionAgent = computed(() => {
+        const selectedId = this.selectedMarketSessionAgentId();
+        return (
+            this.marketSessionAgentOptions().find(
+                (agent) => agent.id === selectedId
+            ) ?? null
         );
     });
     readonly routeCriteriaOptions = OPTIMIZATION_CRITERIA;
@@ -722,7 +785,10 @@ export class OrderGroupsComponent implements OnInit {
         void Promise.all([
             this._admin
                 .getAgentOptions()
-                .then((agents) => this.agents.set(agents))
+                .then((agents) => {
+                    this.agents.set(agents);
+                    this.ensureMarketSessionAgentSelection();
+                })
                 .catch(() => this.agents.set([])),
             this._admin
                 .getMarkets()
@@ -774,8 +840,12 @@ export class OrderGroupsComponent implements OnInit {
         this.marketSessionTrackingError.set(false);
         this.marketSessionTrackingPageIndex.set(0);
         this.expandedTrackingOrderIds.set(new Set());
+        this.marketSessionInbound.set(null);
+        this.marketSessionInboundError.set(false);
         this.marketSessionAssignmentBatch.set(null);
         this.marketSessionItemAssignments.set({});
+        this.savedMarketSessionItemAssignments.set({});
+        this.selectedMarketSessionAgentId.set('');
         this.marketSessionAssignmentError.set(null);
         this.marketSessionRoutePlan.set(null);
         this.marketSessionRoutes.set([]);
@@ -788,9 +858,7 @@ export class OrderGroupsComponent implements OnInit {
         this._marketSessionDialogRef.afterClosed().subscribe(() => {
             this._marketSessionDialogRef = null;
             this.marketSessionTrackingLoading.set(false);
-            this._stopMarketSessionRoutePolling();
         });
-        if (initialTab === 2) this._startMarketSessionRoutePolling();
         this.refreshMarketSessionTracking();
     }
 
@@ -823,6 +891,7 @@ export class OrderGroupsComponent implements OnInit {
                 void this._loadMarketSessionAssignmentBatch(
                     tracking.batch?.id ?? null
                 );
+                this.loadMarketSessionInbound();
                 void this.loadMarketSessionRoutes();
             })
             .catch(() => this.marketSessionTrackingError.set(true))
@@ -831,12 +900,7 @@ export class OrderGroupsComponent implements OnInit {
 
     selectMarketSessionTrackingTab(index: number): void {
         this.marketSessionTrackingTabIndex.set(index);
-        if (index === 2) {
-            this.loadMarketSessionRoutes();
-            this._startMarketSessionRoutePolling();
-        } else {
-            this._stopMarketSessionRoutePolling();
-        }
+        if (index === 2) this.loadMarketSessionRoutes();
     }
 
     marketSessionBatchItem(
@@ -864,21 +928,112 @@ export class OrderGroupsComponent implements OnInit {
         );
     }
 
-    setMarketSessionItemAssignment(
+    selectMarketSessionAgent(agentUserId: string): void {
+        if (
+            this.marketSessionAgentOptions().some(
+                (agent) => agent.id === agentUserId
+            )
+        ) {
+            this.selectedMarketSessionAgentId.set(agentUserId);
+            this.marketSessionAssignmentError.set(null);
+        }
+    }
+
+    setMarketSessionItemForSelectedAgent(
         marketProductId: string | null | undefined,
-        agentUserId: string
+        checked: boolean
     ): void {
         const id = String(marketProductId ?? '');
-        if (!id) return;
-        this.marketSessionItemAssignments.update((assignments) => ({
-            ...assignments,
-            [id]: agentUserId,
-        }));
+        const agentUserId = this.selectedMarketSessionAgentId();
+        if (!id || !agentUserId) return;
+        this.marketSessionItemAssignments.update((assignments) => {
+            if (!checked && assignments[id] !== agentUserId) return assignments;
+            return {
+                ...assignments,
+                [id]: checked ? agentUserId : '',
+            };
+        });
         this.marketSessionAssignmentError.set(null);
+    }
+
+    setAllMarketSessionItemsForSelectedAgent(checked: boolean): void {
+        const agentUserId = this.selectedMarketSessionAgentId();
+        if (!agentUserId) return;
+        const items = this.marketSessionAssignableItems();
+        this.marketSessionItemAssignments.update((assignments) => {
+            const next = { ...assignments };
+            for (const item of items) {
+                const id = String(item.marketProductId ?? '');
+                if (!id) continue;
+                if (checked) {
+                    next[id] = agentUserId;
+                } else if (next[id] === agentUserId) {
+                    next[id] = '';
+                }
+            }
+            return next;
+        });
+        this.marketSessionAssignmentError.set(null);
+    }
+
+    marketSessionAgentAssignmentCount(agentUserId: string): number {
+        return Object.values(this.marketSessionItemAssignments()).filter(
+            (assignedAgentId) => assignedAgentId === agentUserId
+        ).length;
+    }
+
+    marketSessionSelectedAgentAssignmentCount(): number {
+        return this.marketSessionAgentAssignmentCount(
+            this.selectedMarketSessionAgentId()
+        );
+    }
+
+    marketSessionAllItemsAssignedToSelectedAgent(): boolean {
+        const agentUserId = this.selectedMarketSessionAgentId();
+        const items = this.marketSessionAssignableItems();
+        return (
+            !!agentUserId &&
+            items.length > 0 &&
+            items.every(
+                (item) =>
+                    this.marketSessionItemAssignment(item.marketProductId) ===
+                    agentUserId
+            )
+        );
+    }
+
+    marketSessionSomeItemsAssignedToSelectedAgent(): boolean {
+        const agentUserId = this.selectedMarketSessionAgentId();
+        const items = this.marketSessionAssignableItems();
+        const selectedCount = items.filter(
+            (item) =>
+                this.marketSessionItemAssignment(item.marketProductId) ===
+                agentUserId
+        ).length;
+        return selectedCount > 0 && selectedCount < items.length;
+    }
+
+    marketSessionAssignedAgentLabel(
+        marketProductId: string | null | undefined
+    ): string {
+        const agentUserId = this.marketSessionItemAssignment(marketProductId);
+        if (!agentUserId) return '';
+        const agent = this.marketSessionAgentOptions().find(
+            (option) => option.id === agentUserId
+        );
+        return agent ? this.marketSessionAgentLabel(agent) : agentUserId;
     }
 
     marketSessionAgentLabel(agent: AdminUserRow): string {
         return agent.fullName?.trim() || agent.email || agent.id;
+    }
+
+    private marketSessionAssignableItems(): AdminBatchItem[] {
+        const items = this.marketSessionAssignmentBatch()?.['items'];
+        if (!Array.isArray(items)) return [];
+        return (items as AdminBatchItem[]).filter(
+            (item) => !!String(item.marketProductId ?? '') && !item.purchasedAt
+        );
     }
 
     canEditMarketSessionAssignments(
@@ -909,6 +1064,7 @@ export class OrderGroupsComponent implements OnInit {
             !batchId ||
             !this.canEditMarketSessionAssignments(batch) ||
             !this.marketSessionHasAssignableItems(batch) ||
+            !this.marketSessionAssignmentsDirty() ||
             this.marketSessionAssignmentSaving()
         ) {
             return;
@@ -953,6 +1109,8 @@ export class OrderGroupsComponent implements OnInit {
         if (!batchId) {
             this.marketSessionAssignmentBatch.set(null);
             this.marketSessionItemAssignments.set({});
+            this.savedMarketSessionItemAssignments.set({});
+            this.selectedMarketSessionAgentId.set('');
             this.marketSessionAssignmentError.set(null);
             return;
         }
@@ -980,6 +1138,8 @@ export class OrderGroupsComponent implements OnInit {
                 }
             }
             this.marketSessionItemAssignments.set(assignments);
+            this.savedMarketSessionItemAssignments.set({ ...assignments });
+            this.ensureMarketSessionAgentSelection();
         } catch (err) {
             if (this.marketSessionTracking()?.batch?.id !== batchId) return;
             const message = await describeApiError(
@@ -990,11 +1150,29 @@ export class OrderGroupsComponent implements OnInit {
             this.marketSessionAssignmentError.set(message);
             this.marketSessionAssignmentBatch.set(null);
             this.marketSessionItemAssignments.set({});
+            this.savedMarketSessionItemAssignments.set({});
+            this.selectedMarketSessionAgentId.set('');
         } finally {
             if (this.marketSessionTracking()?.batch?.id === batchId) {
                 this.marketSessionAssignmentLoading.set(false);
             }
         }
+    }
+
+    private ensureMarketSessionAgentSelection(): void {
+        const agentOptions = this.marketSessionAgentOptions();
+        const currentAgentId = this.selectedMarketSessionAgentId();
+        if (agentOptions.some((agent) => agent.id === currentAgentId)) return;
+
+        const assignedAgentId = Object.values(
+            this.marketSessionItemAssignments()
+        ).find(
+            (agentId) =>
+                !!agentId && agentOptions.some((agent) => agent.id === agentId)
+        );
+        this.selectedMarketSessionAgentId.set(
+            assignedAgentId ?? agentOptions[0]?.id ?? ''
+        );
     }
 
     loadMarketSessionRoutes(): void {
@@ -1021,18 +1199,28 @@ export class OrderGroupsComponent implements OnInit {
             .finally(() => this.marketSessionRoutesLoading.set(false));
     }
 
-    private _startMarketSessionRoutePolling(): void {
-        if (this._marketSessionRoutePollingId) return;
-        this._marketSessionRoutePollingId = setInterval(
-            () => this.loadMarketSessionRoutes(),
-            15_000
-        );
-    }
+    loadMarketSessionInbound(): void {
+        const tracking = this.marketSessionTracking();
+        const hubId = tracking?.session.hubId;
+        const batchId = tracking?.batch?.id;
+        if (!hubId || !batchId) {
+            this.marketSessionInbound.set(null);
+            this.marketSessionInboundError.set(false);
+            return;
+        }
+        if (this.marketSessionInboundLoading()) return;
 
-    private _stopMarketSessionRoutePolling(): void {
-        if (!this._marketSessionRoutePollingId) return;
-        clearInterval(this._marketSessionRoutePollingId);
-        this._marketSessionRoutePollingId = null;
+        this.marketSessionInboundLoading.set(true);
+        this.marketSessionInboundError.set(false);
+        void this._logistics
+            .getPendingInbound(hubId)
+            .then((rows) => {
+                if (this.marketSessionTracking()?.batch?.id !== batchId) return;
+                const inbound = findMarketSessionInbound(rows, batchId);
+                this.marketSessionInbound.set(inbound);
+            })
+            .catch(() => this.marketSessionInboundError.set(true))
+            .finally(() => this.marketSessionInboundLoading.set(false));
     }
 
     onMarketSessionTrackingPage(event: PageEvent): void {
@@ -1546,6 +1734,26 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     /**
+     * Planning is finished once the plan is approved. On a fresh dialog open
+     * the plan DTO is not available, so the persisted route lifecycle is the
+     * fallback: approval moves every planned route to `reviewed` and reserves
+     * its suggested vehicle.
+     */
+    showMarketSessionRoutePlanningControls(): boolean {
+        if (this.marketSessionRoutesLoading()) return false;
+        if (
+            this.marketSessionRoutePlan()?.status.toLowerCase() === 'approved'
+        ) {
+            return false;
+        }
+        return !this.marketSessionRoutes().some(({ route }) =>
+            ['reviewed', 'assigned', 'in_progress', 'completed'].includes(
+                this._routeStatus(route)
+            )
+        );
+    }
+
+    /**
      * Why approval is withheld on a plan that otherwise looks ready, as an i18n
      * key — so the button's absence is explained rather than just felt.
      */
@@ -1685,7 +1893,7 @@ export class OrderGroupsComponent implements OnInit {
     canAssignRoute(route: CrudRow): boolean {
         return (
             this.canOpenMarketSessions() &&
-            ['reviewed', 'assigned'].includes(this._routeStatus(route))
+            this._routeStatus(route) === 'reviewed'
         );
     }
 
@@ -1824,6 +2032,7 @@ export class OrderGroupsComponent implements OnInit {
                     'admin.orderGroups.marketSessions.dispatch.assignSuccess'
                 );
                 await this._refreshDispatch();
+                this.closeDispatch();
             })
             .catch(async (err) => {
                 this.dispatchError.set(
@@ -1947,6 +2156,86 @@ export class OrderGroupsComponent implements OnInit {
             : [];
     }
 
+    /**
+     * Every order assigned to a route, even before delivery snapshots exist.
+     * A proposed plan carries exact order ids; after approval the loading
+     * manifest carries them. The session orders + restaurant stops are the
+     * fallback when the dialog has just been reopened.
+     */
+    marketSessionRouteOrderStatuses(
+        view: MarketSessionRouteView
+    ): MarketSessionRouteOrderView[] {
+        const trackingOrders = this.marketSessionTracking()?.orders ?? [];
+        const trackingById = new Map(
+            trackingOrders.map((order) => [order.orderId, order])
+        );
+        const deliveryByOrderId = new Map(
+            view.deliveries.map((delivery) => [delivery.orderId, delivery])
+        );
+        const restaurantNameByOrderId = new Map<string, string>();
+
+        const add = (orderId: unknown, restaurantName: unknown): void => {
+            const id = String(orderId ?? '').trim();
+            if (!id) return;
+            const name = String(restaurantName ?? '').trim();
+            if (name || !restaurantNameByOrderId.has(id)) {
+                restaurantNameByOrderId.set(id, name);
+            }
+        };
+
+        const plannedRoute = this.marketSessionRoutePlan()?.routes.find(
+            (route) => route.id === view.route.id
+        );
+        const plannedStops = Array.isArray(plannedRoute?.['stops'])
+            ? (plannedRoute['stops'] as Record<string, unknown>[])
+            : [];
+        for (const stop of plannedStops) {
+            const orderIds = Array.isArray(stop['orderIds'])
+                ? stop['orderIds']
+                : [];
+            for (const orderId of orderIds) {
+                add(orderId, stop['restaurantName']);
+            }
+        }
+
+        for (const stop of view.manifest?.stops ?? []) {
+            for (const line of stop.lines) {
+                add(line.orderId, stop.restaurantName);
+            }
+        }
+
+        const restaurantIds = new Set(
+            this.marketSessionRouteStops(view.route)
+                .filter(
+                    (stop) =>
+                        String(stop.entityType).toLowerCase() === 'restaurant'
+                )
+                .map((stop) => String(stop.entityId))
+        );
+        for (const order of trackingOrders) {
+            if (restaurantIds.has(order.restaurantId)) {
+                add(order.orderId, order.restaurantName);
+            }
+        }
+
+        for (const delivery of view.deliveries) {
+            add(delivery.orderId, this.trackingOrderName(delivery.orderId));
+        }
+
+        return [...restaurantNameByOrderId].map(([orderId, restaurantName]) => {
+            const order = trackingById.get(orderId);
+            return {
+                orderId,
+                restaurantName:
+                    restaurantName ||
+                    order?.restaurantName ||
+                    this.trackingOrderName(orderId),
+                orderStatus: order?.status ?? '',
+                delivery: deliveryByOrderId.get(orderId) ?? null,
+            };
+        });
+    }
+
     deliveryStatusLabel(status: string): string {
         const key = `admin.orderGroups.marketSessions.routing.deliveryStatus.${String(status).toLowerCase()}`;
         const translated = this._transloco.translate(key);
@@ -1977,7 +2266,7 @@ export class OrderGroupsComponent implements OnInit {
         } while (cursor);
 
         return Promise.all(
-            rows.map(async (row) => {
+            activeMarketSessionRouteRows(rows).map(async (row) => {
                 const route = (await this._logistics.getRoute(row.id)) ?? row;
                 const status = String(route['status'] ?? '').toLowerCase();
                 const [deliveries, manifest] = await Promise.all([
@@ -2149,11 +2438,31 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     trackingOrderStatusLabel(status: string | null | undefined): string {
-        const normalized = String(status ?? '').toLowerCase();
+        const raw = String(status ?? '').toLowerCase();
+        const normalized =
+            {
+                athub: 'at_hub',
+                pickedup: 'ready_for_pickup',
+                delivering: 'in_transit',
+            }[raw] ?? raw;
         if (!normalized) return '—';
         const key = `admin.orders.status.${normalized}`;
         const translated = this._transloco.translate(key);
         return translated === key ? String(status) : translated;
+    }
+
+    marketSessionInboundStatusLabel(status: string | null | undefined): string {
+        const normalized = String(status ?? '').toLowerCase();
+        if (!normalized) return '—';
+        const key = `admin.orderGroups.marketSessions.tracking.inbound.status.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? String(status) : translated;
+    }
+
+    marketSessionInboundStatusClass(status: string | null | undefined): string {
+        return String(status ?? '').toUpperCase() === 'ARRIVED_AT_HUB'
+            ? 'border-green-200 bg-green-50 text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200'
+            : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200';
     }
 
     trackingMoney(value: number | null | undefined): string {

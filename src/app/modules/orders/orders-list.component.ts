@@ -7,23 +7,20 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSelectModule } from '@angular/material/select';
 import { Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
-import { RestaurantScheduledOrdersService } from 'app/modules/restaurant/scheduled-orders/scheduled-orders.service';
-import { OrdersService } from './orders.service';
+import {
+    RestaurantScheduledOrdersService,
+    SCHEDULED_PAGE_SIZE,
+} from 'app/modules/restaurant/scheduled-orders/scheduled-orders.service';
 import {
     normalizeOrderStatus,
-    ORDER_STATUSES,
     OrderRow,
     orderStatusPillClass,
 } from './orders.types';
-
-const PAGE_SIZE = 10;
 
 /** "Đơn hàng của tôi" — the signed-in restaurant's own order history. */
 @Component({
@@ -35,21 +32,17 @@ const PAGE_SIZE = 10;
     standalone: true,
     imports: [
         MatButtonModule,
-        MatFormFieldModule,
         MatIconModule,
         MatProgressBarModule,
-        MatSelectModule,
         RouterLink,
         TranslocoModule,
     ],
 })
 export class OrdersListComponent implements OnInit {
-    private readonly _ordersService = inject(OrdersService);
     private readonly _historyService = inject(RestaurantScheduledOrdersService);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
 
-    readonly statuses = ORDER_STATUSES;
     readonly statusPillClass = orderStatusPillClass;
     readonly statusKey = (status: string | null | undefined): string =>
         `orders.status.${normalizeOrderStatus(status) || 'unknown'}`;
@@ -60,14 +53,6 @@ export class OrdersListComponent implements OnInit {
     readonly loadError = signal<string | null>(null);
     readonly totalCount = signal(0);
     readonly page = signal(1);
-    readonly statusFilter = signal('');
-
-    /**
-     * Which list this is showing. `GET /orders` is the live working set;
-     * `GET /orders/history` is the archive (UC-ORD-17) — two endpoints, one
-     * screen, because to a buyer they are the same list at different ages.
-     */
-    readonly scope = signal<'active' | 'history'>('active');
 
     ngOnInit(): void {
         this.load();
@@ -76,22 +61,18 @@ export class OrdersListComponent implements OnInit {
     load(): void {
         this.loading.set(true);
         this.loadError.set(null);
-        const request =
-            this.scope() === 'history'
-                ? this._historyService
-                      .listHistory({
-                          status: this.statusFilter() || undefined,
-                          page: this.page(),
-                      })
-                      .then(({ items, total }) => ({
-                          orders: items as unknown as OrderRow[],
-                          totalCount: total ?? items.length,
-                      }))
-                : this._ordersService.listOrders({
-                      status: this.statusFilter() || undefined,
-                      page: this.page(),
-                      pageSize: PAGE_SIZE,
-                  });
+        const request = this._historyService
+            .listHistory({ status: 'delivered', page: this.page() })
+            .then(({ items, total }) => {
+                const delivered = (items as unknown as OrderRow[]).filter(
+                    (order) =>
+                        normalizeOrderStatus(order.status) === 'delivered'
+                );
+                return {
+                    orders: delivered,
+                    totalCount: total ?? delivered.length,
+                };
+            });
 
         request
             .then(({ orders, totalCount }) => {
@@ -114,24 +95,8 @@ export class OrdersListComponent implements OnInit {
             .finally(() => this.loading.set(false));
     }
 
-    /** Switches between the live orders and the archive, resetting paging. */
-    onScopeChange(scope: 'active' | 'history'): void {
-        if (this.scope() === scope) {
-            return;
-        }
-        this.scope.set(scope);
-        this.page.set(1);
-        this.load();
-    }
-
-    onStatusChange(status: string): void {
-        this.statusFilter.set(status);
-        this.page.set(1);
-        this.load();
-    }
-
     hasNextPage(): boolean {
-        return this.page() * PAGE_SIZE < this.totalCount();
+        return this.page() * SCHEDULED_PAGE_SIZE < this.totalCount();
     }
 
     nextPage(): void {
@@ -151,7 +116,10 @@ export class OrdersListComponent implements OnInit {
     }
 
     openOrder(row: OrderRow): void {
-        void this._router.navigate(['/orders', row.id]);
+        const id = row.id ?? row.orderId;
+        if (id) {
+            void this._router.navigate(['/orders', id]);
+        }
     }
 
     shortId(row: OrderRow): string {
