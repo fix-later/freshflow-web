@@ -14,10 +14,24 @@
 
 import * as runtime from '../runtime';
 import {
+    type ReplaceHubDriverAssignmentsRequest,
+    ReplaceHubDriverAssignmentsRequestFromJSON,
+    ReplaceHubDriverAssignmentsRequestToJSON,
+} from '../models/ReplaceHubDriverAssignmentsRequest';
+import {
     type ReplaceHubStaffAssignmentsRequest,
     ReplaceHubStaffAssignmentsRequestFromJSON,
     ReplaceHubStaffAssignmentsRequestToJSON,
 } from '../models/ReplaceHubStaffAssignmentsRequest';
+
+export interface ApiV1HubsHubIdDriverAssignmentsGetRequest {
+    hubId: string;
+}
+
+export interface ApiV1HubsHubIdDriverAssignmentsPutRequest {
+    hubId: string;
+    replaceHubDriverAssignmentsRequest?: ReplaceHubDriverAssignmentsRequest;
+}
 
 export interface ApiV1HubsHubIdStaffAssignmentsGetRequest {
     hubId: string;
@@ -73,6 +87,109 @@ export class HubStaffAssignmentsApi extends runtime.BaseAPI {
      */
     async apiV1HubsAssignedGet(initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1HubsAssignedGetRaw(initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdDriverAssignmentsGet without sending the request
+     */
+    async apiV1HubsHubIdDriverAssignmentsGetRequestOpts(requestParameters: ApiV1HubsHubIdDriverAssignmentsGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdDriverAssignmentsGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/driver-assignments`;
+        urlPath = urlPath.replace('{hubId}', encodeURIComponent(String(requestParameters['hubId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdDriverAssignmentsGetRaw(requestParameters: ApiV1HubsHubIdDriverAssignmentsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1HubsHubIdDriverAssignmentsGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdDriverAssignmentsGet(requestParameters: ApiV1HubsHubIdDriverAssignmentsGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1HubsHubIdDriverAssignmentsGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1HubsHubIdDriverAssignmentsPut without sending the request
+     */
+    async apiV1HubsHubIdDriverAssignmentsPutRequestOpts(requestParameters: ApiV1HubsHubIdDriverAssignmentsPutRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['hubId'] == null) {
+            throw new runtime.RequiredError(
+                'hubId',
+                'Required parameter "hubId" was null or undefined when calling apiV1HubsHubIdDriverAssignmentsPut().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/hubs/{hubId}/driver-assignments`;
+        urlPath = urlPath.replace('{hubId}', encodeURIComponent(String(requestParameters['hubId'])));
+
+        return {
+            path: urlPath,
+            method: 'PUT',
+            headers: headerParameters,
+            query: queryParameters,
+            body: ReplaceHubDriverAssignmentsRequestToJSON(requestParameters['replaceHubDriverAssignmentsRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdDriverAssignmentsPutRaw(requestParameters: ApiV1HubsHubIdDriverAssignmentsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1HubsHubIdDriverAssignmentsPutRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1HubsHubIdDriverAssignmentsPut(requestParameters: ApiV1HubsHubIdDriverAssignmentsPutRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1HubsHubIdDriverAssignmentsPutRaw(requestParameters, initOverrides);
     }
 
     /**
