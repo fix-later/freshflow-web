@@ -111,11 +111,15 @@ export class AuthService {
         );
     }
 
-    /** Complete a password reset with the emailed token. */
-    resetPassword(token: string, newPassword: string): Observable<void> {
+    /** Complete a password reset with the emailed OTP code. */
+    resetPassword(
+        identifier: string,
+        code: string,
+        newPassword: string
+    ): Observable<void> {
         return from(
             authApi.apiV1AuthResetPasswordPost({
-                resetPasswordRequest: { token, newPassword },
+                resetPasswordRequest: { identifier, code, newPassword },
             })
         );
     }

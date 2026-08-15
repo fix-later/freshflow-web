@@ -11163,13 +11163,19 @@
       },
       "ResetPasswordRequest": {
         "required": [
-          "newPassword",
-          "token"
+          "identifier",
+          "code",
+          "newPassword"
         ],
         "type": "object",
         "properties": {
-          "token": {
+          "identifier": {
             "minLength": 1,
+            "type": "string"
+          },
+          "code": {
+            "minLength": 6,
+            "maxLength": 6,
             "type": "string"
           },
           "newPassword": {
