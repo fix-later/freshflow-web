@@ -6,6 +6,7 @@ import {
     ViewEncapsulation,
     computed,
     inject,
+    input,
     signal,
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
@@ -47,8 +48,12 @@ type ClaimDecision = 'approve' | 'reject';
 export { claimStatusPillClass };
 
 /**
- * Admin ▸ Finance ▸ Claims — the review queue for restaurants' shortage /
+ * Admin ▸ Dashboard ▸ Khiếu nại — the review queue for restaurants' shortage /
  * damage claims (`/api/v1/claims`, decisions are `admin,operations_manager`).
+ *
+ * A queue, not a dashboard: how many are waiting and what they are worth is
+ * reported on the Báo cáo sự cố tab, beside the shortages the claims are filed
+ * over. What is left here is the work — filter, inspect, decide.
  *
  * Approving refunds the claimed amount against the restaurant's B2B credit, so
  * a decision is final and is treated as one: the note is mandatory on a
@@ -96,6 +101,13 @@ export class ClaimsListComponent implements OnInit {
     private _dialogRef: MatDialogRef<unknown> | null = null;
     /** Kept apart from `_dialogRef`: the detail can open the review on top. */
     private _detailRef: MatDialogRef<unknown> | null = null;
+
+    /**
+     * True when the dashboard's tab bar already names this section — the queue
+     * then drops its own page title and its full-viewport positioning, and
+     * scrolls with the dashboard instead of inside itself.
+     */
+    readonly embedded = input(false);
 
     readonly statusPillClass = claimStatusPillClass;
     readonly statusOptions = CLAIM_STATUSES;

@@ -272,6 +272,61 @@ export interface AdminOrderGroupRow {
     [key: string]: unknown;
 }
 
+/**
+ * The money side of one phiên chợ, from
+ * `GET /procurement/batches/{batchId}/overview` (`ProcurementBatchOverviewDto`,
+ * admin/operations_manager only).
+ *
+ * Two totals, and the gap between them is the session's gross margin:
+ *  - `restaurantOrderTotal` — what the restaurants were charged for the goods
+ *    in this batch, at the price locked when each order was confirmed
+ *    (`ConfirmedOrderItemRow.LockedTotal ?? Quantity * UnitPrice`).
+ *  - `actualPurchaseTotal` — what the agent actually paid at the chợ
+ *    (Σ `actualQuantity × actualUnitPrice`), counting only the lines that have
+ *    been settled. A batch still being shopped therefore reads low, which is
+ *    why {@link BatchSettlement} exists.
+ *
+ * Both are always present on the response; the per-agent block carries a second
+ * pair (`referenceCostTotal` / `actualCostTotal` / `varianceTotal`) comparing
+ * the manifest's *reference* price to what was paid, but those are nullable —
+ * the server only fills them once every line of that agent's is settled.
+ */
+export interface AdminBatchCostOverview {
+    batchId: string;
+    batchCode: string | null;
+    /** `yyyy-MM-dd` — the service date the batch was built for. */
+    batchDate: string | null;
+    marketName: string | null;
+    status: string | null;
+    restaurantOrderTotal: number;
+    actualPurchaseTotal: number;
+    /** `totalItemCount` on the DTO — the lines the batch was built with. */
+    itemCount: number;
+    itemsPurchased: number;
+    /** See {@link BatchSettlement}. */
+    settlement: BatchSettlement;
+}
+
+/**
+ * Whether a batch's two totals can be compared yet.
+ *
+ * This is the difference between "this session made money" and "this session
+ * isn't finished", which the raw numbers cannot tell apart: a batch halfway
+ * through its shopping has the **full** `restaurantOrderTotal` (every order was
+ * priced at confirm) but only a **partial** `actualPurchaseTotal` (only the
+ * lines an agent has actually bought). Subtracting one from the other gives a
+ * huge margin that is really just missing cost.
+ *
+ *  - `settled` — handed off or completed. The server refuses hand-off until
+ *    every non-exempt line is settled, so the cost total is final.
+ *  - `inProgress` — built, manifested or still being shopped. Its margin is
+ *    provisional and must be labelled as such wherever it is shown, never
+ *    averaged into a total.
+ *  - `cancelled` — called off; it keeps whatever was recorded before that, and
+ *    the margin on a session that never happened is not a number to show.
+ */
+export type BatchSettlement = 'settled' | 'inProgress' | 'cancelled';
+
 /** A purchased/planned line item inside a batch (`batch.items[]`). */
 export interface AdminBatchItem {
     marketProductId?: string | null;

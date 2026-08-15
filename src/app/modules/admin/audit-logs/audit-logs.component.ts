@@ -6,6 +6,7 @@ import {
     ViewEncapsulation,
     computed,
     inject,
+    input,
     signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
@@ -85,6 +86,12 @@ export class AuditLogsComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
     private readonly _formBuilder = inject(FormBuilder);
     private readonly _destroyRef = inject(DestroyRef);
+
+    /**
+     * True when the dashboard's tab bar already names this section — the log
+     * then drops its own page title and renders from the filters down.
+     */
+    readonly embedded = input(false);
 
     readonly entries = signal<AdminAuditLogRow[]>([]);
     readonly totalCount = signal(0);

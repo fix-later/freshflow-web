@@ -72,11 +72,24 @@ export class AuthResetPasswordComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        // Create the form
+        const initialIdentifier =
+            this._activatedRoute.snapshot.queryParamMap.get('identifier') ?? '';
+
+        // Create the form with identifier, 6-digit OTP code, and new password
         this.resetPasswordForm = this._formBuilder.group(
             {
-                password: ['', Validators.required],
-                passwordConfirm: ['', Validators.required],
+                identifier: [initialIdentifier, [Validators.required]],
+                code: [
+                    '',
+                    [
+                        Validators.required,
+                        Validators.minLength(6),
+                        Validators.maxLength(6),
+                        Validators.pattern('^[0-9]{6}$'),
+                    ],
+                ],
+                password: ['', [Validators.required]],
+                passwordConfirm: ['', [Validators.required]],
             },
             {
                 validators: FuseValidators.mustMatch(
@@ -106,13 +119,15 @@ export class AuthResetPasswordComponent implements OnInit {
         // Hide the alert
         this.showAlert = false;
 
-        // The reset token arrives as a query param on the emailed link.
-        const token =
-            this._activatedRoute.snapshot.queryParamMap.get('token') ?? '';
+        const identifier = (
+            this.resetPasswordForm.get('identifier').value ?? ''
+        ).trim();
+        const code = (this.resetPasswordForm.get('code').value ?? '').trim();
+        const newPassword = this.resetPasswordForm.get('password').value;
 
         // Send the request to the server
         this._authService
-            .resetPassword(token, this.resetPasswordForm.get('password').value)
+            .resetPassword(identifier, code, newPassword)
             .pipe(
                 finalize(() => {
                     // Re-enable the form
@@ -139,7 +154,7 @@ export class AuthResetPasswordComponent implements OnInit {
                     this.alert = {
                         type: 'error',
                         message: this._translocoService.translate(
-                            'auth.errors.generic'
+                            'auth.errors.resetOtpInvalid'
                         ),
                     };
                 }

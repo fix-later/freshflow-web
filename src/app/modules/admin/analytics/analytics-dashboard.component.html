@@ -1,117 +1,125 @@
 <div class="flex min-w-0 flex-auto flex-col" *transloco="let t">
-    <!-- Header (Fuse project dashboard) -->
-    <div class="bg-card relative">
-        @if (loading()) {
-            <div class="absolute inset-x-0 bottom-0">
-                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            </div>
-        }
-        <div class="mx-auto flex w-full max-w-screen-xl flex-col px-6 sm:px-8">
+    <!--
+      Standalone header. Suppressed when the dashboard's tab bar is already
+      naming this section and greeting the user — see `embedded`.
+    -->
+    @if (!embedded()) {
+        <div class="bg-card relative">
+            @if (loading()) {
+                <div class="absolute inset-x-0 bottom-0">
+                    <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+                </div>
+            }
             <div
-                class="my-8 flex min-w-0 flex-auto flex-col sm:my-12 sm:flex-row sm:items-center"
+                class="mx-auto flex w-full max-w-screen-xl flex-col px-6 sm:px-8"
             >
-                <div class="flex min-w-0 flex-auto items-center">
-                    <div
-                        class="flex h-16 w-16 flex-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold uppercase text-primary-700 dark:bg-primary-600 dark:text-primary-50"
-                    >
-                        @if (user()?.avatar || user()?.avatarUrl; as avatar) {
-                            <img
-                                class="h-full w-full object-cover"
-                                [src]="avatar"
-                                [alt]="displayName()"
-                            />
-                        } @else {
-                            {{ displayName().charAt(0) || 'A' }}
-                        }
-                    </div>
-                    <div class="ml-4 flex min-w-0 flex-col">
+                <div
+                    class="my-8 flex min-w-0 flex-auto flex-col sm:my-12 sm:flex-row sm:items-center"
+                >
+                    <div class="flex min-w-0 flex-auto items-center">
                         <div
-                            class="truncate text-2xl font-semibold leading-7 tracking-tight md:text-5xl md:leading-snug"
+                            class="flex h-16 w-16 flex-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold uppercase text-primary-700 dark:bg-primary-600 dark:text-primary-50"
                         >
-                            {{ t('welcome-back') }}
-                            @if (displayName()) {
-                                , {{ displayName() }}!
+                            @if (
+                                user()?.avatar || user()?.avatarUrl;
+                                as avatar
+                            ) {
+                                <img
+                                    class="h-full w-full object-cover"
+                                    [src]="avatar"
+                                    [alt]="displayName()"
+                                />
+                            } @else {
+                                {{ displayName().charAt(0) || 'A' }}
                             }
                         </div>
-                        <div class="flex items-center">
-                            <mat-icon
-                                class="icon-size-5"
-                                svgIcon="heroicons_solid:bell"
-                            ></mat-icon>
+                        <div class="ml-4 flex min-w-0 flex-col">
                             <div
-                                class="text-secondary ml-1.5 truncate leading-6"
+                                class="truncate text-2xl font-semibold leading-7 tracking-tight md:text-5xl md:leading-snug"
                             >
-                                {{ t('admin.analytics.rangeStatus') }}
+                                {{ t('welcome-back') }}
+                                @if (displayName()) {
+                                    , {{ displayName() }}!
+                                }
+                            </div>
+                            <div class="flex items-center">
+                                <mat-icon
+                                    class="icon-size-5"
+                                    svgIcon="heroicons_solid:bell"
+                                ></mat-icon>
+                                <div
+                                    class="text-secondary ml-1.5 truncate leading-6"
+                                >
+                                    {{ t('admin.analytics.rangeStatus') }}
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-
-                <div
-                    class="mt-6 flex flex-wrap items-end gap-3 sm:ml-2 sm:mt-0"
-                >
-                    <form
-                        class="flex flex-wrap items-end gap-3"
-                        [formGroup]="rangeForm"
-                        (ngSubmit)="reload()"
-                    >
-                        <mat-form-field
-                            class="fuse-mat-dense w-40"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{
-                                t('admin.analytics.from')
-                            }}</mat-label>
-                            <input
-                                matInput
-                                [matDatepicker]="fromPicker"
-                                formControlName="from"
-                            />
-                            <mat-datepicker-toggle
-                                matIconSuffix
-                                [for]="fromPicker"
-                            ></mat-datepicker-toggle>
-                            <mat-datepicker #fromPicker></mat-datepicker>
-                        </mat-form-field>
-                        <mat-form-field
-                            class="fuse-mat-dense w-40"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{ t('admin.analytics.to') }}</mat-label>
-                            <input
-                                matInput
-                                [matDatepicker]="toPicker"
-                                formControlName="to"
-                            />
-                            <mat-datepicker-toggle
-                                matIconSuffix
-                                [for]="toPicker"
-                            ></mat-datepicker-toggle>
-                            <mat-datepicker #toPicker></mat-datepicker>
-                        </mat-form-field>
-                        <button
-                            mat-flat-button
-                            color="primary"
-                            type="submit"
-                            [disabled]="loading() || rangeForm.invalid"
-                        >
-                            <mat-icon
-                                class="icon-size-5"
-                                svgIcon="heroicons_solid:arrow-path"
-                            ></mat-icon>
-                            <span class="ml-2">{{
-                                t('admin.analytics.apply')
-                            }}</span>
-                        </button>
-                    </form>
-                </div>
             </div>
         </div>
-    </div>
+    }
 
     <!-- Main -->
-    <div class="flex-auto border-t pt-4 sm:pt-6">
+    <div class="relative flex-auto pt-4 sm:pt-6" [class.border-t]="!embedded()">
+        @if (loading() && embedded()) {
+            <div class="absolute inset-x-0 top-0">
+                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+            </div>
+        }
         <div class="mx-auto w-full max-w-screen-xl px-6 pb-10 sm:px-8">
+            <!-- Range picker -->
+            <form
+                class="mb-6 flex flex-wrap items-end gap-3"
+                [formGroup]="rangeForm"
+                (ngSubmit)="reload()"
+            >
+                <mat-form-field
+                    class="fuse-mat-dense w-40"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('admin.analytics.from') }}</mat-label>
+                    <input
+                        matInput
+                        [matDatepicker]="fromPicker"
+                        formControlName="from"
+                    />
+                    <mat-datepicker-toggle
+                        matIconSuffix
+                        [for]="fromPicker"
+                    ></mat-datepicker-toggle>
+                    <mat-datepicker #fromPicker></mat-datepicker>
+                </mat-form-field>
+                <mat-form-field
+                    class="fuse-mat-dense w-40"
+                    subscriptSizing="dynamic"
+                >
+                    <mat-label>{{ t('admin.analytics.to') }}</mat-label>
+                    <input
+                        matInput
+                        [matDatepicker]="toPicker"
+                        formControlName="to"
+                    />
+                    <mat-datepicker-toggle
+                        matIconSuffix
+                        [for]="toPicker"
+                    ></mat-datepicker-toggle>
+                    <mat-datepicker #toPicker></mat-datepicker>
+                </mat-form-field>
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="submit"
+                    [disabled]="loading() || rangeForm.invalid"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        svgIcon="heroicons_solid:arrow-path"
+                    ></mat-icon>
+                    <span class="ml-2">{{ t('admin.analytics.apply') }}</span>
+                </button>
+            </form>
+
             <!-- KPI cards -->
             @if (tiles().length) {
                 <div
@@ -137,6 +145,297 @@
                     }
                 </div>
             }
+
+            <!-- Orders over the range — the panel's headline series -->
+            <section
+                class="bg-card mt-6 flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.orderMetrics') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.analytics.charts.ordersHint') }}
+                    </p>
+                </div>
+                @if (orderTrend().length) {
+                    <div class="mt-4 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="ordersChart().chart!"
+                            [colors]="ordersChart().colors!"
+                            [dataLabels]="ordersChart().dataLabels!"
+                            [fill]="ordersChart().fill!"
+                            [grid]="ordersChart().grid!"
+                            [series]="ordersChart().series!"
+                            [stroke]="ordersChart().stroke!"
+                            [tooltip]="ordersChart().tooltip!"
+                            [xaxis]="ordersChart().xaxis!"
+                            [yaxis]="ordersChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else {
+                    <p class="text-secondary mt-6 text-sm">
+                        {{ t('admin.analytics.noData') }}
+                    </p>
+                }
+            </section>
+
+            <!--
+              Purchase cost vs. what restaurants were charged, per phiên chợ.
+              Fuse's "Visitors vs. Page Views" card: three figures, then two
+              filled areas whose gap is the margin.
+            -->
+            <section
+                class="bg-card mt-6 flex flex-auto flex-col overflow-hidden rounded-2xl shadow"
+            >
+                <div class="m-6 mb-0 flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                        <h2
+                            class="truncate text-lg font-medium leading-6 tracking-tight"
+                        >
+                            {{ t('admin.analytics.cost.title') }}
+                        </h2>
+                        <p class="text-secondary text-sm">
+                            {{ t('admin.analytics.cost.hint') }}
+                        </p>
+                        <!-- The plot has no legend of its own (Fuse's card has
+                             none), and its two slates are a shade apart — so
+                             the bands are named here, in their own colours. -->
+                        @if (settledCostTrend().length) {
+                            <div
+                                class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm"
+                            >
+                                <span class="flex items-center gap-1.5">
+                                    <span
+                                        class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        [style.background-color]="bandColors[0]"
+                                    ></span>
+                                    {{ t('admin.analytics.cost.orderTotal') }}
+                                </span>
+                                <span class="flex items-center gap-1.5">
+                                    <span
+                                        class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                        [style.background-color]="bandColors[1]"
+                                    ></span>
+                                    {{
+                                        t('admin.analytics.cost.purchaseTotal')
+                                    }}
+                                </span>
+                            </div>
+                        }
+                    </div>
+                    <!-- What the figures below cover, and what they leave out.
+                         Without this the card silently omits the sessions still
+                         being shopped. -->
+                    <div class="flex shrink-0 flex-wrap items-center gap-2">
+                        <span
+                            class="text-secondary bg-hover rounded-full px-3 py-1 text-sm font-medium"
+                        >
+                            {{
+                                t('admin.analytics.cost.sessions', {
+                                    count: costSummary().sessions,
+                                })
+                            }}
+                        </span>
+                        @if (costSummary().inProgress) {
+                            <span
+                                class="rounded-full bg-amber-100 px-3 py-1 text-sm font-medium text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                            >
+                                {{
+                                    t('admin.analytics.cost.inProgressCount', {
+                                        count: costSummary().inProgress,
+                                    })
+                                }}
+                            </span>
+                        }
+                        @if (costSummary().cancelled) {
+                            <span
+                                class="text-secondary rounded-full border px-3 py-1 text-sm font-medium"
+                            >
+                                {{
+                                    t('admin.analytics.cost.cancelledCount', {
+                                        count: costSummary().cancelled,
+                                    })
+                                }}
+                            </span>
+                        }
+                    </div>
+                </div>
+
+                @if (settledCostTrend().length) {
+                    <div class="mx-6 mt-6 flex items-start">
+                        <div
+                            class="grid grid-cols-1 gap-8 sm:grid-cols-3 sm:gap-12"
+                        >
+                            @for (stat of costStats(); track stat.key) {
+                                <div class="flex flex-col">
+                                    <div class="flex items-center">
+                                        <div
+                                            class="text-secondary font-medium leading-5"
+                                        >
+                                            {{ t(stat.labelKey) }}
+                                        </div>
+                                        <mat-icon
+                                            class="text-hint ml-1.5 icon-size-4"
+                                            [svgIcon]="
+                                                'heroicons_mini:information-circle'
+                                            "
+                                            [matTooltip]="t(stat.helpKey)"
+                                        ></mat-icon>
+                                    </div>
+                                    <div class="mt-2 flex items-start">
+                                        <div
+                                            class="text-3xl font-bold leading-none tracking-tight"
+                                            [class]="stat.valueClass"
+                                        >
+                                            {{ stat.value }}
+                                        </div>
+                                        <!-- Change against the earlier half of
+                                             the same window; absent when there
+                                             are too few sessions to compare. -->
+                                        @if (stat.delta; as delta) {
+                                            <div
+                                                class="ml-2 flex items-center"
+                                                [matTooltip]="
+                                                    t(
+                                                        'admin.analytics.cost.deltaHelp'
+                                                    )
+                                                "
+                                            >
+                                                <mat-icon
+                                                    class="icon-size-5"
+                                                    [class.text-green-500]="
+                                                        delta.good
+                                                    "
+                                                    [class.text-red-500]="
+                                                        !delta.good
+                                                    "
+                                                    [svgIcon]="
+                                                        delta.up
+                                                            ? 'heroicons_solid:arrow-up-circle'
+                                                            : 'heroicons_solid:arrow-down-circle'
+                                                    "
+                                                ></mat-icon>
+                                                <div
+                                                    class="ml-1 text-md font-medium"
+                                                    [class.text-green-500]="
+                                                        delta.good
+                                                    "
+                                                    [class.text-red-500]="
+                                                        !delta.good
+                                                    "
+                                                >
+                                                    {{ delta.text }}
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="mt-3 flex h-96 flex-auto flex-col px-2 pb-2">
+                        <apx-chart
+                            class="h-full w-full flex-auto"
+                            [chart]="costChart().chart!"
+                            [colors]="costChart().colors!"
+                            [dataLabels]="costChart().dataLabels!"
+                            [fill]="costChart().fill!"
+                            [grid]="costChart().grid!"
+                            [legend]="costChart().legend!"
+                            [series]="costChart().series!"
+                            [stroke]="costChart().stroke!"
+                            [tooltip]="costChart().tooltip!"
+                            [xaxis]="costChart().xaxis!"
+                            [yaxis]="costChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else if (inProgressCostTrend().length) {
+                    <!-- Every session is still being shopped: there is nothing
+                         to compare yet, which is not the same as no data. -->
+                    <p class="text-secondary mx-6 mt-4 text-sm">
+                        {{ t('admin.analytics.cost.allInProgress') }}
+                    </p>
+                } @else {
+                    <p class="text-secondary m-6 text-sm">
+                        {{ t('admin.analytics.cost.noSettled') }}
+                    </p>
+                }
+
+                <!--
+                  The sessions the figures above deliberately exclude. Their
+                  revenue is already final but their cost is not, so the gap is
+                  mostly cost nobody has recorded yet — shown as progress, not
+                  as a margin.
+                -->
+                @if (inProgressCostTrend().length) {
+                    <div class="m-6 mt-4 rounded-2xl border">
+                        <div class="border-b px-5 py-3">
+                            <h3 class="font-semibold">
+                                {{ t('admin.analytics.cost.inProgressTitle') }}
+                            </h3>
+                            <p class="text-secondary mt-0.5 text-xs">
+                                {{ t('admin.analytics.cost.inProgressHint') }}
+                            </p>
+                        </div>
+                        <div class="flex flex-col divide-y">
+                            @for (
+                                batch of inProgressCostTrend();
+                                track batch.batchId
+                            ) {
+                                <div
+                                    class="flex flex-wrap items-center gap-x-4 gap-y-2 px-5 py-3"
+                                >
+                                    <span class="min-w-0 flex-1 truncate">{{
+                                        batchLabel(batch)
+                                    }}</span>
+
+                                    <span
+                                        class="text-secondary shrink-0 text-sm tabular-nums"
+                                    >
+                                        {{
+                                            t(
+                                                'admin.analytics.cost.purchasedOf',
+                                                {
+                                                    purchased:
+                                                        batch.itemsPurchased,
+                                                    total: batch.itemCount,
+                                                }
+                                            )
+                                        }}
+                                    </span>
+
+                                    <div
+                                        class="bg-hover h-1.5 w-24 shrink-0 overflow-hidden rounded-full"
+                                    >
+                                        <div
+                                            class="h-full rounded-full bg-amber-500"
+                                            [style.width.%]="
+                                                purchaseProgress(batch)
+                                            "
+                                        ></div>
+                                    </div>
+
+                                    <span
+                                        class="shrink-0 font-mono text-sm tabular-nums"
+                                        [matTooltip]="
+                                            t(
+                                                'admin.analytics.cost.provisionalHelp'
+                                            )
+                                        "
+                                    >
+                                        {{ money(batch.actualPurchaseTotal) }}
+                                        /
+                                        {{ money(batch.restaurantOrderTotal) }}
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </section>
 
             <!-- Operational insights derived from the selected period -->
             <section class="mt-6">
@@ -178,6 +477,198 @@
                         </article>
                     }
                 </div>
+            </section>
+
+            <!-- Breakdown charts -->
+            <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <!-- Procurement batches by stage -->
+                <section
+                    class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.procurementMetrics') }}
+                    </h2>
+                    @if (procurementMetrics().length) {
+                        <div class="mt-2 flex flex-auto items-center">
+                            <apx-chart
+                                class="w-full flex-auto"
+                                [chart]="procurementChart().chart!"
+                                [colors]="procurementChart().colors!"
+                                [dataLabels]="procurementChart().dataLabels!"
+                                [labels]="procurementChart().labels!"
+                                [legend]="procurementChart().legend!"
+                                [plotOptions]="procurementChart().plotOptions!"
+                                [series]="procurementChart().series!"
+                                [stroke]="procurementChart().stroke!"
+                                [tooltip]="procurementChart().tooltip!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </section>
+
+                <!-- Delivery outcomes -->
+                <section
+                    class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.deliveryPerformance') }}
+                    </h2>
+                    @if (deliveryPerformance().length) {
+                        <div class="mt-2 flex flex-auto items-center">
+                            <apx-chart
+                                class="w-full flex-auto"
+                                [chart]="deliveryChart().chart!"
+                                [colors]="deliveryChart().colors!"
+                                [dataLabels]="deliveryChart().dataLabels!"
+                                [labels]="deliveryChart().labels!"
+                                [legend]="deliveryChart().legend!"
+                                [plotOptions]="deliveryChart().plotOptions!"
+                                [series]="deliveryChart().series!"
+                                [stroke]="deliveryChart().stroke!"
+                                [tooltip]="deliveryChart().tooltip!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </section>
+
+                <!-- Orders by hour of day -->
+                <section
+                    class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.demandDistribution') }}
+                    </h2>
+                    @if (demandDistribution().length) {
+                        <div class="mt-4 flex flex-auto flex-col">
+                            <apx-chart
+                                class="w-full flex-auto"
+                                [chart]="demandHourChart().chart!"
+                                [colors]="demandHourChart().colors!"
+                                [dataLabels]="demandHourChart().dataLabels!"
+                                [grid]="demandHourChart().grid!"
+                                [legend]="demandHourChart().legend!"
+                                [plotOptions]="demandHourChart().plotOptions!"
+                                [series]="demandHourChart().series!"
+                                [tooltip]="demandHourChart().tooltip!"
+                                [xaxis]="demandHourChart().xaxis!"
+                                [yaxis]="demandHourChart().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </section>
+
+                <!-- Throughput per hub -->
+                <section
+                    class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+                >
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.hubThroughput') }}
+                    </h2>
+                    @if (hubThroughput().length) {
+                        <div class="mt-4 flex flex-auto flex-col">
+                            <apx-chart
+                                class="w-full flex-auto"
+                                [chart]="hubChart().chart!"
+                                [colors]="hubChart().colors!"
+                                [dataLabels]="hubChart().dataLabels!"
+                                [grid]="hubChart().grid!"
+                                [legend]="hubChart().legend!"
+                                [plotOptions]="hubChart().plotOptions!"
+                                [series]="hubChart().series!"
+                                [tooltip]="hubChart().tooltip!"
+                                [xaxis]="hubChart().xaxis!"
+                                [yaxis]="hubChart().yaxis!"
+                            ></apx-chart>
+                        </div>
+                    } @else {
+                        <p class="text-secondary mt-6 text-sm">
+                            {{ t('admin.analytics.noData') }}
+                        </p>
+                    }
+                </section>
+            </div>
+
+            <!-- Demand heatmap, full width: it is a day × hour grid -->
+            <section
+                class="bg-card mt-6 flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.demandHeatmap') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.analytics.charts.heatmapHint') }}
+                    </p>
+                </div>
+                @if (demandHeatmap().length) {
+                    <div class="mt-4 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="demandHeatmapChart().chart!"
+                            [colors]="demandHeatmapChart().colors!"
+                            [dataLabels]="demandHeatmapChart().dataLabels!"
+                            [grid]="demandHeatmapChart().grid!"
+                            [legend]="demandHeatmapChart().legend!"
+                            [plotOptions]="demandHeatmapChart().plotOptions!"
+                            [series]="demandHeatmapChart().series!"
+                            [stroke]="demandHeatmapChart().stroke!"
+                            [tooltip]="demandHeatmapChart().tooltip!"
+                            [xaxis]="demandHeatmapChart().xaxis!"
+                            [yaxis]="demandHeatmapChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else {
+                    <p class="text-secondary mt-6 text-sm">
+                        {{ t('admin.analytics.noData') }}
+                    </p>
+                }
+            </section>
+
+            <!-- Average price per tracked listing -->
+            <section
+                class="bg-card mt-6 flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.analytics.priceTrends') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.analytics.charts.priceHint') }}
+                    </p>
+                </div>
+                @if (priceTrends().length) {
+                    <div class="mt-4 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="priceChart().chart!"
+                            [colors]="priceChart().colors!"
+                            [dataLabels]="priceChart().dataLabels!"
+                            [grid]="priceChart().grid!"
+                            [legend]="priceChart().legend!"
+                            [plotOptions]="priceChart().plotOptions!"
+                            [series]="priceChart().series!"
+                            [tooltip]="priceChart().tooltip!"
+                            [xaxis]="priceChart().xaxis!"
+                            [yaxis]="priceChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else {
+                    <p class="text-secondary mt-6 text-sm">
+                        {{ t('admin.analytics.noData') }}
+                    </p>
+                }
             </section>
 
             <!-- Quick links -->

@@ -50,6 +50,7 @@ export class AuthForgotPasswordComponent implements OnInit {
     };
     forgotPasswordForm: UntypedFormGroup;
     showAlert: boolean = false;
+    lastSubmittedIdentifier: string = '';
 
     /**
      * Constructor
@@ -87,6 +88,10 @@ export class AuthForgotPasswordComponent implements OnInit {
             return;
         }
 
+        this.lastSubmittedIdentifier = (
+            this.forgotPasswordForm.get('identifier').value ?? ''
+        ).trim();
+
         // Disable the form
         this.forgotPasswordForm.disable();
 
@@ -95,14 +100,11 @@ export class AuthForgotPasswordComponent implements OnInit {
 
         // Forgot password
         this._authService
-            .forgotPassword(this.forgotPasswordForm.get('identifier').value)
+            .forgotPassword(this.lastSubmittedIdentifier)
             .pipe(
                 finalize(() => {
                     // Re-enable the form
                     this.forgotPasswordForm.enable();
-
-                    // Reset the form
-                    this.forgotPasswordNgForm.resetForm();
 
                     // Show the alert
                     this.showAlert = true;

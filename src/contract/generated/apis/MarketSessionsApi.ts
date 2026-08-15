@@ -13,6 +13,16 @@
  */
 
 import * as runtime from '../runtime';
+import {
+    type ProblemDetails,
+    ProblemDetailsFromJSON,
+    ProblemDetailsToJSON,
+} from '../models/ProblemDetails';
+
+export interface ApiV1MarketSessionsAvailabilityGetRequest {
+    marketId?: string;
+    serviceDate?: Date;
+}
 
 export interface ApiV1MarketSessionsGetRequest {
     from?: Date;
@@ -24,6 +34,56 @@ export interface ApiV1MarketSessionsGetRequest {
  * 
  */
 export class MarketSessionsApi extends runtime.BaseAPI {
+
+    /**
+     * Creates request options for apiV1MarketSessionsAvailabilityGet without sending the request
+     */
+    async apiV1MarketSessionsAvailabilityGetRequestOpts(requestParameters: ApiV1MarketSessionsAvailabilityGetRequest): Promise<runtime.RequestOpts> {
+        const queryParameters: any = {};
+
+        if (requestParameters['marketId'] != null) {
+            queryParameters['marketId'] = requestParameters['marketId'];
+        }
+
+        if (requestParameters['serviceDate'] != null) {
+            queryParameters['serviceDate'] = (requestParameters['serviceDate'] as any).toISOString().substring(0,10);
+        }
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/market-sessions/availability`;
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1MarketSessionsAvailabilityGetRaw(requestParameters: ApiV1MarketSessionsAvailabilityGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1MarketSessionsAvailabilityGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1MarketSessionsAvailabilityGet(requestParameters: ApiV1MarketSessionsAvailabilityGetRequest = {}, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1MarketSessionsAvailabilityGetRaw(requestParameters, initOverrides);
+    }
 
     /**
      * Creates request options for apiV1MarketSessionsGet without sending the request

@@ -25,14 +25,42 @@
     } @else if (invoice(); as invoice) {
         <!-- No page gutters: the shell's content slot already pads. -->
         <div class="flex flex-col gap-6">
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center gap-3">
                 <h1 class="text-2xl font-semibold tracking-tight">
                     {{ invoice.id.slice(0, 8) }}
                 </h1>
                 <span [class]="statusPillClass(invoice.status)">
                     {{ invoice.status || '—' }}
                 </span>
+                <button
+                    class="sm:ml-auto"
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="downloadingPdf()"
+                    (click)="downloadPdf()"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [class.animate-spin]="downloadingPdf()"
+                        [svgIcon]="
+                            downloadingPdf()
+                                ? 'heroicons_outline:arrow-path'
+                                : 'heroicons_outline:arrow-down-tray'
+                        "
+                    ></mat-icon>
+                    <span class="ml-2">{{
+                        t('restaurantInvoices.downloadPdf')
+                    }}</span>
+                </button>
             </div>
+
+            @if (downloadError(); as downloadError) {
+                <p
+                    class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                >
+                    {{ downloadError }}
+                </p>
+            }
 
             <div
                 class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-3"

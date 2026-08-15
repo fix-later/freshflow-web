@@ -96,6 +96,30 @@ export interface MarketSessionWindow {
 }
 
 /**
+ * `GET /market-sessions/availability?marketId=&serviceDate=` — the backend's
+ * own verdict on whether one chợ can be ordered into on one day.
+ *
+ * Restaurant-scoped (`[Authorize(Roles = "restaurant")]`) and answered from the
+ * session the server resolves for that exact date, so it settles the question
+ * the buyer-facing list can only be *filtered* into answering. It deliberately
+ * carries no `closesAt` — see {@link MarketSessionWindow}, which still supplies
+ * the deadline the checkout counts down to.
+ */
+export interface MarketSessionAvailability {
+    marketId: string;
+    /** `yyyy-MM-dd`. */
+    serviceDate: string;
+    /** A session exists for this chợ + day at all. */
+    exists: boolean;
+    /** It exists *and* is still accepting orders. */
+    isOpen: boolean;
+    /** `draft` | `open` | `closed`; `null` when no session exists. */
+    status: string | null;
+    /** The session's id, or `null` when none exists. */
+    sessionId: string | null;
+}
+
+/**
  * `GET /orders/{orderId}/confirm-preview` — the server's verdict on the
  * confirm gates (approval · cutoff · credit · order state, see role-flows
  * §4.3) *before* the restaurant commits. Untyped in the spec, so every field

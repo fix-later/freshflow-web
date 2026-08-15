@@ -19,17 +19,8 @@ import { mapValues } from '../runtime';
  * @interface ResetPasswordRequest
  */
 export interface ResetPasswordRequest {
-    /**
-     * 
-     * @type {string}
-     * @memberof ResetPasswordRequest
-     */
-    token: string;
-    /**
-     * 
-     * @type {string}
-     * @memberof ResetPasswordRequest
-     */
+    identifier: string;
+    code: string;
     newPassword: string;
 }
 
@@ -37,7 +28,8 @@ export interface ResetPasswordRequest {
  * Check if a given object implements the ResetPasswordRequest interface.
  */
 export function instanceOfResetPasswordRequest(value: object): value is ResetPasswordRequest {
-    if (!('token' in value) || value['token'] === undefined) return false;
+    if (!('identifier' in value) || value['identifier'] === undefined) return false;
+    if (!('code' in value) || value['code'] === undefined) return false;
     if (!('newPassword' in value) || value['newPassword'] === undefined) return false;
     return true;
 }
@@ -51,8 +43,8 @@ export function ResetPasswordRequestFromJSONTyped(json: any, ignoreDiscriminator
         return json;
     }
     return {
-        
-        'token': json['token'],
+        'identifier': json['identifier'],
+        'code': json['code'],
         'newPassword': json['newPassword'],
     };
 }
@@ -67,8 +59,8 @@ export function ResetPasswordRequestToJSONTyped(value?: ResetPasswordRequest | n
     }
 
     return {
-        
-        'token': value['token'],
+        'identifier': value['identifier'],
+        'code': value['code'],
         'newPassword': value['newPassword'],
     };
 }

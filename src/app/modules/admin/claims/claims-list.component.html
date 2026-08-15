@@ -1,5 +1,11 @@
+<!--
+  `sm:absolute sm:inset-0` makes the queue its own scroll region when it is the
+  whole route. Inside the dashboard's tab panel that would tear it out of the
+  tab's flow, so the full-viewport positioning is dropped when embedded.
+-->
 <div
-    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent sm:absolute sm:inset-0 sm:overflow-hidden"
+    class="bg-card flex min-w-0 flex-auto flex-col dark:bg-transparent"
+    [class]="embedded() ? '' : 'sm:absolute sm:inset-0 sm:overflow-hidden'"
     *transloco="let t"
 >
     <!-- Header -->
@@ -9,16 +15,26 @@
                 <mat-progress-bar mode="indeterminate"></mat-progress-bar>
             </div>
         }
-        <div class="min-w-0">
-            <div class="text-4xl font-extrabold tracking-tight">
-                {{ t('admin.claims.title') }}
+        @if (!embedded()) {
+            <div class="min-w-0">
+                <div class="text-4xl font-extrabold tracking-tight">
+                    {{ t('admin.claims.title') }}
+                </div>
+                <div class="text-secondary mt-1 text-sm">
+                    {{ t('admin.claims.subtitle') }}
+                </div>
             </div>
-            <div class="text-secondary mt-1 text-sm">
-                {{ t('admin.claims.subtitle') }}
-            </div>
-        </div>
+        }
 
-        <div class="mt-6 flex flex-wrap items-center gap-3">
+        <!--
+          No summary here. The counts and the status split live on the Báo cáo
+          sự cố tab, next to the shortages the claims are filed over; this page
+          is the review queue — filter, inspect, decide.
+        -->
+        <div
+            class="flex flex-wrap items-center gap-3"
+            [class.mt-6]="!embedded()"
+        >
             <mat-form-field
                 class="fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
                 subscriptSizing="dynamic"

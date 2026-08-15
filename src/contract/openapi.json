@@ -2943,6 +2943,38 @@
         }
       }
     },
+    "/api/v1/hubs/{hubId}/inbound/{inboundId}/labels": {
+      "get": {
+        "tags": [
+          "HubInbound"
+        ],
+        "parameters": [
+          {
+            "name": "hubId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "inboundId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy": {
       "post": {
         "tags": [
@@ -3709,6 +3741,29 @@
       }
     },
     "/api/v1/invoices/{invoiceId}/export": {
+      "get": {
+        "tags": [
+          "Invoices"
+        ],
+        "parameters": [
+          {
+            "name": "invoiceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/v1/invoices/{invoiceId}/pdf": {
       "get": {
         "tags": [
           "Invoices"
@@ -4800,6 +4855,56 @@
           },
           "404": {
             "description": "Not Found",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/market-sessions/availability": {
+      "get": {
+        "tags": [
+          "MarketSessions"
+        ],
+        "parameters": [
+          {
+            "name": "marketId",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "serviceDate",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request",
             "content": {
               "text/plain": {
                 "schema": {
@@ -11058,13 +11163,19 @@
       },
       "ResetPasswordRequest": {
         "required": [
-          "newPassword",
-          "token"
+          "identifier",
+          "code",
+          "newPassword"
         ],
         "type": "object",
         "properties": {
-          "token": {
+          "identifier": {
             "minLength": 1,
+            "type": "string"
+          },
+          "code": {
+            "minLength": 6,
+            "maxLength": 6,
             "type": "string"
           },
           "newPassword": {

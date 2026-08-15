@@ -4,6 +4,7 @@ import {
     extractPagination,
     extractTotal,
     fetchAllCursor,
+    fileNameFromContentDisposition,
     parseJson,
     unwrapData,
     withId,
@@ -14,6 +15,7 @@ import {
     invoicesApi,
     marketsApi,
     ordersApi,
+    procurementBatchOverviewApi,
     rawApi,
     restaurantCreditApi,
 } from 'contract';
@@ -24,6 +26,7 @@ import {
     AdminAuditLogsResult,
     AdminAutoBatchPayload,
     AdminAutoBatchResult,
+    AdminBatchCostOverview,
     AdminCreateUserPayload,
     AdminCreditStatement,
     AdminCreditStatementDetail,
@@ -54,6 +57,7 @@ import {
     AdminUserFilters,
     AdminUserRow,
     AdminUsersResult,
+    BatchSettlement,
 } from './admin.types';
 import {
     deriveBatchNumber,
@@ -71,6 +75,44 @@ const MAX_USER_PAGE_SIZE = 100;
 
 /** Stops a broken `total` from turning the walk into an endless loop. */
 const MAX_USER_PAGES = 50;
+
+/** A finite number from an untyped body, else `0`. */
+function numberOf(value: unknown): number {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** A non-empty trimmed string from an untyped body, else `null`. */
+function stringOrNull(value: unknown): string | null {
+    const text = String(value ?? '').trim();
+    return text === '' ? null : text;
+}
+
+/**
+ * Whether a batch's cost totals can be compared yet — see {@link BatchSettlement}.
+ *
+ * Read off the batch's own lifecycle (`Built → Manifested → Purchasing →
+ * HandedOff → Completed`, or `Cancelled`), not off the line counts. Hand-off is
+ * the point the server itself declares the shopping finished: `HandOff` is
+ * refused with `BATCH_INCOMPLETE` until every non-exempt item has been bought,
+ * so `HandedOff`/`Completed` is exactly "actualPurchaseTotal is now final".
+ *
+ * Counting lines instead (`itemsPurchased >= totalItemCount`) gets two cases
+ * wrong: a line the agent reported *unavailable* is never bought, so such a
+ * batch would sit at "still shopping" forever even after hand-off; and a batch
+ * with no items at all would read as settled on `0 >= 0`.
+ */
+function batchSettlementOf(status: string | null): BatchSettlement {
+    switch ((status ?? '').toLowerCase()) {
+        case 'cancelled':
+            return 'cancelled';
+        case 'handedoff':
+        case 'completed':
+            return 'settled';
+        default:
+            return 'inProgress';
+    }
+}
 
 /**
  * Every distinct agent the batch's items are assigned to, in the order the
@@ -877,6 +919,102 @@ export class AdminService {
     }
 
     /**
+     * The money side of one phiên chợ
+     * (`GET /procurement/batches/{batchId}/overview`).
+     *
+     * `null` when the batch has no overview to read — a 404, or a body this
+     * cannot make sense of. The two totals default to `0` rather than
+     * `undefined` because they are summed: a backend that has not yet shipped
+     * `restaurantOrderTotal` / `actualPurchaseTotal` (added in
+     * `feat(procurement): expose purchase cost totals`) then reads as "nothing
+     * recorded", not as `NaN` propagating through every figure on the card.
+     */
+    async getBatchCostOverview(
+        batchId: string
+    ): Promise<AdminBatchCostOverview | null> {
+        const res =
+            await procurementBatchOverviewApi.apiV1ProcurementBatchesBatchIdOverviewGetRaw(
+                { batchId }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        if (!data) {
+            return null;
+        }
+        // `totalItemCount` is what `ProcurementBatchOverviewDto` calls it; the
+        // shorter spelling is only a guard against the name being normalised
+        // somewhere between here and the DTO.
+        const status = stringOrNull(data['status']);
+        return {
+            batchId: String(data['batchId'] ?? data['id'] ?? batchId),
+            batchCode: stringOrNull(data['batchCode'] ?? data['code']),
+            batchDate: stringOrNull(data['batchDate']),
+            marketName: stringOrNull(data['marketName']),
+            status,
+            restaurantOrderTotal: numberOf(data['restaurantOrderTotal']),
+            actualPurchaseTotal: numberOf(data['actualPurchaseTotal']),
+            itemCount: numberOf(data['totalItemCount'] ?? data['itemCount']),
+            itemsPurchased: numberOf(data['itemsPurchased']),
+            settlement: batchSettlementOf(status),
+        };
+    }
+
+    /**
+     * Cost overviews for the most recent phiên chợ, oldest first so they chart
+     * left-to-right through time.
+     *
+     * There is no list endpoint for this: the overview is per batch, so the
+     * batch list is read first and one overview fetched per row. `limit` caps
+     * that fan-out — the chart stops being readable past a couple of dozen
+     * points long before the request count becomes a problem.
+     *
+     * Each overview fails on its own. One batch the server cannot summarise
+     * drops a point rather than emptying the chart.
+     */
+    async getPurchaseCostTrend(limit = 20): Promise<AdminBatchCostOverview[]> {
+        const { groups } = await this.getOrderGroups(1, limit);
+        const overviews = await Promise.all(
+            groups
+                .filter((group) => !!group.id)
+                .map((group) =>
+                    this.getBatchCostOverview(group.id!)
+                        .then((overview) =>
+                            overview
+                                ? {
+                                      ...overview,
+                                      // The list resolved these; the overview
+                                      // may not carry them.
+                                      batchCode:
+                                          overview.batchCode ??
+                                          group.batchNumber ??
+                                          null,
+                                      batchDate:
+                                          overview.batchDate ??
+                                          group.targetDate ??
+                                          null,
+                                      marketName:
+                                          overview.marketName ??
+                                          group.marketName ??
+                                          null,
+                                  }
+                                : null
+                        )
+                        .catch(() => null)
+                )
+        );
+        return overviews
+            .filter(
+                (overview): overview is AdminBatchCostOverview => !!overview
+            )
+            .sort((a, b) =>
+                String(a.batchDate ?? '').localeCompare(
+                    String(b.batchDate ?? '')
+                )
+            );
+    }
+
+    /**
      * Maps the backend batch shape onto the fields the order-groups table binds
      * (`marketName`/`agentId`/`orderCount`/`createdAt`), which the API spells
      * differently (`marketId`/`assignedAgentUserId`/`members`/`batchDate`), and
@@ -1279,6 +1417,34 @@ export class AdminService {
                 ) ?? `invoice-${invoiceId}.xml`,
         };
     }
+
+    /**
+     * Downloads a **sandbox** invoice as its rendered PDF draft
+     * (`GET /invoices/{invoiceId}/pdf`).
+     *
+     * Same raw-response handling as {@link exportInvoice}: `application/pdf`
+     * with a `Content-Disposition` name, which the envelope helpers would
+     * mangle.
+     *
+     * Only sandbox invoices render here. A provider-issued one answers 422
+     * `INVOICE_PDF_PROVIDER_REQUIRED` — the legal document is the provider's
+     * file, not something this app may re-render — which the caller surfaces
+     * through the mapped message rather than swallowing.
+     */
+    async downloadInvoicePdf(
+        invoiceId: string
+    ): Promise<{ blob: Blob; fileName: string }> {
+        const { raw } = await invoicesApi.apiV1InvoicesInvoiceIdPdfGetRaw({
+            invoiceId,
+        });
+        return {
+            blob: await raw.blob(),
+            fileName:
+                fileNameFromContentDisposition(
+                    raw.headers.get('content-disposition')
+                ) ?? `invoice-${invoiceId}.pdf`,
+        };
+    }
 }
 
 /**
@@ -1305,31 +1471,6 @@ function normalizeCreditStatement<T extends AdminCreditStatement>(row: T): T {
         month: row.month ?? (period?.isValid ? period.month : undefined),
         totalPayments: row.totalPayments ?? row.totalSettlements,
     };
-}
-
-/**
- * Reads the filename out of a `Content-Disposition` header.
- *
- * Prefers RFC 5987 `filename*=UTF-8''…` when present — invoice names can carry
- * Vietnamese diacritics, and the plain `filename=` fallback is where servers
- * put an ASCII-mangled version of the same name.
- */
-function fileNameFromContentDisposition(
-    header: string | null
-): string | undefined {
-    if (!header) {
-        return undefined;
-    }
-    const extended = /filename\*=UTF-8''([^;]+)/i.exec(header);
-    if (extended) {
-        try {
-            return decodeURIComponent(extended[1].trim());
-        } catch {
-            // Malformed percent-encoding — fall through to the plain form.
-        }
-    }
-    const plain = /filename="?([^";]+)"?/i.exec(header);
-    return plain ? plain[1].trim() : undefined;
 }
 
 /**

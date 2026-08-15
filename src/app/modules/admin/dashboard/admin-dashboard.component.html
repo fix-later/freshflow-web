@@ -1,0 +1,89 @@
+<div class="flex min-w-0 flex-auto flex-col" *transloco="let t">
+    <!-- Header (Fuse project-dashboard greeting) -->
+    <div class="bg-card flex-0">
+        <div class="mx-auto flex w-full max-w-screen-xl flex-col px-6 sm:px-8">
+            <div
+                class="my-8 flex min-w-0 flex-auto flex-col sm:flex-row sm:items-center"
+            >
+                <div class="flex min-w-0 flex-auto items-center">
+                    <div
+                        class="flex h-16 w-16 flex-0 items-center justify-center overflow-hidden rounded-full bg-primary-100 text-2xl font-semibold uppercase text-primary-700 dark:bg-primary-600 dark:text-primary-50"
+                    >
+                        @if (user()?.avatar || user()?.avatarUrl; as avatar) {
+                            <img
+                                class="h-full w-full object-cover"
+                                [src]="avatar"
+                                [alt]="displayName()"
+                            />
+                        } @else {
+                            {{ displayName().charAt(0) || 'A' }}
+                        }
+                    </div>
+                    <div class="ml-4 flex min-w-0 flex-col">
+                        <div
+                            class="truncate text-2xl font-semibold leading-7 tracking-tight md:text-4xl md:leading-snug"
+                        >
+                            {{ t('welcome-back') }}
+                            @if (displayName()) {
+                                , {{ displayName() }}!
+                            }
+                        </div>
+                        <div class="flex items-center">
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_solid:bell"
+                            ></mat-icon>
+                            <div
+                                class="text-secondary ml-1.5 truncate leading-6"
+                            >
+                                {{ t(subtitleKey()) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- One tab per reporting section, full width above the page body -->
+        <nav
+            class="mx-auto w-full max-w-screen-xl px-6 sm:px-8"
+            mat-tab-nav-bar
+            [tabPanel]="dashboardTabPanel"
+        >
+            @for (tab of tabs; track tab.index) {
+                <a
+                    mat-tab-link
+                    [active]="selectedTab() === tab.index"
+                    (click)="onTabChange(tab.index)"
+                >
+                    <mat-icon
+                        class="mr-2 icon-size-5"
+                        [svgIcon]="tab.icon"
+                    ></mat-icon>
+                    {{ t(tab.label) }}
+                </a>
+            }
+        </nav>
+    </div>
+
+    <!--
+      Body. Only the open panel is in the DOM, so a panel's data is fetched the
+      first time its tab is opened rather than four times on arrival.
+    -->
+    <mat-tab-nav-panel
+        #dashboardTabPanel
+        class="flex min-w-0 flex-auto flex-col border-t"
+    >
+        @if (selectedTab() === 0) {
+            <admin-analytics-panel [embedded]="true" />
+        } @else if (selectedTab() === 1) {
+            <admin-incidents [embedded]="true" />
+        } @else if (selectedTab() === 2) {
+            <admin-finance [embedded]="true" />
+        } @else if (selectedTab() === 3) {
+            <admin-claims-list [embedded]="true" />
+        } @else if (selectedTab() === 4) {
+            <admin-audit-logs [embedded]="true" />
+        }
+    </mat-tab-nav-panel>
+</div>

@@ -11,6 +11,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1HubsHubIdInboundGet**](HubInboundApi.md#apiv1hubshubidinboundget) | **GET** /api/v1/hubs/{hubId}/inbound |  |
 | [**apiV1HubsHubIdInboundInboundIdDiscrepancyPost**](HubInboundApi.md#apiv1hubshubidinboundinboundiddiscrepancypost) | **POST** /api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy |  |
 | [**apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost**](HubInboundApi.md#apiv1hubshubidinboundinboundiddiscrepancyuploadsignaturepost) | **POST** /api/v1/hubs/{hubId}/inbound/{inboundId}/discrepancy/upload-signature |  |
+| [**apiV1HubsHubIdInboundInboundIdLabelsGet**](HubInboundApi.md#apiv1hubshubidinboundinboundidlabelsget) | **GET** /api/v1/hubs/{hubId}/inbound/{inboundId}/labels |  |
 | [**apiV1HubsHubIdInboundPost**](HubInboundApi.md#apiv1hubshubidinboundpost) | **POST** /api/v1/hubs/{hubId}/inbound |  |
 | [**apiV1HubsHubIdOrdersByRestaurantGet**](HubInboundApi.md#apiv1hubshubidordersbyrestaurantget) | **GET** /api/v1/hubs/{hubId}/orders-by-restaurant |  |
 | [**apiV1HubsHubIdOutboundGet**](HubInboundApi.md#apiv1hubshubidoutboundget) | **GET** /api/v1/hubs/{hubId}/outbound |  |
@@ -508,6 +509,78 @@ async function example() {
 
   try {
     const data = await api.apiV1HubsHubIdInboundInboundIdDiscrepancyUploadSignaturePost(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **hubId** | `string` |  | [Defaults to `undefined`] |
+| **inboundId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1HubsHubIdInboundInboundIdLabelsGet
+
+> apiV1HubsHubIdInboundInboundIdLabelsGet(hubId, inboundId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  HubInboundApi,
+} from '';
+import type { ApiV1HubsHubIdInboundInboundIdLabelsGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new HubInboundApi(config);
+
+  const body = {
+    // string
+    hubId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // string
+    inboundId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1HubsHubIdInboundInboundIdLabelsGetRequest;
+
+  try {
+    const data = await api.apiV1HubsHubIdInboundInboundIdLabelsGet(body);
     console.log(data);
   } catch (error) {
     console.error(error);

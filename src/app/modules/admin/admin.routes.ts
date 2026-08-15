@@ -1,5 +1,5 @@
-import { Routes } from '@angular/router';
-import { AdminDashboardComponent } from './analytics/analytics-dashboard.component';
+import { inject } from '@angular/core';
+import { Router, Routes } from '@angular/router';
 import { CategoriesComponent } from './catalog/categories.component';
 import { MarketCreateComponent } from './catalog/market-create.component';
 import { MarketEditComponent } from './catalog/market-edit.component';
@@ -9,8 +9,8 @@ import { PackingCodesComponent } from './catalog/packing-codes.component';
 import { ProductsComponent } from './catalog/products.component';
 import { TagsComponent } from './catalog/tags.component';
 import { UnitsComponent } from './catalog/units.component';
-import { ClaimsListComponent } from './claims/claims-list.component';
-import { FinanceComponent } from './finance/finance.component';
+import { AdminDashboardComponent } from './dashboard/admin-dashboard.component';
+import { DashboardTabSlug } from './dashboard/dashboard-tabs';
 import { HubEditComponent } from './logistics/hub-edit.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupDetailComponent } from './order-groups/order-group-detail.component';
@@ -21,7 +21,28 @@ import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-order
 import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
 import { UsersListComponent } from './users/users-list.component';
 
+/**
+ * Sends a retired per-panel path to the dashboard tab that absorbed it.
+ *
+ * A redirect rather than a second route onto the same component: with two URLs
+ * rendering the dashboard, switching tabs from `/admin/finance` would write
+ * `/admin/finance?tab=claims` — a path naming one panel and a query naming
+ * another. One canonical URL avoids that, and keeps the nav's `exactMatch`
+ * highlight honest.
+ *
+ * `tab` is the slug union rather than a string: an unrecognised slug is not an
+ * error at runtime — `dashboardTabIndexOf` falls back to analytics — so a typo
+ * here would silently send `/admin/audit-logs` to the wrong panel. The compiler
+ * catches it instead.
+ */
+const toDashboardTab = (tab: DashboardTabSlug) => () =>
+    inject(Router).parseUrl(`/admin?tab=${tab}`);
+
 export default [
+    // The console's one reporting page: analytics · incidents · finance ·
+    // claims · activity behind a tab bar. The redirects further down are the
+    // destinations those panels used to have — kept so existing links and
+    // bookmarks still land on the right tab rather than 404ing.
     {
         path: '',
         component: AdminDashboardComponent,
@@ -120,7 +141,7 @@ export default [
     },
     {
         path: 'finance',
-        component: FinanceComponent,
+        redirectTo: toDashboardTab('finance'),
     },
     {
         path: 'order-groups/:batchId',
@@ -134,6 +155,12 @@ export default [
     // credit, so this sits with the financial oversight screens (M6 Credit).
     {
         path: 'claims',
-        component: ClaimsListComponent,
+        redirectTo: toDashboardTab('claims'),
+    },
+    // The audit trail. It had a screen but no nav entry and no route, so it was
+    // unreachable; it is the dashboard's fourth tab now.
+    {
+        path: 'audit-logs',
+        redirectTo: toDashboardTab('activity'),
     },
 ] as Routes;

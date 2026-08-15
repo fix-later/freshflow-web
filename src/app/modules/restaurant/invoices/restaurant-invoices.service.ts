@@ -3,6 +3,7 @@ import {
     extractList,
     extractPagination,
     extractTotal,
+    fileNameFromContentDisposition,
     MAX_PAGE_SIZE,
     parseJson,
     unwrapData,
@@ -52,5 +53,33 @@ export class RestaurantInvoicesService {
             return null;
         }
         return withId([data], 'invoiceId')[0];
+    }
+
+    /**
+     * Downloads one of the restaurant's own invoices as a PDF
+     * (`GET /invoices/{invoiceId}/pdf`). Ownership is enforced server-side, so
+     * an invoice belonging to someone else answers 404 rather than leaking.
+     *
+     * Reads the raw response: the body is `application/pdf` with a
+     * `Content-Disposition` name, not the `{ success, data }` envelope the
+     * other calls here parse.
+     *
+     * The backend only renders **sandbox** invoices — a provider-issued one is
+     * a legal document whose PDF must come from that provider, and answers 422
+     * `INVOICE_PDF_PROVIDER_REQUIRED`. The caller shows that reason.
+     */
+    async downloadInvoicePdf(
+        invoiceId: string
+    ): Promise<{ blob: Blob; fileName: string }> {
+        const { raw } = await invoicesApi.apiV1InvoicesInvoiceIdPdfGetRaw({
+            invoiceId,
+        });
+        return {
+            blob: await raw.blob(),
+            fileName:
+                fileNameFromContentDisposition(
+                    raw.headers.get('content-disposition')
+                ) ?? `invoice-${invoiceId}.pdf`,
+        };
     }
 }
