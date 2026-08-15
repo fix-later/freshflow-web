@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { provideTransloco } from '@jsverse/transloco';
+import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { AdminService } from '../admin.service';
 import { AdminMarketSessionTracking, AdminOrderGroupRow } from '../admin.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
@@ -48,6 +49,10 @@ function build(): OrderGroupsComponent {
             }),
             { provide: AdminService, useValue: adminStub },
             { provide: LogisticsAdminService, useValue: {} },
+            {
+                provide: PermissionsService,
+                useValue: { hasRole: () => true },
+            },
             { provide: Router, useValue: { navigate: () => undefined } },
             {
                 provide: ActivatedRoute,
