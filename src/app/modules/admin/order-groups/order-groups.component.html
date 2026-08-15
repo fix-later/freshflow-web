@@ -5181,6 +5181,25 @@
                 {{ t('admin.orderGroups.reset.warning') }}
             </p>
 
+            <div
+                class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/30"
+            >
+                <div
+                    class="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-300"
+                >
+                    {{ t('admin.orderGroups.reset.marketScope') }}
+                </div>
+                <div
+                    class="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100"
+                >
+                    {{
+                        t('admin.orderGroups.reset.allMarkets', {
+                            date: resetTargetDateLabel(),
+                        })
+                    }}
+                </div>
+            </div>
+
             <mat-form-field class="w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.orderGroups.autoBatch.targetDate')
@@ -5213,6 +5232,18 @@
                 }
             </mat-form-field>
 
+            <div
+                class="mt-4 rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-950/30"
+            >
+                <div class="text-xs text-gray-600 dark:text-gray-400">
+                    {{ t('admin.orderGroups.reset.requiredPhrase') }}
+                </div>
+                <code
+                    class="mt-2 block select-all rounded bg-white px-3 py-2 font-mono text-sm font-semibold text-red-700 dark:bg-gray-900 dark:text-red-300"
+                    >{{ resetConfirmationPhrase() }}</code
+                >
+            </div>
+
             <mat-form-field class="mt-4 w-full" subscriptSizing="dynamic">
                 <mat-label>{{
                     t('admin.orderGroups.reset.confirmation')
@@ -5221,10 +5252,26 @@
                     matInput
                     autocomplete="off"
                     formControlName="confirmation"
+                    [placeholder]="resetConfirmationPhrase()"
                 />
                 <mat-hint>{{
                     t('admin.orderGroups.reset.confirmationHint')
                 }}</mat-hint>
+                @if (resetForm.controls.confirmation.hasError('required')) {
+                    <mat-error>{{
+                        t('admin.orderGroups.reset.confirmationRequired')
+                    }}</mat-error>
+                }
+                @if (
+                    resetForm.controls.confirmation.touched &&
+                    resetForm.hasError('confirmationMismatch')
+                ) {
+                    <mat-error>{{
+                        t('admin.orderGroups.reset.confirmationMismatch', {
+                            phrase: resetConfirmationPhrase(),
+                        })
+                    }}</mat-error>
+                }
             </mat-form-field>
 
             <div class="mt-6 flex justify-end gap-3">
