@@ -203,6 +203,32 @@ function validTargetDate(control: AbstractControl): ValidationErrors | null {
         : { invalidDate: true };
 }
 
+/** Exact destructive-action phrase enforced by ResetBatchingDayCommandValidator. */
+export function resetConfirmationPhraseForDate(
+    targetDate: DateTime | null
+): string | null {
+    if (!targetDate || !targetDate.isValid) {
+        return null;
+    }
+    const iso = targetDate.toISODate();
+    return iso ? `RESET ${iso}` : null;
+}
+
+function exactResetConfirmation(
+    control: AbstractControl
+): ValidationErrors | null {
+    const targetDate = control.get('targetDate')?.value as DateTime | null;
+    const confirmation = String(
+        control.get('confirmation')?.value ?? ''
+    ).trim();
+    const expected = resetConfirmationPhraseForDate(targetDate);
+
+    if (!confirmation || !expected) {
+        return null;
+    }
+    return confirmation === expected ? null : { confirmationMismatch: true };
+}
+
 /**
  * Admin ▸ Order groups — Fuse inventory list of procurement batches with
  * auto-batch / manifest / agent / cancel actions.
@@ -763,22 +789,20 @@ export class OrderGroupsComponent implements OnInit {
         dryRun: this._formBuilder.nonNullable.control(true),
     });
 
-    /**
-     * Reset form. `confirmation` is whatever phrase the backend demands —
-     * it's forwarded verbatim, so a wrong one fails server-side rather than
-     * being second-guessed here.
-     */
-    readonly resetForm = this._formBuilder.group({
-        targetDate: this._formBuilder.control<DateTime | null>(
-            this.tomorrowDate,
-            {
-                validators: [Validators.required, validTargetDate],
-            }
-        ),
-        confirmation: this._formBuilder.nonNullable.control('', {
-            validators: [Validators.required],
-        }),
-    });
+    readonly resetForm = this._formBuilder.group(
+        {
+            targetDate: this._formBuilder.control<DateTime | null>(
+                this.tomorrowDate,
+                {
+                    validators: [Validators.required, validTargetDate],
+                }
+            ),
+            confirmation: this._formBuilder.nonNullable.control('', {
+                validators: [Validators.required],
+            }),
+        },
+        { validators: [exactResetConfirmation] }
+    );
 
     ngOnInit(): void {
         this._load();
@@ -2804,6 +2828,21 @@ export class OrderGroupsComponent implements OnInit {
 
     closeReset(): void {
         this._resetDialogRef?.close();
+    }
+
+    resetConfirmationPhrase(): string {
+        return (
+            resetConfirmationPhraseForDate(
+                this.resetForm.controls.targetDate.value
+            ) ?? 'RESET yyyy-MM-dd'
+        );
+    }
+
+    resetTargetDateLabel(): string {
+        const targetDate = this.resetForm.controls.targetDate.value;
+        return targetDate && targetDate.isValid
+            ? targetDate.toFormat('dd/MM/yyyy')
+            : '—';
     }
 
     runReset(): void {
