@@ -1,15 +1,17 @@
 /**
- * The four sections of the admin dashboard.
+ * The five sections of the admin dashboard.
  *
- * These used to be four nav entries (three of them under a "Dashboard" branch,
- * plus an audit-log screen with no nav entry at all and therefore no way in).
- * They are one page now: all four answer "how is the platform doing right
- * now", they are read one after another rather than navigated between, and
- * three of them share the same date range.
+ * These used to be separate nav entries (three under a "Dashboard" branch, plus
+ * an audit-log screen with no nav entry at all and therefore no way in). They
+ * are one page now: they all answer "how is the platform doing right now", they
+ * are read one after another rather than navigated between, and three of them
+ * share the same date range.
  *
  * Order follows how the question is usually asked — what happened (analytics),
- * what it is worth (finance), what went wrong (claims), who did what
- * (activity).
+ * what went wrong (incidents), what it is worth (finance), what someone is
+ * claiming back for it (claims), who did what (activity). Incidents come before
+ * both money tabs deliberately: a shortage at the chợ or at the hub is what a
+ * claim is *about*, so it is read first.
  */
 export const DASHBOARD_TABS = [
     {
@@ -20,18 +22,24 @@ export const DASHBOARD_TABS = [
     },
     {
         index: 1,
+        slug: 'incidents',
+        label: 'admin.dashboard.tabs.incidents',
+        icon: 'heroicons_outline:shield-exclamation',
+    },
+    {
+        index: 2,
         slug: 'finance',
         label: 'admin.dashboard.tabs.finance',
         icon: 'heroicons_outline:banknotes',
     },
     {
-        index: 2,
+        index: 3,
         slug: 'claims',
         label: 'admin.dashboard.tabs.claims',
         icon: 'heroicons_outline:exclamation-triangle',
     },
     {
-        index: 3,
+        index: 4,
         slug: 'activity',
         label: 'admin.dashboard.tabs.activity',
         icon: 'heroicons_outline:clipboard-document-list',

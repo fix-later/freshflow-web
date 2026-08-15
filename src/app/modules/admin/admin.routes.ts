@@ -39,10 +39,10 @@ const toDashboardTab = (tab: DashboardTabSlug) => () =>
     inject(Router).parseUrl(`/admin?tab=${tab}`);
 
 export default [
-    // The console's one reporting page: analytics · finance · claims · activity
-    // behind a tab bar. The three redirects further down are the destinations
-    // those panels used to have — kept so existing links and bookmarks still
-    // land on the right tab rather than 404ing.
+    // The console's one reporting page: analytics · incidents · finance ·
+    // claims · activity behind a tab bar. The redirects further down are the
+    // destinations those panels used to have — kept so existing links and
+    // bookmarks still land on the right tab rather than 404ing.
     {
         path: '',
         component: AdminDashboardComponent,

@@ -77,10 +77,12 @@
         @if (selectedTab() === 0) {
             <admin-analytics-panel [embedded]="true" />
         } @else if (selectedTab() === 1) {
-            <admin-finance [embedded]="true" />
+            <admin-incidents [embedded]="true" />
         } @else if (selectedTab() === 2) {
-            <admin-claims-list [embedded]="true" />
+            <admin-finance [embedded]="true" />
         } @else if (selectedTab() === 3) {
+            <admin-claims-list [embedded]="true" />
+        } @else if (selectedTab() === 4) {
             <admin-audit-logs [embedded]="true" />
         }
     </mat-tab-nav-panel>

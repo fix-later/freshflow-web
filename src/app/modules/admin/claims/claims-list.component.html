@@ -26,88 +26,15 @@
             </div>
         }
 
-        <!-- Where the queue stands, before the list of what is in it. Scoped to
-             the claims loaded (a cursor page, narrowed by the filters below),
-             which is the same scope the table shows. -->
-        @if (claims().length) {
-            <div
-                class="grid grid-cols-1 gap-6 lg:grid-cols-3"
-                [class.mt-6]="!embedded()"
-            >
-                <div
-                    class="grid grid-cols-2 gap-4 lg:col-span-2 lg:grid-cols-2"
-                >
-                    <div class="rounded-xl border p-4">
-                        <div
-                            class="text-secondary text-xs uppercase tracking-wide"
-                        >
-                            {{ t('admin.claims.summary.pending') }}
-                        </div>
-                        <div
-                            class="mt-1 text-3xl font-bold tabular-nums text-amber-600"
-                        >
-                            {{ summary().submitted }}
-                        </div>
-                    </div>
-                    <div class="rounded-xl border p-4">
-                        <div
-                            class="text-secondary text-xs uppercase tracking-wide"
-                        >
-                            {{ t('admin.claims.summary.pendingAmount') }}
-                        </div>
-                        <div class="mt-1 text-3xl font-bold tabular-nums">
-                            {{ money(summary().pendingAmount) }}
-                        </div>
-                    </div>
-                    <div class="rounded-xl border p-4">
-                        <div
-                            class="text-secondary text-xs uppercase tracking-wide"
-                        >
-                            {{ t('admin.claims.summary.approved') }}
-                        </div>
-                        <div
-                            class="mt-1 text-3xl font-bold tabular-nums text-green-600"
-                        >
-                            {{ summary().approved }}
-                        </div>
-                    </div>
-                    <div class="rounded-xl border p-4">
-                        <div
-                            class="text-secondary text-xs uppercase tracking-wide"
-                        >
-                            {{ t('admin.claims.summary.rejected') }}
-                        </div>
-                        <div
-                            class="mt-1 text-3xl font-bold tabular-nums text-red-600"
-                        >
-                            {{ summary().rejected }}
-                        </div>
-                    </div>
-                </div>
-
-                <section class="flex flex-col rounded-2xl border p-5">
-                    <h3 class="truncate font-semibold">
-                        {{ t('admin.claims.summary.chartTitle') }}
-                    </h3>
-                    <div class="mt-2 flex flex-auto items-center">
-                        <apx-chart
-                            class="w-full flex-auto"
-                            [chart]="statusChart().chart!"
-                            [colors]="statusChart().colors!"
-                            [dataLabels]="statusChart().dataLabels!"
-                            [labels]="statusChart().labels!"
-                            [legend]="statusChart().legend!"
-                            [plotOptions]="statusChart().plotOptions!"
-                            [series]="statusChart().series!"
-                            [stroke]="statusChart().stroke!"
-                            [tooltip]="statusChart().tooltip!"
-                        ></apx-chart>
-                    </div>
-                </section>
-            </div>
-        }
-
-        <div class="mt-6 flex flex-wrap items-center gap-3">
+        <!--
+          No summary here. The counts and the status split live on the Báo cáo
+          sự cố tab, next to the shortages the claims are filed over; this page
+          is the review queue — filter, inspect, decide.
+        -->
+        <div
+            class="flex flex-wrap items-center gap-3"
+            [class.mt-6]="!embedded()"
+        >
             <mat-form-field
                 class="fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
                 subscriptSizing="dynamic"

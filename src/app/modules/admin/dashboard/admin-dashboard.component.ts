@@ -19,6 +19,7 @@ import { AdminAnalyticsPanelComponent } from '../analytics/analytics-dashboard.c
 import { AuditLogsComponent } from '../audit-logs/audit-logs.component';
 import { ClaimsListComponent } from '../claims/claims-list.component';
 import { FinanceComponent } from '../finance/finance.component';
+import { AdminIncidentsComponent } from '../incidents/incidents.component';
 import {
     DASHBOARD_TABS,
     dashboardTabIndexOf,
@@ -28,16 +29,16 @@ import {
 /**
  * Admin ▸ Dashboard (`/admin`) — the console's single reporting page.
  *
- * Four panels that were four separate destinations (analytics at `/admin`,
- * finance, claims, and the audit log, which had a screen but no way to reach
- * it) now sit behind one tab bar. They are read together, not navigated
- * between: each answers a different half of "how is the platform doing", and
- * splitting them across a nav branch meant three round trips through the menu
- * to assemble one picture.
+ * Panels that were separate destinations (analytics at `/admin`, finance,
+ * claims, and the audit log, which had a screen but no way to reach it) now sit
+ * behind one tab bar, alongside an incident board that had no home at all. They
+ * are read together, not navigated between: each answers a different part of
+ * "how is the platform doing", and splitting them across a nav branch meant
+ * several round trips through the menu to assemble one picture.
  *
  * Only the open tab is rendered (`@if`, not a hidden-but-instantiated panel),
- * so opening the dashboard issues one panel's requests rather than all four
- * at once. Switching tabs mounts the next panel, which is what loads it.
+ * so opening the dashboard issues one panel's requests rather than every
+ * panel's at once. Switching tabs mounts the next panel, which is what loads it.
  *
  * The tab travels as `?tab=`, so a panel is linkable and survives a reload —
  * and the retired `/admin/finance` · `/admin/claims` · `/admin/audit-logs`
@@ -52,6 +53,7 @@ import {
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminAnalyticsPanelComponent,
+        AdminIncidentsComponent,
         AuditLogsComponent,
         ClaimsListComponent,
         FinanceComponent,
