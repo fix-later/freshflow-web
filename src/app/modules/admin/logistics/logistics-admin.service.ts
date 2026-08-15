@@ -376,16 +376,21 @@ export class LogisticsAdminService {
     // ---- Hub inbound/discrepancy oversight (M8 Hub, admin = read-only) ----
 
     /**
-     * Pending inbound shipments for `hubId` (goods expected but not yet
-     * checked in). Read-only oversight — recording the actual inbound is Hub
-     * Staff's mobile workflow.
+     * Active inbound shipments for `hubId`. Despite the endpoint name, the
+     * backend returns both PENDING and ARRIVED_AT_HUB rows, which lets Admin
+     * follow the same shipment before and after Hub Staff checks it in.
      */
     async getPendingInbound(hubId: string): Promise<CrudRow[]> {
-        const res = await hubInboundApi.apiV1HubsHubIdPendingInboundGetRaw({
-            hubId,
-            pageSize: 50,
-        });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+        const rows = await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+            hubInboundApi
+                .apiV1HubsHubIdPendingInboundGetRaw({
+                    hubId,
+                    cursor,
+                    pageSize,
+                })
+                .then((res) => res.raw)
+        );
+        return withId<CrudRow>(rows, 'inboundId');
     }
 
     /**

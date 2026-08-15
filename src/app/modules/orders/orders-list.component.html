@@ -3,56 +3,6 @@
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
 
-    <!-- Filters: scope first (task), status second (narrow) -->
-    <div
-        class="ff-orders__toolbar flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
-    >
-        <div
-            class="ff-orders__scope inline-flex self-start rounded-xl p-1"
-            role="group"
-            [attr.aria-label]="t('orders.scope.label')"
-        >
-            <button
-                type="button"
-                class="ff-orders__scope-btn"
-                [class.ff-orders__scope-btn--active]="scope() === 'active'"
-                (click)="onScopeChange('active')"
-            >
-                {{ t('orders.scope.active') }}
-            </button>
-            <button
-                type="button"
-                class="ff-orders__scope-btn"
-                [class.ff-orders__scope-btn--active]="scope() === 'history'"
-                (click)="onScopeChange('history')"
-            >
-                {{ t('orders.scope.history') }}
-            </button>
-        </div>
-
-        <mat-form-field
-            class="ff-orders__status w-full sm:w-52"
-            appearance="outline"
-            subscriptSizing="dynamic"
-        >
-            <mat-label>{{ t('orders.filters.status') }}</mat-label>
-            <mat-select
-                [value]="statusFilter()"
-                [aria-label]="t('orders.filters.status')"
-                (selectionChange)="onStatusChange($event.value)"
-            >
-                <mat-option [value]="''">{{
-                    t('orders.filters.all')
-                }}</mat-option>
-                @for (status of statuses; track status) {
-                    <mat-option [value]="status">{{
-                        t('orders.status.' + status)
-                    }}</mat-option>
-                }
-            </mat-select>
-        </mat-form-field>
-    </div>
-
     @if (loadError(); as message) {
         <div
             class="ff-orders__alert flex flex-wrap items-center gap-2 rounded-2xl p-3.5 text-sm"
@@ -60,7 +10,7 @@
         >
             <mat-icon
                 class="shrink-0 icon-size-5"
-                [svgIcon]="'heroicons_outline:exclamation-triangle'"
+                svgIcon="heroicons_outline:exclamation-triangle"
             ></mat-icon>
             <span class="min-w-0 flex-auto">{{ message }}</span>
             <button mat-button type="button" (click)="load()">
@@ -71,19 +21,12 @@
         <div
             class="ff-orders__empty flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
         >
-            <span
-                class="ff-orders__empty-icon mb-4 flex h-14 w-14 items-center justify-center rounded-2xl"
-                aria-hidden="true"
-            >
-                <mat-icon
-                    class="icon-size-8"
-                    [svgIcon]="'heroicons_outline:shopping-bag'"
-                ></mat-icon>
-            </span>
-            <p class="text-base font-semibold tracking-tight">
-                {{ t('orders.empty') }}
-            </p>
-            <p class="text-secondary mt-1 max-w-sm text-sm leading-snug">
+            <mat-icon
+                class="text-hint icon-size-10"
+                svgIcon="heroicons_outline:shopping-bag"
+            ></mat-icon>
+            <p class="mt-4 text-base font-semibold">{{ t('orders.empty') }}</p>
+            <p class="text-secondary mt-1 text-sm">
                 {{ t('orders.emptyHint') }}
             </p>
             <a
@@ -97,64 +40,72 @@
         </div>
     } @else {
         <div class="ff-orders__list overflow-hidden rounded-2xl border">
-            @for (row of rows(); track row.id; let last = $last) {
+            @for (
+                row of rows();
+                track row.id ?? row.orderId;
+                let last = $last
+            ) {
                 <button
                     type="button"
-                    class="ff-orders__row group flex w-full items-center gap-3 px-4 py-3.5 text-left sm:gap-4 sm:px-5 sm:py-4"
+                    class="ff-orders__row group block w-full px-4 py-4 text-left sm:px-5"
                     [class.border-b]="!last"
                     (click)="openOrder(row)"
                 >
-                    <span
-                        class="ff-orders__row-icon hidden shrink-0 sm:flex"
-                        aria-hidden="true"
-                    >
-                        <mat-icon
-                            class="icon-size-5"
-                            [svgIcon]="
-                                'heroicons_outline:clipboard-document-list'
-                            "
-                        ></mat-icon>
-                    </span>
-
-                    <div class="min-w-0 flex-1">
-                        <div class="flex flex-wrap items-center gap-2">
-                            <span class="font-mono text-sm font-semibold">
-                                #{{ shortId(row) }}
-                            </span>
-                            <span [class]="statusPillClass(row.status)">
-                                {{ t(statusKey(row.status)) }}
-                            </span>
-                        </div>
-                        <div
-                            class="text-secondary mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm"
-                        >
-                            <span>{{ formatDate(row.createdAt) }}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>{{
-                                t('orders.itemCount', {
-                                    count: itemCount(row),
-                                })
-                            }}</span>
-                            @if (row.scheduledFor) {
-                                <span aria-hidden="true">·</span>
-                                <span>
-                                    {{ t('orders.detail.scheduledFor') }}
-                                    {{ formatScheduledFor(row.scheduledFor) }}
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="font-mono text-sm font-bold">
+                                    #{{ shortId(row) }}
                                 </span>
-                            }
+                                <span [class]="statusPillClass(row.status)">
+                                    {{ t(statusKey(row.status)) }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex shrink-0 items-center gap-2">
+                            <span
+                                class="font-mono text-sm font-bold tabular-nums sm:text-base"
+                            >
+                                {{ formatAmount(row.totalAmount) }}
+                            </span>
+                            <mat-icon
+                                class="text-hint transition icon-size-5 group-hover:translate-x-0.5 group-hover:text-primary"
+                                svgIcon="heroicons_outline:chevron-right"
+                            ></mat-icon>
                         </div>
                     </div>
 
-                    <div class="flex shrink-0 flex-col items-end gap-0.5">
-                        <span
-                            class="font-mono text-sm font-bold tabular-nums sm:text-base"
-                        >
-                            {{ formatAmount(row.totalAmount) }}
-                        </span>
-                        <mat-icon
-                            class="ff-orders__chevron text-hint transition icon-size-5 group-hover:translate-x-0.5 group-hover:text-primary"
-                            [svgIcon]="'heroicons_outline:chevron-right'"
-                        ></mat-icon>
+                    <div
+                        class="text-secondary mt-3 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-3"
+                    >
+                        <div>
+                            <span class="text-hint block text-xs">
+                                {{ t('orders.detail.createdAt') }}
+                            </span>
+                            <span class="text-default mt-0.5 block">
+                                {{ formatDate(row.createdAt) }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-hint block text-xs">
+                                {{ t('orders.detail.scheduledFor') }}
+                            </span>
+                            <span class="text-default mt-0.5 block">
+                                {{ formatScheduledFor(row.scheduledFor) }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-hint block text-xs">
+                                {{ t('orders.detail.item') }}
+                            </span>
+                            <span class="text-default mt-0.5 block">
+                                {{
+                                    t('orders.itemCount', {
+                                        count: itemCount(row),
+                                    })
+                                }}
+                            </span>
+                        </div>
                     </div>
                 </button>
             }
@@ -171,7 +122,7 @@
             >
                 {{ t('orders.pagination.previous') }}
             </button>
-            <span class="text-secondary text-sm tabular-nums">
+            <span class="text-secondary text-center text-sm tabular-nums">
                 {{ t('orders.pagination.page', { page: page() }) }}
                 @if (totalCount() > 0) {
                     <span class="text-hint">

@@ -337,6 +337,8 @@ export interface AdminOrderDetail {
     deliveryDistanceKm?: number | null;
     confirmedAt?: string | null;
     confirmedReceiptAt?: string | null;
+    /** Driver proof of delivery returned for delivered orders. */
+    proofUrl?: string | null;
     [key: string]: unknown;
 }
 
