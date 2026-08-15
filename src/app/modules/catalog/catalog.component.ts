@@ -23,7 +23,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banner.component';
 import { GuestGateService } from 'app/core/auth/guest-gate.service';
@@ -83,7 +83,6 @@ const SKELETON_TILES = 10;
         MatProgressSpinnerModule,
         MatTooltipModule,
         ReactiveFormsModule,
-        RouterLink,
         TranslocoModule,
         ApprovalBannerComponent,
         ProductCardComponent,

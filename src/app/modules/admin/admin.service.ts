@@ -63,6 +63,9 @@ import {
 /** Role eligible to be assigned a procurement batch (see ROLE_MATRIX). */
 const MARKET_AGENT_ROLE = 'market_agent';
 
+/** This legacy role has been folded into admin and must no longer be assigned. */
+const OPERATIONS_MANAGER_ROLE = 'operations_manager';
+
 /** `GetUsersQueryValidator` rejects anything above this (400). */
 const MAX_USER_PAGE_SIZE = 100;
 
@@ -143,15 +146,23 @@ export class AdminService {
      * and driver lists.
      */
     async listUsersByRole(role: string): Promise<AdminUserRow[]> {
+        return this.listUsers({ role });
+    }
+
+    /**
+     * Every user matching the supplied filters, walking the server pages.
+     * Used when the Web must order a complete review queue before paginating.
+     */
+    async listUsers(filters: AdminUserFilters = {}): Promise<AdminUserRow[]> {
         const all: AdminUserRow[] = [];
         for (let page = 1; page <= MAX_USER_PAGES; page++) {
-            const { users } = await this.getUsers({
-                role,
+            const result = await this.getUsers({
+                ...filters,
                 page,
                 pageSize: MAX_USER_PAGE_SIZE,
             });
-            all.push(...users);
-            if (users.length < MAX_USER_PAGE_SIZE) {
+            all.push(...result.users);
+            if (result.users.length < MAX_USER_PAGE_SIZE) {
                 break;
             }
         }
@@ -348,7 +359,11 @@ export class AdminService {
             .map((entry) =>
                 typeof entry === 'string' ? entry : entry.name ?? entry.roleName
             )
-            .filter((name): name is string => !!name);
+            .filter(
+                (name): name is string =>
+                    !!name &&
+                    name.trim().toLowerCase() !== OPERATIONS_MANAGER_ROLE
+            );
     }
 
     // -------------------------------------------------------------------
@@ -927,8 +942,20 @@ export class AdminService {
      * (items / members / exceptions).
      */
     async getOrderGroup(batchId: string): Promise<AdminOrderGroupRow | null> {
-        const { groups } = await this.getOrderGroups(1, 100);
-        return groups.find((group) => group.id === batchId) ?? null;
+        const pageSize = 100;
+        let page = 1;
+        let loaded = 0;
+        let total = Number.POSITIVE_INFINITY;
+        while (loaded < total) {
+            const result = await this.getOrderGroups(page, pageSize);
+            const match = result.groups.find((group) => group.id === batchId);
+            if (match) return match;
+            loaded += result.groups.length;
+            total = result.totalCount;
+            if (!result.groups.length) break;
+            page += 1;
+        }
+        return null;
     }
 
     /**

@@ -4,7 +4,10 @@ import { provideTransloco } from '@jsverse/transloco';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
 import { RestaurantDetailComponent } from './restaurant-detail.component';
-import { RestaurantsAdminComponent } from './restaurants-admin.component';
+import {
+    RestaurantsAdminComponent,
+    restaurantsForReview,
+} from './restaurants-admin.component';
 
 class StubTranslocoLoader {
     getTranslation(): Promise<Record<string, string>> {
@@ -51,6 +54,31 @@ function configure(adminStub: Partial<AdminService>, paramId = 'user-1'): void {
 }
 
 describe('Restaurant approval actions', () => {
+    it('places new pending registrations before newer approved restaurants', () => {
+        const ordered = restaurantsForReview([
+            row({
+                id: 'active-new',
+                restaurantStatus: 'active',
+                isApproved: true,
+                createdAt: '2026-08-15T09:00:00Z',
+            }),
+            row({
+                id: 'pending-old',
+                createdAt: '2026-08-13T09:00:00Z',
+            }),
+            row({
+                id: 'pending-new',
+                createdAt: '2026-08-14T09:00:00Z',
+            }),
+        ]);
+
+        expect(ordered.map((user) => user.id)).toEqual([
+            'pending-new',
+            'pending-old',
+            'active-new',
+        ]);
+    });
+
     it('offers approve for a pending restaurant even though isActive is true', () => {
         configure({});
         const component = TestBed.createComponent(

@@ -41,6 +41,7 @@ import { UsersCreateComponent } from './users-create.component';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
+const REMOVED_OPERATIONS_ROLE = 'operations_manager';
 
 /**
  * Admin ▸ Users — Fuse ecommerce inventory pattern: searchable list with an
@@ -178,7 +179,7 @@ export class UsersListComponent implements OnInit {
         // sends it on the way back, so leaving a restaurant returns to the tab
         // it was opened from rather than to "tất cả vai trò".
         const role = this._route.snapshot.queryParamMap.get('role');
-        if (role) {
+        if (role && role.trim().toLowerCase() !== REMOVED_OPERATIONS_ROLE) {
             this.filterForm.controls.role.setValue(role, { emitEvent: false });
         }
         this._loadRoles();

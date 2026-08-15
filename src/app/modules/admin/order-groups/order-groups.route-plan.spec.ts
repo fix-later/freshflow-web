@@ -4,7 +4,10 @@ import { provideTransloco } from '@jsverse/transloco';
 import { AdminService } from '../admin.service';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { RoutePlanResult } from '../logistics/logistics-admin.types';
-import { OrderGroupsComponent } from './order-groups.component';
+import {
+    OrderGroupsComponent,
+    procurementItemAssignments,
+} from './order-groups.component';
 
 class StubTranslocoLoader {
     getTranslation(): Promise<Record<string, string>> {
@@ -103,5 +106,74 @@ describe('Market session route plan approval', () => {
 
         expect(component.canApproveMarketSessionRoutePlan()).toBeFalse();
         expect(component.marketSessionRoutePlanBlocker()).toBeNull();
+    });
+});
+
+describe('Dispatch driver labels', () => {
+    it('shows the driver name when the eligible-driver response includes one', () => {
+        const component = build();
+
+        expect(
+            component.driverLabel({
+                id: 'a6cad264-0000-0000-0000-000000000000',
+                fullName: 'Nguyen Van Tai',
+                email: 'driver@test.freshflow',
+            })
+        ).toBe('Nguyen Van Tai');
+    });
+
+    it('falls back to email when the driver has no name', () => {
+        const component = build();
+
+        expect(
+            component.driverLabel({
+                id: 'a6cad264-0000-0000-0000-000000000000',
+                fullName: null,
+                email: 'driver@test.freshflow',
+            })
+        ).toBe('driver@test.freshflow');
+    });
+});
+
+describe('Market-session procurement assignments', () => {
+    it('builds one assignment per unpurchased product', () => {
+        expect(
+            procurementItemAssignments(
+                [
+                    { marketProductId: 'product-a' },
+                    {
+                        marketProductId: 'product-b',
+                        purchasedAt: '2026-08-15T08:00:00Z',
+                    },
+                    { marketProductId: 'product-c' },
+                ],
+                {
+                    'product-a': 'agent-a',
+                    'product-b': 'agent-b',
+                }
+            )
+        ).toEqual([
+            { marketProductId: 'product-a', agentUserId: 'agent-a' },
+            {
+                marketProductId: 'product-c',
+                agentUserId: '00000000-0000-0000-0000-000000000000',
+            },
+        ]);
+    });
+});
+
+describe('Market-session planning window', () => {
+    it('starts on today and keeps the configured seven future days visible', () => {
+        const component = build();
+        const days = component.planningDays();
+
+        expect(days.length).toBe(8);
+        expect(component.selectedPlanningIso()).toBe(days[0].iso);
+        expect(component.planningDayLabel(days[0])).toBe(
+            'admin.orderGroups.planning.today'
+        );
+        expect(component.planningDayLabel(days[1])).toBe(
+            'admin.orderGroups.planning.tomorrow'
+        );
     });
 });

@@ -92,37 +92,24 @@ const NAVIGATION: AreaNavItem[] = [
         area: 'admin',
         children: [
             {
-                id: 'admin-audit-logs',
-                title: 'nav.admin.auditLogs',
+                id: 'admin-finance',
+                title: 'nav.admin.finance',
                 type: 'basic',
-                link: '/admin/audit-logs',
+                link: '/admin/finance',
             },
             {
-                id: 'admin.charts',
-                title: 'nav.admin.charts',
-                type: 'collapsable',
-                children: [
-                    {
-                        id: 'admin-finance',
-                        title: 'nav.admin.finance',
-                        type: 'basic',
-                        link: '/admin/finance',
-                    },
-                    {
-                        id: 'admin-claims',
-                        title: 'nav.admin.claims',
-                        type: 'basic',
-                        link: '/admin/claims',
-                    },
-                    {
-                        id: 'admin-analysis',
-                        title: 'nav.admin.analysis',
-                        type: 'basic',
-                        link: '/admin',
-                        // /admin prefixes every console route — exact only
-                        exactMatch: true,
-                    },
-                ],
+                id: 'admin-claims',
+                title: 'nav.admin.claims',
+                type: 'basic',
+                link: '/admin/claims',
+            },
+            {
+                id: 'admin-analysis',
+                title: 'nav.admin.analysis',
+                type: 'basic',
+                link: '/admin',
+                // /admin prefixes every console route — exact only
+                exactMatch: true,
             },
         ],
     },

@@ -29,16 +29,43 @@ import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
-import {
-    ADMIN_DEFAULT_PAGE_SIZE,
-    toApiPage,
-    toPageIndex,
-} from '../shared/admin-pagination';
+import { ADMIN_DEFAULT_PAGE_SIZE } from '../shared/admin-pagination';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
+
+function reviewStatusRank(user: AdminUserRow): number {
+    const status = String(user.restaurantStatus ?? '')
+        .trim()
+        .toLowerCase();
+    if (status === 'pending' || (!status && user.isApproved === false)) {
+        return 0;
+    }
+    if (status === 'active' || (!status && user.isApproved === true)) {
+        return 1;
+    }
+    if (status === 'suspended') {
+        return 2;
+    }
+    return 3;
+}
+
+function createdTime(user: AdminUserRow): number {
+    const time = Date.parse(String(user.createdAt ?? ''));
+    return Number.isNaN(time) ? Number.NEGATIVE_INFINITY : time;
+}
+
+/** Pending registrations first, newest registration first within each group. */
+export function restaurantsForReview(
+    users: readonly AdminUserRow[]
+): AdminUserRow[] {
+    return [...users].sort((left, right) => {
+        const status = reviewStatusRank(left) - reviewStatusRank(right);
+        return status || createdTime(right) - createdTime(left);
+    });
+}
 
 /**
  * Admin ▸ Restaurants — inventory list of `restaurant` users.
@@ -99,11 +126,14 @@ export class RestaurantsAdminComponent implements OnInit {
 
     readonly users = signal<AdminUserRow[]>([]);
     readonly sort = new TableSort<AdminUserRow>();
-    readonly sortedUsers = computed(() =>
-        this.sort.apply(this.users(), (user, key) =>
+    readonly sortedUsers = computed(() => {
+        if (!this.sort.key()) {
+            return this.users();
+        }
+        return this.sort.apply(this.users(), (user, key) =>
             key === 'status' ? user.isActive !== false : (user[key] as string)
-        )
-    );
+        );
+    });
     readonly totalCount = signal(0);
     readonly loading = signal(false);
     readonly unlockingId = signal<string | null>(null);
@@ -187,14 +217,16 @@ export class RestaurantsAdminComponent implements OnInit {
             .then(() => {
                 // The endpoint moves `restaurantStatus`, never `isActive`.
                 this.users.update((list) =>
-                    list.map((row) =>
-                        row.id === user.id
-                            ? {
-                                  ...row,
-                                  isApproved: true,
-                                  restaurantStatus: 'active',
-                              }
-                            : row
+                    restaurantsForReview(
+                        list.map((row) =>
+                            row.id === user.id
+                                ? {
+                                      ...row,
+                                      isApproved: true,
+                                      restaurantStatus: 'active',
+                                  }
+                                : row
+                        )
                     )
                 );
                 this._snackBar.open(
@@ -366,23 +398,25 @@ export class RestaurantsAdminComponent implements OnInit {
         this.loading.set(true);
         const raw = this.filterForm.getRawValue();
         try {
-            const result = await this._admin.getUsers({
-                search: raw.search || undefined,
-                role: RESTAURANT_ROLE,
-                isActive:
-                    raw.isActive === '' ? undefined : raw.isActive === 'true',
-                restaurantStatus: raw.restaurantStatus || undefined,
-                page: toApiPage(this.pageIndex()),
-                pageSize: this.pageSize(),
-            });
-            this.users.set(result.users);
-            this.totalCount.set(result.totalCount);
-            if (result.page) {
-                this.pageIndex.set(toPageIndex(result.page));
-            }
-            if (result.pageSize) {
-                this.pageSize.set(result.pageSize);
-            }
+            const all = restaurantsForReview(
+                await this._admin.listUsers({
+                    search: raw.search || undefined,
+                    role: RESTAURANT_ROLE,
+                    isActive:
+                        raw.isActive === ''
+                            ? undefined
+                            : raw.isActive === 'true',
+                    restaurantStatus: raw.restaurantStatus || undefined,
+                })
+            );
+            const pageSize = this.pageSize();
+            const lastPage = Math.max(0, Math.ceil(all.length / pageSize) - 1);
+            const pageIndex = Math.min(this.pageIndex(), lastPage);
+            this.pageIndex.set(pageIndex);
+            this.users.set(
+                all.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
+            );
+            this.totalCount.set(all.length);
         } catch {
             this.users.set([]);
             this.totalCount.set(0);

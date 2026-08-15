@@ -514,14 +514,10 @@ export class LogisticsAdminService {
     }
 
     /**
-     * Drivers currently eligible to take a load out of `hubId`.
-     *
-     * `hubId` is RBAC scoping only: `ListEligibleDriversQueryHandler` reads
-     * every active `driver` account and never looks at the hub, because no
-     * driver↔hub relation exists — a driver only meets a hub through a
-     * delivery route (`DeliveryRoute.HubId` + `DriverUserId`). Callers pass the
-     * hub they are working from, so the result narrows on its own the day the
-     * backend does filter.
+     * Active drivers assigned to `hubId`. The backend returns the profile
+     * fields needed by dispatch (`userId`, `fullName`, `email`) together with
+     * role and active status, so this response is the authoritative picker
+     * source and does not need a second Admin-users join.
      */
     async getEligibleDrivers(hubId: string): Promise<CrudRow[]> {
         const res = await hubHandoverApi.apiV1HubsHubIdDriversEligibleGetRaw({
@@ -531,7 +527,11 @@ export class LogisticsAdminService {
             extractList(await parseJson(res.raw)),
             'driverUserId',
             'userId'
-        );
+        ).sort((left, right) => {
+            const label = (row: CrudRow): string =>
+                String(row['fullName'] ?? row['email'] ?? row.id).trim();
+            return label(left).localeCompare(label(right), 'vi');
+        });
     }
 
     /**

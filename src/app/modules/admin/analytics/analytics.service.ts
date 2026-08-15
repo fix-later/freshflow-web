@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { extractList, parseJson, unwrapData } from 'app/core/api/envelope';
-import { analyticsApi } from 'contract';
+import { analyticsApi, marketsApi } from 'contract';
 
 /**
  * A `{ label, value }` pair extracted from any of the untyped analytics
@@ -12,9 +12,12 @@ export interface AnalyticsPoint {
     value: number;
 }
 
-/** Untyped KPI snapshot from `GET /analytics/overview`. */
-export interface AnalyticsOverview {
-    [key: string]: unknown;
+export interface OrderMetricsResult {
+    points: AnalyticsPoint[];
+    totalOrders: number;
+    totalRevenue: number;
+    pendingOrders: number;
+    cancelledOrders: number;
 }
 
 export interface AnalyticsActivity {
@@ -64,6 +67,7 @@ const LABEL_KEYS = [
     'period',
     'bucket',
     'hour',
+    'hourOfDay',
     'marketName',
     'hubName',
     'status',
@@ -113,13 +117,33 @@ function pickNumber(row: Record<string, unknown>, keys: string[]): number {
  * label *and* value are both missing are dropped so a shape mismatch renders
  * an empty chart rather than a row of zeroes.
  */
-function toSeries(body: unknown): AnalyticsPoint[] {
+function toSeries(
+    body: unknown,
+    labelKeys = LABEL_KEYS,
+    valueKeys = VALUE_KEYS
+): AnalyticsPoint[] {
     return extractList<Record<string, unknown>>(body)
         .map((row) => ({
-            label: pick(row, LABEL_KEYS),
-            value: pickNumber(row, VALUE_KEYS),
+            label: pick(row, labelKeys),
+            value: pickNumber(row, valueKeys),
         }))
         .filter((point) => point.label !== '' || point.value !== 0);
+}
+
+function dataRecord(body: unknown): Record<string, unknown> {
+    return unwrapData<Record<string, unknown>>(body) ?? {};
+}
+
+function statusPoints(value: unknown): AnalyticsPoint[] {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        return [];
+    }
+    return Object.entries(value as Record<string, unknown>)
+        .map(([label, count]) => ({
+            label,
+            value: Number(count),
+        }))
+        .filter((point) => Number.isFinite(point.value));
 }
 
 /**
@@ -157,24 +181,41 @@ export function isoDate(date: Date): string {
  */
 @Injectable({ providedIn: 'root' })
 export class AnalyticsService {
-    async getOverview(date?: string): Promise<AnalyticsOverview> {
-        const res = await analyticsApi.apiV1AnalyticsOverviewGetRaw({
-            date: date ? new Date(date) : undefined,
-        });
-        return unwrapData<AnalyticsOverview>(await parseJson(res.raw)) ?? {};
-    }
+    private _priceTrendProductIds: string[] | null = null;
 
     async getOrderMetrics(
         from: string,
         to: string,
         groupBy = 'day'
-    ): Promise<AnalyticsPoint[]> {
+    ): Promise<OrderMetricsResult> {
         const res = await analyticsApi.apiV1AnalyticsOrderMetricsGetRaw({
             from: new Date(from),
             to: new Date(to),
             groupBy,
         });
-        return toSeries(await parseJson(res.raw));
+        const data = dataRecord(await parseJson(res.raw));
+        const summary =
+            data['summary'] &&
+            typeof data['summary'] === 'object' &&
+            !Array.isArray(data['summary'])
+                ? (data['summary'] as Record<string, unknown>)
+                : {};
+        const statusCounts =
+            summary['statusCounts'] &&
+            typeof summary['statusCounts'] === 'object' &&
+            !Array.isArray(summary['statusCounts'])
+                ? (summary['statusCounts'] as Record<string, unknown>)
+                : {};
+
+        return {
+            points: toSeries(data['buckets'], ['date'], ['orderCount']),
+            totalOrders: pickNumber(summary, ['totalOrders']),
+            totalRevenue: pickNumber(summary, ['totalRevenueVND']),
+            pendingOrders:
+                pickNumber(statusCounts, ['Draft']) +
+                pickNumber(statusCounts, ['Confirmed']),
+            cancelledOrders: pickNumber(summary, ['cancelledCount']),
+        };
     }
 
     async getProcurementMetrics(
@@ -185,7 +226,8 @@ export class AnalyticsService {
             from: new Date(from),
             to: new Date(to),
         });
-        return toSeries(await parseJson(res.raw));
+        const data = dataRecord(await parseJson(res.raw));
+        return statusPoints(data['statusCounts']);
     }
 
     async getHubThroughput(
@@ -196,7 +238,19 @@ export class AnalyticsService {
             from: new Date(from),
             to: new Date(to),
         });
-        return toSeries(await parseJson(res.raw));
+        const data = dataRecord(await parseJson(res.raw));
+        const buckets = Array.isArray(data['buckets'])
+            ? (data['buckets'] as Record<string, unknown>[])
+            : [];
+        const byHub = new Map<string, number>();
+        for (const bucket of buckets) {
+            const hubName = pick(bucket, ['hubName', 'hubId']) || '—';
+            const throughput =
+                pickNumber(bucket, ['inboundKg']) +
+                pickNumber(bucket, ['outboundKg']);
+            byHub.set(hubName, (byHub.get(hubName) ?? 0) + throughput);
+        }
+        return [...byHub].map(([label, value]) => ({ label, value }));
     }
 
     async getDeliveryPerformance(
@@ -207,20 +261,114 @@ export class AnalyticsService {
             from: new Date(from),
             to: new Date(to),
         });
-        return toSeries(await parseJson(res.raw));
+        const data = dataRecord(await parseJson(res.raw));
+        const totalDeliveries = pickNumber(data, ['totalDeliveries']);
+        if (totalDeliveries === 0) return [];
+        return [
+            {
+                label: 'onTime',
+                value: pickNumber(data, ['onTimeCount']),
+            },
+            {
+                label: 'late',
+                value: pickNumber(data, ['lateCount']),
+            },
+            {
+                label: 'failed',
+                value: pickNumber(data, ['failedCount']),
+            },
+        ];
     }
 
     async getPriceTrends(
         from: string,
         to: string,
-        interval = 'day'
+        interval = 'daily'
     ): Promise<AnalyticsPoint[]> {
+        const marketProductId = await this._getPriceTrendProductIds();
+        if (!marketProductId.length) {
+            return [];
+        }
         const res = await analyticsApi.apiV1AnalyticsPriceTrendsGetRaw({
             from: new Date(from),
             to: new Date(to),
+            marketProductId,
             interval,
         });
-        return toSeries(await parseJson(res.raw));
+        const data = dataRecord(await parseJson(res.raw));
+        const series = Array.isArray(data['series'])
+            ? (data['series'] as Record<string, unknown>[])
+            : [];
+        return series
+            .map((row) => {
+                const summary =
+                    row['summary'] &&
+                    typeof row['summary'] === 'object' &&
+                    !Array.isArray(row['summary'])
+                        ? (row['summary'] as Record<string, unknown>)
+                        : {};
+                return {
+                    label:
+                        [row['productName'], row['marketName']]
+                            .filter(Boolean)
+                            .map(String)
+                            .join(' · ') || '—',
+                    value: pickNumber(summary, ['avgPrice']),
+                };
+            })
+            .filter((point) => point.value > 0);
+    }
+
+    /**
+     * Price analytics requires 1–10 listing ids. Pick up to ten active
+     * listings from active markets and cache them for later range changes;
+     * calling the endpoint without these ids is rejected by the backend.
+     */
+    private async _getPriceTrendProductIds(): Promise<string[]> {
+        if (this._priceTrendProductIds !== null) {
+            return this._priceTrendProductIds;
+        }
+
+        const marketsResponse = await marketsApi.apiV1MarketsGetRaw({
+            activeOnly: true,
+        });
+        const markets = extractList<Record<string, unknown>>(
+            await parseJson(marketsResponse.raw)
+        );
+        const ids: string[] = [];
+
+        for (const market of markets) {
+            if (ids.length >= 10) {
+                break;
+            }
+            const marketId = pick(market, ['marketId', 'id']);
+            if (!marketId) {
+                continue;
+            }
+            const productsResponse =
+                await marketsApi.apiV1MarketsMarketIdProductsGetRaw({
+                    marketId,
+                    pageSize: 10 - ids.length,
+                });
+            const products = extractList<Record<string, unknown>>(
+                await parseJson(productsResponse.raw)
+            );
+            for (const product of products) {
+                if (product['isActive'] === false) {
+                    continue;
+                }
+                const id = pick(product, ['marketProductId', 'id']);
+                if (id && !ids.includes(id)) {
+                    ids.push(id);
+                }
+                if (ids.length >= 10) {
+                    break;
+                }
+            }
+        }
+
+        this._priceTrendProductIds = ids;
+        return ids;
     }
 
     async getDemandHeatmap(from: string, to: string): Promise<HeatmapSeries[]> {
@@ -239,7 +387,21 @@ export class AnalyticsService {
             await analyticsApi.apiV1AnalyticsDemandHeatmapTimeDistributionGetRaw(
                 { from: new Date(from), to: new Date(to) }
             );
-        return toSeries(await parseJson(res.raw));
+        const rows = extractList<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        const byHour = new Map<number, number>();
+        for (const row of rows) {
+            const hour = pickNumber(row, ['hourOfDay', 'hour']);
+            const orderCount = pickNumber(row, ['orderCount', 'count']);
+            byHour.set(hour, (byHour.get(hour) ?? 0) + orderCount);
+        }
+        return [...byHour]
+            .sort(([left], [right]) => left - right)
+            .map(([hour, value]) => ({
+                label: hour.toString().padStart(2, '0') + ':00',
+                value,
+            }));
     }
 
     async getRecentActivities(pageSize = 10): Promise<AnalyticsActivity[]> {

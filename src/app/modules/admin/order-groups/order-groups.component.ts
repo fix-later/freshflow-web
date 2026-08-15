@@ -100,6 +100,30 @@ const KNOWN_SKIP_REASONS = new Set([
 ]);
 
 const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
+const UNASSIGNED_AGENT_ID = '00000000-0000-0000-0000-000000000000';
+
+export function procurementItemAssignments(
+    items: AdminBatchItem[],
+    selectedAgents: Record<string, string>
+): { marketProductId: string; agentUserId: string }[] {
+    return items
+        .filter((item) => !item.purchasedAt)
+        .map((item) => {
+            const marketProductId = String(item.marketProductId ?? '');
+            return {
+                marketProductId,
+                agentUserId:
+                    selectedAgents[marketProductId] || UNASSIGNED_AGENT_ID,
+            };
+        })
+        .filter((assignment) => !!assignment.marketProductId);
+}
+
+function driverOptionLabel(driver: CrudRow): string {
+    const name = String(driver['fullName'] ?? '').trim();
+    const email = String(driver['email'] ?? '').trim();
+    return name || email || `#${driver.id.slice(0, 8).toUpperCase()}`;
+}
 
 interface PlanningDay {
     iso: string;
@@ -266,7 +290,7 @@ export class OrderGroupsComponent implements OnInit {
     readonly historySummaryLoading = signal(false);
     readonly planningLoading = signal(false);
     readonly marketSessions = signal<AdminMarketSession[]>([]);
-    readonly planningWindowDays = signal(7);
+    readonly planningWindowDays = signal(8);
     readonly planningLoadFailed = signal(false);
     readonly planningActionError = signal<string | null>(null);
     readonly openingSessionId = signal<string | null>(null);
@@ -282,6 +306,23 @@ export class OrderGroupsComponent implements OnInit {
     readonly marketSessionTrackingPageSize = signal(20);
     readonly marketSessionTrackingTabIndex = signal(0);
     readonly expandedTrackingOrderIds = signal<ReadonlySet<string>>(new Set());
+    readonly marketSessionAssignmentBatch = signal<AdminOrderGroupRow | null>(
+        null
+    );
+    readonly marketSessionAssignmentLoading = signal(false);
+    readonly marketSessionAssignmentSaving = signal(false);
+    readonly marketSessionAssignmentError = signal<string | null>(null);
+    readonly marketSessionItemAssignments = signal<Record<string, string>>({});
+    readonly marketSessionAgentOptions = computed(() => {
+        const selectedIds = new Set(
+            (this.trackedMarketSession()?.agentUserIds ?? []).map((id) =>
+                id.toLowerCase()
+            )
+        );
+        return this.agents().filter((agent) =>
+            selectedIds.has(agent.id.toLowerCase())
+        );
+    });
     readonly routeCriteriaOptions = OPTIMIZATION_CRITERIA;
     readonly routeCriteria = new FormControl<OptimizationCriterion>(
         'distance',
@@ -385,7 +426,7 @@ export class OrderGroupsComponent implements OnInit {
         .setZone(VIETNAM_ZONE)
         .startOf('day');
     readonly tomorrowDate = this._localToday.plus({ days: 1 });
-    readonly planningDate = signal<DateTime>(this.tomorrowDate);
+    readonly planningDate = signal<DateTime>(this._localToday);
 
     /**
      * Server-side batching progress (`GET /admin/order-groups/progress`).
@@ -421,7 +462,7 @@ export class OrderGroupsComponent implements OnInit {
     readonly planningDays = computed<PlanningDay[]>(() => {
         const dates = new Set<string>();
         for (let offset = 0; offset < this.planningWindowDays(); offset += 1) {
-            const iso = this.tomorrowDate.plus({ days: offset }).toISODate();
+            const iso = this._localToday.plus({ days: offset }).toISODate();
             if (iso) {
                 dates.add(iso);
             }
@@ -733,6 +774,9 @@ export class OrderGroupsComponent implements OnInit {
         this.marketSessionTrackingError.set(false);
         this.marketSessionTrackingPageIndex.set(0);
         this.expandedTrackingOrderIds.set(new Set());
+        this.marketSessionAssignmentBatch.set(null);
+        this.marketSessionItemAssignments.set({});
+        this.marketSessionAssignmentError.set(null);
         this.marketSessionRoutePlan.set(null);
         this.marketSessionRoutes.set([]);
         this.marketSessionRoutesError.set(null);
@@ -776,6 +820,9 @@ export class OrderGroupsComponent implements OnInit {
                             : item
                     )
                 );
+                void this._loadMarketSessionAssignmentBatch(
+                    tracking.batch?.id ?? null
+                );
                 void this.loadMarketSessionRoutes();
             })
             .catch(() => this.marketSessionTrackingError.set(true))
@@ -789,6 +836,164 @@ export class OrderGroupsComponent implements OnInit {
             this._startMarketSessionRoutePolling();
         } else {
             this._stopMarketSessionRoutePolling();
+        }
+    }
+
+    marketSessionBatchItem(
+        marketProductId: string | null | undefined
+    ): AdminBatchItem | null {
+        const items = this.marketSessionAssignmentBatch()?.['items'];
+        if (!Array.isArray(items)) return null;
+        const id = String(marketProductId ?? '');
+        return (
+            (items.find(
+                (item) =>
+                    String((item as AdminBatchItem).marketProductId ?? '') ===
+                    id
+            ) as AdminBatchItem | undefined) ?? null
+        );
+    }
+
+    marketSessionItemAssignment(
+        marketProductId: string | null | undefined
+    ): string {
+        return (
+            this.marketSessionItemAssignments()[
+                String(marketProductId ?? '')
+            ] ?? ''
+        );
+    }
+
+    setMarketSessionItemAssignment(
+        marketProductId: string | null | undefined,
+        agentUserId: string
+    ): void {
+        const id = String(marketProductId ?? '');
+        if (!id) return;
+        this.marketSessionItemAssignments.update((assignments) => ({
+            ...assignments,
+            [id]: agentUserId,
+        }));
+        this.marketSessionAssignmentError.set(null);
+    }
+
+    marketSessionAgentLabel(agent: AdminUserRow): string {
+        return agent.fullName?.trim() || agent.email || agent.id;
+    }
+
+    canEditMarketSessionAssignments(
+        batch: AdminOrderGroupRow | null = this.marketSessionAssignmentBatch()
+    ): boolean {
+        const status = String(batch?.status ?? '').toLowerCase();
+        return ['built', 'manifested', 'purchasing'].includes(status);
+    }
+
+    marketSessionHasAssignableItems(
+        batch: AdminOrderGroupRow | null = this.marketSessionAssignmentBatch()
+    ): boolean {
+        const items = batch?.['items'];
+        return (
+            Array.isArray(items) &&
+            items.some(
+                (item) =>
+                    !!String((item as AdminBatchItem).marketProductId ?? '') &&
+                    !(item as AdminBatchItem).purchasedAt
+            )
+        );
+    }
+
+    async saveMarketSessionItemAssignments(): Promise<void> {
+        const batch = this.marketSessionAssignmentBatch();
+        const batchId = batch ? this.batchIdOf(batch) : '';
+        if (
+            !batchId ||
+            !this.canEditMarketSessionAssignments(batch) ||
+            !this.marketSessionHasAssignableItems(batch) ||
+            this.marketSessionAssignmentSaving()
+        ) {
+            return;
+        }
+
+        const items = batch?.['items'];
+        if (!Array.isArray(items)) return;
+        const assignments = procurementItemAssignments(
+            items as AdminBatchItem[],
+            this.marketSessionItemAssignments()
+        );
+
+        this.marketSessionAssignmentSaving.set(true);
+        this.marketSessionAssignmentError.set(null);
+        try {
+            if (String(batch.status ?? '').toLowerCase() === 'built') {
+                await this._admin.generateManifest(batchId);
+            }
+            await this._admin.assignBatchItems(batchId, assignments);
+            this._notifyKey(
+                'admin.orderGroups.marketSessions.procurement.saveSuccess'
+            );
+            await this._loadMarketSessionAssignmentBatch(batchId);
+            this._load();
+            this.refreshMarketSessionTracking();
+        } catch (err) {
+            const message = await describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'admin.orderGroups.marketSessions.procurement.saveError'
+            );
+            this.marketSessionAssignmentError.set(message);
+            this._snackBar.open(message, undefined, { duration: 5000 });
+        } finally {
+            this.marketSessionAssignmentSaving.set(false);
+        }
+    }
+
+    private async _loadMarketSessionAssignmentBatch(
+        batchId: string | null
+    ): Promise<void> {
+        if (!batchId) {
+            this.marketSessionAssignmentBatch.set(null);
+            this.marketSessionItemAssignments.set({});
+            this.marketSessionAssignmentError.set(null);
+            return;
+        }
+
+        this.marketSessionAssignmentLoading.set(true);
+        this.marketSessionAssignmentError.set(null);
+        try {
+            const batch = await this._admin.getOrderGroup(batchId);
+            if (this.marketSessionTracking()?.batch?.id !== batchId) return;
+            if (!batch) {
+                throw new Error('PROCUREMENT_BATCH_NOT_FOUND');
+            }
+            this.marketSessionAssignmentBatch.set(batch);
+            const assignments: Record<string, string> = {};
+            const items = batch['items'];
+            if (Array.isArray(items)) {
+                for (const rawItem of items) {
+                    const item = rawItem as AdminBatchItem;
+                    const marketProductId = String(item.marketProductId ?? '');
+                    if (marketProductId) {
+                        assignments[marketProductId] = String(
+                            item.assignedAgentUserId ?? ''
+                        );
+                    }
+                }
+            }
+            this.marketSessionItemAssignments.set(assignments);
+        } catch (err) {
+            if (this.marketSessionTracking()?.batch?.id !== batchId) return;
+            const message = await describeApiError(
+                err,
+                (key) => this._transloco.translate(key),
+                'admin.orderGroups.marketSessions.procurement.loadError'
+            );
+            this.marketSessionAssignmentError.set(message);
+            this.marketSessionAssignmentBatch.set(null);
+            this.marketSessionItemAssignments.set({});
+        } finally {
+            if (this.marketSessionTracking()?.batch?.id === batchId) {
+                this.marketSessionAssignmentLoading.set(false);
+            }
         }
     }
 
@@ -1669,9 +1874,7 @@ export class OrderGroupsComponent implements OnInit {
 
     /** Label for a driver row, falling back to the id when unnamed. */
     driverLabel(driver: CrudRow): string {
-        const name = String(driver['fullName'] ?? '').trim();
-        const email = String(driver['email'] ?? '').trim();
-        return name || email || `#${this.shortOrderId(driver.id)}`;
+        return driverOptionLabel(driver);
     }
 
     vehicleLabel(vehicle: CrudRow): string {
@@ -1699,6 +1902,15 @@ export class OrderGroupsComponent implements OnInit {
         ]);
         this.dispatchVehicles.set(vehicles);
         this.dispatchDrivers.set(drivers);
+        // A route may still reference a driver who has since been removed from
+        // this hub's roster. Do not keep that stale id invisibly selected: the
+        // operator must choose from the current market/hub driver list.
+        if (
+            this.dispatchDriverId() &&
+            !drivers.some((driver) => driver.id === this.dispatchDriverId())
+        ) {
+            this.dispatchDriverId.set('');
+        }
         this.handovers.set(handovers);
     }
 
@@ -1959,6 +2171,11 @@ export class OrderGroupsComponent implements OnInit {
     }
 
     planningDayLabel(day: PlanningDay): string {
+        if (day.iso === this._localToday.toISODate()) {
+            return this._transloco.translate(
+                'admin.orderGroups.planning.today'
+            );
+        }
         if (day.iso === this.tomorrowDate.toISODate()) {
             return this._transloco.translate(
                 'admin.orderGroups.planning.tomorrow'
@@ -2634,19 +2851,22 @@ export class OrderGroupsComponent implements OnInit {
         this.planningLoading.set(true);
         this.planningLoadFailed.set(false);
         try {
-            const from = this.tomorrowDate.toISODate() ?? undefined;
+            const from = this._localToday.toISODate() ?? undefined;
             // operations_manager may list sessions but BE deliberately denies
             // operational settings. Admin uses the configured window; read-only
-            // roles query all future sessions and infer the visible range.
+            // roles query all current/future sessions and infer the visible range.
             const settings = await this._admin
                 .getOperationalSettings()
                 .catch(() => null);
-            let windowDays = Math.min(
+            const futureWindowDays = Math.min(
                 30,
                 Math.max(1, Number(settings?.deliveryWindowDays) || 7)
             );
+            let visibleWindowDays = futureWindowDays + 1;
             const to = settings
-                ? this.tomorrowDate.plus({ days: windowDays - 1 }).toISODate()
+                ? this.tomorrowDate
+                      .plus({ days: futureWindowDays - 1 })
+                      .toISODate()
                 : null;
             const sessions = await this._admin.getMarketSessions({
                 from,
@@ -2664,18 +2884,18 @@ export class OrderGroupsComponent implements OnInit {
                     zone: VIETNAM_ZONE,
                 });
                 if (lastDay.isValid) {
-                    windowDays = Math.min(
-                        30,
+                    visibleWindowDays = Math.min(
+                        31,
                         Math.max(
                             1,
                             Math.floor(
-                                lastDay.diff(this.tomorrowDate, 'days').days
+                                lastDay.diff(this._localToday, 'days').days
                             ) + 1
                         )
                     );
                 }
             }
-            this.planningWindowDays.set(windowDays);
+            this.planningWindowDays.set(visibleWindowDays);
             this.marketSessions.set(
                 [...sessions].sort(
                     (left, right) =>

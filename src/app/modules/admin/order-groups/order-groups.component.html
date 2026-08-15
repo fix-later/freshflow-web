@@ -2116,6 +2116,346 @@
                                 </div>
                             </section>
 
+                            <section
+                                class="overflow-hidden rounded-2xl border"
+                                data-testid="market-session-procurement-assignment"
+                            >
+                                <div
+                                    class="flex flex-col justify-between gap-3 border-b bg-gray-50 px-4 py-3 dark:bg-gray-950 sm:flex-row sm:items-center"
+                                >
+                                    <div>
+                                        <div class="font-bold">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.procurement.title'
+                                                )
+                                            }}
+                                        </div>
+                                        <p class="text-secondary mt-1 text-sm">
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.procurement.hint'
+                                                )
+                                            }}
+                                        </p>
+                                    </div>
+                                    @if (tracking.batch; as trackedBatch) {
+                                        <div
+                                            class="flex flex-none items-center gap-2 text-xs"
+                                        >
+                                            <span
+                                                class="font-mono font-semibold"
+                                            >
+                                                {{
+                                                    trackedBatch.code ||
+                                                        trackedBatch.id
+                                                }}
+                                            </span>
+                                            <span
+                                                class="rounded-full border px-2.5 py-1 font-bold"
+                                            >
+                                                {{
+                                                    statusLabel(
+                                                        trackedBatch.status
+                                                    )
+                                                }}
+                                            </span>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (!tracking.batch) {
+                                    <div
+                                        class="flex items-start gap-3 p-4 text-sm text-amber-800 dark:text-amber-200"
+                                    >
+                                        <mat-icon
+                                            class="mt-0.5 flex-none icon-size-5"
+                                            svgIcon="heroicons_outline:clock"
+                                        ></mat-icon>
+                                        <span>{{
+                                            t(
+                                                'admin.orderGroups.marketSessions.procurement.noBatch'
+                                            )
+                                        }}</span>
+                                    </div>
+                                } @else if (
+                                    marketSessionAssignmentLoading() &&
+                                    !marketSessionAssignmentBatch()
+                                ) {
+                                    <div
+                                        class="flex items-center gap-3 p-5 text-sm"
+                                    >
+                                        <mat-icon
+                                            class="animate-spin text-primary icon-size-5"
+                                            svgIcon="heroicons_outline:arrow-path"
+                                        ></mat-icon>
+                                        <span>{{
+                                            t(
+                                                'admin.orderGroups.marketSessions.procurement.loading'
+                                            )
+                                        }}</span>
+                                    </div>
+                                } @else if (
+                                    marketSessionAssignmentBatch();
+                                    as assignmentBatch
+                                ) {
+                                    @if (!marketSessionAgentOptions().length) {
+                                        <div
+                                            class="border-b border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.procurement.noAgents'
+                                                )
+                                            }}
+                                        </div>
+                                    }
+                                    @if (
+                                        marketSessionAssignmentError();
+                                        as assignmentError
+                                    ) {
+                                        <div
+                                            class="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                                        >
+                                            {{ assignmentError }}
+                                        </div>
+                                    }
+                                    @if (
+                                        assignmentBatch.status?.toLowerCase() ===
+                                        'built'
+                                    ) {
+                                        <div
+                                            class="border-b border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-200"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.procurement.autoManifest'
+                                                )
+                                            }}
+                                        </div>
+                                    }
+
+                                    <div class="divide-y">
+                                        @for (
+                                            product of tracking.products;
+                                            track product.marketProductId
+                                        ) {
+                                            @if (
+                                                marketSessionBatchItem(
+                                                    product.marketProductId
+                                                );
+                                                as batchItem
+                                            ) {
+                                                <div
+                                                    class="grid items-center gap-3 px-4 py-3 md:grid-cols-[minmax(0,1fr)_minmax(15rem,22rem)]"
+                                                >
+                                                    <div class="min-w-0">
+                                                        <div
+                                                            class="flex flex-wrap items-center gap-2"
+                                                        >
+                                                            <strong
+                                                                class="truncate"
+                                                                >{{
+                                                                    product.productName
+                                                                }}</strong
+                                                            >
+                                                            @if (
+                                                                batchItem.purchasedAt
+                                                            ) {
+                                                                <span
+                                                                    class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:bg-emerald-950 dark:text-emerald-200"
+                                                                    >{{
+                                                                        t(
+                                                                            'admin.orderGroups.marketSessions.procurement.purchased'
+                                                                        )
+                                                                    }}</span
+                                                                >
+                                                            }
+                                                        </div>
+                                                        <div
+                                                            class="text-secondary mt-1 text-xs"
+                                                        >
+                                                            {{
+                                                                product.totalQuantity
+                                                            }}
+                                                            {{
+                                                                trackingProductUnit(
+                                                                    product
+                                                                ) ||
+                                                                    t(
+                                                                        'admin.orderGroups.marketSessions.tracking.unknownUnit'
+                                                                    )
+                                                            }}
+                                                            ·
+                                                            {{
+                                                                product.orderCount
+                                                            }}
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.tracking.ordersUnit'
+                                                                )
+                                                            }}
+                                                        </div>
+                                                    </div>
+
+                                                    <mat-form-field
+                                                        class="w-full"
+                                                        subscriptSizing="dynamic"
+                                                    >
+                                                        <mat-label>{{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.procurement.agent'
+                                                            )
+                                                        }}</mat-label>
+                                                        <mat-select
+                                                            [value]="
+                                                                marketSessionItemAssignment(
+                                                                    product.marketProductId
+                                                                )
+                                                            "
+                                                            [disabled]="
+                                                                !!batchItem.purchasedAt ||
+                                                                !canEditMarketSessionAssignments(
+                                                                    assignmentBatch
+                                                                ) ||
+                                                                marketSessionAssignmentSaving()
+                                                            "
+                                                            (selectionChange)="
+                                                                setMarketSessionItemAssignment(
+                                                                    product.marketProductId,
+                                                                    $event.value
+                                                                )
+                                                            "
+                                                        >
+                                                            <mat-option
+                                                                value=""
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.orderGroups.marketSessions.procurement.unassigned'
+                                                                    )
+                                                                }}
+                                                            </mat-option>
+                                                            @for (
+                                                                agent of marketSessionAgentOptions();
+                                                                track agent.id
+                                                            ) {
+                                                                <mat-option
+                                                                    [value]="
+                                                                        agent.id
+                                                                    "
+                                                                >
+                                                                    {{
+                                                                        marketSessionAgentLabel(
+                                                                            agent
+                                                                        )
+                                                                    }}
+                                                                    @if (
+                                                                        agent.fullName &&
+                                                                        agent.email
+                                                                    ) {
+                                                                        ·
+                                                                        {{
+                                                                            agent.email
+                                                                        }}
+                                                                    }
+                                                                </mat-option>
+                                                            }
+                                                        </mat-select>
+                                                    </mat-form-field>
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+
+                                    <div
+                                        class="flex flex-col justify-between gap-3 border-t bg-gray-50 px-4 py-3 dark:bg-gray-950 sm:flex-row sm:items-center"
+                                    >
+                                        <span class="text-secondary text-xs">
+                                            {{
+                                                canEditMarketSessionAssignments(
+                                                    assignmentBatch
+                                                )
+                                                    ? t(
+                                                          'admin.orderGroups.marketSessions.procurement.saveHint'
+                                                      )
+                                                    : t(
+                                                          'admin.orderGroups.marketSessions.procurement.readOnly'
+                                                      )
+                                            }}
+                                        </span>
+                                        <button
+                                            mat-flat-button
+                                            color="primary"
+                                            type="button"
+                                            data-testid="market-session-procurement-save"
+                                            [disabled]="
+                                                marketSessionAssignmentSaving() ||
+                                                !canEditMarketSessionAssignments(
+                                                    assignmentBatch
+                                                ) ||
+                                                !marketSessionHasAssignableItems(
+                                                    assignmentBatch
+                                                ) ||
+                                                !marketSessionAgentOptions()
+                                                    .length
+                                            "
+                                            (click)="
+                                                saveMarketSessionItemAssignments()
+                                            "
+                                        >
+                                            @if (
+                                                marketSessionAssignmentSaving()
+                                            ) {
+                                                <mat-icon
+                                                    class="animate-spin"
+                                                    svgIcon="heroicons_outline:arrow-path"
+                                                ></mat-icon>
+                                            } @else {
+                                                <mat-icon
+                                                    svgIcon="heroicons_outline:user-plus"
+                                                ></mat-icon>
+                                            }
+                                            <span class="ml-2">{{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.procurement.save'
+                                                )
+                                            }}</span>
+                                        </button>
+                                    </div>
+                                } @else {
+                                    <div
+                                        class="flex items-start gap-3 p-4 text-sm text-red-700 dark:text-red-200"
+                                    >
+                                        <mat-icon
+                                            class="mt-0.5 flex-none icon-size-5"
+                                            svgIcon="heroicons_outline:exclamation-triangle"
+                                        ></mat-icon>
+                                        <div class="flex-auto">
+                                            {{
+                                                marketSessionAssignmentError() ||
+                                                    t(
+                                                        'admin.orderGroups.marketSessions.procurement.loadError'
+                                                    )
+                                            }}
+                                        </div>
+                                        <button
+                                            mat-stroked-button
+                                            type="button"
+                                            (click)="
+                                                refreshMarketSessionTracking()
+                                            "
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.tracking.retry'
+                                                )
+                                            }}
+                                        </button>
+                                    </div>
+                                }
+                            </section>
+
                             @if (tracking.products.length) {
                                 <section
                                     class="overflow-hidden rounded-2xl border"
@@ -3440,10 +3780,22 @@
                                                                 reason of eligibility.reasons;
                                                                 track reason
                                                             ) {
-                                                                <p class="mt-1">
-                                                                    ·
-                                                                    {{ reason }}
-                                                                </p>
+                                                                @if (
+                                                                    reason !==
+                                                                    'ROUTE_WEIGHT_INCOMPLETE'
+                                                                ) {
+                                                                    <p
+                                                                        class="mt-1"
+                                                                    >
+                                                                        ·
+                                                                        {{
+                                                                            t(
+                                                                                'admin.routes.eligibility.reasons.' +
+                                                                                    reason
+                                                                            )
+                                                                        }}
+                                                                    </p>
+                                                                }
                                                             }
                                                             <!-- A route whose
                                                                  lines have no

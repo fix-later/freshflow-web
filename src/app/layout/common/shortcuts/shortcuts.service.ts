@@ -27,11 +27,11 @@ const DEFAULT_SHORTCUTS: Shortcut[] = [
         useRouter: true,
     },
     {
-        id: 'audit-logs',
-        label: 'Nhật ký',
-        description: 'Lịch sử thao tác hệ thống',
-        icon: 'heroicons_outline:document-text',
-        link: '/admin/audit-logs',
+        id: 'analysis',
+        label: 'Phân tích',
+        description: 'Chỉ số và xu hướng vận hành',
+        icon: 'heroicons_outline:chart-bar-square',
+        link: '/admin',
         useRouter: true,
     },
 ];
@@ -118,7 +118,13 @@ export class ShortcutsService {
             }
             const parsed = JSON.parse(stored) as Shortcut[];
             // A hand-edited or truncated entry must not blank the panel.
-            return Array.isArray(parsed) ? parsed : [...DEFAULT_SHORTCUTS];
+            return Array.isArray(parsed)
+                ? parsed.filter(
+                      (shortcut) =>
+                          shortcut.id !== 'audit-logs' &&
+                          shortcut.link !== '/admin/audit-logs'
+                  )
+                : [...DEFAULT_SHORTCUTS];
         } catch {
             return [...DEFAULT_SHORTCUTS];
         }
