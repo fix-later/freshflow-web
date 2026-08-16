@@ -54,6 +54,43 @@
             </div>
 
             <div class="mt-4 flex flex-wrap items-end gap-3">
+                @if (showStaffAssignment()) {
+                    <mat-form-field
+                        class="fuse-mat-dense w-56"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{ t('admin.staff.place') }}</mat-label>
+                        <mat-select formControlName="staffPlace">
+                            <mat-option value="">{{
+                                t('admin.staff.all')
+                            }}</mat-option>
+                            @for (place of staffPlaceOptions(); track place) {
+                                <mat-option [value]="place">{{
+                                    place
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field
+                        class="fuse-mat-dense w-48"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{ t('admin.staff.assignment') }}</mat-label>
+                        <mat-select formControlName="staffAssignment">
+                            <mat-option value="">{{
+                                t('admin.staff.all')
+                            }}</mat-option>
+                            <mat-option value="assigned">{{
+                                t('admin.staff.assigned')
+                            }}</mat-option>
+                            <mat-option value="unassigned">{{
+                                t('admin.staff.unassigned')
+                            }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                }
+
                 <mat-form-field
                     class="fuse-mat-dense w-48"
                     subscriptSizing="dynamic"
@@ -148,6 +185,9 @@
                     <div class="grid">
                         <div
                             class="users-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                            [class.users-grid-with-place]="
+                                showStaffAssignment()
+                            "
                         >
                             @for (
                                 col of [
@@ -159,9 +199,59 @@
                                         key: 'role',
                                         label: 'admin.users.table.role',
                                     },
+                                ];
+                                track col.key
+                            ) {
+                                <div [attr.aria-sort]="sort.ariaSort(col.key)">
+                                    <button
+                                        type="button"
+                                        class="admin-sort-header"
+                                        (click)="sort.toggle(col.key)"
+                                    >
+                                        {{ t(col.label) }}
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [class.text-accent]="
+                                                sort.key() === col.key
+                                            "
+                                            [svgIcon]="
+                                                'heroicons_outline:' +
+                                                sort.icon(col.key)
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            }
+                            @if (showStaffAssignment()) {
+                                <div
+                                    [attr.aria-sort]="
+                                        sort.ariaSort('placeLabel')
+                                    "
+                                >
+                                    <button
+                                        type="button"
+                                        class="admin-sort-header"
+                                        (click)="sort.toggle('placeLabel')"
+                                    >
+                                        {{ t('admin.staff.place') }}
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [class.text-accent]="
+                                                sort.key() === 'placeLabel'
+                                            "
+                                            [svgIcon]="
+                                                'heroicons_outline:' +
+                                                sort.icon('placeLabel')
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            }
+                            @for (
+                                col of [
                                     {
-                                        key: 'restaurantName',
-                                        label: 'admin.users.table.restaurant',
+                                        key: 'phone',
+                                        label: 'admin.users.table.phone',
                                     },
                                     {
                                         key: 'status',
@@ -201,15 +291,38 @@
                         ) {
                             <div
                                 class="users-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                                [class.users-grid-with-place]="
+                                    showStaffAssignment()
+                                "
                             >
-                                <div class="min-w-0 truncate font-medium">
-                                    {{ user.email || user.id }}
+                                <div
+                                    class="flex min-w-0 items-center gap-3 font-medium"
+                                >
+                                    <admin-user-avatar
+                                        [avatarUrl]="user.avatarUrl"
+                                        [label]="
+                                            user.fullName ||
+                                            user.email ||
+                                            user.id
+                                        "
+                                    />
+                                    <span class="min-w-0 truncate">{{
+                                        user.email || user.id
+                                    }}</span>
                                 </div>
                                 <div class="truncate">
                                     {{ (user.role | roleLabel) || '—' }}
                                 </div>
+                                @if (showStaffAssignment()) {
+                                    <div
+                                        class="truncate"
+                                        [title]="user['placeLabel'] || ''"
+                                    >
+                                        {{ user['placeLabel'] || '—' }}
+                                    </div>
+                                }
                                 <div class="truncate">
-                                    {{ user.restaurantName || '—' }}
+                                    {{ user.phone || '—' }}
                                 </div>
                                 <div>
                                     @if (user.isActive) {

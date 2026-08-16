@@ -30,6 +30,9 @@ export const CLAIM_ELIGIBLE_ORDER_STATUSES = ['at_hub', 'delivered'] as const;
 /** `FileClaimCommandValidator.Reason` — `NotEmpty().MaximumLength(500)`. */
 export const CLAIM_REASON_MAX_LENGTH = 500;
 
+/** `FileClaimCommandValidator.ProofImageUrl.MaximumLength(2_000)`. */
+export const CLAIM_PROOF_IMAGE_URL_MAX_LENGTH = 2000;
+
 /** Largest `pageSize` `ListClaimsQueryValidator` accepts (`InclusiveBetween(1, 100)`). */
 export const CLAIM_PAGE_SIZE = 50;
 
@@ -42,6 +45,8 @@ export interface ClaimRow {
     restaurantId?: string | null;
     amount?: number | null;
     reason?: string | null;
+    /** Optional Cloudinary photo supplied by the restaurant as evidence. */
+    proofImageUrl?: string | null;
     status?: string | null;
     createdBy?: string | null;
     createdAt?: string | null;

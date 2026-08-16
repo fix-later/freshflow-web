@@ -23,6 +23,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
+import { isImageFile } from 'app/core/api/cloudinary-upload';
 import { describeApiError } from 'app/core/api/error-codes';
 import {
     applyApiErrorToForm,
@@ -39,6 +40,7 @@ import { AccountShellComponent } from 'app/modules/restaurant/account-shell/acco
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
 import {
     CLAIM_ELIGIBLE_ORDER_STATUSES,
+    CLAIM_PROOF_IMAGE_URL_MAX_LENGTH,
     CLAIM_REASON_MAX_LENGTH,
 } from '../../claims.types';
 import { OrdersService } from '../../orders.service';
@@ -182,6 +184,8 @@ export class OrderDetailComponent implements OnInit {
      */
     readonly claimOpen = signal(false);
     readonly claimError = signal<string | null>(null);
+    readonly claimProofImageUrl = signal<string | null>(null);
+    readonly claimProofUploading = signal(false);
     readonly claimForm = this._fb.group({
         amount: this._fb.control<number | null>(null, {
             // `GreaterThan(0m)` in the validator; the handler adds "not more
@@ -226,18 +230,66 @@ export class OrderDetailComponent implements OnInit {
 
     openClaim(): void {
         this.claimError.set(null);
+        this.claimProofImageUrl.set(null);
         this.claimForm.reset({ amount: null, reason: '' });
         this.claimOpen.set(true);
     }
 
     closeClaim(): void {
+        if (this.claimProofUploading()) {
+            return;
+        }
         this.claimOpen.set(false);
+        this.claimProofImageUrl.set(null);
         this.claimForm.reset({ amount: null, reason: '' });
+    }
+
+    /** Uploads the selected evidence image while keeping the claim as a draft. */
+    async onClaimProofPicked(event: Event): Promise<void> {
+        const input = event.target as HTMLInputElement;
+        const file = input.files?.[0];
+        input.value = '';
+        const orderId = this.order()?.id;
+        if (!file || !orderId || this.claimProofUploading()) {
+            return;
+        }
+        if (!isImageFile(file)) {
+            this.claimError.set(
+                this._transloco.translate('claims.proofNotAnImage')
+            );
+            return;
+        }
+
+        this.claimError.set(null);
+        this.claimProofUploading.set(true);
+        try {
+            const url = await this._claims.uploadClaimProof(orderId, file);
+            if (url.length > CLAIM_PROOF_IMAGE_URL_MAX_LENGTH) {
+                throw new Error('Claim proof URL exceeds the backend limit.');
+            }
+            this.claimProofImageUrl.set(url);
+        } catch (err) {
+            this.claimError.set(
+                await describeApiError(
+                    err,
+                    (key) => this._transloco.translate(key),
+                    'claims.proofUploadError'
+                )
+            );
+        } finally {
+            this.claimProofUploading.set(false);
+        }
+    }
+
+    clearClaimProof(): void {
+        if (!this.claimProofUploading()) {
+            this.claimProofImageUrl.set(null);
+        }
     }
 
     submitClaim(): void {
         const order = this.order();
-        if (!order?.id || this.acting()) {
+        if (!order?.id || this.acting() || this.claimProofUploading()) {
             return;
         }
         if (this.claimForm.invalid) {
@@ -249,7 +301,12 @@ export class OrderDetailComponent implements OnInit {
         this.acting.set(true);
         this.claimError.set(null);
         this._claims
-            .fileClaim(order.id, value.amount ?? 0, value.reason.trim())
+            .fileClaim(
+                order.id,
+                value.amount ?? 0,
+                value.reason.trim(),
+                this.claimProofImageUrl()
+            )
             .then(() => {
                 this._notify('claims.filed');
                 this.closeClaim();

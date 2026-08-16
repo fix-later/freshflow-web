@@ -26,10 +26,13 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { claimStatusPillClass } from 'app/modules/orders/claims.types';
+import { normalizeOrderStatus } from 'app/modules/orders/orders.types';
+import type { AdminOrderItem } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { newestActiveFirst } from '../shared/row-order';
 import { ClaimsService } from './claims.service';
 import {
+    AdminClaimParty,
     AdminClaimRow,
     CLAIM_DECIDABLE_STATUS,
     CLAIM_DECISION_NOTE_MAX_LENGTH,
@@ -118,19 +121,12 @@ export class ClaimsListComponent implements OnInit {
     readonly loadingMore = signal(false);
     readonly nextCursor = signal<string | undefined>(undefined);
     readonly loadError = signal<string | null>(null);
+    readonly restaurantOptions = signal<AdminClaimParty[]>([]);
 
     readonly restaurantId = new FormControl('', { nonNullable: true });
     readonly status = new FormControl<ClaimStatus | ''>('', {
         nonNullable: true,
     });
-
-    /**
-     * Claim id to open directly. `GET /claims` is cursor-paged with no id
-     * filter, so a claim referenced from elsewhere (an audit-log entry, a
-     * notification, a restaurant's email) is otherwise only reachable by paging
-     * until it appears. This looks it up with `GET /claims/{claimId}` instead.
-     */
-    readonly claimIdLookup = new FormControl('', { nonNullable: true });
 
     /** The claim being inspected, re-read from the server. */
     readonly viewing = signal<AdminClaimRow | null>(null);
@@ -178,6 +174,10 @@ export class ClaimsListComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        this._claims
+            .listRestaurants()
+            .then((restaurants) => this.restaurantOptions.set(restaurants))
+            .catch(() => this.restaurantOptions.set([]));
         this._load();
         this.restaurantId.valueChanges.subscribe(() => this._load());
         this.status.valueChanges.subscribe(() => this._load());
@@ -224,21 +224,6 @@ export class ClaimsListComponent implements OnInit {
 
     closeDetail(): void {
         this._detailRef?.close();
-    }
-
-    /** Opens the detail straight from the "open by id" box. */
-    lookupClaim(template: TemplateRef<unknown>): void {
-        const id = this.claimIdLookup.value.trim();
-        if (!id) {
-            return;
-        }
-        // No row to seed from — the id may name a claim outside the current
-        // page, which is the whole point of the lookup.
-        this.openDetail(
-            this.claims().find((row) => row.id === id) ?? null,
-            id,
-            template
-        );
     }
 
     /** Re-reads the open claim; also the retry for a failed detail read. */
@@ -410,6 +395,60 @@ export class ClaimsListComponent implements OnInit {
         return Number.isNaN(amount)
             ? String(value)
             : `${amount.toLocaleString(this._transloco.getActiveLang())} ₫`;
+    }
+
+    restaurantName(row: AdminClaimRow): string {
+        return (
+            row.restaurant?.name ||
+            row.orderDetail?.restaurantName ||
+            this._transloco.translate('admin.claims.restaurant.unavailable')
+        );
+    }
+
+    restaurantContact(row: AdminClaimRow): string {
+        return [row.restaurant?.email, row.restaurant?.phone]
+            .filter((value): value is string => !!value)
+            .join(' · ');
+    }
+
+    partyLabel(party: AdminClaimParty | null | undefined): string {
+        if (!party) {
+            return '—';
+        }
+        return party.email && party.email !== party.name
+            ? `${party.name} · ${party.email}`
+            : party.name;
+    }
+
+    orderItems(row: AdminClaimRow): AdminOrderItem[] {
+        return Array.isArray(row.orderDetail?.items)
+            ? row.orderDetail.items
+            : [];
+    }
+
+    orderSummary(row: AdminClaimRow): string {
+        const items = this.orderItems(row);
+        if (!items.length) {
+            return this._transloco.translate('admin.claims.order.unavailable');
+        }
+        const visible = items.slice(0, 2).map((item) => {
+            const quantity = item.actualQuantity ?? item.quantity;
+            return `${item.productNameSnapshot || '—'}${
+                quantity != null ? ` × ${quantity}` : ''
+            }`;
+        });
+        const remaining = items.length - visible.length;
+        return `${visible.join(', ')}${remaining > 0 ? ` (+${remaining})` : ''}`;
+    }
+
+    orderStatusLabel(status: string | null | undefined): string {
+        const normalized = normalizeOrderStatus(status);
+        if (!normalized) {
+            return '—';
+        }
+        const key = `admin.orders.status.${normalized}`;
+        const translated = this._transloco.translate(key);
+        return translated === key ? normalized : translated;
     }
 
     formatDate(value: unknown): string {

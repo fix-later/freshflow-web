@@ -1098,11 +1098,46 @@ export class AdminService {
     }
 
     /**
-     * A single batch by id. There is no single-batch GET, so this pulls the
-     * (small) list and finds it — the rows already carry full detail
-     * (items / members / exceptions).
+     * A single batch by id, from `GET /admin/order-groups/{batchId}` (BE commit
+     * "Add admin procurement batch detail endpoint"). It answers the same
+     * `ProcurementBatchDto` as the list, so the row carries full detail —
+     * items / members / exceptions — and goes through the same normalisation.
+     *
+     * Raw client: the endpoint postdates the checked-in `openapi.json` snapshot
+     * (see `contract/raw.ts`). Move it to `adminApi` at the next
+     * `npm run generate:api`.
+     *
+     * Falls back to scanning the list for a backend that predates the endpoint;
+     * without that a 404 would break the batch detail page against an older API.
      */
     async getOrderGroup(batchId: string): Promise<AdminOrderGroupRow | null> {
+        try {
+            const response = await rawApi.send(
+                `/api/v1/admin/order-groups/${encodeURIComponent(batchId)}`,
+                'GET'
+            );
+            const data = unwrapData<Record<string, unknown>>(
+                await parseJson(response)
+            );
+            if (data) {
+                const [row] = withId<AdminOrderGroupRow>(
+                    [data as AdminOrderGroupRow],
+                    'batchId',
+                    'BatchId',
+                    'procurementBatchId'
+                );
+                const [normalized] = await this._normalizeOrderGroups([row]);
+                return normalized ?? null;
+            }
+        } catch {
+            // Older backend, or the batch is not readable this way — scan below.
+        }
+        return this._findOrderGroupInList(batchId);
+    }
+
+    private async _findOrderGroupInList(
+        batchId: string
+    ): Promise<AdminOrderGroupRow | null> {
         const pageSize = 100;
         let page = 1;
         let loaded = 0;

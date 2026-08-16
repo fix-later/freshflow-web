@@ -1,201 +1,42 @@
 <div class="flex min-w-0 flex-auto flex-col" *transloco="let t">
-    <div class="relative flex-0">
-        @if (loading()) {
-            <div class="absolute inset-x-0 top-0">
-                <mat-progress-bar mode="indeterminate"></mat-progress-bar>
-            </div>
-        }
-    </div>
+    @if (loading()) {
+        <mat-progress-bar
+            class="sticky top-0 z-30 flex-0"
+            mode="indeterminate"
+        ></mat-progress-bar>
+    }
 
-    <div class="mx-auto w-full max-w-screen-xl px-6 pb-10 pt-4 sm:px-8 sm:pt-6">
-        @if (!embedded()) {
-            <div class="mb-6 min-w-0">
-                <h1 class="text-4xl font-extrabold tracking-tight">
-                    {{ t('admin.incidents.title') }}
-                </h1>
-                <p class="text-secondary mt-1 text-sm">
+    <div class="w-full px-6 py-6 md:px-8 md:py-8">
+        <!-- Header: what this is, and over what period -->
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="min-w-0">
+                @if (!embedded()) {
+                    <h1 class="text-3xl font-semibold leading-8 tracking-tight">
+                        {{ t('admin.incidents.title') }}
+                    </h1>
+                } @else {
+                    <h2 class="text-2xl font-semibold leading-7 tracking-tight">
+                        {{ t('admin.incidents.overview') }}
+                    </h2>
+                }
+                <p class="text-secondary font-medium tracking-tight">
                     {{ t('admin.incidents.subtitle') }}
                 </p>
             </div>
-        }
-
-        <!-- What is outstanding, before the list of what it is -->
-        <div class="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="bg-card flex flex-col rounded-2xl p-6 shadow">
-                <div class="text-secondary truncate text-sm font-medium">
-                    {{ t('admin.incidents.summary.open') }}
-                </div>
-                <div
-                    class="mt-2 text-4xl font-bold tabular-nums leading-none tracking-tight"
-                    [class.text-red-500]="summary().open > 0"
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- The period narrows every figure, chart and row below it. -->
+                <mat-button-toggle-group
+                    class="shrink-0"
+                    [value]="window()"
+                    [attr.aria-label]="t('admin.incidents.window.label')"
+                    (change)="selectWindow($event.value)"
                 >
-                    {{ summary().open }}
-                </div>
-                <div class="text-secondary mt-2 text-xs">
-                    {{ t('admin.incidents.summary.openHint') }}
-                </div>
-            </div>
-            <div class="bg-card flex flex-col rounded-2xl p-6 shadow">
-                <div class="text-secondary truncate text-sm font-medium">
-                    {{ t('admin.incidents.summary.procurement') }}
-                </div>
-                <div
-                    class="mt-2 text-4xl font-bold tabular-nums leading-none tracking-tight"
-                >
-                    {{ summary().procurement }}
-                </div>
-                <div class="text-secondary mt-2 text-xs">
-                    {{ t('admin.incidents.summary.procurementHint') }}
-                </div>
-            </div>
-            <div class="bg-card flex flex-col rounded-2xl p-6 shadow">
-                <div class="text-secondary truncate text-sm font-medium">
-                    {{ t('admin.claims.summary.pending') }}
-                </div>
-                <div
-                    class="mt-2 text-4xl font-bold tabular-nums leading-none tracking-tight text-amber-600"
-                >
-                    {{ summary().pendingClaims }}
-                </div>
-                <div class="text-secondary mt-2 text-xs">
-                    {{ t('admin.incidents.summary.claimsHint') }}
-                </div>
-            </div>
-            <div class="bg-card flex flex-col rounded-2xl p-6 shadow">
-                <div class="text-secondary truncate text-sm font-medium">
-                    {{ t('admin.claims.summary.pendingAmount') }}
-                </div>
-                <div
-                    class="mt-2 truncate text-4xl font-bold tabular-nums leading-none tracking-tight"
-                    [title]="money(summary().pendingAmount)"
-                >
-                    {{ money(summary().pendingAmount) }}
-                </div>
-                <div class="text-secondary mt-2 text-xs">
-                    {{ t('admin.incidents.summary.amountHint') }}
-                </div>
-            </div>
-        </div>
-
-        <!-- The split by kind, and the claims queue beside it -->
-        <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <section
-                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
-            >
-                <h2 class="truncate text-lg font-medium leading-6">
-                    {{ t('admin.incidents.charts.byType') }}
-                </h2>
-                <p class="text-secondary text-sm">
-                    {{ t('admin.incidents.charts.byTypeHint') }}
-                </p>
-                @if (incidents().length) {
-                    <div class="mt-2 flex flex-auto items-center">
-                        <apx-chart
-                            class="w-full flex-auto"
-                            [chart]="typeChart().chart!"
-                            [colors]="typeChart().colors!"
-                            [dataLabels]="typeChart().dataLabels!"
-                            [labels]="typeChart().labels!"
-                            [legend]="typeChart().legend!"
-                            [plotOptions]="typeChart().plotOptions!"
-                            [series]="typeChart().series!"
-                            [stroke]="typeChart().stroke!"
-                            [tooltip]="typeChart().tooltip!"
-                        ></apx-chart>
-                    </div>
-                } @else {
-                    <p class="text-secondary mt-4 text-sm">
-                        {{ t('admin.incidents.empty') }}
-                    </p>
-                }
-            </section>
-
-            <section
-                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
-            >
-                <h2 class="truncate text-lg font-medium leading-6">
-                    {{ t('admin.claims.summary.chartTitle') }}
-                </h2>
-                <p class="text-secondary text-sm">
-                    {{ t('admin.incidents.charts.claimsHint') }}
-                </p>
-                @if (claims().length) {
-                    <div class="mt-2 flex flex-auto items-center">
-                        <apx-chart
-                            class="w-full flex-auto"
-                            [chart]="claimsChart().chart!"
-                            [colors]="claimsChart().colors!"
-                            [dataLabels]="claimsChart().dataLabels!"
-                            [labels]="claimsChart().labels!"
-                            [legend]="claimsChart().legend!"
-                            [plotOptions]="claimsChart().plotOptions!"
-                            [series]="claimsChart().series!"
-                            [stroke]="claimsChart().stroke!"
-                            [tooltip]="claimsChart().tooltip!"
-                        ></apx-chart>
-                    </div>
-                } @else {
-                    <p class="text-secondary mt-4 text-sm">
-                        {{ t('admin.incidents.noClaims') }}
-                    </p>
-                }
-            </section>
-        </div>
-
-        <!-- The board itself -->
-        <section
-            class="bg-card mt-6 flex flex-col overflow-hidden rounded-2xl shadow"
-        >
-            <div class="flex flex-wrap items-end gap-3 p-6 pb-4">
-                <div class="mr-auto min-w-0">
-                    <h2 class="truncate text-lg font-medium leading-6">
-                        {{ t('admin.incidents.table.title') }}
-                    </h2>
-                    <p class="text-secondary text-sm">
-                        {{ t('admin.incidents.table.hint') }}
-                    </p>
-                </div>
-                <mat-form-field
-                    class="fuse-mat-dense w-44 max-w-full"
-                    subscriptSizing="dynamic"
-                >
-                    <mat-label>{{
-                        t('admin.incidents.filter.source')
-                    }}</mat-label>
-                    <mat-select [formControl]="source">
-                        <mat-option value="">{{
-                            t('admin.incidents.filter.allSources')
-                        }}</mat-option>
-                        <mat-option value="procurement">{{
-                            t('admin.incidents.source.procurement')
-                        }}</mat-option>
-                        <mat-option value="hub">{{
-                            t('admin.incidents.source.hub')
-                        }}</mat-option>
-                    </mat-select>
-                </mat-form-field>
-                <mat-form-field
-                    class="fuse-mat-dense w-44 max-w-full"
-                    subscriptSizing="dynamic"
-                >
-                    <mat-label>{{
-                        t('admin.incidents.filter.status')
-                    }}</mat-label>
-                    <mat-select [formControl]="status">
-                        <mat-option value="">{{
-                            t('admin.incidents.filter.allStatuses')
-                        }}</mat-option>
-                        <mat-option value="open">{{
-                            t('admin.incidents.status.open')
-                        }}</mat-option>
-                        <mat-option value="acknowledged">{{
-                            t('admin.incidents.status.acknowledged')
-                        }}</mat-option>
-                        <mat-option value="reported">{{
-                            t('admin.incidents.status.reported')
-                        }}</mat-option>
-                    </mat-select>
-                </mat-form-field>
+                    @for (key of windows; track key) {
+                        <mat-button-toggle [value]="key">
+                            {{ windowLabel(key) }}
+                        </mat-button-toggle>
+                    }
+                </mat-button-toggle-group>
                 <button
                     mat-stroked-button
                     type="button"
@@ -209,16 +50,458 @@
                     <span class="ml-2">{{ t('admin.incidents.refresh') }}</span>
                 </button>
             </div>
+        </div>
+
+        <!-- KPI row -->
+        <div class="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-4">
+            <div
+                class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.summary.total') }}
+                    </div>
+                    <mat-icon
+                        class="text-hint icon-size-6"
+                        svgIcon="heroicons_outline:exclamation-triangle"
+                    ></mat-icon>
+                </div>
+                <div class="mt-2 flex flex-col items-center">
+                    <div
+                        class="text-7xl font-bold leading-none tracking-tight text-blue-500"
+                    >
+                        {{ count(summary().total) }}
+                    </div>
+                    <div
+                        class="text-secondary mt-5 flex w-full items-baseline justify-center"
+                    >
+                        <div class="truncate text-md font-medium">
+                            {{ t('admin.incidents.summary.last24h') }}:
+                        </div>
+                        <div class="ml-1.5 text-lg font-semibold">
+                            {{ count(summary().last24h) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.summary.open') }}
+                    </div>
+                    <mat-icon
+                        class="icon-size-6"
+                        [class.text-red-500]="summary().open > 0"
+                        [class.text-hint]="summary().open === 0"
+                        svgIcon="heroicons_outline:shield-exclamation"
+                    ></mat-icon>
+                </div>
+                <div class="mt-2 flex flex-col items-center">
+                    <div
+                        class="text-7xl font-bold leading-none tracking-tight"
+                        [class.text-red-500]="summary().open > 0"
+                        [class.text-green-500]="summary().open === 0"
+                        [matTooltip]="t('admin.incidents.summary.openHint')"
+                    >
+                        {{ count(summary().open) }}
+                    </div>
+                    <div
+                        class="text-secondary mt-5 flex w-full items-baseline justify-center"
+                    >
+                        <div class="truncate text-md font-medium">
+                            {{
+                                t('admin.incidents.summary.acknowledgedCount')
+                            }}:
+                        </div>
+                        <div class="ml-1.5 text-lg font-semibold">
+                            {{ count(summary().acknowledged) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.summary.procurement') }}
+                    </div>
+                    <mat-icon
+                        class="text-hint icon-size-6"
+                        svgIcon="heroicons_outline:shopping-bag"
+                    ></mat-icon>
+                </div>
+                <div class="mt-2 flex flex-col items-center">
+                    <div
+                        class="text-7xl font-bold leading-none tracking-tight text-indigo-500"
+                    >
+                        {{ count(summary().procurement) }}
+                    </div>
+                    <div
+                        class="text-secondary mt-5 flex w-full items-baseline justify-center"
+                    >
+                        <div class="truncate text-md font-medium">
+                            {{ t('admin.incidents.summary.marketCount') }}:
+                        </div>
+                        <div class="ml-1.5 text-lg font-semibold">
+                            {{ count(summary().markets) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div
+                class="bg-card flex flex-auto flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex items-start justify-between">
+                    <div class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.summary.hub') }}
+                    </div>
+                    <mat-icon
+                        class="text-hint icon-size-6"
+                        svgIcon="heroicons_outline:building-office-2"
+                    ></mat-icon>
+                </div>
+                <div class="mt-2 flex flex-col items-center">
+                    <div
+                        class="text-7xl font-bold leading-none tracking-tight text-cyan-500"
+                    >
+                        {{ count(summary().hub) }}
+                    </div>
+                    <div
+                        class="text-secondary mt-5 flex w-full items-baseline justify-center"
+                    >
+                        <div class="truncate text-md font-medium">
+                            {{ t('admin.incidents.summary.hubCount') }}:
+                        </div>
+                        <div class="ml-1.5 text-lg font-semibold">
+                            {{ count(summary().hubs) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Trend against its breakdown -->
+        <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+            <section
+                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow lg:col-span-2"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.charts.trend') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.incidents.charts.trendHint') }}
+                    </p>
+                </div>
+                @if (windowed().length) {
+                    <div class="mt-4 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="trendChart().chart!"
+                            [colors]="trendChart().colors!"
+                            [dataLabels]="trendChart().dataLabels!"
+                            [grid]="trendChart().grid!"
+                            [legend]="trendChart().legend!"
+                            [plotOptions]="trendChart().plotOptions!"
+                            [series]="trendChart().series!"
+                            [tooltip]="trendChart().tooltip!"
+                            [xaxis]="trendChart().xaxis!"
+                            [yaxis]="trendChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else {
+                    <div class="text-secondary py-12 text-center text-sm">
+                        {{ t('admin.incidents.emptyWindow') }}
+                    </div>
+                }
+            </section>
+
+            <!-- What kind of report, most frequent first. Two vocabularies meet
+                 here — chợ exception types and hub conditions — so each row
+                 carries the colour of the stream it came from. -->
+            <section
+                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.charts.byType') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.incidents.charts.byTypeHint') }}
+                    </p>
+                </div>
+                @if (typeTiles().length) {
+                    <div class="mt-5 flex flex-col gap-4">
+                        @for (
+                            tile of typeTiles();
+                            track tile.type + tile.source
+                        ) {
+                            <div class="flex flex-col">
+                                <div class="flex items-baseline gap-2">
+                                    <span
+                                        class="h-2.5 w-2.5 shrink-0 self-center rounded-full"
+                                        [style.background-color]="tile.color"
+                                    ></span>
+                                    <span class="min-w-0 flex-1 truncate">
+                                        {{ tile.label }}
+                                    </span>
+                                    <span
+                                        class="shrink-0 text-lg font-semibold tabular-nums"
+                                    >
+                                        {{ count(tile.count) }}
+                                    </span>
+                                </div>
+                                <div class="mt-1.5 flex items-center gap-2">
+                                    <div
+                                        class="bg-hover h-1.5 min-w-0 flex-1 overflow-hidden rounded-full"
+                                    >
+                                        <div
+                                            class="h-full rounded-full"
+                                            [style.background-color]="
+                                                tile.color
+                                            "
+                                            [style.width.%]="tile.share"
+                                        ></div>
+                                    </div>
+                                    <span
+                                        class="text-secondary shrink-0 text-xs"
+                                    >
+                                        {{ sourceLabel(tile.source) }}
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                } @else {
+                    <div class="text-secondary py-12 text-center text-sm">
+                        {{ t('admin.incidents.emptyWindow') }}
+                    </div>
+                }
+            </section>
+        </div>
+
+        <!-- Where it stands, and where it keeps happening -->
+        <div class="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <section
+                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.charts.byStatus') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.incidents.charts.byStatusHint') }}
+                    </p>
+                </div>
+                @if (windowed().length) {
+                    <div class="mt-2 flex min-h-72 flex-auto items-center">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="statusChart().chart!"
+                            [colors]="statusChart().colors!"
+                            [dataLabels]="statusChart().dataLabels!"
+                            [labels]="statusChart().labels!"
+                            [legend]="statusChart().legend!"
+                            [plotOptions]="statusChart().plotOptions!"
+                            [series]="statusChart().series!"
+                            [stroke]="statusChart().stroke!"
+                            [tooltip]="statusChart().tooltip!"
+                        ></apx-chart>
+                    </div>
+                    <!-- Fuse's divided card footer: the two figures the donut
+                         is read for, spelled out. -->
+                    <div
+                        class="-m-6 mt-4 grid grid-cols-2 divide-x border-t bg-gray-50 dark:bg-transparent"
+                    >
+                        <div
+                            class="flex flex-col items-center justify-center p-6"
+                        >
+                            <div
+                                class="text-4xl font-semibold leading-none tracking-tighter"
+                                [class.text-amber-500]="summary().open > 0"
+                            >
+                                {{ count(summary().open) }}
+                            </div>
+                            <div
+                                class="text-secondary mt-1 text-center text-sm"
+                            >
+                                {{ t('admin.incidents.status.open') }}
+                            </div>
+                        </div>
+                        <div
+                            class="flex flex-col items-center justify-center p-6"
+                        >
+                            <div
+                                class="text-4xl font-semibold leading-none tracking-tighter"
+                            >
+                                {{ count(summary().acknowledged) }}
+                            </div>
+                            <div
+                                class="text-secondary mt-1 text-center text-sm"
+                            >
+                                {{ t('admin.incidents.status.acknowledged') }}
+                            </div>
+                        </div>
+                    </div>
+                } @else {
+                    <div class="text-secondary py-12 text-center text-sm">
+                        {{ t('admin.incidents.emptyWindow') }}
+                    </div>
+                }
+            </section>
+
+            <section
+                class="bg-card flex flex-col overflow-hidden rounded-2xl p-6 shadow"
+            >
+                <div class="flex flex-col">
+                    <h2 class="truncate text-lg font-medium leading-6">
+                        {{ t('admin.incidents.charts.hotspots') }}
+                    </h2>
+                    <p class="text-secondary text-sm">
+                        {{ t('admin.incidents.charts.hotspotsHint') }}
+                    </p>
+                </div>
+                @if (hotspots().length) {
+                    <div class="mt-4 flex flex-auto flex-col">
+                        <apx-chart
+                            class="w-full flex-auto"
+                            [chart]="hotspotChart().chart!"
+                            [colors]="hotspotChart().colors!"
+                            [dataLabels]="hotspotChart().dataLabels!"
+                            [grid]="hotspotChart().grid!"
+                            [legend]="hotspotChart().legend!"
+                            [plotOptions]="hotspotChart().plotOptions!"
+                            [series]="hotspotChart().series!"
+                            [tooltip]="hotspotChart().tooltip!"
+                            [xaxis]="hotspotChart().xaxis!"
+                            [yaxis]="hotspotChart().yaxis!"
+                        ></apx-chart>
+                    </div>
+                } @else {
+                    <div class="text-secondary py-12 text-center text-sm">
+                        {{ t('admin.incidents.emptyWindow') }}
+                    </div>
+                }
+            </section>
+        </div>
+
+        <!-- The records behind every figure above -->
+        <section class="bg-card mt-6 overflow-hidden rounded-2xl shadow">
+            <div class="flex flex-col gap-4 p-6">
+                <div class="flex flex-wrap items-start justify-between gap-4">
+                    <div class="min-w-0">
+                        <h2 class="truncate text-lg font-medium leading-6">
+                            {{ t('admin.incidents.table.title') }}
+                        </h2>
+                        <p class="text-secondary text-sm">
+                            {{ t('admin.incidents.table.hint') }}
+                        </p>
+                    </div>
+                    @if (hasFilters()) {
+                        <button
+                            mat-button
+                            type="button"
+                            (click)="clearFilters()"
+                        >
+                            {{ t('admin.users.filters.clear') }}
+                        </button>
+                    }
+                </div>
+
+                <div class="flex flex-wrap items-end gap-3">
+                    <mat-form-field
+                        class="fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-icon
+                            class="icon-size-5"
+                            matPrefix
+                            svgIcon="heroicons_solid:magnifying-glass"
+                        ></mat-icon>
+                        <input
+                            matInput
+                            autocomplete="off"
+                            [formControl]="search"
+                            [placeholder]="
+                                t('admin.incidents.filter.searchPlaceholder')
+                            "
+                        />
+                    </mat-form-field>
+                    <mat-form-field
+                        class="fuse-mat-dense w-44 max-w-full"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.incidents.filter.source')
+                        }}</mat-label>
+                        <mat-select [formControl]="source">
+                            <mat-option value="">{{
+                                t('admin.incidents.filter.allSources')
+                            }}</mat-option>
+                            <mat-option value="procurement">{{
+                                t('admin.incidents.source.procurement')
+                            }}</mat-option>
+                            <mat-option value="hub">{{
+                                t('admin.incidents.source.hub')
+                            }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field
+                        class="fuse-mat-dense w-44 max-w-full"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.incidents.filter.type')
+                        }}</mat-label>
+                        <mat-select [formControl]="kind">
+                            <mat-option value="">{{
+                                t('admin.incidents.filter.allTypes')
+                            }}</mat-option>
+                            @for (option of kindOptions(); track option) {
+                                <mat-option [value]="option">{{
+                                    kindLabel(option)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field
+                        class="fuse-mat-dense w-44 max-w-full"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.incidents.filter.status')
+                        }}</mat-label>
+                        <mat-select [formControl]="status">
+                            <mat-option value="">{{
+                                t('admin.incidents.filter.allStatuses')
+                            }}</mat-option>
+                            <mat-option value="open">{{
+                                t('admin.incidents.status.open')
+                            }}</mat-option>
+                            <mat-option value="acknowledged">{{
+                                t('admin.incidents.status.acknowledged')
+                            }}</mat-option>
+                            <mat-option value="reported">{{
+                                t('admin.incidents.status.reported')
+                            }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
 
             @if (loadError(); as message) {
-                <!-- An empty board and a failed read look identical otherwise,
-                     and "nothing went wrong" is the dangerous one to believe. -->
                 <div
-                    class="m-6 mt-0 flex flex-wrap items-center gap-2 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
+                    class="m-6 mt-0 flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700"
                     role="alert"
                 >
                     <mat-icon
-                        class="shrink-0 text-red-500 icon-size-5"
+                        class="shrink-0 icon-size-5"
                         svgIcon="heroicons_outline:exclamation-triangle"
                     ></mat-icon>
                     <span class="min-w-0 flex-auto">{{ message }}</span>
@@ -227,153 +510,303 @@
                     </button>
                 </div>
             } @else if (filtered().length) {
-                <div class="flex flex-col divide-y border-t">
-                    @for (
-                        incident of filtered();
-                        track trackById($index, incident)
-                    ) {
+                <div class="overflow-x-auto border-t">
+                    <div class="min-w-240">
                         <div
-                            class="flex flex-wrap items-start gap-x-4 gap-y-2 px-6 py-4"
+                            class="incident-grid text-secondary grid items-center gap-x-4 bg-gray-50 px-6 py-4 text-sm font-semibold dark:bg-black dark:bg-opacity-5"
                         >
-                            <div class="min-w-0 flex-1 basis-64">
-                                <div class="flex flex-wrap items-center gap-2">
-                                    <span
-                                        class="rounded-full px-2 py-0.5 text-xs font-medium"
-                                        [class]="statusPillClass(incident)"
-                                        >{{ statusLabel(incident) }}</span
-                                    >
-                                    <span class="font-medium">{{
-                                        typeLabel(incident)
-                                    }}</span>
-                                    <span
-                                        class="text-secondary bg-hover rounded-full px-2 py-0.5 text-xs"
-                                    >
-                                        {{
-                                            t(
-                                                'admin.incidents.source.' +
-                                                    incident.source
-                                            )
-                                        }}
-                                    </span>
-                                </div>
-                                @if (incident.note) {
-                                    <p
-                                        class="text-secondary mt-1 line-clamp-2 text-sm"
-                                    >
-                                        {{ incident.note }}
-                                    </p>
-                                }
-                            </div>
-
-                            <div class="min-w-0 basis-48">
-                                <div class="truncate text-sm">
-                                    {{ incident.subject || '—' }}
-                                </div>
-                                <div class="text-secondary truncate text-xs">
-                                    {{ incident.place || '—' }}
-                                </div>
-                            </div>
-
-                            <div class="basis-28 text-sm tabular-nums">
-                                <div>{{ quantity(incident.quantity) }}</div>
-                                <div class="text-secondary text-xs">
-                                    {{ t('admin.incidents.table.quantity') }}
-                                </div>
-                            </div>
-
-                            <div class="text-secondary basis-44 text-xs">
-                                <div>{{ formatDate(incident.reportedAt) }}</div>
-                                @if (incident.reportedBy) {
-                                    <div class="truncate font-mono">
-                                        {{ incident.reportedBy }}
-                                    </div>
-                                }
-                            </div>
-
-                            <div
-                                class="ml-auto flex shrink-0 items-center gap-2"
-                            >
-                                @if (incident.proofImageUrl) {
-                                    <a
-                                        mat-icon-button
-                                        target="_blank"
-                                        rel="noopener"
-                                        [href]="incident.proofImageUrl"
-                                        [matTooltip]="
-                                            t('admin.incidents.table.proof')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:photo"
-                                        ></mat-icon>
-                                    </a>
-                                }
-                                @if (incident.link; as link) {
-                                    <a
-                                        mat-icon-button
-                                        [routerLink]="link"
-                                        [matTooltip]="
-                                            t('admin.incidents.table.open')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:arrow-top-right-on-square"
-                                        ></mat-icon>
-                                    </a>
-                                }
-                                <!-- Only an open hub discrepancy can be signed
-                                     off, and until it is the hub cannot
-                                     dispatch (BR-HUB-2). -->
-                                @if (canAcknowledge(incident)) {
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="
-                                            acknowledging() === incident.id
-                                        "
-                                        [matTooltip]="
-                                            t(
-                                                'admin.hubs.discrepancies.blocksDispatch'
-                                            )
-                                        "
-                                        (click)="acknowledge(incident)"
-                                    >
-                                        {{
-                                            acknowledging() === incident.id
-                                                ? t(
-                                                      'admin.hubs.discrepancies.acknowledging'
-                                                  )
-                                                : t(
-                                                      'admin.hubs.discrepancies.acknowledge'
-                                                  )
-                                        }}
-                                    </button>
-                                }
+                            <div>{{ t('admin.incidents.table.incident') }}</div>
+                            <div>{{ t('admin.incidents.table.subject') }}</div>
+                            <div>{{ t('admin.incidents.table.place') }}</div>
+                            <div>{{ t('admin.incidents.table.quantity') }}</div>
+                            <div>{{ t('admin.incidents.table.reporter') }}</div>
+                            <div>{{ t('admin.incidents.filter.status') }}</div>
+                            <div class="text-right">
+                                {{ t('admin.crud.details') }}
                             </div>
                         </div>
-                    }
+
+                        @for (
+                            incident of filtered();
+                            track trackById($index, incident)
+                        ) {
+                            <div
+                                class="incident-grid grid items-center gap-x-4 border-b px-6 py-4 hover:bg-hover"
+                            >
+                                <div class="min-w-0 overflow-hidden">
+                                    <div class="flex items-center gap-2">
+                                        <span
+                                            class="h-2.5 w-2.5 shrink-0 rounded-full"
+                                            [class.bg-indigo-500]="
+                                                incident.source ===
+                                                'procurement'
+                                            "
+                                            [class.bg-cyan-500]="
+                                                incident.source === 'hub'
+                                            "
+                                        ></span>
+                                        <span class="truncate font-medium">{{
+                                            typeLabel(incident)
+                                        }}</span>
+                                    </div>
+                                    <div
+                                        class="text-secondary mt-1 truncate text-xs"
+                                        [matTooltip]="incident.note || ''"
+                                    >
+                                        {{
+                                            incident.note ||
+                                                t(
+                                                    'admin.incidents.table.noNote'
+                                                )
+                                        }}
+                                    </div>
+                                </div>
+                                <div class="min-w-0 overflow-hidden">
+                                    <div class="truncate">
+                                        {{ incident.subject || '—' }}
+                                    </div>
+                                    <div
+                                        class="text-secondary truncate text-xs"
+                                    >
+                                        {{ incident.context || '—' }}
+                                    </div>
+                                </div>
+                                <div class="truncate">
+                                    {{ incident.place || '—' }}
+                                </div>
+                                <div class="truncate tabular-nums">
+                                    {{ quantity(incident.quantity) }}
+                                </div>
+                                <div class="min-w-0 overflow-hidden">
+                                    <div class="truncate">
+                                        {{ reporterLabel(incident) }}
+                                    </div>
+                                    <div
+                                        class="text-secondary truncate text-xs"
+                                    >
+                                        {{ formatDate(incident.reportedAt) }}
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden">
+                                    <span
+                                        [class]="
+                                            'inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-xs font-medium ' +
+                                            statusPillClass(incident)
+                                        "
+                                    >
+                                        {{ statusLabel(incident) }}
+                                    </span>
+                                </div>
+                                <div class="flex justify-end">
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        [matTooltip]="t('admin.crud.details')"
+                                        (click)="
+                                            openDetail(incident, detailDialog)
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-5"
+                                            svgIcon="heroicons_outline:arrow-right"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    </div>
                 </div>
             } @else {
-                <p class="text-secondary border-t px-6 py-8 text-sm">
-                    {{
-                        incidents().length
-                            ? t('admin.incidents.noMatches')
-                            : t('admin.incidents.empty')
-                    }}
-                </p>
+                <div class="text-secondary border-t px-6 py-12 text-center">
+                    @if (!incidents().length) {
+                        {{ t('admin.incidents.empty') }}
+                    } @else if (!windowed().length) {
+                        {{ t('admin.incidents.emptyWindow') }}
+                    } @else {
+                        {{ t('admin.incidents.noMatches') }}
+                    }
+                </div>
             }
         </section>
 
-        <!--
-          What this board cannot show. Restaurants report issues on a delivered
-          order and drivers on a delivery, but both endpoints are write-only —
-          `IOrderIssueRepository` exposes `AddAsync` and nothing else — so those
-          two streams have no query to read them back.
-        -->
         <p class="text-secondary mt-4 text-xs">
             {{ t('admin.incidents.coverage') }}
         </p>
     </div>
 </div>
+
+<ng-template #detailDialog>
+    <div
+        class="-m-6 flex max-h-screen flex-col sm:w-160 sm:min-w-160"
+        *transloco="let t"
+    >
+        <div
+            class="flex h-16 flex-0 items-center justify-between border-b bg-gray-50 pl-6 pr-3 dark:bg-transparent sm:pl-8"
+        >
+            <div class="min-w-0">
+                <div class="text-lg font-medium">
+                    {{ t('admin.incidents.detail.title') }}
+                </div>
+                @if (viewing(); as incident) {
+                    <div class="text-secondary truncate text-xs">
+                        {{ typeLabel(incident) }} · {{ incident.place || '—' }}
+                    </div>
+                }
+            </div>
+            <button mat-icon-button type="button" (click)="closeDetail()">
+                <mat-icon svgIcon="heroicons_outline:x-mark"></mat-icon>
+            </button>
+        </div>
+
+        @if (viewing(); as incident) {
+            <div class="flex flex-auto flex-col overflow-y-auto p-6 sm:p-8">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span
+                        [class]="
+                            'rounded-full px-2 py-0.5 text-xs font-medium ' +
+                            statusPillClass(incident)
+                        "
+                    >
+                        {{ statusLabel(incident) }}
+                    </span>
+                    <span
+                        class="text-secondary bg-hover rounded-full px-2 py-0.5 text-xs"
+                    >
+                        {{ t('admin.incidents.source.' + incident.source) }}
+                    </span>
+                    <span class="ml-auto text-2xl font-bold tabular-nums">
+                        {{ quantity(incident.quantity) }}
+                    </span>
+                </div>
+
+                <div
+                    class="mt-5 grid gap-4 rounded-xl border p-4 text-sm sm:grid-cols-2"
+                >
+                    <div class="min-w-0">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.table.subject') }}
+                        </div>
+                        <div class="mt-1 truncate font-medium">
+                            {{ incident.subject || '—' }}
+                        </div>
+                        <div class="text-secondary mt-1 truncate text-xs">
+                            {{ incident.context || '—' }}
+                        </div>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.table.place') }}
+                        </div>
+                        <div class="mt-1 truncate font-medium">
+                            {{ incident.place || '—' }}
+                        </div>
+                    </div>
+                    <div class="min-w-0">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.table.reporter') }}
+                        </div>
+                        <div class="mt-1 truncate">
+                            {{ reporterLabel(incident) }}
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.table.reportedAt') }}
+                        </div>
+                        <div class="mt-1">
+                            {{ formatDate(incident.reportedAt) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-5">
+                    <div class="text-secondary text-xs uppercase">
+                        {{ t('admin.incidents.table.note') }}
+                    </div>
+                    <div class="mt-1 whitespace-pre-wrap break-words">
+                        {{ incident.note || t('admin.incidents.table.noNote') }}
+                    </div>
+                </div>
+
+                @if (incident.proofImageUrl) {
+                    <div class="mt-5">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.table.proof') }}
+                        </div>
+                        <a
+                            class="mt-2 block w-fit"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            [href]="incident.proofImageUrl"
+                        >
+                            <img
+                                class="max-h-72 rounded-xl border object-contain"
+                                [src]="incident.proofImageUrl"
+                                [alt]="t('admin.incidents.table.proof')"
+                            />
+                        </a>
+                    </div>
+                }
+
+                @if (incident.acknowledgedAt) {
+                    <div class="mt-5 rounded-xl border p-4 text-sm">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('admin.incidents.detail.acknowledgement') }}
+                        </div>
+                        <div class="mt-2 flex justify-between gap-4">
+                            <span class="text-secondary">{{
+                                t('admin.incidents.detail.acknowledgedBy')
+                            }}</span>
+                            <span class="text-right">{{
+                                incident.acknowledgedBy || '—'
+                            }}</span>
+                        </div>
+                        <div class="mt-1 flex justify-between gap-4">
+                            <span class="text-secondary">{{
+                                t('admin.incidents.detail.acknowledgedAt')
+                            }}</span>
+                            <span>{{
+                                formatDate(incident.acknowledgedAt)
+                            }}</span>
+                        </div>
+                    </div>
+                }
+
+                <div class="mt-6 flex flex-wrap justify-end gap-3">
+                    @if (incident.link; as link) {
+                        <a
+                            mat-stroked-button
+                            [routerLink]="link"
+                            (click)="closeDetail()"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:arrow-top-right-on-square"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('admin.incidents.table.open')
+                            }}</span>
+                        </a>
+                    }
+                    @if (canAcknowledge(incident)) {
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            [disabled]="acknowledging() === incident.id"
+                            (click)="acknowledge(incident)"
+                        >
+                            {{
+                                acknowledging() === incident.id
+                                    ? t(
+                                          'admin.hubs.discrepancies.acknowledging'
+                                      )
+                                    : t('admin.hubs.discrepancies.acknowledge')
+                            }}
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</ng-template>

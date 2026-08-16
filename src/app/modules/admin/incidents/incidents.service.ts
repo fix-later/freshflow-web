@@ -1,12 +1,18 @@
 import { Injectable, inject } from '@angular/core';
+import { mapWithLimit } from 'app/core/util/concurrency';
 import { AdminService } from '../admin.service';
-import { AdminOrderGroupRow } from '../admin.types';
+import {
+    AdminOrderDetail,
+    AdminOrderGroupRow,
+    AdminUserRow,
+} from '../admin.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { CrudRow } from '../shared/resource-crud.types';
 import { AdminIncident, IncidentStatus } from './incidents.types';
 
-/** Phiên chợ scanned for exceptions — the same window the cost chart plots. */
-const INCIDENT_BATCHES = 20;
+const BATCH_PAGE_SIZE = 100;
+const MAX_BATCH_PAGES = 100;
+const READ_CONCURRENCY = 6;
 
 function stringOrNull(value: unknown): string | null {
     const text = String(value ?? '').trim();
@@ -21,18 +27,11 @@ function numberOrNull(value: unknown): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Rows are untyped bodies; this narrows one field to an object array. */
 function rowsOf(row: Record<string, unknown>, key: string): CrudRow[] {
     const value = row[key];
     return Array.isArray(value) ? (value as CrudRow[]) : [];
 }
 
-/**
- * `OPEN`/`ACKNOWLEDGED` as the backend spells it, lowercased. Anything else
- * (including a missing field) is left null rather than guessed as open — the
- * board treats "open" as actionable, and inventing one would put a row in the
- * queue that nobody can clear.
- */
 function discrepancyStatusOf(value: unknown): IncidentStatus | null {
     switch (String(value ?? '').toUpperCase()) {
         case 'OPEN':
@@ -44,7 +43,6 @@ function discrepancyStatusOf(value: unknown): IncidentStatus | null {
     }
 }
 
-/** A phiên chợ's display name, matching the order-groups table. */
 function batchLabel(row: AdminOrderGroupRow): string | null {
     const parts = [
         stringOrNull(row.batchNumber),
@@ -53,33 +51,43 @@ function batchLabel(row: AdminOrderGroupRow): string | null {
     return parts.length ? parts.join(' · ') : stringOrNull(row.targetDate);
 }
 
+function userLabel(user: AdminUserRow | undefined): string | null {
+    return user?.fullName || user?.email || null;
+}
+
 /**
- * The incident board's reads.
+ * Read model for Admin ▸ Báo cáo sự cố.
  *
- * Both sources are aggregations the backend does not offer as one call, and
- * they cost very differently:
- *
- *  - **Procurement exceptions** ride along on `GET /admin/order-groups`, which
- *    maps every batch through `ProcurementBatchDtoMapper` and therefore already
- *    carries each batch's `exceptions[]`. One request covers the whole window.
- *  - **Hub discrepancies** are per hub (`GET /hubs/{hubId}/discrepancies`), so
- *    this walks the hub list. There are a handful of hubs, and each read fails
- *    on its own — one unreachable hub costs its own rows, not the board.
+ * Market-agent `/procurement/tasks` is role-scoped and rejects an admin JWT.
+ * Admin therefore reads `/admin/order-groups`, which returns the same
+ * `ProcurementBatchDto` (including `exceptions[]`). Hub discrepancies are read
+ * from every hub's cursor-paged GET endpoint. No report data is fabricated.
  */
 @Injectable({ providedIn: 'root' })
 export class IncidentsService {
-    private readonly _admin = inject(AdminService);
-    private readonly _logistics = inject(LogisticsAdminService);
+    private _usersPromise: Promise<AdminUserRow[]> | null = null;
+    private readonly _orderCache = new Map<
+        string,
+        Promise<AdminOrderDetail | null>
+    >();
 
-    /** Exceptions market agents reported across the recent phiên chợ. */
-    async listProcurementIncidents(
-        batches = INCIDENT_BATCHES
-    ): Promise<AdminIncident[]> {
-        const { groups } = await this._admin.getOrderGroups(1, batches);
+    constructor(
+        private readonly _admin: AdminService = inject(AdminService),
+        private readonly _logistics: LogisticsAdminService = inject(
+            LogisticsAdminService
+        )
+    ) {}
+
+    /** Exceptions reported by market agents across every readable batch page. */
+    async listProcurementIncidents(): Promise<AdminIncident[]> {
+        const [groups, users] = await Promise.all([
+            this._allOrderGroups(),
+            this._users(),
+        ]);
+        const usersById = new Map(users.map((user) => [user.id, user]));
+
         return groups.flatMap((group) => {
             const row = group as Record<string, unknown>;
-            // The batch's own items name the products, so an exception's
-            // `marketProductId` can be resolved without a catalog lookup.
             const productNames = new Map(
                 rowsOf(row, 'items').map((item) => [
                     String(item['marketProductId'] ?? ''),
@@ -89,8 +97,9 @@ export class IncidentsService {
             const place = batchLabel(group);
             const batchId = stringOrNull(group.id);
 
-            return rowsOf(row, 'exceptions').map<AdminIncident>(
-                (exception) => ({
+            return rowsOf(row, 'exceptions').map<AdminIncident>((exception) => {
+                const reporterId = stringOrNull(exception['reportedByUserId']);
+                return {
                     id: String(exception['id'] ?? ''),
                     source: 'procurement',
                     type: String(exception['type'] ?? ''),
@@ -98,70 +107,166 @@ export class IncidentsService {
                     note: stringOrNull(exception['note']),
                     proofImageUrl: stringOrNull(exception['proofImageUrl']),
                     reportedAt: stringOrNull(exception['reportedAt']),
-                    reportedBy: stringOrNull(exception['reportedByUserId']),
+                    reportedBy: reporterId,
+                    reporterName: reporterId
+                        ? userLabel(usersById.get(reporterId))
+                        : null,
                     place,
                     subject:
                         productNames.get(
                             String(exception['marketProductId'] ?? '')
                         ) ?? null,
-                    // An agent's report is a record, not a queue item.
+                    context: stringOrNull(group.batchNumber),
                     status: null,
                     hubId: null,
+                    acknowledgedBy: null,
+                    acknowledgedAt: null,
+                    updatedAt: stringOrNull(exception['reportedAt']),
                     link: batchId ? `/admin/order-groups/${batchId}` : null,
-                })
-            );
+                };
+            });
         });
     }
 
-    /** Receiving discrepancies logged at every hub, open and signed off alike. */
+    /** Receiving discrepancies from every hub and every cursor page. */
     async listHubIncidents(): Promise<AdminIncident[]> {
         const hubs = await this._logistics.listHubs();
-        const perHub = await Promise.all(
-            hubs
-                .filter((hub) => !!hub.id)
-                .map((hub) =>
-                    this._logistics
-                        .getDiscrepancies(String(hub.id))
-                        .then((rows) => this._toHubIncidents(hub, rows))
-                        .catch(() => [] as AdminIncident[])
-                )
+        const perHub = await mapWithLimit(
+            hubs.filter((hub) => !!hub.id),
+            READ_CONCURRENCY,
+            async (hub) => ({
+                hub,
+                rows: await this._logistics.getDiscrepancies(String(hub.id)),
+            }),
+            null
         );
-        return perHub.flat();
+        const base = perHub.flatMap((entry) =>
+            entry ? this._toHubIncidents(entry.hub, entry.rows) : []
+        );
+        return this._enrichHubIncidents(base);
     }
 
-    /**
-     * Signs off a discrepancy. Until every one at a hub is acknowledged the hub
-     * cannot dispatch, so this is the board's one write.
-     */
     async acknowledge(hubId: string, incidentId: string): Promise<void> {
         await this._logistics.acknowledgeDiscrepancy(hubId, incidentId);
     }
 
+    private async _allOrderGroups(): Promise<AdminOrderGroupRow[]> {
+        const first = await this._admin.getOrderGroups(1, BATCH_PAGE_SIZE);
+        const pageCount = Math.min(
+            MAX_BATCH_PAGES,
+            Math.ceil(first.totalCount / BATCH_PAGE_SIZE)
+        );
+        if (pageCount <= 1) {
+            return first.groups;
+        }
+        const remaining = await mapWithLimit(
+            Array.from({ length: pageCount - 1 }, (_, index) => index + 2),
+            READ_CONCURRENCY,
+            (page) =>
+                this._admin
+                    .getOrderGroups(page, BATCH_PAGE_SIZE)
+                    .then((result) => result.groups),
+            [] as AdminOrderGroupRow[]
+        );
+        return [first.groups, ...remaining].flat();
+    }
+
     private _toHubIncidents(hub: CrudRow, rows: CrudRow[]): AdminIncident[] {
         const hubId = String(hub.id);
-        const place = stringOrNull(hub['name']) ?? hubId;
-        return rows.map((row) => {
-            const orderId = stringOrNull(row['orderId']);
+        const place = stringOrNull(hub['name']) ?? null;
+        return rows.map((row) => ({
+            id: String(row.id ?? row['discrepancyId'] ?? ''),
+            source: 'hub' as const,
+            type: String(row['conditionStatus'] ?? ''),
+            quantity: numberOrNull(row['affectedQuantity']),
+            note: stringOrNull(row['notes']),
+            proofImageUrl: stringOrNull(row['proofImageUrl']),
+            reportedAt: stringOrNull(row['createdAt']),
+            reportedBy: null,
+            reporterName: null,
+            place,
+            // Temporarily hold the two foreign keys; enrichment below replaces
+            // both with names before rows reach the UI.
+            subject: stringOrNull(row['orderItemId']),
+            context: stringOrNull(row['orderId']),
+            status: discrepancyStatusOf(row['status']),
+            hubId,
+            acknowledgedBy: stringOrNull(row['acknowledgedBy']),
+            acknowledgedAt: stringOrNull(row['acknowledgedAt']),
+            updatedAt: stringOrNull(row['updatedAt']),
+            link: `/admin/hubs/${hubId}`,
+        }));
+    }
+
+    private async _enrichHubIncidents(
+        incidents: readonly AdminIncident[]
+    ): Promise<AdminIncident[]> {
+        const orderIds = [
+            ...new Set(
+                incidents
+                    .map((incident) => incident.context)
+                    .filter((id): id is string => !!id)
+            ),
+        ];
+        const [orders, users] = await Promise.all([
+            mapWithLimit(
+                orderIds,
+                READ_CONCURRENCY,
+                (orderId) => this._order(orderId),
+                null
+            ),
+            this._users(),
+        ]);
+        const orderById = new Map(
+            orderIds.map((id, index) => [id, orders[index]])
+        );
+        const userById = new Map(users.map((user) => [user.id, user]));
+        const restaurantById = new Map(
+            users
+                .filter((user) => !!user.restaurantId)
+                .map((user) => [String(user.restaurantId), user])
+        );
+
+        return incidents.map((incident) => {
+            const order = incident.context
+                ? orderById.get(incident.context)
+                : null;
+            const item = order?.items?.find(
+                (candidate) => candidate.orderItemId === incident.subject
+            );
+            const restaurant = order?.restaurantId
+                ? restaurantById.get(String(order.restaurantId))
+                : undefined;
+            const orderContext = [
+                order?.restaurantName ||
+                    restaurant?.restaurantName ||
+                    restaurant?.email,
+                order?.status,
+            ]
+                .filter((value): value is string => !!value)
+                .join(' · ');
             return {
-                id: String(row.id ?? row['discrepancyId'] ?? ''),
-                source: 'hub' as const,
-                type: String(row['conditionStatus'] ?? ''),
-                quantity: numberOrNull(row['affectedQuantity']),
-                note: stringOrNull(row['notes']),
-                proofImageUrl: stringOrNull(row['proofImageUrl']),
-                reportedAt: stringOrNull(row['createdAt']),
-                // Hub staff log these on the shipment; the row records who
-                // signed it off, not who raised it.
-                reportedBy: null,
-                place,
-                // The order line, since neither endpoint resolves it further.
-                subject: orderId ? orderId.slice(0, 8) : null,
-                status: discrepancyStatusOf(row['status']),
-                hubId,
-                // The hub's own page, which carries the inbound shipment this
-                // was logged against. There is no admin route for one order.
-                link: `/admin/hubs/${hubId}`,
+                ...incident,
+                subject: item?.productNameSnapshot || null,
+                context: orderContext || null,
+                acknowledgedBy: incident.acknowledgedBy
+                    ? userLabel(userById.get(incident.acknowledgedBy))
+                    : null,
             };
         });
+    }
+
+    private _users(): Promise<AdminUserRow[]> {
+        this._usersPromise ??= this._admin.listUsers().catch(() => []);
+        return this._usersPromise;
+    }
+
+    private _order(orderId: string): Promise<AdminOrderDetail | null> {
+        let request = this._orderCache.get(orderId);
+        if (!request) {
+            request = this._admin.getOrder(orderId).catch(() => null);
+            this._orderCache.set(orderId, request);
+        }
+        return request;
     }
 }

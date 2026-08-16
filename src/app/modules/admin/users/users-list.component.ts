@@ -28,6 +28,7 @@ import { RoleLabelPipe } from 'app/core/i18n/role-label.pipe';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
+import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { RestaurantsAdminComponent } from '../restaurants/restaurants-admin.component';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import {
@@ -35,13 +36,66 @@ import {
     toApiPage,
     toPageIndex,
 } from '../shared/admin-pagination';
+import { AdminUserAvatarComponent } from '../shared/admin-user-avatar.component';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
+import {
+    STAFF_ROLES,
+    loadStaffRows,
+    type StaffRole,
+} from '../staff/staff-resource';
 import { UsersCreateComponent } from './users-create.component';
 
 const DEFAULT_PAGE_SIZE = ADMIN_DEFAULT_PAGE_SIZE;
 const RESTAURANT_ROLE = 'restaurant';
 const REMOVED_OPERATIONS_ROLE = 'operations_manager';
+
+function isStaffRole(role: string): role is StaffRole {
+    return STAFF_ROLES.includes(role as StaffRole);
+}
+
+function placesOf(user: AdminUserRow): string[] {
+    const places = user['places'];
+    return Array.isArray(places) ? (places as string[]) : [];
+}
+
+interface StaffTabFilters {
+    search: string;
+    isActive: string;
+    place: string;
+    assignment: string;
+}
+
+/** Client-side filters for rows whose assignment is assembled from rosters. */
+export function filterStaffTabUsers(
+    users: readonly AdminUserRow[],
+    filters: StaffTabFilters
+): AdminUserRow[] {
+    const search = filters.search.trim().toLocaleLowerCase('vi');
+    return users.filter((user) => {
+        const places = placesOf(user);
+        const matchesSearch =
+            !search ||
+            [user.email, user.fullName, user.phone, user['placeLabel']].some(
+                (value) =>
+                    String(value ?? '')
+                        .toLocaleLowerCase('vi')
+                        .includes(search)
+            );
+        const matchesStatus =
+            filters.isActive === '' ||
+            (user.isActive !== false) === (filters.isActive === 'true');
+        const matchesPlace = !filters.place || places.includes(filters.place);
+        const matchesAssignment =
+            !filters.assignment ||
+            (filters.assignment === 'assigned'
+                ? places.length > 0
+                : places.length === 0);
+        return (
+            matchesSearch && matchesStatus && matchesPlace && matchesAssignment
+        );
+    });
+}
 
 /**
  * Admin ▸ Users — Fuse ecommerce inventory pattern: searchable list with an
@@ -57,6 +111,7 @@ const REMOVED_OPERATIONS_ROLE = 'operations_manager';
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        AdminUserAvatarComponent,
         MatButtonModule,
         MatDialogModule,
         MatFormFieldModule,
@@ -75,10 +130,21 @@ const REMOVED_OPERATIONS_ROLE = 'operations_manager';
     styles: [
         `
             .users-grid {
-                /* email | role | restaurant | status | details */
+                /* email/avatar | role | phone | status | details */
                 grid-template-columns:
                     minmax(0, 1.4fr) minmax(0, 0.8fr) minmax(0, 1fr)
                     minmax(0, 0.9fr) auto;
+            }
+
+            .users-grid.users-grid-with-place {
+                /* email/avatar | role | place | phone | status | details */
+                grid-template-columns:
+                    minmax(0, 1.3fr) minmax(0, 0.75fr) minmax(0, 1.1fr)
+                    minmax(0, 0.8fr) minmax(0, 0.85fr) auto;
+            }
+
+            .users-grid > * {
+                min-width: 0;
             }
         `,
     ],
@@ -88,6 +154,7 @@ export class UsersListComponent implements OnInit {
     protected readonly collapseOnLeave = collapseOnLeave;
 
     private readonly _admin = inject(AdminService);
+    private readonly _logistics = inject(LogisticsAdminService);
     private readonly _dialog = inject(MatDialog);
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
@@ -108,6 +175,7 @@ export class UsersListComponent implements OnInit {
     readonly roles = signal<string[]>([]);
     readonly pageIndex = signal(0);
     readonly pageSize = signal(DEFAULT_PAGE_SIZE);
+    readonly staffPlaceOptions = signal<string[]>([]);
 
     readonly selectedId = signal<string | null>(null);
     readonly savingRole = signal(false);
@@ -126,6 +194,9 @@ export class UsersListComponent implements OnInit {
         isActive: [''],
         // Only meaningful on the restaurant tab, where the embedded list reads it.
         restaurantStatus: [''],
+        // Staff-only filters. Assignment data comes from markets/hub rosters.
+        staffPlace: [''],
+        staffAssignment: [''],
     });
 
     /** Latest filter form values (for template reactivity). */
@@ -150,6 +221,11 @@ export class UsersListComponent implements OnInit {
         () => this.activeRole() === RESTAURANT_ROLE
     );
 
+    /** Driver, hub-staff and market-agent tabs show roster assignment data. */
+    readonly showStaffAssignment = computed(() =>
+        isStaffRole(this.activeRole())
+    );
+
     /** The header filters, handed to the embedded restaurants list. */
     readonly searchTerm = computed(() => this._filterValues().search ?? '');
     readonly statusFilter = computed(() => this._filterValues().isActive ?? '');
@@ -166,7 +242,9 @@ export class UsersListComponent implements OnInit {
         return (
             (v.search ?? '').trim() !== '' ||
             !!(v.isActive ?? '') ||
-            (this.showRestaurants() && !!(v.restaurantStatus ?? ''))
+            (this.showRestaurants() && !!(v.restaurantStatus ?? '')) ||
+            (this.showStaffAssignment() &&
+                (!!(v.staffPlace ?? '') || !!(v.staffAssignment ?? '')))
         );
     });
 
@@ -217,7 +295,14 @@ export class UsersListComponent implements OnInit {
             return;
         }
         this.filterForm.patchValue(
-            role === RESTAURANT_ROLE ? { role } : { role, restaurantStatus: '' }
+            role === RESTAURANT_ROLE
+                ? { role, staffPlace: '', staffAssignment: '' }
+                : {
+                      role,
+                      restaurantStatus: '',
+                      staffPlace: '',
+                      staffAssignment: '',
+                  }
         );
     }
 
@@ -226,6 +311,8 @@ export class UsersListComponent implements OnInit {
             search: '',
             isActive: '',
             restaurantStatus: '',
+            staffPlace: '',
+            staffAssignment: '',
         });
     }
 
@@ -319,6 +406,45 @@ export class UsersListComponent implements OnInit {
         this.loading.set(true);
         const raw = this.filterForm.getRawValue();
         try {
+            if (isStaffRole(raw.role)) {
+                const roleRows = (
+                    await loadStaffRows(this._admin, this._logistics, (key) =>
+                        this._transloco.translate(key)
+                    )
+                )
+                    .filter((row) => row.role === raw.role)
+                    .map((row): AdminUserRow => ({ ...row }));
+
+                this.staffPlaceOptions.set(
+                    [...new Set(roleRows.flatMap((row) => placesOf(row)))].sort(
+                        (a, b) => a.localeCompare(b, 'vi')
+                    )
+                );
+
+                const filtered = filterStaffTabUsers(roleRows, {
+                    search: raw.search,
+                    isActive: raw.isActive,
+                    place: raw.staffPlace,
+                    assignment: raw.staffAssignment,
+                });
+                const pageSize = this.pageSize();
+                const lastPage = Math.max(
+                    0,
+                    Math.ceil(filtered.length / pageSize) - 1
+                );
+                const pageIndex = Math.min(this.pageIndex(), lastPage);
+                this.pageIndex.set(pageIndex);
+                this.users.set(
+                    filtered.slice(
+                        pageIndex * pageSize,
+                        (pageIndex + 1) * pageSize
+                    )
+                );
+                this.totalCount.set(filtered.length);
+                return;
+            }
+
+            this.staffPlaceOptions.set([]);
             const result = await this._admin.getUsers({
                 search: raw.search || undefined,
                 role: raw.role || undefined,

@@ -14,6 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -59,6 +60,7 @@ import {
         MatInputModule,
         MatPaginatorModule,
         MatProgressBarModule,
+        MatSelectModule,
         MatTooltipModule,
         ReactiveFormsModule,
         TranslocoModule,
@@ -93,6 +95,7 @@ export class ScheduledOrdersListComponent implements OnInit {
     readonly pageSize = signal(ADMIN_DEFAULT_PAGE_SIZE);
     readonly loading = signal(false);
     readonly loadError = signal<string | null>(null);
+    readonly restaurantOptions = signal<{ id: string; name: string }[]>([]);
 
     readonly restaurantId = new FormControl('', { nonNullable: true });
     /**
@@ -111,6 +114,10 @@ export class ScheduledOrdersListComponent implements OnInit {
     }
 
     ngOnInit(): void {
+        void this._schedules
+            .getRestaurantOptions()
+            .then((options) => this.restaurantOptions.set(options))
+            .catch(() => this.restaurantOptions.set([]));
         this._load();
         const onFilterChange = (): void => {
             this.pageIndex.set(0);

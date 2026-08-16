@@ -143,17 +143,20 @@
             @if (sortedUsers().length > 0) {
                 <div class="grid">
                     <div
-                        class="restaurants-grid text-secondary sticky top-0 z-10 grid items-center gap-x-6 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
+                        class="restaurants-grid text-secondary sticky top-0 z-10 grid items-center gap-x-4 gap-y-0 bg-gray-50 px-6 py-4 text-md font-semibold shadow dark:bg-black dark:bg-opacity-5 md:px-8"
                     >
+                        <!-- Avatar is a real grid column so the Email label and
+                             email text begin on the same vertical line. -->
+                        <div aria-hidden="true"></div>
                         @for (
                             col of [
                                 {
-                                    key: 'restaurantName',
-                                    label: 'admin.restaurants.table.restaurant',
-                                },
-                                {
                                     key: 'email',
                                     label: 'admin.restaurants.table.email',
+                                },
+                                {
+                                    key: 'restaurantName',
+                                    label: 'admin.restaurants.table.restaurant',
                                 },
                                 {
                                     key: 'phone',
@@ -176,7 +179,9 @@
                                     class="admin-sort-header"
                                     (click)="sort.toggle(col.key)"
                                 >
-                                    {{ t(col.label) }}
+                                    <span class="min-w-0 truncate">{{
+                                        t(col.label)
+                                    }}</span>
                                     <mat-icon
                                         class="icon-size-4"
                                         [class.text-accent]="
@@ -190,16 +195,13 @@
                                 </button>
                             </div>
                         }
-                        <div class="text-right">
+                        <div class="truncate text-right">
                             {{ t('admin.restaurants.table.approval') }}
                         </div>
-                        <div class="text-right">
-                            {{ t('admin.users.actions.unlock') }}
-                        </div>
-                        <div class="text-right">
+                        <div class="truncate text-right">
                             {{ t('admin.users.table.status') }}
                         </div>
-                        <div class="text-right">
+                        <div class="truncate text-right">
                             {{ t('admin.crud.details') }}
                         </div>
                     </div>
@@ -209,27 +211,56 @@
                         track trackById($index, user)
                     ) {
                         <div
-                            class="restaurants-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
+                            class="restaurants-grid grid items-center gap-x-4 gap-y-0 border-b px-6 py-3 hover:bg-hover md:px-8"
                         >
-                            <div class="min-w-0 truncate font-medium">
+                            <div class="min-w-0 overflow-hidden">
+                                <admin-user-avatar
+                                    [avatarUrl]="user.avatarUrl"
+                                    [label]="
+                                        user.restaurantName ||
+                                        user.fullName ||
+                                        user.email ||
+                                        user.id
+                                    "
+                                />
+                            </div>
+                            <div
+                                class="min-w-0 overflow-hidden truncate font-medium"
+                                [matTooltip]="user.email || user.id"
+                            >
+                                <span class="block truncate">{{
+                                    user.email || user.id
+                                }}</span>
+                            </div>
+                            <div
+                                class="min-w-0 overflow-hidden truncate font-medium"
+                                [matTooltip]="
+                                    user.restaurantName ||
+                                    t('admin.restaurants.unnamed')
+                                "
+                            >
                                 {{
                                     user.restaurantName ||
                                         t('admin.restaurants.unnamed')
                                 }}
                             </div>
-                            <div class="min-w-0 truncate">
-                                {{ user.email || user.id }}
-                            </div>
-                            <div class="min-w-0 truncate">
+                            <div
+                                class="min-w-0 overflow-hidden truncate"
+                                [matTooltip]="user.phone || '—'"
+                            >
                                 {{ user.phone || '—' }}
                             </div>
-                            <div class="min-w-0">
+                            <div class="min-w-0 overflow-hidden">
                                 @if (user.isActive) {
-                                    <span class="admin-pill admin-pill-success">
+                                    <span
+                                        class="admin-pill admin-pill-success max-w-full truncate"
+                                    >
                                         {{ t('admin.users.filters.active') }}
                                     </span>
                                 } @else {
-                                    <span class="admin-pill admin-pill-neutral">
+                                    <span
+                                        class="admin-pill admin-pill-neutral max-w-full truncate"
+                                    >
                                         {{ t('admin.users.filters.inactive') }}
                                     </span>
                                 }
@@ -241,8 +272,13 @@
                                     </span>
                                 }
                             </div>
-                            <div>
-                                <span [class]="approvalPillClass(user)">
+                            <div class="min-w-0 overflow-hidden">
+                                <span
+                                    [class]="
+                                        approvalPillClass(user) +
+                                        ' max-w-full truncate'
+                                    "
+                                >
                                     {{ t(approvalKey(user)) }}
                                 </span>
                             </div>
@@ -269,35 +305,18 @@
                                             class="icon-size-5"
                                             svgIcon="heroicons_outline:check-circle"
                                         ></mat-icon>
-                                        <span class="ml-1.5 mr-1 text-sm">{{
-                                            t(
-                                                'admin.restaurants.table.approval'
-                                            )
-                                        }}</span>
+                                        <span
+                                            class="ml-1.5 mr-1 min-w-0 truncate text-sm"
+                                            >{{
+                                                t(
+                                                    'admin.restaurants.table.approval'
+                                                )
+                                            }}</span
+                                        >
                                     </button>
                                 } @else {
                                     <span class="text-secondary">—</span>
                                 }
-                            </div>
-                            <div class="flex justify-end">
-                                <button
-                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    [disabled]="
-                                        !user.lockedUntil ||
-                                        unlockingId() !== null
-                                    "
-                                    [matTooltip]="
-                                        t('admin.users.actions.unlock')
-                                    "
-                                    (click)="unlock(user)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        svgIcon="heroicons_outline:key"
-                                    ></mat-icon>
-                                </button>
                             </div>
                             <div class="flex justify-end">
                                 <button

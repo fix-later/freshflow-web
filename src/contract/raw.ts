@@ -26,10 +26,20 @@ class RawApi extends BaseAPI {
         body?: unknown,
         query?: HTTPQuery
     ): Promise<Response> {
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+        };
+        if (this.configuration.accessToken) {
+            const token = await this.configuration.accessToken('Bearer', []);
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+        }
+
         return this.request({
             path,
             method,
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: body as object,
             query,
         });

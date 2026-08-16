@@ -41,13 +41,20 @@ export interface AdminIncident {
     reportedAt: string | null;
     /** The reporter's user id — neither endpoint resolves it to a name. */
     reportedBy: string | null;
+    /** Resolved from Admin Users for procurement; hub DTO has no reporter id. */
+    reporterName: string | null;
     /** Where it happened: the phiên chợ, or the hub. */
     place: string | null;
     /** What it is about: the product bought, or the order line received. */
     subject: string | null;
+    /** Restaurant/order context resolved from GET /orders/{orderId}. */
+    context: string | null;
     status: IncidentStatus | null;
     /** Hub rows only — acknowledging needs the hub id as well as the row id. */
     hubId: string | null;
+    acknowledgedBy: string | null;
+    acknowledgedAt: string | null;
+    updatedAt: string | null;
     /** The record this came from, for the "open" link. */
     link: string | null;
 }

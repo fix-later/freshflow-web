@@ -30,6 +30,7 @@ import { AdminService } from '../admin.service';
 import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { ADMIN_DEFAULT_PAGE_SIZE } from '../shared/admin-pagination';
+import { AdminUserAvatarComponent } from '../shared/admin-user-avatar.component';
 import { CoalescedTask } from '../shared/coalesced-task';
 import { TableSort } from '../shared/table-sort';
 
@@ -80,6 +81,7 @@ export function restaurantsForReview(
     host: { class: 'flex flex-auto flex-col' },
     imports: [
         AdminLoadingStateComponent,
+        AdminUserAvatarComponent,
         NgTemplateOutlet,
         MatButtonModule,
         MatFormFieldModule,
@@ -96,10 +98,22 @@ export function restaurantsForReview(
     styles: [
         `
             .restaurants-grid {
-                /* name | email | phone | status | approval | approve | unlock | account | details */
+                /* avatar | email | name | phone | status | approval | approve | account | details */
                 grid-template-columns:
-                    minmax(0, 1.25fr) minmax(0, 1.4fr) minmax(0, 0.9fr)
-                    7rem minmax(0, 0.9fr) 7.5rem auto auto 5rem;
+                    2.25rem minmax(0, 1.35fr) minmax(0, 1.2fr) 7rem 7rem
+                    minmax(0, 0.9fr) 7.5rem auto 5rem;
+
+                > * {
+                    min-width: 0;
+                }
+
+                /* Global sortable headers use a small negative margin for
+                   hover affordance. Tables need the label and cell content to
+                   share the exact same grid line. */
+                .admin-sort-header {
+                    margin-inline: 0;
+                    padding-inline: 0;
+                }
             }
         `,
     ],
@@ -136,7 +150,6 @@ export class RestaurantsAdminComponent implements OnInit {
     });
     readonly totalCount = signal(0);
     readonly loading = signal(false);
-    readonly unlockingId = signal<string | null>(null);
     /** User id whose account activation call is in flight. */
     readonly accountStatusId = signal<string | null>(null);
     /** Restaurant id whose approval call is in flight, so only its row spins. */
@@ -291,39 +304,6 @@ export class RestaurantsAdminComponent implements OnInit {
             isActive: '',
             restaurantStatus: '',
         });
-    }
-
-    unlock(user: AdminUserRow): void {
-        if (!user.lockedUntil || this.unlockingId()) {
-            return;
-        }
-        this.unlockingId.set(user.id);
-        this._admin
-            .unlockUser(user.id)
-            .then(() => {
-                this.users.update((list) =>
-                    list.map((row) =>
-                        row.id === user.id ? { ...row, lockedUntil: null } : row
-                    )
-                );
-                this._snackBar.open(
-                    this._transloco.translate('admin.users.unlock.success'),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .catch(async (err) => {
-                this._snackBar.open(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.userDetail.actionError'
-                    ),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .finally(() => this.unlockingId.set(null));
     }
 
     /**

@@ -36,20 +36,26 @@
             [class.mt-6]="!embedded()"
         >
             <mat-form-field
-                class="fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
+                class="fuse-mat-dense w-72 max-w-full"
                 subscriptSizing="dynamic"
             >
-                <mat-icon
-                    class="icon-size-5"
-                    matPrefix
-                    svgIcon="heroicons_solid:magnifying-glass"
-                ></mat-icon>
-                <input
-                    matInput
-                    autocomplete="off"
-                    [formControl]="restaurantId"
-                    [placeholder]="t('admin.claims.filter.restaurantId')"
-                />
+                <mat-label>{{ t('admin.claims.filter.restaurant') }}</mat-label>
+                <mat-select [formControl]="restaurantId">
+                    <mat-option value="">{{
+                        t('admin.claims.filter.allRestaurants')
+                    }}</mat-option>
+                    @for (
+                        restaurant of restaurantOptions();
+                        track restaurant.restaurantId
+                    ) {
+                        <mat-option [value]="restaurant.restaurantId">
+                            {{ restaurant.name }}
+                            @if (restaurant.email) {
+                                · {{ restaurant.email }}
+                            }
+                        </mat-option>
+                    }
+                </mat-select>
             </mat-form-field>
             <mat-form-field
                 class="fuse-mat-dense w-48 max-w-full"
@@ -67,35 +73,6 @@
                     }
                 </mat-select>
             </mat-form-field>
-
-            <!-- The queue is cursor-paged with no id filter, so a claim quoted
-                 elsewhere (audit log, notification) is otherwise only reachable
-                 by paging until it shows up. -->
-            <mat-form-field
-                class="fuse-mat-dense fuse-mat-rounded w-72 max-w-full"
-                subscriptSizing="dynamic"
-            >
-                <mat-icon
-                    class="icon-size-5"
-                    matPrefix
-                    svgIcon="heroicons_solid:hashtag"
-                ></mat-icon>
-                <input
-                    matInput
-                    autocomplete="off"
-                    [formControl]="claimIdLookup"
-                    [placeholder]="t('admin.claims.filter.claimId')"
-                    (keyup.enter)="lookupClaim(detailDialog)"
-                />
-            </mat-form-field>
-            <button
-                mat-stroked-button
-                type="button"
-                [disabled]="!claimIdLookup.value.trim()"
-                (click)="lookupClaim(detailDialog)"
-            >
-                {{ t('admin.claims.filter.open') }}
-            </button>
         </div>
     </div>
 
@@ -142,17 +119,32 @@
                             class="claims-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
                         >
                             <div class="min-w-0">
-                                <div class="truncate font-mono text-sm">
-                                    {{ row.orderId || '—' }}
+                                <div
+                                    class="truncate font-medium"
+                                    [matTooltip]="orderSummary(row)"
+                                >
+                                    {{ orderSummary(row) }}
                                 </div>
                                 <div class="text-secondary truncate text-xs">
-                                    {{ formatDate(row.createdAt) }}
+                                    {{
+                                        orderStatusLabel(
+                                            row.orderDetail?.status
+                                        )
+                                    }}
+                                    · {{ money(row.orderDetail?.totalAmount) }}
                                 </div>
                             </div>
-                            <div
-                                class="hidden min-w-0 truncate font-mono text-xs md:block"
-                            >
-                                {{ row.restaurantId || '—' }}
+                            <div class="hidden min-w-0 md:block">
+                                <div class="truncate font-medium">
+                                    {{ restaurantName(row) }}
+                                </div>
+                                @if (restaurantContact(row)) {
+                                    <div
+                                        class="text-secondary truncate text-xs"
+                                    >
+                                        {{ restaurantContact(row) }}
+                                    </div>
+                                }
                             </div>
                             <div class="truncate font-medium tabular-nums">
                                 {{ money(row.amount) }}
@@ -296,9 +288,11 @@
                 <div class="text-lg font-medium">
                     {{ t('admin.claims.detail.title') }}
                 </div>
-                <div class="text-secondary truncate font-mono text-xs">
-                    {{ viewingId() }}
-                </div>
+                @if (viewing(); as claim) {
+                    <div class="text-secondary truncate text-xs">
+                        {{ restaurantName(claim) }} · {{ orderSummary(claim) }}
+                    </div>
+                }
             </div>
             <div class="flex flex-0 items-center">
                 <button
@@ -358,26 +352,26 @@
                 <div class="mt-4 rounded-xl border p-4 text-sm">
                     <div class="flex justify-between gap-4 py-1">
                         <span class="text-secondary">{{
-                            t('admin.claims.table.order')
+                            t('admin.claims.table.restaurant')
                         }}</span>
-                        <span class="break-all font-mono text-xs">{{
-                            claim.orderId || '—'
-                        }}</span>
+                        <span class="min-w-0 text-right font-medium">
+                            {{ restaurantName(claim) }}
+                        </span>
                     </div>
                     <div class="flex justify-between gap-4 py-1">
                         <span class="text-secondary">{{
-                            t('admin.claims.table.restaurant')
+                            t('admin.claims.restaurant.contact')
                         }}</span>
-                        <span class="break-all font-mono text-xs">{{
-                            claim.restaurantId || '—'
-                        }}</span>
+                        <span class="min-w-0 break-words text-right">
+                            {{ restaurantContact(claim) || '—' }}
+                        </span>
                     </div>
                     <div class="flex justify-between gap-4 py-1">
                         <span class="text-secondary">{{
                             t('admin.claims.detail.filedBy')
                         }}</span>
-                        <span class="break-all font-mono text-xs">{{
-                            claim.createdBy || '—'
+                        <span class="min-w-0 break-words text-right">{{
+                            partyLabel(claim.filedBy)
                         }}</span>
                     </div>
                     <div class="flex justify-between gap-4 py-1">
@@ -386,6 +380,98 @@
                         }}</span>
                         <span>{{ formatDate(claim.createdAt) }}</span>
                     </div>
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.detail.updatedAt')
+                        }}</span>
+                        <span>{{ formatDate(claim.updatedAt) }}</span>
+                    </div>
+                </div>
+
+                <div class="mt-4 rounded-xl border p-4 text-sm">
+                    <div class="flex items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <div class="text-secondary text-xs uppercase">
+                                {{ t('admin.claims.table.order') }}
+                            </div>
+                            <div class="mt-1 font-medium">
+                                {{ orderSummary(claim) }}
+                            </div>
+                        </div>
+                        <div class="shrink-0 text-right">
+                            <div>
+                                {{
+                                    orderStatusLabel(claim.orderDetail?.status)
+                                }}
+                            </div>
+                            <div class="font-semibold tabular-nums">
+                                {{ money(claim.orderDetail?.totalAmount) }}
+                            </div>
+                        </div>
+                    </div>
+                    @if (orderItems(claim).length) {
+                        <div class="mt-3 divide-y border-t">
+                            @for (
+                                item of orderItems(claim);
+                                track item.orderItemId || item.marketProductId
+                            ) {
+                                <div
+                                    class="flex items-center justify-between gap-4 py-2"
+                                >
+                                    <span class="min-w-0 truncate">
+                                        {{ item.productNameSnapshot || '—' }} ×
+                                        {{
+                                            item.actualQuantity ??
+                                                item.quantity ??
+                                                '—'
+                                        }}
+                                    </span>
+                                    <span
+                                        class="shrink-0 font-medium tabular-nums"
+                                    >
+                                        {{ money(item.subtotal) }}
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                    @if (claim.orderDetail?.deliveryAddress?.addressLine) {
+                        <div class="mt-2 border-t pt-2">
+                            <span class="text-secondary">{{
+                                t('admin.claims.order.deliveryAddress')
+                            }}</span>
+                            <div class="mt-1 break-words">
+                                {{
+                                    claim.orderDetail?.deliveryAddress
+                                        ?.recipientName
+                                }}
+                                @if (
+                                    claim.orderDetail?.deliveryAddress?.phone
+                                ) {
+                                    ·
+                                    {{
+                                        claim.orderDetail?.deliveryAddress
+                                            ?.phone
+                                    }}
+                                }
+                                —
+                                {{
+                                    claim.orderDetail?.deliveryAddress
+                                        ?.addressLine
+                                }}
+                            </div>
+                        </div>
+                    }
+                    @if (claim.orderDetail?.notes) {
+                        <div class="mt-2 border-t pt-2">
+                            <span class="text-secondary">{{
+                                t('admin.claims.order.notes')
+                            }}</span>
+                            <div class="mt-1 break-words">
+                                {{ claim.orderDetail?.notes }}
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 <div class="mt-4">
@@ -396,6 +482,26 @@
                         {{ claim.reason || '—' }}
                     </div>
                 </div>
+
+                @if (claim.proofImageUrl) {
+                    <div class="mt-4">
+                        <div class="text-secondary text-xs uppercase">
+                            {{ t('claims.proof') }}
+                        </div>
+                        <a
+                            class="mt-2 block w-fit"
+                            [href]="claim.proofImageUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                class="max-h-64 rounded-xl border object-contain"
+                                [src]="claim.proofImageUrl"
+                                [alt]="t('claims.proofAlt')"
+                            />
+                        </a>
+                    </div>
+                }
 
                 <!-- The decision half: only meaningful once one has been made,
                      and the refund id is the proof the money actually moved. -->
@@ -408,8 +514,8 @@
                             <span class="text-secondary">{{
                                 t('admin.claims.detail.reviewedBy')
                             }}</span>
-                            <span class="break-all font-mono text-xs">{{
-                                claim.reviewedBy || '—'
+                            <span class="min-w-0 break-words text-right">{{
+                                partyLabel(claim.reviewedByUser)
                             }}</span>
                         </div>
                         <div class="flex justify-between gap-4 py-1">
@@ -423,8 +529,8 @@
                                 <span class="text-secondary">{{
                                     t('admin.claims.detail.refundTransaction')
                                 }}</span>
-                                <span class="break-all font-mono text-xs">{{
-                                    claim.refundTransactionId
+                                <span class="font-medium">{{
+                                    t('admin.claims.detail.refundCompleted')
                                 }}</span>
                             </div>
                         }
@@ -518,8 +624,16 @@
                         <span class="text-secondary">{{
                             t('admin.claims.table.order')
                         }}</span>
-                        <span class="break-all font-mono text-xs">{{
-                            claim.orderId || '—'
+                        <span class="min-w-0 text-right font-medium">{{
+                            orderSummary(claim)
+                        }}</span>
+                    </div>
+                    <div class="flex justify-between gap-4 py-1">
+                        <span class="text-secondary">{{
+                            t('admin.claims.table.restaurant')
+                        }}</span>
+                        <span class="min-w-0 text-right font-medium">{{
+                            restaurantName(claim)
                         }}</span>
                     </div>
                     <div class="mt-2 border-t pt-2">
@@ -530,6 +644,20 @@
                             {{ claim.reason || '—' }}
                         </div>
                     </div>
+                    @if (claim.proofImageUrl) {
+                        <a
+                            class="mt-3 flex w-fit items-center gap-2 font-medium text-primary no-underline hover:underline"
+                            [href]="claim.proofImageUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:photo"
+                            ></mat-icon>
+                            {{ t('claims.proofView') }}
+                        </a>
+                    }
                 </div>
 
                 <p class="text-secondary mt-4 text-sm">

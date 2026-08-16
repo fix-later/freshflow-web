@@ -22,9 +22,39 @@ export {
     type ClaimStatus,
 } from 'app/modules/orders/claims.types';
 import type { ClaimRow, ClaimStatus } from 'app/modules/orders/claims.types';
+import type { AdminOrderDetail, AdminUserRow } from '../admin.types';
 
-/** The reviewer's view of a claim. Identical to the filer's, so far. */
-export type AdminClaimRow = ClaimRow;
+/** Human-readable restaurant/user data resolved by the admin users API. */
+export interface AdminClaimParty {
+    userId: string;
+    restaurantId?: string | null;
+    name: string;
+    email?: string | null;
+    phone?: string | null;
+    avatarUrl?: string | null;
+}
+
+/**
+ * The BE claim DTO plus Web-only enrichment. Claims intentionally carry only
+ * foreign keys; the admin queue resolves those keys without changing BE.
+ */
+export interface AdminClaimRow extends ClaimRow {
+    orderDetail?: AdminOrderDetail | null;
+    restaurant?: AdminClaimParty | null;
+    filedBy?: AdminClaimParty | null;
+    reviewedByUser?: AdminClaimParty | null;
+}
+
+export function claimPartyOf(user: AdminUserRow): AdminClaimParty {
+    return {
+        userId: user.id,
+        restaurantId: user.restaurantId,
+        name: user.restaurantName || user.fullName || user.email || user.id,
+        email: user.email,
+        phone: user.phone,
+        avatarUrl: user.avatarUrl,
+    };
+}
 
 /**
  * The only status a decision may be made from. `OrderClaim.Approve` / `Reject`

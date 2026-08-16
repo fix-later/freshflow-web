@@ -28,6 +28,8 @@ export interface AdminScheduledOrder {
     id: string;
     scheduledOrderId?: string | null;
     restaurantId?: string | null;
+    /** Enriched on Web from `GET /admin/users?role=restaurant`. */
+    restaurantName?: string | null;
     recurrenceType?: string | null;
     firstRunAt?: string | null;
     /** Null until the generator has produced at least one order. */
@@ -67,6 +69,12 @@ export interface AdminScheduledOrderFilters {
     includeCancelled?: boolean;
     page?: number;
     pageSize?: number;
+}
+
+/** Restaurant option used by the admin schedule filter. */
+export interface AdminScheduledOrderRestaurantOption {
+    id: string;
+    name: string;
 }
 
 /** One page of schedules. */

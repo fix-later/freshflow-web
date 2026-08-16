@@ -105,22 +105,6 @@
     box-shadow: 0 0 0 2px var(--fuse-bg-card, #fff);
 }
 
-.ff-rd__mini-value {
-    font-size: 1rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.ff-rd__mini-label {
-    color: rgb(107 114 128);
-    font-size: 0.75rem;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    white-space: nowrap;
-}
-
 .ff-rd__body {
     /* Flex child must be allowed to shrink so overflow-y-auto works. */
     min-height: 0;
