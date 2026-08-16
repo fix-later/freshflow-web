@@ -36,6 +36,16 @@ const QUICK_CATEGORIES = 5;
 export const MARKET_SCENE_PUBLIC_ID = 'market-scene_x7lbcm';
 
 /**
+ * The still shown before the footage plays, served from `public/`.
+ *
+ * A chosen file rather than a frame Cloudinary picks out of the video: which
+ * moment of a market opens the page is an editorial decision, and `so_auto`
+ * makes it an automatic one. The extension is part of the path — swapping the
+ * file for another format means changing it here too.
+ */
+export const MARKET_SCENE_POSTER = '/images/background/thumbnail.webp';
+
+/**
  * Section 1: the hero, "Hôm nay đi chợ mua gì?".
  *
  * Asymmetric split. Left: where you are, what this is, and the two controls
@@ -97,6 +107,40 @@ export class MarketHeroComponent {
     searchQuery = '';
 
     readonly sceneVideoId = MARKET_SCENE_PUBLIC_ID;
+
+    /**
+     * The still shown before the footage plays.
+     *
+     * The built scene used to hold the frame alone until the first video frame
+     * painted — an illustration of a market giving way to a photograph of one,
+     * which reads as two different pages a second apart. Now the picture is
+     * there from the start and what changes when the video begins is that it
+     * moves.
+     *
+     * The same URL goes to the player as its `poster`, so the two layers are
+     * one image and one request rather than this file plus a frame Cloudinary
+     * would otherwise extract for the `<video>` element behind it.
+     */
+    readonly scenePosterUrl = MARKET_SCENE_POSTER;
+
+    /**
+     * True once the still is actually painting. It fades in rather than
+     * appearing: on a cold load it arrives a beat after the built scene, and a
+     * hard swap between two full-bleed images is a flash.
+     */
+    readonly posterLoaded = signal(false);
+
+    onPosterLoaded(): void {
+        this.posterLoaded.set(true);
+    }
+
+    /**
+     * The still could not be fetched. Nothing to do but leave it hidden — the
+     * built scene is underneath and is the reason this can fail quietly.
+     */
+    onPosterFailed(): void {
+        this.posterLoaded.set(false);
+    }
 
     /**
      * Set when the browser cannot play any source — the usual cause being that

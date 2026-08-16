@@ -9,7 +9,7 @@ import {
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import {
@@ -18,8 +18,11 @@ import {
 } from 'app/modules/restaurant/scheduled-orders/scheduled-orders.service';
 import {
     normalizeOrderStatus,
+    ORDER_STATUS_TABS,
     OrderRow,
     orderStatusPillClass,
+    OrderStatusTab,
+    orderStatusTabOf,
 } from './orders.types';
 
 /** "Đơn hàng của tôi" — the signed-in restaurant's own order history. */
@@ -40,6 +43,7 @@ import {
 })
 export class OrdersListComponent implements OnInit {
     private readonly _historyService = inject(RestaurantScheduledOrdersService);
+    private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
 
@@ -54,32 +58,82 @@ export class OrdersListComponent implements OnInit {
     readonly totalCount = signal(0);
     readonly page = signal(1);
 
+    // ── Status tabs ──────────────────────────────────────────────────────
+    //
+    // One tab per lifecycle status, plus "all". The filtering is the server's
+    // (`GET /orders/history?status=`), not this list's: the page it holds is
+    // one page of that status, so paging through "delivered" cannot run out
+    // early because the rows it wanted were filtered off the page after the
+    // fact — which is what a client-side filter over a paged read does.
+    //
+    // The list used to read `status: 'delivered'` and show only that. Every
+    // other status the restaurant's orders pass through was unreachable here.
+
+    readonly tabs = ORDER_STATUS_TABS;
+    readonly activeTab = signal<OrderStatusTab>('all');
+
+    /**
+     * Which read the rows on screen belong to. Tabs are a click apart, and the
+     * answers come back in whatever order the network settles them — without
+     * this, a slow "all" landing after a quick "cancelled" would repaint the
+     * cancelled tab with every order.
+     */
+    private _loadToken = 0;
+
+    /** The i18n key for a tab's label — the status labels do double duty. */
+    tabLabelKey(tab: OrderStatusTab): string {
+        return tab === 'all' ? 'orders.tabs.all' : `orders.status.${tab}`;
+    }
+
+    selectTab(tab: OrderStatusTab): void {
+        if (tab === this.activeTab()) {
+            return;
+        }
+        this.activeTab.set(tab);
+        // A page number belongs to the list it counted; the new tab starts at
+        // its own first page.
+        this.page.set(1);
+        // `replaceUrl` so flicking across the tabs does not build a back-stack
+        // the buyer has to unwind one status at a time to leave the page.
+        void this._router.navigate([], {
+            relativeTo: this._route,
+            queryParams: { status: tab === 'all' ? null : tab },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+        });
+        this.load();
+    }
+
     ngOnInit(): void {
+        this.activeTab.set(
+            orderStatusTabOf(this._route.snapshot.queryParamMap.get('status'))
+        );
         this.load();
     }
 
     load(): void {
         this.loading.set(true);
         this.loadError.set(null);
-        const request = this._historyService
-            .listHistory({ status: 'delivered', page: this.page() })
-            .then(({ items, total }) => {
-                const delivered = (items as unknown as OrderRow[]).filter(
-                    (order) =>
-                        normalizeOrderStatus(order.status) === 'delivered'
-                );
-                return {
-                    orders: delivered,
-                    totalCount: total ?? delivered.length,
-                };
-            });
+        const tab = this.activeTab();
+        const token = ++this._loadToken;
 
-        request
-            .then(({ orders, totalCount }) => {
+        this._historyService
+            .listHistory({
+                status: tab === 'all' ? undefined : tab,
+                page: this.page(),
+            })
+            .then(({ items, total }) => {
+                if (token !== this._loadToken) {
+                    return;
+                }
+                const orders = items as unknown as OrderRow[];
                 this.rows.set(orders);
-                this.totalCount.set(totalCount);
+                this.totalCount.set(total ?? orders.length);
             })
             .catch(async (err) => {
+                if (token !== this._loadToken) {
+                    return;
+                }
                 // An empty table after a failed read would read as "no orders";
                 // name the reason instead, and keep the retry available.
                 this.rows.set([]);
@@ -92,7 +146,11 @@ export class OrdersListComponent implements OnInit {
                     )
                 );
             })
-            .finally(() => this.loading.set(false));
+            .finally(() => {
+                if (token === this._loadToken) {
+                    this.loading.set(false);
+                }
+            });
     }
 
     hasNextPage(): boolean {

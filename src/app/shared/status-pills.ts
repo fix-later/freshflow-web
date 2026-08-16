@@ -6,6 +6,12 @@
  * Same idiom throughout: green means settled, red means owed or failed, amber
  * means waiting, and anything unrecognised stays neutral rather than borrowing
  * a colour it has not earned.
+ *
+ * Shared rather than admin-only because a restaurant reads the same ledger the
+ * admin does — its own. The storefront used to keep a second copy of
+ * {@link invoiceStatusPillClass}, and the copy drifted: it coloured `paid`,
+ * `overdue` and `void`, none of which the invoice API emits, while the value it
+ * does emit (`PendingIssuance`) fell through to neutral.
  */
 
 /** Normalizes `PendingIssuance` / `partially-paid` to `pending_issuance`. */

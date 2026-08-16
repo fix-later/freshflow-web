@@ -28,33 +28,90 @@
             </p>
         </div>
     } @else {
+        @if (downloadError(); as message) {
+            <div
+                class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+                role="alert"
+            >
+                <mat-icon
+                    class="shrink-0 text-amber-500 icon-size-5"
+                    svgIcon="heroicons_outline:exclamation-triangle"
+                ></mat-icon>
+                <span class="min-w-0">{{ message }}</span>
+            </div>
+        }
+
         <div class="flex flex-col divide-y overflow-hidden rounded-xl border">
             @for (row of rows(); track row.id) {
-                <button
-                    type="button"
-                    class="bg-card flex w-full items-center justify-between gap-4 p-4 text-left hover:bg-hover"
-                    (click)="openInvoice(row)"
+                <!--
+                  The row opens the invoice; the two documents hang off the end
+                  of it. Buttons inside a button is not markup, so the row is a
+                  div with its own clickable region rather than a <button> the
+                  downloads would be nested in.
+                -->
+                <div
+                    class="bg-card flex flex-wrap items-center gap-x-4 gap-y-2 p-4"
                 >
-                    <div class="flex min-w-0 flex-col gap-0.5">
-                        <span class="font-mono text-sm font-medium">{{
-                            row.id.slice(0, 8)
-                        }}</span>
-                        <span class="text-secondary text-sm"
-                            >{{ t('restaurantInvoices.issuedAt') }}:
-                            {{ formatDate(row.issuedAt) }}</span
-                        >
-                    </div>
-                    <span class="text-secondary text-sm"
-                        >{{ t('restaurantInvoices.dueAt') }}:
-                        {{ formatDate(row.dueAt) }}</span
+                    <button
+                        type="button"
+                        class="flex min-w-0 flex-auto flex-wrap items-center gap-x-4 gap-y-2 text-left"
+                        (click)="openInvoice(row)"
                     >
-                    <span class="font-mono font-semibold">{{
-                        formatAmount(row.totalAmount)
-                    }}</span>
-                    <span [class]="statusPillClass(row.status)">
-                        {{ row.status || '—' }}
-                    </span>
-                </button>
+                        <div class="flex min-w-0 flex-col gap-0.5">
+                            <span class="font-mono text-sm font-medium">{{
+                                row.id.slice(0, 8)
+                            }}</span>
+                            <span class="text-secondary text-sm"
+                                >{{ t('restaurantInvoices.issuedAt') }}:
+                                {{ formatDate(row.issuedAt) }}</span
+                            >
+                        </div>
+                        <span class="text-secondary text-sm"
+                            >{{ t('restaurantInvoices.dueAt') }}:
+                            {{ formatDay(row.dueAt) }}</span
+                        >
+                        <span class="font-mono font-semibold tabular-nums">{{
+                            formatAmount(row.totalAmount)
+                        }}</span>
+                        <!-- The API's own token (`PendingIssuance`) is not a
+                             word to hand a restaurant. -->
+                        <span [class]="statusPillClass(row.status)">
+                            {{
+                                row.status
+                                    | apiLabel: 'admin.finance.invoiceStatus'
+                            }}
+                        </span>
+                    </button>
+
+                    <div class="ml-auto flex shrink-0 items-center gap-2">
+                        <button
+                            class="h-9 min-h-9 min-w-10 px-2"
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="exportingId() === row.id"
+                            [matTooltip]="t('restaurantInvoices.export')"
+                            (click)="exportInvoice(row)"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:arrow-down-tray"
+                            ></mat-icon>
+                        </button>
+                        <button
+                            class="h-9 min-h-9 min-w-10 px-2"
+                            mat-stroked-button
+                            type="button"
+                            [disabled]="downloadingPdfId() === row.id"
+                            [matTooltip]="t('restaurantInvoices.downloadPdf')"
+                            (click)="downloadPdf(row)"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:document-text"
+                            ></mat-icon>
+                        </button>
+                    </div>
+                </div>
             }
         </div>
 

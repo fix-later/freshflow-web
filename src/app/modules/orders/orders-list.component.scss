@@ -10,6 +10,45 @@
     }
 }
 
+.ff-orders__tabs {
+    /* The strip is a rail of its own, so the scrollbar it needs on narrow
+       screens does not sit under the list below it. */
+    scrollbar-width: thin;
+}
+
+.ff-orders__tab {
+    border-color: var(--fuse-border, rgb(0 0 0 / 0.12));
+    color: var(--fuse-text-secondary, rgb(0 0 0 / 0.6));
+    background: transparent;
+    white-space: nowrap;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+
+    &:hover:not(:disabled) {
+        border-color: var(--fuse-primary, #16a34a);
+        color: var(--fuse-primary, #16a34a);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary, #16a34a);
+        outline-offset: 2px;
+    }
+
+    /* Filled, not underlined: the strip scrolls, and an underline on an
+       off-screen tab is the one part of it that never scrolls into view. */
+    &--active {
+        border-color: var(--fuse-primary, #16a34a);
+        color: #fff;
+        background: var(--fuse-primary, #16a34a);
+    }
+
+    &--active:hover:not(:disabled) {
+        color: #fff;
+    }
+}
+
 .ff-orders__empty {
     border: 1px dashed var(--fuse-border, rgb(0 0 0 / 0.18));
     background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));

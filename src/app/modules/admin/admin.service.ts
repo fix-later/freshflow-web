@@ -9,6 +9,7 @@ import {
     unwrapData,
     withId,
 } from 'app/core/api/envelope';
+import { mapWithLimit } from 'app/core/util/concurrency';
 import {
     adminApi,
     hubsApi,
@@ -43,7 +44,6 @@ import {
     AdminMarketSessionTracking,
     AdminOperationalSettings,
     AdminOrderDetail,
-    AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminOrderGroupsResult,
     AdminOrderListFilters,
@@ -75,6 +75,16 @@ const MAX_USER_PAGE_SIZE = 100;
 
 /** Stops a broken `total` from turning the walk into an endless loop. */
 const MAX_USER_PAGES = 50;
+
+/**
+ * How many per-agent assignment reads are in flight at once.
+ *
+ * One request per agent is the only way to answer "who works this chợ", so on
+ * a platform with a real roster this is the widest burst the admin console
+ * makes. Paced, because the burst is what draws the 429 that used to empty the
+ * whole answer.
+ */
+const ASSIGNMENT_READ_CONCURRENCY = 6;
 
 /** A finite number from an untyped body, else `0`. */
 function numberOf(value: unknown): number {
@@ -317,6 +327,15 @@ export class AdminService {
      * Walks the pages: `GetUsersQuery` defaults to **20** per page, so asking
      * without one silently capped this at the first twenty agents — every agent
      * past that read as belonging to no chợ at all.
+     *
+     * There is no market→agents endpoint, so the assignments are one request
+     * per agent. That fan-out used to be an unthrottled `Promise.all`, and
+     * every caller wraps this whole method in a "then it's empty" catch — so a
+     * single refused read (a 429 off the burst itself is enough) answered that
+     * **no agent works any chợ**: the market's own roster came back empty and
+     * the staff picker showed a dash where every agent's chợ should be. Now the
+     * burst is paced, and an agent whose list cannot be read costs that agent's
+     * entry rather than all of them.
      */
     async getMarketAgentsWithAssignments(): Promise<{
         agents: AdminUserRow[];
@@ -324,12 +343,16 @@ export class AdminService {
     }> {
         const users = await this.listUsersByRole(MARKET_AGENT_ROLE);
         const agents = users.filter((u) => !!u.id);
-        const pairs = await Promise.all(
-            agents.map(async (agent) => ({
-                agent,
-                markets: await this.getMarketAssignments(agent.id),
-            }))
+        const assignments = await mapWithLimit(
+            agents,
+            ASSIGNMENT_READ_CONCURRENCY,
+            (agent) => this.getMarketAssignments(agent.id),
+            []
         );
+        const pairs = agents.map((agent, index) => ({
+            agent,
+            markets: assignments[index],
+        }));
         const agentsByMarket = new Map<string, AdminUserRow[]>();
         for (const { agent, markets } of pairs) {
             for (const marketId of markets) {
@@ -1354,25 +1377,6 @@ export class AdminService {
             page: p?.page,
             pageSize: p?.pageSize,
         };
-    }
-
-    /**
-     * Batching progress for `date` (defaults to today), optionally narrowed by
-     * batch status. PRD M7 gives Operations the monitoring view; the run
-     * itself is `auto-batch`.
-     */
-    async getOrderGroupProgress(options?: {
-        date?: Date;
-        status?: string;
-    }): Promise<AdminOrderGroupProgress | null> {
-        const res = await adminApi.apiV1AdminOrderGroupsProgressGetRaw({
-            date: options?.date,
-            status: options?.status || undefined,
-        });
-        return (
-            unwrapData<AdminOrderGroupProgress>(await parseJson(res.raw)) ??
-            null
-        );
     }
 
     async getInvoice(invoiceId: string): Promise<AdminInvoiceRow | null> {

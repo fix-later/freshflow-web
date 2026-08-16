@@ -196,8 +196,15 @@ export interface CrudResource {
     /** Page-level dropdown filters shown next to the search box. */
     filters?: CrudFilter[];
     list: () => Promise<CrudRow[]>;
-    create: (value: CrudFormValue) => Promise<void>;
-    update: (id: string, value: CrudFormValue) => Promise<void>;
+    /**
+     * Omit for a resource this console does not create. The "Tạo" button is
+     * then not rendered at all — a roster assembled from other people's records
+     * (who works which chợ) has no row of its own to add, and a button that
+     * opens an empty form is worse than no button.
+     */
+    create?: (value: CrudFormValue) => Promise<void>;
+    /** Omit for a resource whose rows are edited somewhere else entirely. */
+    update?: (id: string, value: CrudFormValue) => Promise<void>;
     /** Deactivate or delete a row; omit if the resource can't be removed. */
     remove?: (row: CrudRow) => Promise<void>;
     /** i18n key for the remove tooltip/confirm (e.g. deactivate vs delete). */

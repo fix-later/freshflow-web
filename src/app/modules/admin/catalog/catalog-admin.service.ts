@@ -371,6 +371,10 @@ export class CatalogAdminService {
                 categoryId: optStr(value['categoryId']),
                 description: optStr(value['description']),
                 packingCodeId: optStr(value['packingCodeId']),
+                // Omitted rather than sent empty when unset: the column is
+                // nullable and null has a meaning of its own (invoicing reads
+                // it as KCT), while `""` is rejected as an unknown code.
+                vatRate: optStr(value['vatRate']),
             },
         });
         const created = unwrapData<Record<string, unknown>>(
@@ -390,6 +394,7 @@ export class CatalogAdminService {
                 description: optStr(value['description']),
                 imageUrl: optStr(value['imageUrl']),
                 packingCodeId: optStr(value['packingCodeId']),
+                vatRate: optStr(value['vatRate']),
             },
         });
     }

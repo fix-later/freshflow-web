@@ -53,6 +53,7 @@ market-hero {
 }
 
 .ff-hero__art,
+.ff-hero__poster,
 .ff-hero__video {
     position: absolute;
     inset: 0;
@@ -63,12 +64,29 @@ market-hero {
 }
 
 /*
+ * Three layers, in the order a visitor meets them: the built scene holds the
+ * frame from the first paint, the still covers it as soon as it decodes, and
+ * the footage covers that once it is actually running. Each one only ever
+ * hides the one below, so a failure at any step lands on a complete picture
+ * rather than a hole.
+ */
+.ff-hero__poster {
+    z-index: 1;
+    opacity: 0;
+    transition: opacity 500ms ease;
+}
+
+.ff-hero__poster--ready {
+    opacity: 1;
+}
+
+/*
  * The player holds its own element back until a frame is painting, so the
- * built scene behind shows through until then and the hero is never a black
+ * still behind shows through until then and the hero is never a black
  * rectangle. Only the stacking order is the hero's business.
  */
 .ff-hero__video {
-    z-index: 1;
+    z-index: 2;
 }
 
 /* ---- The grade -------------------------------------------------------- */
@@ -76,7 +94,9 @@ market-hero {
 .ff-hero__grade {
     position: absolute;
     inset: 0;
-    z-index: 2;
+    /* Over all three scene layers — it is what makes the type readable on
+       whichever of them happens to be showing. */
+    z-index: 3;
     pointer-events: none;
     background:
         /*
@@ -512,6 +532,7 @@ market-hero {
         animation: none;
     }
 
+    .ff-hero__poster,
     .ff-hero__video {
         transition: none;
     }

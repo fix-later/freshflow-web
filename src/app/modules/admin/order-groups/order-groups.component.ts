@@ -52,7 +52,6 @@ import {
     AdminMarketSessionResources,
     AdminMarketSessionTracking,
     AdminOrderDetail,
-    AdminOrderGroupProgress,
     AdminOrderGroupRow,
     AdminUserRow,
 } from '../admin.types';
@@ -183,6 +182,31 @@ interface MarketSessionRouteView {
     route: CrudRow;
     deliveries: RouteDeliveryStatus[];
     manifest: LoadingManifest | null;
+}
+
+/**
+ * Who is taking a route out, resolved for display.
+ *
+ * `RouteDto` carries `driverUserId` and `vehicleId` and nothing else about
+ * either, so every readable field here comes from the hub's own rosters. An id
+ * the roster cannot name still travels — shortened — because "assigned to
+ * someone this hub no longer lists" is precisely what an operator has to see,
+ * and a blank line would report it as uncrewed.
+ */
+export interface RouteCrew {
+    driverId: string;
+    /** Name, else email, else the shortened id. */
+    driverName: string;
+    /** Only when the roster named the driver and carried one. */
+    driverEmail: string;
+    /** The roster has this driver, and has them deactivated. */
+    driverInactive: boolean;
+    /** The roster is loaded and does not have this driver at all. */
+    driverOffRoster: boolean;
+    vehicleId: string;
+    /** Plate (and capacity), else the shortened id. */
+    vehicleName: string;
+    vehicleOffRoster: boolean;
 }
 
 interface MarketSessionRouteOrderView {
@@ -517,37 +541,7 @@ export class OrderGroupsComponent implements OnInit {
     readonly tomorrowDate = this._localToday.plus({ days: 1 });
     readonly planningDate = signal<DateTime>(this._localToday);
 
-    /**
-     * Server-side batching progress (`GET /admin/order-groups/progress`).
-     * The table lists the batches; this says how far the run itself has got,
-     * which is the question an operator has while it is still running.
-     */
-    readonly progress = signal<AdminOrderGroupProgress | null>(null);
-
-    /** The run's own figures, or `null` when the endpoint reports no run. */
-    readonly progressSummary = computed(() => this.progress()?.summary ?? null);
-
-    /**
-     * Items purchased as a percentage of items in the run. The endpoint counts
-     * **items**, not batches — a batch sits at "Built" for as long as it takes
-     * its agent to buy every line, so batch counts barely move while the run
-     * is actually progressing.
-     */
-    readonly progressPercent = computed(() => {
-        const s = this.progressSummary();
-        const total = Number(s?.totalItems ?? 0);
-        if (!total) {
-            return null;
-        }
-        return Math.round((Number(s?.itemsPurchased ?? 0) / total) * 100);
-    });
-
-    /** Exceptions still open across the run — the number that needs an owner. */
-    readonly openExceptions = computed(() =>
-        Number(this.progressSummary()?.openExceptions ?? 0)
-    );
-
-    /** Delivery dates in the backend-configured ordering window. */
+    /** Delivery dates in the ordering window this platform is configured for. */
     readonly planningDays = computed<PlanningDay[]>(() => {
         const dates = new Set<string>();
         for (let offset = 0; offset < this.planningWindowDays(); offset += 1) {
@@ -1206,6 +1200,12 @@ export class OrderGroupsComponent implements OnInit {
         }
         this.marketSessionRoutesLoading.set(true);
         this.marketSessionRoutesError.set(null);
+        // The rosters, alongside the routes rather than only when the dispatch
+        // form is opened: an assigned route names its driver and truck by id,
+        // and these lists are the only thing that can turn those into a person
+        // and a plate. Independent of the read below, and failure-tolerant per
+        // call, so a roster this hub cannot serve never costs us the routes.
+        void this._loadDispatchOptions();
         void this._loadMarketSessionRouteViews(session)
             .then((routes) => {
                 this.marketSessionRoutes.set(routes);
@@ -1938,6 +1938,44 @@ export class OrderGroupsComponent implements OnInit {
     /** The driver already on the route — the only one a handover may name. */
     routeDriverId(route: CrudRow): string {
         return String(route['driverUserId'] ?? '');
+    }
+
+    /**
+     * The crew on a route, or null while it has none.
+     *
+     * The route card used to say only that a route was `assigned`, so who was
+     * driving it could be read in exactly one place: the dispatch form, which
+     * has to be reopened per route and shows a *picker* rather than a record.
+     *
+     * Off-roster is asserted only against a roster that has actually been read
+     * — an empty list means "not loaded yet", and calling that a missing driver
+     * would put a warning on every route for the moment before the rosters
+     * land.
+     */
+    routeCrew(route: CrudRow): RouteCrew | null {
+        const driverId = this.routeDriverId(route);
+        const vehicleId = String(route['vehicleId'] ?? '');
+        if (!driverId && !vehicleId) {
+            return null;
+        }
+        const drivers = this.dispatchDrivers();
+        const vehicles = this.dispatchVehicles();
+        const driver = drivers.find((row) => row.id === driverId) ?? null;
+        const vehicle = vehicles.find((row) => row.id === vehicleId) ?? null;
+        return {
+            driverId,
+            driverName: driver
+                ? driverOptionLabel(driver)
+                : `#${this.shortOrderId(driverId)}`,
+            driverEmail: String(driver?.['email'] ?? '').trim(),
+            driverInactive: !!driver && driver['isActive'] === false,
+            driverOffRoster: !!driverId && !driver && drivers.length > 0,
+            vehicleId,
+            vehicleName: vehicle
+                ? this.vehicleLabel(vehicle)
+                : `#${this.shortOrderId(vehicleId)}`,
+            vehicleOffRoster: !!vehicleId && !vehicle && vehicles.length > 0,
+        };
     }
 
     openDispatch(route: CrudRow): void {
@@ -3126,14 +3164,6 @@ export class OrderGroupsComponent implements OnInit {
             this.totalCount.set(0);
         } finally {
             this.loading.set(false);
-        }
-        // Progress is a separate endpoint and a separate failure: the table is
-        // still useful when only the progress strip could not be read, so it
-        // just hides rather than taking the page down with it.
-        try {
-            this.progress.set(await this._admin.getOrderGroupProgress());
-        } catch {
-            this.progress.set(null);
         }
     });
 

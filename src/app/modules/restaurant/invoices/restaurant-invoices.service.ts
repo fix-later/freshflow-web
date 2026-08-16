@@ -56,6 +56,29 @@ export class RestaurantInvoicesService {
     }
 
     /**
+     * Downloads an invoice's e-invoice XML (`GET /invoices/{invoiceId}/export`).
+     *
+     * Open to the restaurant, not just the admin console
+     * (`InvoicesController` — `admin,operations_manager,restaurant`): the XML is
+     * the machine-readable document the restaurant's own accounting software
+     * takes, so the list it reads its debt on is where it belongs.
+     */
+    async exportInvoice(
+        invoiceId: string
+    ): Promise<{ blob: Blob; fileName: string }> {
+        const { raw } = await invoicesApi.apiV1InvoicesInvoiceIdExportGetRaw({
+            invoiceId,
+        });
+        return {
+            blob: await raw.blob(),
+            fileName:
+                fileNameFromContentDisposition(
+                    raw.headers.get('content-disposition')
+                ) ?? `invoice-${invoiceId}.xml`,
+        };
+    }
+
+    /**
      * Downloads one of the restaurant's own invoices as a PDF
      * (`GET /invoices/{invoiceId}/pdf`). Ownership is enforced server-side, so
      * an invoice belonging to someone else answers 404 rather than leaking.

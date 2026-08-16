@@ -201,6 +201,39 @@ const NAVIGATION: AreaNavItem[] = [
         link: '/admin/users',
         area: 'admin',
     },
+    // The operating network, listed across every chợ: the hubs goods pass
+    // through, the people working them, and the fleet that moves them. Each of
+    // the three is also managed from inside a chợ, where the scope is one row;
+    // these are the same records asked about as a whole.
+    {
+        id: 'admin.operations',
+        title: 'nav.admin.operations',
+        type: 'collapsable',
+        icon: 'heroicons_outline:building-office-2',
+        area: 'admin',
+        children: [
+            {
+                id: 'admin-hubs',
+                title: 'nav.admin.hubs',
+                type: 'basic',
+                link: '/admin/hubs',
+                // The hub detail page lives at `/admin/hubs/:hubId`, and it is
+                // opened from here — so the prefix match keeps this lit.
+            },
+            {
+                id: 'admin-staff',
+                title: 'nav.admin.staff',
+                type: 'basic',
+                link: '/admin/staff',
+            },
+            {
+                id: 'admin-vehicles',
+                title: 'nav.admin.vehicles',
+                type: 'basic',
+                link: '/admin/vehicles',
+            },
+        ],
+    },
     {
         id: 'admin.links',
         title: 'nav.admin.links',

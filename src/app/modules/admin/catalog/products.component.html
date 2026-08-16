@@ -182,6 +182,28 @@
                                 ></mat-icon>
                             </button>
                         </div>
+                        <div
+                            class="hidden lg:block"
+                            [attr.aria-sort]="sort.ariaSort('vatRate')"
+                        >
+                            <button
+                                type="button"
+                                class="admin-sort-header"
+                                (click)="onSort('vatRate')"
+                            >
+                                {{ t('admin.products.vatRate') }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    [class.text-accent]="
+                                        sort.key() === 'vatRate'
+                                    "
+                                    [svgIcon]="
+                                        'heroicons_outline:' +
+                                        sort.icon('vatRate')
+                                    "
+                                ></mat-icon>
+                            </button>
+                        </div>
                         <div class="text-right">
                             {{ t('admin.crud.actions') }}
                         </div>
@@ -224,6 +246,31 @@
                             </div>
                             <div class="hidden truncate md:block">
                                 {{ unitLabel(row) || '—' }}
+                            </div>
+                            <!--
+                              A product with no rate is not a blank cell: null
+                              is a state the invoicing side reads (as KCT), and
+                              an admin sweeping the catalogue for what still
+                              needs deciding has to be able to see it.
+                            -->
+                            <div class="hidden truncate lg:block">
+                                @if (vatRateOf(row); as rate) {
+                                    <span
+                                        class="admin-pill admin-pill-info"
+                                        [matTooltip]="vatRateLabel(rate)"
+                                        >{{ vatRateShortLabel(rate) }}</span
+                                    >
+                                } @else {
+                                    <span
+                                        class="admin-pill admin-pill-neutral"
+                                        [matTooltip]="
+                                            t('admin.products.vat.hint')
+                                        "
+                                        >{{
+                                            t('admin.products.vat.notSet')
+                                        }}</span
+                                    >
+                                }
                             </div>
                             <div class="flex justify-end gap-1">
                                 <button
@@ -576,6 +623,39 @@
                             }
                         </mat-form-field>
                     </div>
+                    <!--
+                      Thuế suất VAT. A code, not a percentage: two of the six
+                      options are invoicing categories (KCT, KKKNT) rather than
+                      rates, and fresh produce is not uniformly 10% — which is
+                      why it is set per product.
+                    -->
+                    <!--
+                      Full width, unlike the paired fields above it: the hint
+                      under this one is a sentence, and at half width it wrapped
+                      onto a second line that Material has no room reserved for
+                      — so it ran into the description label below.
+                    -->
+                    <!--
+                      `mb-5` because this is the only field here carrying a
+                      hint: every other one's spacing comes from the empty
+                      subscript row Material reserves, and the hint uses that
+                      row up — leaving the sentence sitting on the next label.
+                    -->
+                    <mat-form-field class="mb-5 w-full">
+                        <mat-label>{{ t('admin.products.vatRate') }}</mat-label>
+                        <mat-select formControlName="vatRate">
+                            <mat-option [value]="''">{{
+                                t('admin.products.vat.notSet')
+                            }}</mat-option>
+                            @for (rate of vatRates; track rate) {
+                                <mat-option [value]="rate">{{
+                                    vatRateLabel(rate)
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                        <mat-hint>{{ t('admin.products.vat.hint') }}</mat-hint>
+                    </mat-form-field>
+
                     <mat-form-field class="w-full">
                         <mat-label>{{
                             t('admin.products.description')

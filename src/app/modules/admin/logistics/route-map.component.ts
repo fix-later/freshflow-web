@@ -33,11 +33,10 @@ const FALLBACK_CENTER: LngLat = [106.7009, 10.7769];
  * column of names and ETAs.
  *
  * Coordinates come from the route the panel already fetched
- * (`GET /logistics/routes/{id}` — `RouteStopDto` carries lat/lng), so drawing
- * this costs no extra request. A stop without coordinates is skipped rather
- * than dropped at (0, 0) in the Gulf of Guinea; if fewer than two remain there
- * is no line to draw and the component says so instead of showing an empty
- * ocean.
+ * (`GET /logistics/routes/{id}` — `RouteStopDto` carries lat/lng). Goong
+ * Direction then supplies the road geometry for every consecutive leg, just
+ * as it does in the driver app. A stop without coordinates is skipped rather
+ * than dropped at (0, 0) in the Gulf of Guinea.
  */
 @Component({
     selector: 'admin-route-map',
@@ -54,6 +53,11 @@ const FALLBACK_CENTER: LngLat = [106.7009, 10.7769];
             } @else {
                 <div class="ff-route-map">
                     <div class="ff-route-map__canvas" #canvas></div>
+                    @if (roadPathUnavailable()) {
+                        <p class="ff-route-map__notice">
+                            {{ t('admin.routes.map.roadPathUnavailable') }}
+                        </p>
+                    }
                     @if (failed()) {
                         <p class="ff-route-map__empty">
                             {{ t('admin.routes.map.unavailable') }}
@@ -82,6 +86,21 @@ const FALLBACK_CENTER: LngLat = [106.7009, 10.7769];
                 font-size: 0.8125rem;
                 text-align: center;
             }
+
+            .ff-route-map__notice {
+                position: absolute;
+                right: 0.75rem;
+                bottom: 0.75rem;
+                left: 0.75rem;
+                margin: 0;
+                border-radius: 0.5rem;
+                background: rgba(255, 255, 255, 0.94);
+                padding: 0.5rem 0.75rem;
+                color: #475569;
+                font-size: 0.75rem;
+                text-align: center;
+                box-shadow: 0 1px 4px rgba(15, 23, 42, 0.16);
+            }
         `,
     ],
 })
@@ -95,6 +114,9 @@ export class RouteMapComponent {
 
     /** True once the SDK or the key has let us down; the panel keeps working. */
     readonly failed = signal(false);
+
+    /** Stops remain useful even when Goong cannot return the driven path. */
+    readonly roadPathUnavailable = signal(false);
 
     /** Stops the map can actually place, in the driver's order. */
     readonly mappable = computed(() =>
@@ -147,7 +169,11 @@ export class RouteMapComponent {
 
             this._clearOverlay();
             await this._addMarkers(map, stops, points);
-            this._addLine(map, points);
+            const roadPoints = await this._roadPath(points);
+            this.roadPathUnavailable.set(
+                points.length > 1 && roadPoints.length < 2
+            );
+            this._addLine(map, roadPoints);
             this._fit(map, points);
         } catch {
             // A missing key or a blocked CDN must not take the routing panel
@@ -157,6 +183,28 @@ export class RouteMapComponent {
         } finally {
             this._drawing = false;
         }
+    }
+
+    /** Fetches every consecutive road leg and joins them into one path. */
+    private async _roadPath(points: readonly LngLat[]): Promise<LngLat[]> {
+        if (points.length < 2) {
+            return [];
+        }
+        const segments = await Promise.all(
+            points
+                .slice(0, -1)
+                .map((point, index) =>
+                    this._maps.drivingDirections(point, points[index + 1])
+                )
+        );
+        // Do not bridge a failed leg with a straight line between two unrelated
+        // polylines. If one request fails, markers still show the stop order.
+        if (segments.some((segment) => segment.length < 2)) {
+            return [];
+        }
+        return segments.flatMap((segment, index) =>
+            index === 0 ? segment : segment.slice(1)
+        );
     }
 
     private async _addMarkers(
@@ -192,14 +240,10 @@ export class RouteMapComponent {
             type: 'line',
             source: ROUTE_LINE,
             layout: { 'line-cap': 'round', 'line-join': 'round' },
-            // Straight legs between stops, not a driven path: the plan gives an
-            // order and an ETA, not a road geometry, and drawing a smooth road
-            // line would claim a route the planner never returned.
             paint: {
                 'line-color': '#3f51b5',
-                'line-width': 3,
-                'line-opacity': 0.85,
-                'line-dasharray': [2, 1.5],
+                'line-width': 4,
+                'line-opacity': 0.9,
             },
         });
     }

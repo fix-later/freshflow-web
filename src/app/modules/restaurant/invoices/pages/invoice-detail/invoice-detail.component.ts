@@ -12,9 +12,10 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
+import { invoiceStatusPillClass } from 'app/shared/status-pills';
 import { RestaurantInvoicesService } from '../../restaurant-invoices.service';
-import { invoiceStatusPillClass } from '../../restaurant-invoices.status';
 import { InvoiceRow } from '../../restaurant-invoices.types';
 
 const DERIVED_ROW_KEYS = new Set(['id', 'items']);
@@ -33,6 +34,7 @@ const DERIVED_ROW_KEYS = new Set(['id', 'items']);
     host: { class: 'flex w-full min-w-0 flex-auto flex-col' },
     imports: [
         AccountShellComponent,
+        ApiLabelPipe,
         MatButtonModule,
         MatIconModule,
         MatProgressBarModule,

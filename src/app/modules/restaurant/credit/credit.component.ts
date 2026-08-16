@@ -10,8 +10,11 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
+import { creditTypePillClass } from 'app/shared/status-pills';
 import { RestaurantCreditService } from './restaurant-credit.service';
 import {
     CreditStatement,
@@ -19,7 +22,15 @@ import {
     RestaurantCreditBalance,
 } from './restaurant-credit.types';
 
-/** "Công nợ" — the signed-in restaurant's own credit balance and history. */
+/**
+ * "Công nợ" — the signed-in restaurant's own credit balance and ledger.
+ *
+ * The same ledger Admin ▸ Nhà hàng ▸ Công nợ shows, read through the
+ * restaurant-scoped endpoints, and deliberately said the same way: a dated row
+ * carrying a translated type pill, the amount, and the note behind it. What the
+ * two screens must never do is describe one movement differently to the two
+ * people arguing about it over the phone.
+ */
 @Component({
     selector: 'restaurant-credit',
     templateUrl: './credit.component.html',
@@ -27,10 +38,12 @@ import {
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        ApiLabelPipe,
         MatButtonModule,
         MatIconModule,
         MatProgressBarModule,
         MatSnackBarModule,
+        MatTooltipModule,
         TranslocoModule,
     ],
 })
@@ -130,47 +143,70 @@ export class CreditComponent implements OnInit {
     }
 
     /**
-     * Printable rows of the expanded statement: every scalar field except the
-     * identifiers and the summary figures already shown on the row itself.
+     * The expanded statement, as the named figures a month is settled on.
+     *
+     * This used to print **every** scalar the endpoint returned, under labels
+     * derived from the JSON field names — so a Vietnamese restaurant read
+     * "Total charges", "Generated at" and its own `restaurantId` in English,
+     * and any field the backend added appeared unannounced. The admin statement
+     * says these six things; so does this.
      */
     statementEntries(): { label: string; value: string }[] {
         const detail = this.statementDetail();
         if (!detail) {
             return [];
         }
-        const skip = new Set([
-            'id',
-            'statementId',
-            'restaurantId',
-            'month',
-            'year',
-        ]);
-        return Object.entries(detail)
-            .filter(
-                ([key, value]) =>
-                    !skip.has(key) &&
-                    (typeof value === 'string' ||
-                        typeof value === 'number' ||
-                        typeof value === 'boolean')
-            )
-            .map(([key, value]) => ({
-                label: this._humanize(key),
+        const money = (value: unknown): string | null =>
+            typeof value === 'number' ? this.formatAmount(value) : null;
+        const rows: { label: string; value: string | null }[] = [
+            {
+                label: 'restaurantCredit.statements.openingBalance',
+                value: money(detail.openingBalance),
+            },
+            {
+                label: 'restaurantCredit.statements.charges',
+                value: money(detail.totalCharges),
+            },
+            {
+                label: 'restaurantCredit.statements.payments',
+                value: money(detail.totalPayments),
+            },
+            {
+                label: 'restaurantCredit.statements.refunds',
+                value: money(detail['totalRefunds']),
+            },
+            {
+                label: 'restaurantCredit.statements.closingBalance',
+                value: money(detail.closingBalance),
+            },
+            {
+                label: 'restaurantCredit.statements.dueDate',
                 value:
-                    typeof value === 'number' &&
-                    /balance|total|amount/i.test(key)
-                        ? this.formatAmount(value)
-                        : String(value),
+                    typeof detail['dueDate'] === 'string'
+                        ? this.formatDay(detail['dueDate'])
+                        : null,
+            },
+        ];
+        // A figure the statement does not carry is dropped rather than shown as
+        // a dash: an absent refund line is not a refund of nothing.
+        return rows
+            .filter(
+                (row): row is { label: string; value: string } =>
+                    row.value !== null
+            )
+            .map((row) => ({
+                label: this._transloco.translate(row.label),
+                value: row.value,
             }));
     }
 
-    /** `totalCharges` → `Total charges`; the API names these fields, not us. */
-    private _humanize(key: string): string {
-        const spaced = key
-            .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-            .replace(/[_-]+/g, ' ')
-            .toLowerCase()
-            .trim();
-        return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+    readonly creditTypePillClass = creditTypePillClass;
+
+    /** What a ledger entry says beyond its type — the note, else the reference. */
+    transactionNote(tx: CreditTransaction): string {
+        return String(
+            tx.description ?? tx['note'] ?? tx.reference ?? ''
+        ).trim();
     }
 
     loadMoreTransactions(): void {
@@ -267,5 +303,20 @@ export class CreditComponent implements OnInit {
         return Number.isNaN(date.getTime())
             ? '—'
             : date.toLocaleString(this._transloco.getActiveLang());
+    }
+
+    /**
+     * The day alone, for a deadline. A payment due date is stored at midnight,
+     * and printing it with a clock ("00:00:00 1/9/2026") reads as a time the
+     * money is expected by rather than the day it is due.
+     */
+    formatDay(value: string | null | undefined): string {
+        if (!value) {
+            return '—';
+        }
+        const date = new Date(value);
+        return Number.isNaN(date.getTime())
+            ? '—'
+            : date.toLocaleDateString(this._transloco.getActiveLang());
     }
 }

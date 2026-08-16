@@ -30,7 +30,9 @@
                     {{ invoice.id.slice(0, 8) }}
                 </h1>
                 <span [class]="statusPillClass(invoice.status)">
-                    {{ invoice.status || '—' }}
+                    {{
+                        invoice.status | apiLabel: 'admin.finance.invoiceStatus'
+                    }}
                 </span>
                 <button
                     class="sm:ml-auto"
