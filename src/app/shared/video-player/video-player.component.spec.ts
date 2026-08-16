@@ -18,11 +18,41 @@ class HostComponent {
     readonly autoplay = signal(true);
 }
 
+type MaybeMediaSource = Window & { MediaSource?: typeof MediaSource };
+
+let savedMediaSource: typeof MediaSource | undefined;
+let mediaSourceHidden = false;
+
+/** Puts `window.MediaSource` back, whatever a test did to it. */
+function setMediaSource(value: typeof MediaSource | undefined): void {
+    Object.defineProperty(window, 'MediaSource', {
+        value,
+        configurable: true,
+        writable: true,
+    });
+}
+
 /**
- * The element is driven through a real `<video>`, so both are stubbed: HLS is
- * reported as natively playable (keeping `hls.js` out of the test entirely) and
- * `play()` resolves instead of being refused by the autoplay policy, which no
- * headless browser applies the same way.
+ * Hides Media Source Extensions, which is what makes the player take the
+ * native-HLS path — the iOS Safari case. Every test that wants that path has to
+ * say so now: claiming HLS is no longer enough on its own, precisely because
+ * Chrome claims it too.
+ */
+function hideMediaSource(): void {
+    if (mediaSourceHidden) {
+        return;
+    }
+    savedMediaSource = (window as MaybeMediaSource).MediaSource;
+    mediaSourceHidden = true;
+    setMediaSource(undefined);
+}
+
+/**
+ * The element is driven through a real `<video>`, so all of it is stubbed: HLS
+ * is reported as natively playable and MSE is hidden (which together keep
+ * `hls.js` out of the test entirely), and `play()` resolves instead of being
+ * refused by the autoplay policy, which no headless browser applies the same
+ * way.
  */
 function build(): {
     host: HostComponent;
@@ -37,6 +67,7 @@ function build(): {
     spyOn(proto, 'canPlayType').and.returnValue('maybe');
     spyOn(proto, 'play').and.resolveTo();
     spyOn(proto, 'load').and.stub();
+    hideMediaSource();
 
     fixture.detectChanges();
     const el = fixture.nativeElement as HTMLElement;
@@ -50,6 +81,13 @@ function build(): {
 }
 
 describe('VideoPlayerComponent', () => {
+    afterEach(() => {
+        if (mediaSourceHidden) {
+            setMediaSource(savedMediaSource);
+            mediaSourceHidden = false;
+        }
+    });
+
     it('attaches the HLS manifest by itself when autoplay is set', async () => {
         const { video } = build();
         await Promise.resolve();
@@ -98,14 +136,59 @@ describe('VideoPlayerComponent', () => {
         expect(player.state()).not.toBe('failed');
     });
 
-    /** A genuine error, once a source is attached, still fails. */
-    it('reports a failure when the attached source cannot play', async () => {
+    /**
+     * A source that will not play steps down the ladder rather than ending the
+     * player: the MP4 is still untried while the failure came from HLS.
+     */
+    it('falls back to the MP4 when the attached stream errors', async () => {
+        const { player, video } = build();
+        await Promise.resolve();
+        let failed = false;
+        player.failed.subscribe(() => (failed = true));
+
+        video.dispatchEvent(new Event('error'));
+
+        expect(video.src).toContain('/video/upload/q_auto,f_auto/');
+        expect(video.src.endsWith('.mp4')).toBeTrue();
+        expect(failed).toBeFalse();
+    });
+
+    /** Only when the last rung fails too is there nothing left to show. */
+    it('reports a failure once the MP4 has failed as well', async () => {
         const { player, video } = build();
         await Promise.resolve();
 
         video.dispatchEvent(new Event('error'));
+        // Teardown ignores the `error` its own `load()` raises, and clears that
+        // guard a turn later — so the MP4's own failure comes after it.
+        await new Promise((resolve) => setTimeout(resolve));
+        video.dispatchEvent(new Event('error'));
 
         expect(player.state()).toBe('failed');
+    });
+
+    /**
+     * The regression that took the hero's footage off the page. Chrome 151
+     * answers `"maybe"` to `canPlayType('application/vnd.apple.mpegurl')` and
+     * then cannot load the manifest at all, so trusting that answer put a
+     * `.m3u8` straight on the element and the whole player was dropped —
+     * on a browser whose MSE would have streamed it without complaint.
+     */
+    it('does not take the native path on a browser that has MSE', () => {
+        TestBed.configureTestingModule({ imports: [HostComponent] });
+        const fixture = TestBed.createComponent(HostComponent);
+        fixture.componentInstance.autoplay.set(false);
+        spyOn(HTMLMediaElement.prototype, 'canPlayType').and.returnValue(
+            'maybe'
+        );
+        fixture.detectChanges();
+        const player = fixture.debugElement.children[0]
+            .componentInstance as VideoPlayerComponent;
+        const video = fixture.nativeElement.querySelector(
+            'video'
+        ) as HTMLVideoElement;
+
+        expect(player.usesNativeHls(video)).toBeFalse();
     });
 
     it('re-points at the new video when the id changes', async () => {
