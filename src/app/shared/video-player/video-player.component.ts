@@ -23,6 +23,30 @@ import type Hls from 'hls.js';
 /** What the player is currently doing, for the caller and for the template. */
 export type VideoPlayerState = 'idle' | 'loading' | 'playing' | 'failed';
 
+/** A baseline H.264/AAC MP4 — what every Cloudinary rendition is muxed as. */
+const MSE_PROBE_TYPE = 'video/mp4; codecs="avc1.42E01E,mp4a.40.2"';
+
+/**
+ * Whether Media Source Extensions can actually carry a stream here.
+ *
+ * This is the one capability `hls.js` cannot run without, so it is also the
+ * honest test for "this browser genuinely needs native HLS" — as opposed to
+ * merely claiming it (see {@link VideoPlayerComponent.usesNativeHls}).
+ */
+function mediaSourceUsable(): boolean {
+    if (typeof window === 'undefined') {
+        return false;
+    }
+    const source = (
+        window as Window & { MediaSource?: typeof MediaSource | undefined }
+    ).MediaSource;
+    return (
+        !!source &&
+        typeof source.isTypeSupported === 'function' &&
+        source.isTypeSupported(MSE_PROBE_TYPE)
+    );
+}
+
 /**
  * A Cloudinary-backed video player that streams rather than downloads.
  *
@@ -39,11 +63,11 @@ export type VideoPlayerState = 'idle' | 'loading' | 'playing' | 'failed';
  * segments it is about to show, at whichever rendition the connection can
  * actually carry.
  *
- * **How HLS gets played.** Safari and iOS play HLS natively, so there the
- * manifest goes straight on the element and no library is loaded at all.
- * Everywhere else `hls.js` is imported *dynamically*, so it is a lazy chunk
- * that never reaches a visitor whose browser did not need it, and never runs
- * during any server-side render.
+ * **How HLS gets played.** Where there is no MSE to stream through — iOS
+ * Safari — the manifest goes straight on the element, which plays HLS natively,
+ * and no library is loaded at all. Everywhere else `hls.js` is imported
+ * *dynamically*, so it is a lazy chunk that never reaches a visitor whose
+ * browser did not need it, and never runs during any server-side render.
  *
  * **When it loads.** Nothing is fetched at render: the element carries
  * `preload="none"` and shows a Cloudinary poster. The stream is attached only
@@ -109,6 +133,12 @@ export class VideoPlayerComponent {
     /** True while {@link _teardown} runs, so its own `error` is not a failure. */
     private _tearingDown = false;
 
+    /**
+     * Set once the MP4 has been attached for the current video, so the ladder
+     * cannot loop back onto its own last rung.
+     */
+    private _triedMp4 = false;
+
     constructor() {
         // Runs once the element exists (the view-child signal resolves after
         // view init), and again whenever the video changes. Swapping tears the
@@ -155,13 +185,16 @@ export class VideoPlayerComponent {
         }
 
         this._attaching = true;
+        // A fresh attach starts at the top of the ladder again — this is only
+        // reached for a video that is not the one already playing.
+        this._triedMp4 = false;
         this._setState('loading');
         try {
             // Set imperatively as well as bound: autoplay is only permitted on
             // a muted element, and the flag has to be true *before* `play()`.
             video.muted = this.muted();
-            if (this._canPlayNativeHls(video)) {
-                // Safari and iOS: the manifest goes straight on the element and
+            if (this.usesNativeHls(video)) {
+                // iOS Safari: the manifest goes straight on the element and
                 // `hls.js` is never fetched.
                 video.src = hlsUrl;
                 this._attachedFor = id;
@@ -193,28 +226,55 @@ export class VideoPlayerComponent {
     }
 
     /**
-     * The element's own error, which on the MP4 path is the last word — by then
-     * HLS has already been tried or ruled out.
+     * The element's own error.
+     *
+     * The last word only on the MP4 path; before that it is one more reason to
+     * step down the ladder. It used to end the player outright, which is how a
+     * browser that merely *claimed* HLS took the whole hero down with it — the
+     * manifest failed on the element and the MP4 that would have played was
+     * never asked for.
      *
      * Ignored while tearing down, and while nothing is attached: an element
      * with no source reporting that it has no source is not a playback failure.
      */
     onElementError(): void {
-        if (this._tearingDown || !this._attachedFor) {
+        if (
+            this._tearingDown ||
+            !this._attachedFor ||
+            this.state() === 'failed'
+        ) {
             return;
         }
-        if (this.state() !== 'failed') {
-            this._fail();
+        const video = this._video()?.nativeElement;
+        if (video && !this._triedMp4) {
+            this._fallbackToMp4(video, this._attachedFor);
+            return;
         }
+        this._fail();
     }
 
     /**
-     * `canPlayType` is the honest test: `hls.js` reports "supported" on
-     * browsers that also play HLS natively, and loading a library to do what
-     * the element already does is exactly the waste this avoids.
+     * Whether the manifest can go straight on the element.
+     *
+     * Two conditions, and the second one is the lesson. The browser has to
+     * claim HLS **and** be unable to run `hls.js`. `canPlayType` alone decided
+     * this until Chrome began answering `"maybe"` for
+     * `application/vnd.apple.mpegurl` (151 does) while still refusing to load
+     * the manifest: the element failed with `NotSupportedError — Failed to load
+     * because no supported source was found`, `hls.js` was never imported, and
+     * the hero dropped a player that MSE could have played perfectly well. So
+     * the native path is now reserved for browsers with no MSE at all, which is
+     * iOS Safari — the only place it was ever meant for.
+     *
+     * Public so the path can be asserted without attaching a stream: taking the
+     * wrong branch is the failure this guards, and it costs a network fetch to
+     * observe any other way.
      */
-    private _canPlayNativeHls(video: HTMLVideoElement): boolean {
-        return video.canPlayType('application/vnd.apple.mpegurl') !== '';
+    usesNativeHls(video: HTMLVideoElement): boolean {
+        return (
+            video.canPlayType('application/vnd.apple.mpegurl') !== '' &&
+            !mediaSourceUsable()
+        );
     }
 
     private async _attachHlsJs(
@@ -282,10 +342,13 @@ export class VideoPlayerComponent {
             this._fail();
             return;
         }
+        this._triedMp4 = true;
         this._teardown();
         video.src = mp4;
         this._attachedFor = id;
-        void this._play(video).catch(() => this._fail());
+        // If this one cannot play either, the element says so and
+        // {@link onElementError} — which now knows the ladder is spent — fails.
+        void this._play(video);
     }
 
     /**
