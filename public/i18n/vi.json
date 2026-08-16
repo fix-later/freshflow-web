@@ -200,6 +200,7 @@
     "admin.crud.alreadyInactive": "Đã ngừng hoạt động — API chưa có endpoint để kích hoạt lại.",
     "admin.crud.cancel": "Hủy",
     "admin.crud.clearFilters": "Xóa hết lọc",
+    "admin.crud.close": "Đóng",
     "admin.crud.confirmRemove.message": "Bạn có chắc muốn thực hiện thao tác này?",
     "admin.crud.confirmRemove.title": "Xác nhận",
     "admin.crud.createPage.back": "Quay lại danh sách",

@@ -200,6 +200,7 @@
     "admin.crud.alreadyInactive": "Already inactive — the API has no endpoint to reactivate this.",
     "admin.crud.cancel": "Cancel",
     "admin.crud.clearFilters": "Clear all filters",
+    "admin.crud.close": "Close",
     "admin.crud.confirmRemove.message": "Are you sure you want to perform this action?",
     "admin.crud.confirmRemove.title": "Please confirm",
     "admin.crud.createPage.back": "Back to list",

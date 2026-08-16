@@ -69,6 +69,7 @@
                 <div class="mt-2 flex flex-col items-center">
                     <div
                         class="text-7xl font-bold leading-none tracking-tight text-blue-500"
+                        [matTooltip]="t('admin.incidents.summary.totalHint')"
                     >
                         {{ count(summary().total) }}
                     </div>
@@ -138,6 +139,9 @@
                 <div class="mt-2 flex flex-col items-center">
                     <div
                         class="text-7xl font-bold leading-none tracking-tight text-indigo-500"
+                        [matTooltip]="
+                            t('admin.incidents.summary.procurementHint')
+                        "
                     >
                         {{ count(summary().procurement) }}
                     </div>
@@ -169,6 +173,7 @@
                 <div class="mt-2 flex flex-col items-center">
                     <div
                         class="text-7xl font-bold leading-none tracking-tight text-cyan-500"
+                        [matTooltip]="t('admin.incidents.summary.hubHint')"
                     >
                         {{ count(summary().hub) }}
                     </div>
