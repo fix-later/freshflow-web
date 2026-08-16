@@ -23,19 +23,16 @@
                 class="fuse-mat-dense fuse-mat-rounded w-64 max-w-full"
                 subscriptSizing="dynamic"
             >
-                <mat-icon
-                    class="icon-size-5"
-                    matPrefix
-                    svgIcon="heroicons_solid:magnifying-glass"
-                ></mat-icon>
-                <input
-                    matInput
-                    autocomplete="off"
-                    [formControl]="restaurantId"
-                    [placeholder]="
-                        t('admin.scheduledOrders.filter.restaurantId')
-                    "
-                />
+                <mat-label>{{
+                    t('admin.scheduledOrders.filter.restaurantId')
+                }}</mat-label>
+                <mat-select [formControl]="restaurantId">
+                    @for (option of restaurantOptions(); track option.id) {
+                        <mat-option [value]="option.id">{{
+                            option.name
+                        }}</mat-option>
+                    }
+                </mat-select>
             </mat-form-field>
             <!-- The server hides cancelled schedules by default, which makes
                  "why did this stop generating?" unanswerable. -->
@@ -107,8 +104,8 @@
                             class="schedules-grid grid items-center gap-x-6 gap-y-0 border-b px-6 py-3 md:px-8"
                         >
                             <div class="min-w-0">
-                                <div class="truncate font-mono text-xs">
-                                    {{ row.restaurantId || '—' }}
+                                <div class="truncate font-medium">
+                                    {{ row.restaurantName || '—' }}
                                 </div>
                                 <div class="text-secondary truncate text-xs">
                                     {{

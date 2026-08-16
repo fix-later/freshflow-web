@@ -53,6 +53,22 @@
 
                     <p class="text-default text-sm">{{ row.reason }}</p>
 
+                    @if (row.proofImageUrl) {
+                        <a
+                            class="flex w-fit items-center gap-2 text-sm font-medium text-primary no-underline hover:underline"
+                            [href]="row.proofImageUrl"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                class="h-12 w-12 rounded-md object-cover"
+                                [src]="row.proofImageUrl"
+                                [alt]="t('claims.proofAlt')"
+                            />
+                            {{ t('claims.proofView') }}
+                        </a>
+                    }
+
                     <!--
                       The reviewer's note is the whole answer to "what happened
                       to my claim" — a decided claim with no note shown reads as

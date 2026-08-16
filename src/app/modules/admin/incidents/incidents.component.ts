@@ -2,6 +2,7 @@ import {
     ChangeDetectionStrategy,
     Component,
     OnInit,
+    TemplateRef,
     ViewEncapsulation,
     computed,
     inject,
@@ -10,8 +11,15 @@ import {
 } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
+import {
+    MatDialog,
+    MatDialogModule,
+    MatDialogRef,
+} from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -19,36 +27,55 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
-import { normalizeClaimStatus } from 'app/modules/orders/claims.types';
 import { ApexOptions, NgApexchartsModule } from 'ng-apexcharts';
-import { ClaimsService } from '../claims/claims.service';
-import { AdminClaimRow } from '../claims/claims.types';
 import {
     CHART_COLORS,
-    CHART_STATUS_COLORS,
+    barChart,
     donutChart,
+    stackedBarChart,
 } from '../shared/chart-theme';
+import { bucketIncidents } from './incident-trend';
 import { IncidentsService } from './incidents.service';
 import { AdminIncident, IncidentSource } from './incidents.types';
 
-/** `''` is "no filter" for both selects. */
 type SourceFilter = IncidentSource | '';
 type StatusFilter = 'open' | 'acknowledged' | 'reported' | '';
+/** Reporting window, in days — `all` reads every incident on record. */
+type WindowKey = '7' | '30' | '90' | 'all';
+
+/** One row of the "phân loại" panel: a report type and how often it happened. */
+interface TypeTile {
+    type: string;
+    label: string;
+    source: IncidentSource;
+    count: number;
+    /** Share of the window's incidents, 0–100, for the bar under the count. */
+    share: number;
+    color: string;
+}
+
+const DAY_MS = 86_400_000;
+/** How many hot spots the "điểm nóng" chart names before it stops being a list. */
+const HOTSPOT_LIMIT = 8;
+const SOURCE_COLORS: Record<IncidentSource, string> = {
+    procurement: '#818CF8',
+    hub: '#22D3EE',
+};
 
 /**
- * Admin ▸ Dashboard ▸ Báo cáo sự cố — every issue report the console can read,
- * on one board.
+ * Admin ▸ Dashboard ▸ Báo cáo sự cố.
  *
- * Two streams feed it and they are unlike each other: a market agent's
- * exception at the chợ is a *record* of what happened, while a hub's receiving
- * discrepancy is a *queue item* that blocks the hub from dispatching until an
- * admin signs it off (BR-HUB-2). They are listed together because an operator
- * asking "what went wrong today" wants both, and told apart by the source chip
- * and by which rows carry an action.
+ * A read-only report over the two incident streams an admin can actually GET —
+ * market purchase exceptions (`/admin/order-groups`, which carries the same
+ * `exceptions[]` as the agent's `/procurement/tasks`) and hub receiving
+ * discrepancies (`/hubs/{hubId}/discrepancies`). Everything on the page is
+ * counted from those two reads; nothing is estimated.
  *
- * The claims summary sits here too — how many refund claims are waiting is part
- * of the same question, and the Khiếu nại tab next door is then free to be the
- * review queue rather than a dashboard.
+ * The layout follows the Fuse Analytics/Project dashboards: a period selector
+ * in the header, a KPI row, a stacked trend against its breakdown, the two
+ * distribution cards, then the operational list with a detail dialog. The
+ * period narrows the whole report — figures, charts and list alike — so what
+ * the cards claim and what the list shows never disagree.
  */
 @Component({
     selector: 'admin-incidents',
@@ -57,10 +84,26 @@ type StatusFilter = 'open' | 'acknowledged' | 'reported' | '';
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     host: { class: 'flex flex-auto flex-col' },
+    styles: [
+        `
+            .incident-grid {
+                grid-template-columns:
+                    minmax(0, 1.3fr) minmax(0, 1.1fr) minmax(0, 0.9fr)
+                    6rem minmax(0, 1fr) 8rem 7rem;
+            }
+
+            .incident-grid > * {
+                min-width: 0;
+            }
+        `,
+    ],
     imports: [
         MatButtonModule,
+        MatButtonToggleModule,
+        MatDialogModule,
         MatFormFieldModule,
         MatIconModule,
+        MatInputModule,
         MatProgressBarModule,
         MatSelectModule,
         MatSnackBarModule,
@@ -73,140 +116,287 @@ type StatusFilter = 'open' | 'acknowledged' | 'reported' | '';
 })
 export class AdminIncidentsComponent implements OnInit {
     private readonly _incidents = inject(IncidentsService);
-    private readonly _claims = inject(ClaimsService);
+    private readonly _dialog = inject(MatDialog);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private _detailRef: MatDialogRef<unknown> | null = null;
 
-    /** True when the dashboard's tab bar already names this section. */
     readonly embedded = input(false);
-
     readonly loading = signal(false);
     readonly loadError = signal<string | null>(null);
     readonly incidents = signal<AdminIncident[]>([]);
-    readonly claims = signal<AdminClaimRow[]>([]);
-    /** The row currently being acknowledged, so only its button spins. */
     readonly acknowledging = signal<string | null>(null);
+    readonly viewing = signal<AdminIncident | null>(null);
 
+    readonly windows: readonly WindowKey[] = ['7', '30', '90', 'all'];
+    readonly window = signal<WindowKey>('30');
+
+    readonly search = new FormControl('', { nonNullable: true });
     readonly source = new FormControl<SourceFilter>('', { nonNullable: true });
     readonly status = new FormControl<StatusFilter>('', { nonNullable: true });
-    /** Mirrors the controls, since a `FormControl` is not a signal. */
+    readonly kind = new FormControl('', { nonNullable: true });
+    private readonly _search = signal('');
     private readonly _source = signal<SourceFilter>('');
     private readonly _status = signal<StatusFilter>('');
+    private readonly _kind = signal('');
+
+    /** The selected period in days, or `null` for the whole record. */
+    readonly windowDays = computed(() => {
+        const key = this.window();
+        return key === 'all' ? null : Number(key);
+    });
+
+    /**
+     * Every figure below reads this, not `incidents()`.
+     *
+     * A report with no timestamp cannot be placed in a period, and dropping it
+     * would hide a real incident, so it stays in every window.
+     */
+    readonly windowed = computed(() => {
+        const days = this.windowDays();
+        if (days === null) {
+            return this.incidents();
+        }
+        const from = this._startOfDay(Date.now()) - (days - 1) * DAY_MS;
+        return this.incidents().filter((incident) => {
+            const time = this._time(incident.reportedAt);
+            return time === null || time >= from;
+        });
+    });
+
+    readonly kindOptions = computed(() =>
+        [...new Set(this.windowed().map((incident) => incident.type))]
+            .filter(Boolean)
+            .sort((left, right) => left.localeCompare(right, 'vi'))
+    );
 
     readonly filtered = computed(() => {
+        const search = this._search().trim().toLocaleLowerCase('vi');
         const source = this._source();
         const status = this._status();
-        return this.incidents().filter((incident) => {
+        const kind = this._kind();
+        return this.windowed().filter((incident) => {
             if (source && incident.source !== source) {
                 return false;
             }
-            if (!status) {
-                return true;
+            if (kind && incident.type !== kind) {
+                return false;
             }
-            // "reported" is the procurement rows — the ones with no lifecycle
-            // at all. Without it they could only be reached by source, which
-            // conflates "has no status" with "not filtered".
-            return status === 'reported'
-                ? incident.status === null
-                : incident.status === status;
+            if (
+                status &&
+                (status === 'reported'
+                    ? incident.status !== null
+                    : incident.status !== status)
+            ) {
+                return false;
+            }
+            return (
+                !search ||
+                [
+                    this.typeLabel(incident),
+                    incident.subject,
+                    incident.context,
+                    incident.place,
+                    incident.note,
+                    incident.reporterName,
+                ].some((value) =>
+                    String(value ?? '')
+                        .toLocaleLowerCase('vi')
+                        .includes(search)
+                )
+            );
         });
     });
 
-    /** What the four tiles count, over everything loaded rather than the filter. */
+    readonly hasFilters = computed(
+        () =>
+            !!(
+                this._search() ||
+                this._source() ||
+                this._status() ||
+                this._kind()
+            )
+    );
+
+    /** The four KPI figures, each with the second number printed under it. */
     readonly summary = computed(() => {
-        const rows = this.incidents();
-        const claims = this.claims();
-        let pendingClaims = 0;
-        let pendingAmount = 0;
-        for (const claim of claims) {
-            if (normalizeClaimStatus(claim.status) === 'submitted') {
-                pendingClaims += 1;
-                pendingAmount += claim.amount ?? 0;
-            }
-        }
+        const rows = this.windowed();
+        const since = Date.now() - DAY_MS;
+        const procurement = rows.filter((row) => row.source === 'procurement');
+        const hub = rows.filter((row) => row.source === 'hub');
         return {
-            open: rows.filter((row) => row.status === 'open').length,
-            procurement: rows.filter((row) => row.source === 'procurement')
+            total: rows.length,
+            last24h: rows.filter((row) => {
+                const time = this._time(row.reportedAt);
+                return time !== null && time >= since;
+            }).length,
+            open: hub.filter((row) => row.status === 'open').length,
+            acknowledged: hub.filter((row) => row.status === 'acknowledged')
                 .length,
-            pendingClaims,
-            pendingAmount,
+            procurement: procurement.length,
+            markets: this._distinctPlaces(procurement),
+            hub: hub.length,
+            hubs: this._distinctPlaces(hub),
         };
     });
 
-    /**
-     * What is going wrong, by kind — the two sources' vocabularies side by side
-     * (`Unavailable`/`Shortfall`/… and `MISSING`/`DAMAGED`/`PARTIAL`), each
-     * under its own label, since a hub's DAMAGED and an agent's Damaged are not
-     * the same event.
-     */
-    readonly typeChart = computed<ApexOptions>(() => {
-        const counts = new Map<string, number>();
-        for (const incident of this.incidents()) {
-            const key = this.typeLabel(incident);
-            counts.set(key, (counts.get(key) ?? 0) + 1);
-        }
-        const points = [...counts.entries()]
-            .map(([label, value]) => ({ label, value }))
-            .sort((a, b) => b.value - a.value);
-
-        return donutChart(points, {
-            colors: [...CHART_COLORS],
-            format: (value) => this._number(value),
-        });
+    /** Incidents per day (per week past a month), split by where they came from. */
+    readonly trendChart = computed<ApexOptions>(() => {
+        const { buckets, weekly } = bucketIncidents(
+            this.windowed(),
+            this.windowDays()
+        );
+        return stackedBarChart(
+            buckets.map((bucket) => this._bucketLabel(bucket.start, weekly)),
+            [
+                {
+                    name: this._t('admin.incidents.source.procurement'),
+                    data: buckets.map((bucket) => bucket.procurement),
+                },
+                {
+                    name: this._t('admin.incidents.source.hub'),
+                    data: buckets.map((bucket) => bucket.hub),
+                },
+            ],
+            {
+                colors: [SOURCE_COLORS.procurement, SOURCE_COLORS.hub],
+                format: (value) => this._number(value),
+                height: 320,
+                rotateLabels: buckets.length > 12 ? -45 : 0,
+            }
+        );
     });
 
-    /**
-     * The claims queue's split by state. Fixed semantic colours — amber is
-     * awaiting a decision, green approved, red rejected — so it reads the same
-     * way as the status pills on the Khiếu nại tab.
-     */
-    readonly claimsChart = computed<ApexOptions>(() => {
-        const counts = { submitted: 0, approved: 0, rejected: 0 };
-        for (const claim of this.claims()) {
-            const status = normalizeClaimStatus(claim.status);
-            if (status) {
-                counts[status] += 1;
+    /** How the report types split, most frequent first. */
+    readonly typeTiles = computed<TypeTile[]>(() => {
+        const rows = this.windowed();
+        const counts = new Map<string, TypeTile>();
+        for (const incident of rows) {
+            const key = `${incident.source}:${incident.type}`;
+            const tile = counts.get(key);
+            if (tile) {
+                tile.count += 1;
+                continue;
             }
+            counts.set(key, {
+                type: incident.type,
+                label: this.typeLabel(incident),
+                source: incident.source,
+                count: 1,
+                share: 0,
+                color: SOURCE_COLORS[incident.source],
+            });
         }
+        return [...counts.values()]
+            .map((tile) => ({
+                ...tile,
+                share: rows.length ? (tile.count / rows.length) * 100 : 0,
+            }))
+            .sort((left, right) => right.count - left.count);
+    });
+
+    readonly statusChart = computed<ApexOptions>(() => {
+        const rows = this.windowed();
         const points = [
             {
-                label: this._claimStatusLabel('submitted'),
-                value: counts.submitted,
+                label: this._t('admin.incidents.status.open'),
+                value: rows.filter((row) => row.status === 'open').length,
             },
             {
-                label: this._claimStatusLabel('approved'),
-                value: counts.approved,
+                label: this._t('admin.incidents.status.acknowledged'),
+                value: rows.filter((row) => row.status === 'acknowledged')
+                    .length,
             },
             {
-                label: this._claimStatusLabel('rejected'),
-                value: counts.rejected,
+                label: this._t('admin.incidents.status.reported'),
+                value: rows.filter((row) => row.status === null).length,
             },
         ].filter((point) => point.value > 0);
-
         return donutChart(points, {
-            colors: [
-                CHART_STATUS_COLORS.warn,
-                CHART_STATUS_COLORS.good,
-                CHART_STATUS_COLORS.bad,
-            ],
+            colors: ['#f59e0b', '#22c55e', '#64748b'],
             format: (value) => this._number(value),
         });
     });
+
+    /** The places reporting most — which chợ and which hub to look at first. */
+    readonly hotspots = computed(() => {
+        const counts = new Map<string, number>();
+        for (const incident of this.windowed()) {
+            const place = incident.place?.trim();
+            if (!place) {
+                continue;
+            }
+            counts.set(place, (counts.get(place) ?? 0) + 1);
+        }
+        return [...counts.entries()]
+            .map(([label, value]) => ({ label, value }))
+            .sort((left, right) => right.value - left.value)
+            .slice(0, HOTSPOT_LIMIT);
+    });
+
+    readonly hotspotChart = computed<ApexOptions>(() =>
+        barChart(this.hotspots(), {
+            horizontal: true,
+            colors: [...CHART_COLORS],
+            format: (value) => this._number(value),
+            height: 320,
+        })
+    );
 
     ngOnInit(): void {
         this._load();
+        this.search.valueChanges.subscribe((value) => this._search.set(value));
         this.source.valueChanges.subscribe((value) => this._source.set(value));
         this.status.valueChanges.subscribe((value) => this._status.set(value));
+        this.kind.valueChanges.subscribe((value) => this._kind.set(value));
     }
 
     reload(): void {
         this._load();
     }
 
-    /**
-     * Only an open hub discrepancy can be signed off. A procurement exception
-     * has nothing to sign off, and an acknowledged one is already done.
-     */
+    /** Narrowing the period can strand a type filter with nothing to match. */
+    selectWindow(key: WindowKey): void {
+        this.window.set(key);
+        if (this._kind() && !this.kindOptions().includes(this._kind())) {
+            this.kind.setValue('');
+        }
+    }
+
+    windowLabel(key: WindowKey): string {
+        return key === 'all'
+            ? this._t('admin.incidents.window.all')
+            : this._transloco.translate('admin.incidents.window.days', {
+                  count: Number(key),
+              });
+    }
+
+    clearFilters(): void {
+        this.search.setValue('');
+        this.source.setValue('');
+        this.status.setValue('');
+        this.kind.setValue('');
+    }
+
+    openDetail(incident: AdminIncident, template: TemplateRef<unknown>): void {
+        if (this._detailRef) {
+            return;
+        }
+        this.viewing.set(incident);
+        this._detailRef = this._dialog.open(template, {
+            autoFocus: 'dialog',
+            maxWidth: '95vw',
+        });
+        this._detailRef.afterClosed().subscribe(() => {
+            this._detailRef = null;
+            this.viewing.set(null);
+        });
+    }
+
+    closeDetail(): void {
+        this._detailRef?.close();
+    }
+
     canAcknowledge(incident: AdminIncident): boolean {
         return (
             incident.source === 'hub' &&
@@ -223,20 +413,19 @@ export class AdminIncidentsComponent implements OnInit {
         this._incidents
             .acknowledge(incident.hubId!, incident.id)
             .then(() => {
+                const acknowledgedAt = new Date().toISOString();
+                const patch = (row: AdminIncident): AdminIncident =>
+                    row.id === incident.id
+                        ? {
+                              ...row,
+                              status: 'acknowledged',
+                              acknowledgedAt,
+                          }
+                        : row;
+                this.incidents.update((rows) => rows.map(patch));
+                this.viewing.update((row) => (row ? patch(row) : row));
                 this._notify(
-                    this._transloco.translate(
-                        'admin.hubs.discrepancies.acknowledgeSuccess'
-                    )
-                );
-                // Patched in place rather than refetched: the board is two
-                // aggregations deep, and a full reload to move one chip is a
-                // walk of every hub.
-                this.incidents.update((rows) =>
-                    rows.map((row) =>
-                        row.id === incident.id
-                            ? { ...row, status: 'acknowledged' as const }
-                            : row
-                    )
+                    this._t('admin.hubs.discrepancies.acknowledgeSuccess')
                 );
             })
             .catch(async (err) => {
@@ -251,7 +440,6 @@ export class AdminIncidentsComponent implements OnInit {
             .finally(() => this.acknowledging.set(null));
     }
 
-    /** The incident's kind, under the vocabulary of the source that raised it. */
     typeLabel(incident: AdminIncident): string {
         const token = incident.type.trim();
         if (!token) {
@@ -265,14 +453,23 @@ export class AdminIncidentsComponent implements OnInit {
         return label === key ? token : label;
     }
 
-    statusLabel(incident: AdminIncident): string {
-        const key = incident.status
-            ? `admin.incidents.status.${incident.status}`
-            : 'admin.incidents.status.reported';
-        return this._transloco.translate(key);
+    kindLabel(type: string): string {
+        const incident = this.windowed().find((row) => row.type === type);
+        return incident ? this.typeLabel(incident) : type || '—';
     }
 
-    /** Amber blocks a hub, grey is signed off, slate is a bare record. */
+    sourceLabel(source: IncidentSource): string {
+        return this._t(`admin.incidents.source.${source}`);
+    }
+
+    statusLabel(incident: AdminIncident): string {
+        return this._t(
+            incident.status
+                ? `admin.incidents.status.${incident.status}`
+                : 'admin.incidents.status.reported'
+        );
+    }
+
     statusPillClass(incident: AdminIncident): string {
         switch (incident.status) {
             case 'open':
@@ -284,12 +481,21 @@ export class AdminIncidentsComponent implements OnInit {
         }
     }
 
+    reporterLabel(incident: AdminIncident): string {
+        return (
+            incident.reporterName ||
+            (incident.source === 'hub'
+                ? this._t('admin.incidents.reporter.hubStaff')
+                : '—')
+        );
+    }
+
     quantity(value: number | null): string {
         return value === null ? '—' : this._number(value);
     }
 
-    money(value: number): string {
-        return `${this._number(value)} ₫`;
+    count(value: number): string {
+        return this._number(value);
     }
 
     formatDate(value: string | null): string {
@@ -306,48 +512,63 @@ export class AdminIncidentsComponent implements OnInit {
         return incident.id || String(index);
     }
 
-    private _claimStatusLabel(status: string): string {
-        const key = `admin.claims.status.${status}`;
-        const label = this._transloco.translate(key);
-        return label === key ? status : label;
+    private _t(key: string): string {
+        return this._transloco.translate(key);
     }
 
     private _number(value: number): string {
         return value.toLocaleString(this._transloco.getActiveLang());
     }
 
-    /**
-     * The three reads, each landing on its own.
-     *
-     * `Promise.allSettled`, not `all`: the hub walk is the fragile one (a hub
-     * per request) and the claims summary is a courtesy. Either failing must
-     * not blank the procurement list, which is the board's cheapest and most
-     * complete stream. Only a total failure is reported as an error.
-     */
+    private _time(value: string | null): number | null {
+        if (!value) {
+            return null;
+        }
+        const parsed = Date.parse(value);
+        return Number.isNaN(parsed) ? null : parsed;
+    }
+
+    private _startOfDay(value: number): number {
+        const date = new Date(value);
+        date.setHours(0, 0, 0, 0);
+        return date.getTime();
+    }
+
+    private _distinctPlaces(rows: readonly AdminIncident[]): number {
+        return new Set(
+            rows.map((row) => row.place?.trim()).filter((place) => !!place)
+        ).size;
+    }
+
+    /** Day as `17/08`, week as the day its bucket opens — the axis is dense. */
+    private _bucketLabel(start: number, weekly: boolean): string {
+        const label = new Date(start).toLocaleDateString(
+            this._transloco.getActiveLang(),
+            { day: '2-digit', month: '2-digit' }
+        );
+        return weekly ? `${label}+` : label;
+    }
+
     private _load(): void {
         this.loading.set(true);
         this.loadError.set(null);
         Promise.allSettled([
             this._incidents.listProcurementIncidents(),
             this._incidents.listHubIncidents(),
-            this._claims.listClaims(),
         ])
-            .then(async ([procurement, hub, claims]) => {
+            .then(async ([procurement, hub]) => {
                 const rows = [
                     ...(procurement.status === 'fulfilled'
                         ? procurement.value
                         : []),
                     ...(hub.status === 'fulfilled' ? hub.value : []),
                 ];
-                // Newest first, and rows with no timestamp last rather than
-                // sorted as if they were from 1970.
                 this.incidents.set(
-                    rows.sort((a, b) =>
-                        (b.reportedAt ?? '').localeCompare(a.reportedAt ?? '')
+                    rows.sort((left, right) =>
+                        (right.reportedAt ?? '').localeCompare(
+                            left.reportedAt ?? ''
+                        )
                     )
-                );
-                this.claims.set(
-                    claims.status === 'fulfilled' ? claims.value.claims : []
                 );
                 if (
                     procurement.status === 'rejected' &&

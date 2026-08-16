@@ -1,9 +1,8 @@
-import { Router } from '@angular/router';
 import { mapWithLimit } from 'app/core/util/concurrency';
 import { AdminService } from '../admin.service';
 import { AdminUserRow } from '../admin.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
-import { CrudResource, CrudRow } from '../shared/resource-crud.types';
+import { CrudRow } from '../shared/resource-crud.types';
 
 /** The three roles that work a chợ or a hub. Restaurants are not staff. */
 export const STAFF_ROLES = ['market_agent', 'hub_staff', 'driver'] as const;
@@ -22,8 +21,7 @@ const ROSTER_READ_CONCURRENCY = 6;
  *
  * `places` is a list because the platform allows it: an agent can hold several
  * chợ, and someone can be on more than one hub's roster. Flattening it to "the"
- * chợ would quietly hide the second one — which is exactly the thing an
- * operations lead opens this page to find.
+ * chợ would quietly hide the second one in the Users tab.
  */
 export interface StaffRow extends CrudRow {
     email: string;
@@ -35,164 +33,8 @@ export interface StaffRow extends CrudRow {
 }
 
 /**
- * Admin ▸ Quản trị ▸ Nhân sự — everyone working the chợ and the hubs, and
- * where.
- *
- * **Why this is not the Users page.** That one lists accounts by role and
- * settles what an account *is* (its role, whether it is switched on). This one
- * answers where each person actually works, which is stored nowhere in the user
- * record: an agent's chợ come from their market assignments, and hub staff and
- * drivers from each hub's roster. Neither list can be derived from the other.
- *
- * **Read-only, deliberately.** Assignment belongs to the place being staffed —
- * the chợ's Nhân sự tab, the hub's roster — where the whole team is visible at
- * once and the replace-the-set endpoints are safe to drive. Editing one row
- * from here would write the same endpoints with a view of one person. So a row
- * opens where they work instead, and there is no create button (there is no
- * such record to create: a staff account is created in Người dùng).
- *
- * No id column anywhere: an admin identifies a person by email and a place by
- * its name.
- */
-/** A row's places, read back off the untyped `CrudRow` the table holds. */
-function placesOf(row: CrudRow): string[] {
-    const places = row['places'];
-    return Array.isArray(places) ? (places as string[]) : [];
-}
-
-export function createStaffResource(
-    admin: AdminService,
-    logistics: LogisticsAdminService,
-    router: Router,
-    label: (key: string) => string
-): CrudResource {
-    const roleLabel = (role: string): string =>
-        label(`admin.staff.role.${role}`);
-
-    /** Where a row's first place is, so a click can go there. */
-    const openPlace = (row: CrudRow): void => {
-        const marketId = String(row['marketId'] ?? '');
-        const hubId = String(row['hubId'] ?? '');
-        if (marketId) {
-            void router.navigate(['/admin/markets', marketId], {
-                queryParams: { tab: 'staff' },
-            });
-            return;
-        }
-        if (hubId) {
-            void router.navigate(['/admin/hubs', hubId]);
-        }
-    };
-
-    return {
-        title: 'admin.staff.title',
-        subtitle: 'admin.staff.subtitle',
-        // Never rendered — {@link CrudResource.create} is omitted — but the
-        // shell reads it for the page heading in create mode.
-        createLabel: 'admin.staff.title',
-        searchKeys: ['email', 'phone', 'placeLabel'],
-        searchPlaceholder: 'admin.staff.searchPlaceholder',
-        columns: [
-            {
-                label: 'admin.staff.email',
-                sortable: true,
-                width: 'minmax(0, 1.2fr)',
-                cell: (row) => String(row['email'] ?? ''),
-            },
-            {
-                label: 'admin.staff.phone',
-                sortable: true,
-                width: '10rem',
-                cell: (row) => String(row['phone'] ?? ''),
-            },
-            {
-                label: 'admin.staff.role',
-                sortable: true,
-                width: '10rem',
-                cell: (row) => roleLabel(String(row['role'] ?? '')),
-            },
-            {
-                label: 'admin.staff.place',
-                sortable: true,
-                width: 'minmax(0, 1.4fr)',
-                cell: (row) => String(row['placeLabel'] ?? ''),
-            },
-            // No status column: the table appends its own pill from `isActive`
-            // after the declared ones, and a second one only asked which of the
-            // two to believe.
-        ],
-        // Nothing is edited here, so the dialog has no fields to show.
-        fields: [],
-        filters: [
-            {
-                name: 'role',
-                label: 'admin.staff.role',
-                options: () =>
-                    Promise.resolve(
-                        STAFF_ROLES.map((role) => ({
-                            value: role,
-                            label: roleLabel(role),
-                        }))
-                    ),
-                match: (row, value) => String(row['role'] ?? '') === value,
-            },
-            {
-                // Built from the rows rather than from the chợ and hub lists:
-                // this filter is for narrowing what is on screen, and a place
-                // nobody works is not an answer worth offering.
-                name: 'place',
-                label: 'admin.staff.place',
-                options: (rows) =>
-                    Promise.resolve(
-                        [...new Set(rows.flatMap((row) => placesOf(row)))]
-                            .sort((a, b) => a.localeCompare(b, 'vi'))
-                            .map((place) => ({ value: place, label: place }))
-                    ),
-                match: (row, value) => placesOf(row).includes(value),
-            },
-            {
-                name: 'assigned',
-                label: 'admin.staff.assignment',
-                options: () =>
-                    Promise.resolve([
-                        {
-                            value: 'assigned',
-                            label: label('admin.staff.assigned'),
-                        },
-                        {
-                            value: 'unassigned',
-                            label: label('admin.staff.unassigned'),
-                        },
-                    ]),
-                match: (row, value) =>
-                    value === 'assigned'
-                        ? placesOf(row).length > 0
-                        : placesOf(row).length === 0,
-            },
-            {
-                name: 'status',
-                label: 'admin.crud.status',
-                options: () =>
-                    Promise.resolve([
-                        { value: 'active', label: label('admin.crud.active') },
-                        {
-                            value: 'inactive',
-                            label: label('admin.crud.inactive'),
-                        },
-                    ]),
-                match: (row, value) =>
-                    value === 'active'
-                        ? row['isActive'] !== false
-                        : row['isActive'] === false,
-            },
-        ],
-        list: () => loadStaffRows(admin, logistics, label),
-        openDetail: openPlace,
-    };
-}
-
-/**
- * The roster, assembled from the three places the platform keeps it.
+ * Assignment data for the three staff-role tabs on Admin ▸ Users, assembled
+ * from the separate places where the platform stores it.
  *
  * Every read is failure-tolerant on its own: a hub whose roster cannot be read
  * costs that hub's members their place label, not the whole page. The one thing
@@ -203,7 +45,7 @@ export async function loadStaffRows(
     admin: AdminService,
     logistics: LogisticsAdminService,
     label: (key: string) => string
-): Promise<CrudRow[]> {
+): Promise<StaffRow[]> {
     const [agents, hubStaff, drivers, hubs, agentAssignments] =
         await Promise.all([
             admin.listUsersByRole(MARKET_AGENT).catch(() => []),
@@ -265,6 +107,9 @@ export async function loadStaffRows(
     ): StaffRow => {
         const names = places?.names ?? [];
         return {
+            // Keep profile fields returned by the Users API (notably the
+            // avatar and full name) when this roster is reused by Users tabs.
+            ...person,
             id: person.id,
             email: person.email || person.id,
             phone: person.phone || '',

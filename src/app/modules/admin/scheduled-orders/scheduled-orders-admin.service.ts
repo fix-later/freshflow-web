@@ -8,11 +8,13 @@ import {
     withId,
 } from 'app/core/api/envelope';
 import { ordersApi } from 'contract';
+import { AdminService } from '../admin.service';
 import {
     AdminScheduledOrder,
     AdminScheduledOrderFilters,
     AdminScheduledOrderInstance,
     AdminScheduledOrderInstancesResult,
+    AdminScheduledOrderRestaurantOption,
     AdminScheduledOrderUpdate,
     AdminScheduledOrdersResult,
 } from './scheduled-orders-admin.types';
@@ -35,6 +37,10 @@ import {
  */
 @Injectable({ providedIn: 'root' })
 export class ScheduledOrdersAdminService {
+    private restaurantNamesPromise: Promise<Map<string, string>> | null = null;
+
+    constructor(private readonly admin: AdminService) {}
+
     /**
      * Recurring schedules, newest first as the API returns them.
      *
@@ -56,10 +62,12 @@ export class ScheduledOrdersAdminService {
             extractList(body),
             'scheduledOrderId'
         );
+        const enrichedSchedules = await this.withRestaurantNames(schedules);
         const p = extractPagination(body);
         return {
-            schedules,
-            totalCount: p?.total ?? extractTotal(body) ?? schedules.length,
+            schedules: enrichedSchedules,
+            totalCount:
+                p?.total ?? extractTotal(body) ?? enrichedSchedules.length,
             page: p?.page,
             pageSize: p?.pageSize,
         };
@@ -85,7 +93,20 @@ export class ScheduledOrdersAdminService {
             [data as AdminScheduledOrder],
             'scheduledOrderId'
         );
-        return row?.id ? row : null;
+        if (!row?.id) {
+            return null;
+        }
+        return (await this.withRestaurantNames([row]))[0] ?? null;
+    }
+
+    /** Restaurant choices for the filter, without exposing UUIDs in the UI. */
+    async getRestaurantOptions(): Promise<
+        AdminScheduledOrderRestaurantOption[]
+    > {
+        const names = await this.getRestaurantNames();
+        return [...names.entries()]
+            .map(([id, name]) => ({ id, name }))
+            .sort((left, right) => left.name.localeCompare(right.name));
     }
 
     /**
@@ -145,5 +166,50 @@ export class ScheduledOrdersAdminService {
         await ordersApi.apiV1OrdersScheduledScheduledOrderIdCancelPatchRaw({
             scheduledOrderId,
         });
+    }
+
+    /** Adds restaurant display names without changing the scheduled-order API. */
+    private async withRestaurantNames(
+        schedules: AdminScheduledOrder[]
+    ): Promise<AdminScheduledOrder[]> {
+        if (!schedules.length) {
+            return schedules;
+        }
+        const names = await this.getRestaurantNames();
+        return schedules.map((schedule) => ({
+            ...schedule,
+            restaurantName:
+                names.get(this.restaurantKey(schedule.restaurantId)) ?? null,
+        }));
+    }
+
+    /** Fetches every restaurant user once and indexes restaurant names by ID. */
+    private getRestaurantNames(): Promise<Map<string, string>> {
+        this.restaurantNamesPromise ??= this.admin
+            .listUsersByRole('restaurant')
+            .then((users) => {
+                const names = new Map<string, string>();
+                for (const user of users) {
+                    const key = this.restaurantKey(user.restaurantId);
+                    const name = String(
+                        user.restaurantName ?? user.fullName ?? user.email ?? ''
+                    ).trim();
+                    if (key && name) {
+                        names.set(key, name);
+                    }
+                }
+                return names;
+            })
+            .catch((error: unknown) => {
+                this.restaurantNamesPromise = null;
+                throw error;
+            });
+        return this.restaurantNamesPromise;
+    }
+
+    private restaurantKey(value: string | null | undefined): string {
+        return String(value ?? '')
+            .trim()
+            .toLowerCase();
     }
 }

@@ -202,9 +202,8 @@ const NAVIGATION: AreaNavItem[] = [
         area: 'admin',
     },
     // The operating network, listed across every chợ: the hubs goods pass
-    // through, the people working them, and the fleet that moves them. Each of
-    // the three is also managed from inside a chợ, where the scope is one row;
-    // these are the same records asked about as a whole.
+    // through and the fleet that moves them. Staff now lives in Users, where
+    // each staff-role tab also shows its hub or market assignment.
     {
         id: 'admin.operations',
         title: 'nav.admin.operations',
@@ -219,12 +218,6 @@ const NAVIGATION: AreaNavItem[] = [
                 link: '/admin/hubs',
                 // The hub detail page lives at `/admin/hubs/:hubId`, and it is
                 // opened from here — so the prefix match keeps this lit.
-            },
-            {
-                id: 'admin-staff',
-                title: 'nav.admin.staff',
-                type: 'basic',
-                link: '/admin/staff',
             },
             {
                 id: 'admin-vehicles',

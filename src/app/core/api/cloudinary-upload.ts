@@ -26,9 +26,8 @@ type SignatureResponse = { raw: Response };
  *
  * The image never passes through our backend: `sign` only mints credentials,
  * the bytes go browser → Cloudinary, and the caller persists the returned URL
- * on whatever record it belongs to. Backend validators accept only
- * `https://res.cloudinary.com/...` URLs of at most 512 characters, which is
- * exactly what `secure_url` is — so the result can be saved as-is.
+ * on whatever record it belongs to. Each caller remains responsible for its
+ * own URL validator/length limit (profiles use 512; order claims use 2,000).
  *
  * @example
  * const url = await uploadSignedImage(file, () =>

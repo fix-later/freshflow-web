@@ -255,6 +255,38 @@ export function barChart(
 }
 
 /**
+ * Several series over one set of categories, stacked — Fuse's "New vs. Closed"
+ * card. For a total that has to read as a whole *and* as its parts: the column
+ * height is the period's count, the segments say where it came from.
+ */
+export function stackedBarChart(
+    categories: string[],
+    series: { name: string; data: number[] }[],
+    options: ChartOptions = {}
+): ApexOptions {
+    return {
+        ...CARTESIAN_FRAME,
+        chart: {
+            ...chartBlock('bar', options.height ?? 320),
+            stacked: true,
+        },
+        colors: options.colors ? [...options.colors] : [...CHART_COLORS],
+        dataLabels: { enabled: false },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right',
+            labels: { colors: 'var(--fuse-text-secondary)' },
+        },
+        plotOptions: {
+            bar: { borderRadius: 4, columnWidth: '55%' },
+        },
+        series,
+        xaxis: xAxisLabels(categories, options.rotateLabels ?? 0),
+        yaxis: yAxisLabels(options.format),
+    };
+}
+
+/**
  * A parts-of-a-whole series as a donut — for the status breakdowns (claim
  * status, delivery outcome, invoice status), where the split matters more than
  * the absolute counts.

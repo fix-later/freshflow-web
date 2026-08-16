@@ -410,13 +410,17 @@ export class LogisticsAdminService {
         hubId: string,
         status?: DiscrepancyStatus
     ): Promise<CrudRow[]> {
-        const res = await hubInboundApi.apiV1HubsHubIdDiscrepanciesGetRaw({
-            hubId,
-            status,
-            pageSize: 50,
-        });
         return withId<CrudRow>(
-            extractList(await parseJson(res.raw)),
+            await fetchAllCursor<CrudRow>((cursor, pageSize) =>
+                hubInboundApi
+                    .apiV1HubsHubIdDiscrepanciesGetRaw({
+                        hubId,
+                        status,
+                        cursor,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+            ),
             'discrepancyId'
         );
     }

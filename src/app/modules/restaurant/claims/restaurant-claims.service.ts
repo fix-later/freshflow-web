@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { uploadSignedImage } from 'app/core/api/cloudinary-upload';
 import {
     extractList,
     extractNextCursor,
@@ -7,7 +8,7 @@ import {
     withId,
 } from 'app/core/api/envelope';
 import { CLAIM_PAGE_SIZE, ClaimRow } from 'app/modules/orders/claims.types';
-import { claimsApi } from 'contract';
+import { claimsApi, rawApi } from 'contract';
 
 /** One cursor page of the restaurant's own claims. */
 export interface RestaurantClaimsPage {
@@ -53,13 +54,28 @@ export class RestaurantClaimsService {
     async fileClaim(
         orderId: string,
         amount: number,
-        reason: string
+        reason: string,
+        proofImageUrl?: string | null
     ): Promise<ClaimRow> {
-        const res = await claimsApi.apiV1OrdersOrderIdClaimsPostRaw({
-            orderId,
-            fileClaimRequest: { amount, reason },
-        });
-        const body = await parseJson(res.raw);
+        // The checked-in generated client predates `proofImageUrl` and would
+        // strip it from the JSON body. Send this payload verbatim until the
+        // next full OpenAPI regeneration catches up with the backend.
+        const response = await rawApi.send(
+            `/api/v1/orders/${encodeURIComponent(orderId)}/claims`,
+            'POST',
+            { amount, reason, proofImageUrl: proofImageUrl || null }
+        );
+        const body = await parseJson(response);
         return (unwrapData(body) ?? {}) as ClaimRow;
+    }
+
+    /** Uploads optional photographic evidence for a claim being drafted. */
+    async uploadClaimProof(orderId: string, file: File): Promise<string> {
+        return uploadSignedImage(file, async () => ({
+            raw: await rawApi.send(
+                `/api/v1/orders/${encodeURIComponent(orderId)}/claims/upload-signature`,
+                'POST'
+            ),
+        }));
     }
 }

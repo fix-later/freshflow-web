@@ -20,7 +20,6 @@ import { RestaurantDetailComponent } from './restaurants/restaurant-detail.compo
 import { ScheduledOrderDetailComponent } from './scheduled-orders/scheduled-order-detail.component';
 import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-orders-list.component';
 import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
-import { StaffListComponent } from './staff/staff-list.component';
 import { UsersListComponent } from './users/users-list.component';
 
 /**
@@ -108,10 +107,8 @@ export default [
         path: 'markets/:marketId',
         component: MarketEditComponent,
     },
-    // Quản trị (M8 / M9 / M13) — the network behind the chợ, listed platform
-    // wide: hubs, the people working them, and the fleet. Each chợ page still
-    // manages its own; these three answer the question a single chợ cannot,
-    // which is what the whole network looks like.
+    // Quản trị (M8 / M9 / M13) — hubs and fleet across the whole network.
+    // Staff accounts and their assignments are shown on the Users page.
     {
         path: 'hubs',
         component: HubsComponent,
@@ -119,10 +116,6 @@ export default [
     {
         path: 'hubs/:hubId',
         component: HubEditComponent,
-    },
-    {
-        path: 'staff',
-        component: StaffListComponent,
     },
     {
         path: 'vehicles',

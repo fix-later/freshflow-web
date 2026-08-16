@@ -37,6 +37,8 @@ export interface AdminUserRow {
     /** `pending` | `active` | `suspended`, restaurants only. */
     restaurantStatus?: string | null;
     phone?: string | null;
+    /** Optional profile photo; current API versions may omit this field. */
+    avatarUrl?: string | null;
     restaurantId?: string | null;
     restaurantName?: string | null;
     marketId?: string | null;
