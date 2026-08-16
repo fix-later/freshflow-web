@@ -73,9 +73,10 @@ export function createHubResource(
         createLabel: 'admin.hubs.create',
         // Only the standalone screen lists more than one hub; inside a chợ this
         // form is shown solely to create the one it lacks.
-        searchKeys: marketId
-            ? undefined
-            : ['name', 'address', 'managedByName', 'marketName'],
+        // Not `managedByName`: who runs a hub is deliberately not on this
+        // screen (see the column note below), and a search that quietly matches
+        // on it would hand back the same association a column would.
+        searchKeys: marketId ? undefined : ['name', 'address', 'marketName'],
         searchPlaceholder: 'admin.hubs.searchPlaceholder',
         // Name and capacity are sized to their content — a hub name is a couple
         // of words, a capacity never longer than "1.000 kg" — so the room goes

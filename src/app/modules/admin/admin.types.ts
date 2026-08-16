@@ -188,36 +188,6 @@ export interface AdminMarketSessionFilters {
     status?: AdminMarketSessionStatus;
 }
 
-/**
- * `GET /admin/order-groups/progress` — how far the current batching run has
- * got. Untyped in the spec; these names come from the live response, which
- * counts **items** rather than batches:
- *
- * ```json
- * { "summary": { "batchDate": "2026-08-04", "totalBatches": 1,
- *                "statusCounts": { "Built": 1, "Manifested": 0, … },
- *                "totalItems": 1, "itemsPurchased": 0, "itemsPending": 1,
- *                "openExceptions": 0 },
- *   "batches": [ { "batchId": …, "itemsTotal": 1, "itemsPurchased": 0, … } ] }
- * ```
- */
-export interface AdminOrderGroupProgressSummary {
-    batchDate?: string;
-    totalBatches?: number;
-    statusCounts?: Record<string, number>;
-    totalItems?: number;
-    itemsPurchased?: number;
-    itemsPending?: number;
-    openExceptions?: number;
-    [key: string]: unknown;
-}
-
-export interface AdminOrderGroupProgress {
-    summary?: AdminOrderGroupProgressSummary;
-    batches?: Record<string, unknown>[];
-    [key: string]: unknown;
-}
-
 export interface AdminAuditLogFilters {
     actorId?: string;
     action?: string;

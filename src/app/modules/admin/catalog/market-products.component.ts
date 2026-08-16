@@ -24,6 +24,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { settleWithLimit } from 'app/core/util/concurrency';
 import { includesFolded } from 'app/core/util/text-search';
 import {
     CatalogTag,
@@ -134,35 +135,6 @@ function tagKey(ids: readonly string[]): string {
  * connection pool, where neither the progress bar nor the server sees it.
  */
 const SAVE_CONCURRENCY = 4;
-
-/**
- * Runs `task` over `items` with at most `limit` in flight, settling every one
- * and keeping the results in the order the items came in — the caller reports
- * failures per listing, so it has to be able to say *which* listing.
- */
-async function settleWithLimit<T>(
-    items: readonly T[],
-    limit: number,
-    task: (item: T) => Promise<void>
-): Promise<PromiseSettledResult<void>[]> {
-    const results: PromiseSettledResult<void>[] = [];
-    let next = 0;
-    const worker = async (): Promise<void> => {
-        while (next < items.length) {
-            const index = next++;
-            try {
-                await task(items[index]);
-                results[index] = { status: 'fulfilled', value: undefined };
-            } catch (reason) {
-                results[index] = { status: 'rejected', reason };
-            }
-        }
-    };
-    await Promise.all(
-        Array.from({ length: Math.min(limit, items.length) }, () => worker())
-    );
-    return results;
-}
 
 /**
  * Admin ▸ Catalog ▸ Markets ▸ Pricing — inventory list + inline quick multi-add.

@@ -126,6 +126,31 @@
         </svg>
 
         <!--
+          The still the footage opens on, over the built scene and under the
+          video. Not `loading="lazy"`: this is the largest thing on the first
+          screen, so it is the one image on the page that must not wait its
+          turn.
+
+          It is shown whether or not the video will play — someone who asked for
+          less motion, or is saving data, gets the photograph rather than the
+          illustration, and for them it is the final state rather than a
+          placeholder.
+        -->
+        @if (scenePosterUrl; as poster) {
+            <img
+                class="ff-hero__poster"
+                alt=""
+                fetchpriority="high"
+                decoding="async"
+                data-testid="hero-market-poster"
+                [class.ff-hero__poster--ready]="posterLoaded()"
+                [src]="poster"
+                (load)="onPosterLoaded()"
+                (error)="onPosterFailed()"
+            />
+        }
+
+        <!--
           The footage. `[muted]` is BOUND, not a bare attribute: Angular sets
           static attributes with `setAttribute`, and the content attribute only
           reflects to `defaultMuted` — `video.muted` stayed false, which is the
@@ -137,6 +162,7 @@
                 class="ff-hero__video"
                 data-testid="hero-market-video"
                 [publicId]="sceneVideoId"
+                [poster]="scenePosterUrl"
                 [autoplay]="true"
                 [loop]="true"
                 [muted]="true"

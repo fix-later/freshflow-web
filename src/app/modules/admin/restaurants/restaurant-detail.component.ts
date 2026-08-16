@@ -47,6 +47,11 @@ import {
 } from 'app/core/api/validators';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { orderStatusPillClass } from 'app/modules/orders/orders.types';
+import {
+    creditTypePillClass,
+    invoiceStatusPillClass,
+    paymentStatusPillClass,
+} from 'app/shared/status-pills';
 import { DateTime } from 'luxon';
 import { AdminService } from '../admin.service';
 import {
@@ -62,11 +67,6 @@ import {
 } from '../admin.types';
 import { AdminLoadingStateComponent } from '../shared/admin-loading-state.component';
 import { newestActiveFirst } from '../shared/row-order';
-import {
-    creditTypePillClass,
-    invoiceStatusPillClass,
-    paymentStatusPillClass,
-} from '../shared/status-pills';
 
 /** Actions this page can start against a restaurant. */
 type RestaurantAction =
@@ -86,15 +86,15 @@ type RestaurantAction =
  */
 export const RESTAURANT_DETAIL_TABS = [
     { index: 0, label: 'admin.restaurants.detailPage.tabs.info' },
-    { index: 1, label: 'admin.restaurants.detailPage.tabs.history' },
+    { index: 1, label: 'admin.restaurants.detailPage.tabs.credit' },
     { index: 2, label: 'admin.restaurants.detailPage.tabs.invoices' },
 ] as const;
 
-const HISTORY_TAB = 1;
+const CREDIT_TAB = 1;
 const INVOICES_TAB = 2;
 
 /** Both ledgers are served by the one credit-history read. */
-const LEDGER_TABS: readonly number[] = [HISTORY_TAB, INVOICES_TAB];
+const LEDGER_TABS: readonly number[] = [CREDIT_TAB, INVOICES_TAB];
 
 type SettlementPaymentMethod = 'bank_transfer' | 'manual';
 

@@ -593,7 +593,11 @@ export class ResourceCrudComponent implements OnInit {
     }
 
     openCreate(): void {
-        if (this.pageMode === 'create' || this._dialogRef) {
+        if (
+            !this.resource.create ||
+            this.pageMode === 'create' ||
+            this._dialogRef
+        ) {
             return;
         }
         // The dialog body is `@if (form)`, so opening without building one
@@ -726,10 +730,17 @@ export class ResourceCrudComponent implements OnInit {
             return;
         }
 
+        // A resource that declares neither writer has no dialog to reach this
+        // from; refusing rather than throwing keeps that guarantee cheap.
+        const write = id ? this.resource.update : this.resource.create;
+        if (!write) {
+            return;
+        }
+
         this.saving.set(true);
         const request = id
-            ? this.resource.update(id, value)
-            : this.resource.create(value);
+            ? this.resource.update!(id, value)
+            : this.resource.create!(value);
         request
             .then(() => {
                 if (id) {

@@ -25,7 +25,6 @@ const adminStub: Partial<AdminService> = {
     getHubs: () => Promise.resolve([]),
     getAgentOptions: () => Promise.resolve([]),
     getMarketSessions: () => Promise.resolve([]),
-    getOrderGroupProgress: () => Promise.resolve({}),
 };
 
 const plan = (patch: Partial<RoutePlanResult>): RoutePlanResult =>

@@ -12,6 +12,7 @@ import { UnitsComponent } from './catalog/units.component';
 import { AdminDashboardComponent } from './dashboard/admin-dashboard.component';
 import { DashboardTabSlug } from './dashboard/dashboard-tabs';
 import { HubEditComponent } from './logistics/hub-edit.component';
+import { HubsComponent } from './logistics/hubs.component';
 import { VehiclesComponent } from './logistics/vehicles.component';
 import { OrderGroupDetailComponent } from './order-groups/order-group-detail.component';
 import { OrderGroupsComponent } from './order-groups/order-groups.component';
@@ -19,6 +20,7 @@ import { RestaurantDetailComponent } from './restaurants/restaurant-detail.compo
 import { ScheduledOrderDetailComponent } from './scheduled-orders/scheduled-order-detail.component';
 import { ScheduledOrdersListComponent } from './scheduled-orders/scheduled-orders-list.component';
 import { OrderGroupSettingsPageComponent } from './settings/order-group-settings-page.component';
+import { StaffListComponent } from './staff/staff-list.component';
 import { UsersListComponent } from './users/users-list.component';
 
 /**
@@ -106,14 +108,21 @@ export default [
         path: 'markets/:marketId',
         component: MarketEditComponent,
     },
-    // Logistics configuration (M8 / M9).
-    //
-    // Hubs have no list screen: they are created and listed inside their chợ's
-    // hub tab. A hub's own page stays, for the staff roster and the
-    // inbound/discrepancy oversight the tab has no room for.
+    // Quản trị (M8 / M9 / M13) — the network behind the chợ, listed platform
+    // wide: hubs, the people working them, and the fleet. Each chợ page still
+    // manages its own; these three answer the question a single chợ cannot,
+    // which is what the whole network looks like.
+    {
+        path: 'hubs',
+        component: HubsComponent,
+    },
     {
         path: 'hubs/:hubId',
         component: HubEditComponent,
+    },
+    {
+        path: 'staff',
+        component: StaffListComponent,
     },
     {
         path: 'vehicles',

@@ -33,49 +33,6 @@
                 </div>
             </div>
 
-            <!-- How far the current batching run has got, from
-                 GET /admin/order-groups/progress. Hidden only when the endpoint
-                 reports no run at all — `!== null`, not truthiness, because a
-                 run sitting at 0% is exactly when an operator needs to see it. -->
-            @if (!historyView && progressPercent() !== null) {
-                <div class="min-w-0 sm:w-72">
-                    <div
-                        class="text-secondary flex items-center justify-between gap-2 text-xs font-medium"
-                    >
-                        <span>{{ t('admin.orderGroups.progress.label') }}</span>
-                        <span class="tabular-nums"
-                            >{{ progressPercent() }}%</span
-                        >
-                    </div>
-                    <div
-                        class="bg-hover mt-1.5 h-1.5 overflow-hidden rounded-full"
-                        aria-hidden="true"
-                    >
-                        <span
-                            class="block h-full rounded-full bg-primary transition-all"
-                            [style.width.%]="progressPercent()"
-                        ></span>
-                    </div>
-                    <div
-                        class="text-hint mt-1 flex flex-wrap gap-x-2 text-xs tabular-nums"
-                    >
-                        <span>{{
-                            t('admin.orderGroups.progress.counts', {
-                                completed:
-                                    progressSummary()?.itemsPurchased ?? 0,
-                                total: progressSummary()?.totalItems ?? 0,
-                            })
-                        }}</span>
-                        @if (openExceptions() > 0) {
-                            <span class="font-semibold text-red-600">{{
-                                t('admin.orderGroups.progress.exceptions', {
-                                    count: openExceptions(),
-                                })
-                            }}</span>
-                        }
-                    </div>
-                </div>
-            }
             <div class="flex min-w-0 flex-wrap items-center gap-3">
                 @if (historyView) {
                     <mat-form-field
@@ -3502,6 +3459,128 @@
                                                         }}
                                                     </p>
                                                 </div>
+
+                                                <!--
+                                                  Who is taking this route out.
+                                                  Only once a crew is on it —
+                                                  before that the card would be
+                                                  showing two empty fields — and
+                                                  in the header, because "which
+                                                  driver has route 2" is a
+                                                  question asked while scanning
+                                                  the day, not while inside one
+                                                  route's dispatch form.
+                                                -->
+                                                @if (
+                                                    routeCrew(view.route);
+                                                    as crew
+                                                ) {
+                                                    <div
+                                                        class="bg-card flex flex-wrap items-center gap-x-5 gap-y-2 rounded-xl border px-3 py-2"
+                                                        data-testid="route-crew"
+                                                    >
+                                                        <div
+                                                            class="flex min-w-0 items-center gap-2"
+                                                        >
+                                                            <mat-icon
+                                                                class="text-secondary shrink-0 icon-size-5"
+                                                                [svgIcon]="
+                                                                    'heroicons_outline:user-circle'
+                                                                "
+                                                            ></mat-icon>
+                                                            <div
+                                                                class="min-w-0 leading-tight"
+                                                            >
+                                                                <div
+                                                                    class="text-secondary text-xs"
+                                                                >
+                                                                    {{
+                                                                        t(
+                                                                            'admin.orderGroups.marketSessions.dispatch.driver'
+                                                                        )
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="truncate text-sm font-semibold"
+                                                                >
+                                                                    {{
+                                                                        crew.driverName
+                                                                    }}
+                                                                </div>
+                                                                @if (
+                                                                    crew.driverEmail
+                                                                ) {
+                                                                    <div
+                                                                        class="text-secondary truncate text-xs"
+                                                                    >
+                                                                        {{
+                                                                            crew.driverEmail
+                                                                        }}
+                                                                    </div>
+                                                                }
+                                                            </div>
+                                                        </div>
+
+                                                        <div
+                                                            class="flex min-w-0 items-center gap-2"
+                                                        >
+                                                            <mat-icon
+                                                                class="text-secondary shrink-0 icon-size-5"
+                                                                [svgIcon]="
+                                                                    'heroicons_outline:truck'
+                                                                "
+                                                            ></mat-icon>
+                                                            <div
+                                                                class="min-w-0 leading-tight"
+                                                            >
+                                                                <div
+                                                                    class="text-secondary text-xs"
+                                                                >
+                                                                    {{
+                                                                        t(
+                                                                            'admin.orderGroups.marketSessions.dispatch.vehicle'
+                                                                        )
+                                                                    }}
+                                                                </div>
+                                                                <div
+                                                                    class="truncate text-sm font-semibold"
+                                                                >
+                                                                    {{
+                                                                        crew.vehicleName
+                                                                    }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <!--
+                                                          A crew the hub can no
+                                                          longer vouch for. Said
+                                                          here rather than left
+                                                          to the handover, which
+                                                          is where it would
+                                                          otherwise surface — as
+                                                          a refusal, at the gate.
+                                                        -->
+                                                        @if (
+                                                            crew.driverOffRoster ||
+                                                            crew.driverInactive ||
+                                                            crew.vehicleOffRoster
+                                                        ) {
+                                                            <span
+                                                                class="admin-pill admin-pill-warning"
+                                                                >{{
+                                                                    t(
+                                                                        crew.driverInactive
+                                                                            ? 'admin.orderGroups.marketSessions.dispatch.driverInactive'
+                                                                            : crew.driverOffRoster
+                                                                              ? 'admin.orderGroups.marketSessions.dispatch.driverOffRoster'
+                                                                              : 'admin.orderGroups.marketSessions.dispatch.vehicleOffRoster'
+                                                                    )
+                                                                }}</span
+                                                            >
+                                                        }
+                                                    </div>
+                                                }
                                             </div>
 
                                             <div

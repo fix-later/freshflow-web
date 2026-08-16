@@ -52,6 +52,12 @@ import {
     PRODUCT_DESCRIPTION_MAX_LENGTH,
     PRODUCT_NAME_MAX_LENGTH,
 } from './catalog-admin.service';
+import {
+    PRODUCT_VAT_RATES,
+    vatRateLabel,
+    vatRateOf,
+    vatRateShortLabel,
+} from './product-vat';
 
 /**
  * Admin ▸ Catalog ▸ Products — inventory-style list with inline detail editor
@@ -96,6 +102,13 @@ import {
                     /* image | name | category | unit | actions — content cols even */
                     grid-template-columns:
                         4rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)
+                        6rem;
+                }
+
+                @screen lg {
+                    /* … + VAT, which is short enough to earn a fixed track */
+                    grid-template-columns:
+                        4rem minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 7rem
                         6rem;
                 }
             }
@@ -184,7 +197,30 @@ export class ProductsComponent implements OnInit {
         }),
         imageUrl: new FormControl('', { nonNullable: true }),
         packingCodeId: new FormControl('', { nonNullable: true }),
+        /**
+         * `''` is "chưa cấu hình", which the column stores as null — the write
+         * path drops it rather than sending an empty code the validator would
+         * refuse. Not required: a product may legitimately be listed before its
+         * tax treatment has been decided.
+         */
+        vatRate: new FormControl('', { nonNullable: true }),
     });
+
+    readonly vatRates = PRODUCT_VAT_RATES;
+
+    /** The full label — the dialog's options, and the cell's tooltip. */
+    vatRateLabel(code: string | null | undefined): string {
+        return vatRateLabel(code, (key) => this._transloco.translate(key));
+    }
+
+    /** The code alone, for the table cell. */
+    vatRateShortLabel(code: string | null | undefined): string {
+        return vatRateShortLabel(code, (key) => this._transloco.translate(key));
+    }
+
+    vatRateOf(row: CrudRow): string {
+        return vatRateOf(row['vatRate']);
+    }
 
     /**
      * The current server page in the active client-side sort order. Search,
@@ -324,6 +360,7 @@ export class ProductsComponent implements OnInit {
             description: '',
             imageUrl: '',
             packingCodeId: '',
+            vatRate: '',
         });
     }
 
@@ -346,6 +383,7 @@ export class ProductsComponent implements OnInit {
             description: '',
             imageUrl: '',
             packingCodeId: '',
+            vatRate: '',
         });
         this._editDialogRef = this._dialog.open(template, {
             width: '720px',
@@ -695,6 +733,7 @@ export class ProductsComponent implements OnInit {
             description: String(row['description'] ?? ''),
             imageUrl: String(row['imageUrl'] ?? ''),
             packingCodeId: String(row['packingCodeId'] ?? ''),
+            vatRate: vatRateOf(row['vatRate']),
         });
     }
 

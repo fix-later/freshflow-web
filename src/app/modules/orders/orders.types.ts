@@ -189,25 +189,72 @@ export const ORDER_ISSUE_TYPES = [
 
 export type OrderIssueType = (typeof ORDER_ISSUE_TYPES)[number];
 
-/** Order lifecycle statuses (mirrors the admin orders list's vocabulary). */
+/**
+ * Order lifecycle statuses **as the API spells them**
+ * (`OrderDtoMapper.ToApiStatus`), in the order an order moves through them.
+ *
+ * The filter side of the API accepts aliases for several of these —
+ * `pending`/`processing`/`ready_for_pickup`/`in_transit`
+ * (`OrderQueryParsing.TryParseStatus`) — but no response ever carries one. This
+ * list is the response vocabulary, which is what a screen matches rows against;
+ * an alias belongs only where a query is being written.
+ */
 export const ORDER_STATUSES = [
     'draft',
-    'batched',
-    'pending',
     'confirmed',
-    'processing',
-    'ready_for_pickup',
-    'in_transit',
+    'batched',
+    'picked_up',
     'at_hub',
+    'delivering',
     'delivered',
     'cancelled',
-];
+] as const;
 
-/** Order statuses the backend rejects a cancel for (mirrors admin.types.ts). */
-export const ORDER_NOT_CANCELLABLE_STATUSES = new Set([
-    'processing',
-    'in_transit',
-    'delivered',
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+/** The `/orders` status tabs — every lifecycle status, with "all" in front. */
+export const ORDER_STATUS_TABS = ['all', ...ORDER_STATUSES] as const;
+
+/** The `?status=` value a tab travels under. */
+export type OrderStatusTab = (typeof ORDER_STATUS_TABS)[number];
+
+/**
+ * The tab a `?status=` value names. A hand-typed or stale slug lands on "all"
+ * rather than on a tab that does not exist — and an alias is normalized first,
+ * so a link written in the API's filter vocabulary still opens the right tab.
+ */
+export function orderStatusTabOf(
+    value: string | null | undefined
+): OrderStatusTab {
+    const slug = normalizeOrderStatus(value);
+    const canonical = STATUS_ALIASES[slug] ?? slug;
+    return (ORDER_STATUS_TABS as readonly string[]).includes(canonical)
+        ? (canonical as OrderStatusTab)
+        : 'all';
+}
+
+/** The filter aliases the backend accepts, pointed at the status they mean. */
+const STATUS_ALIASES: Record<string, string> = {
+    pending: 'draft',
+    processing: 'batched',
+    ready_for_pickup: 'picked_up',
+    in_transit: 'delivering',
+};
+
+/**
+ * The only statuses a cancel is allowed from, per the order state machine
+ * (`Order.AllowedTransitions` — `Draft` and `Confirmed` are the two that list
+ * `Cancelled` as a next step).
+ *
+ * This used to be the opposite list, of statuses that *cannot* cancel, spelled
+ * in filter aliases the API never returns: `processing`, `in_transit`,
+ * `delivered`. A live order therefore matched none of them, so the detail page
+ * offered "Huỷ đơn hàng" on a batched or already-delivering order and the
+ * server answered 409 `ORDER_NOT_CANCELLABLE`.
+ */
+export const ORDER_CANCELLABLE_STATUSES = new Set<string>([
+    'draft',
+    'confirmed',
 ]);
 
 /** Normalizes a raw status string (`ReadyForPickup`, `ready-for-pickup`, …) to `snake_case`. */
@@ -235,10 +282,15 @@ export function orderStatusPillClass(
             return 'admin-pill admin-pill-danger';
         case 'processing':
             return 'admin-pill admin-pill-warning';
+        // Both spellings of the two moving statuses: the response says
+        // `delivering` / `picked_up`, a query may say `in_transit` /
+        // `ready_for_pickup`, and a pill should colour either.
+        case 'delivering':
         case 'in_transit':
             return 'admin-pill admin-pill-teal';
         case 'at_hub':
             return 'admin-pill admin-pill-lime';
+        case 'picked_up':
         case 'ready_for_pickup':
             return 'admin-pill admin-pill-cyan';
         case 'confirmed':
@@ -254,7 +306,7 @@ export function orderStatusPillClass(
     }
 }
 
-/** Whether an order can still be cancelled (not processing/in_transit/delivered). */
+/** Whether an order can still be cancelled — draft and confirmed only. */
 export function canCancelOrder(status: string | null | undefined): boolean {
-    return !ORDER_NOT_CANCELLABLE_STATUSES.has(normalizeOrderStatus(status));
+    return ORDER_CANCELLABLE_STATUSES.has(normalizeOrderStatus(status));
 }

@@ -151,17 +151,21 @@
                             <span class="ml-2 mr-1">{{ t(action.label) }}</span>
                         </button>
                     }
-                    <button
-                        mat-flat-button
-                        color="primary"
-                        type="button"
-                        (click)="openCreate()"
-                    >
-                        <mat-icon svgIcon="heroicons_outline:plus"></mat-icon>
-                        <span class="ml-2 mr-1">{{
-                            t(resource.createLabel)
-                        }}</span>
-                    </button>
+                    @if (resource.create) {
+                        <button
+                            mat-flat-button
+                            color="primary"
+                            type="button"
+                            (click)="openCreate()"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:plus"
+                            ></mat-icon>
+                            <span class="ml-2 mr-1">{{
+                                t(resource.createLabel)
+                            }}</span>
+                        </button>
+                    }
                 </div>
             </div>
 

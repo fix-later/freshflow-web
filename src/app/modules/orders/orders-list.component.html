@@ -1,4 +1,32 @@
 <div class="ff-orders flex w-full min-w-0 flex-col gap-5" *transloco="let t">
+    <!--
+      One tab per lifecycle status. Buttons rather than `mat-tab-group`: the
+      panel below is the same list either way, and the storefront's own
+      vocabulary is pills — a Material tab bar would be the only one on this
+      side of the app. The strip scrolls rather than wraps, so the running
+      statuses stay on one line and the row of orders starts where it always
+      does.
+    -->
+    <div
+        class="ff-orders__tabs -mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+        role="tablist"
+        [attr.aria-label]="t('orders.tabs.aria')"
+    >
+        @for (tab of tabs; track tab) {
+            <button
+                class="ff-orders__tab flex-none rounded-full border px-4 py-2 text-sm font-semibold"
+                type="button"
+                role="tab"
+                [class.ff-orders__tab--active]="activeTab() === tab"
+                [attr.aria-selected]="activeTab() === tab"
+                [disabled]="loading() && activeTab() === tab"
+                (click)="selectTab(tab)"
+            >
+                {{ t(tabLabelKey(tab)) }}
+            </button>
+        }
+    </div>
+
     @if (loading()) {
         <mat-progress-bar mode="indeterminate"></mat-progress-bar>
     }
@@ -18,6 +46,12 @@
             </button>
         </div>
     } @else if (!loading() && !rows().length) {
+        <!--
+          Two empty states, because they mean different things. On a status tab
+          the account is not empty — this one status is — so sending the buyer
+          to the catalog would answer a question they did not ask; the way out
+          is the rest of their orders.
+        -->
         <div
             class="ff-orders__empty flex flex-col items-center justify-center rounded-2xl px-6 py-16 text-center"
         >
@@ -25,18 +59,41 @@
                 class="text-hint icon-size-10"
                 svgIcon="heroicons_outline:shopping-bag"
             ></mat-icon>
-            <p class="mt-4 text-base font-semibold">{{ t('orders.empty') }}</p>
-            <p class="text-secondary mt-1 text-sm">
-                {{ t('orders.emptyHint') }}
-            </p>
-            <a
-                mat-flat-button
-                color="primary"
-                class="mt-5"
-                routerLink="/catalog"
-            >
-                {{ t('orders.browseCatalog') }}
-            </a>
+            @if (activeTab() === 'all') {
+                <p class="mt-4 text-base font-semibold">
+                    {{ t('orders.empty') }}
+                </p>
+                <p class="text-secondary mt-1 text-sm">
+                    {{ t('orders.emptyHint') }}
+                </p>
+                <a
+                    mat-flat-button
+                    color="primary"
+                    class="mt-5"
+                    routerLink="/catalog"
+                >
+                    {{ t('orders.browseCatalog') }}
+                </a>
+            } @else {
+                <p class="mt-4 text-base font-semibold">
+                    {{
+                        t('orders.emptyFiltered', {
+                            status: t(tabLabelKey(activeTab())),
+                        })
+                    }}
+                </p>
+                <p class="text-secondary mt-1 text-sm">
+                    {{ t('orders.emptyFilteredHint') }}
+                </p>
+                <button
+                    mat-stroked-button
+                    class="mt-5"
+                    type="button"
+                    (click)="selectTab('all')"
+                >
+                    {{ t('orders.showAll') }}
+                </button>
+            }
         </div>
     } @else {
         <div class="ff-orders__list overflow-hidden rounded-2xl border">

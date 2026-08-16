@@ -7,6 +7,7 @@ import {
     GoongMarker,
     GoongMarkerOptions,
     GoongPlaceSuggestion,
+    LngLat,
 } from './goong.types';
 
 /** Pinned Goong JS SDK version served from jsDelivr. */
@@ -15,6 +16,45 @@ const SDK_JS = `https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@${SDK_VERSION}/
 const SDK_CSS = `https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@${SDK_VERSION}/dist/goong-js.css`;
 const TILE_STYLE = 'https://tiles.goong.io/assets/goong_map_web.json';
 const REST_BASE = 'https://rsapi.goong.io';
+
+/**
+ * Decodes the encoded polyline returned by Goong Direction into the
+ * `[longitude, latitude]` pairs expected by the map SDK.
+ */
+export function decodeGoongPolyline(encoded: string): LngLat[] {
+    const points: LngLat[] = [];
+    let index = 0;
+    let latitude = 0;
+    let longitude = 0;
+
+    while (index < encoded.length) {
+        const readDelta = (): number | null => {
+            let result = 0;
+            let shift = 0;
+            let byte = 0;
+            do {
+                if (index >= encoded.length) {
+                    return null;
+                }
+                byte = encoded.charCodeAt(index++) - 63;
+                result |= (byte & 0x1f) << shift;
+                shift += 5;
+            } while (byte >= 0x20);
+            return result & 1 ? ~(result >> 1) : result >> 1;
+        };
+
+        const latitudeDelta = readDelta();
+        const longitudeDelta = readDelta();
+        if (latitudeDelta === null || longitudeDelta === null) {
+            return [];
+        }
+        latitude += latitudeDelta;
+        longitude += longitudeDelta;
+        points.push([longitude / 1e5, latitude / 1e5]);
+    }
+
+    return points;
+}
 
 /**
  * Thin wrapper around Goong.io. Lazily injects the map SDK from a CDN (so it
@@ -146,6 +186,39 @@ export class GoongMapService {
             return loc ? { lat: loc.lat, lng: loc.lng } : null;
         } catch {
             return null;
+        }
+    }
+
+    /**
+     * Returns the car route between two stops using Goong Direction.
+     *
+     * Route planning gives us the stop order, but not the road geometry. This
+     * mirrors the driver app: request every leg from Goong and decode its
+     * `overview_polyline` before drawing it. An unavailable leg returns an
+     * empty array so callers never substitute a misleading straight line.
+     */
+    async drivingDirections(from: LngLat, to: LngLat): Promise<LngLat[]> {
+        if (!environment.goongPlacesKey) {
+            return [];
+        }
+        const url =
+            `${REST_BASE}/Direction` +
+            `?origin=${from[1]},${from[0]}` +
+            `&destination=${to[1]},${to[0]}` +
+            '&vehicle=car' +
+            `&api_key=${environment.goongPlacesKey}`;
+        try {
+            const res = await fetch(url);
+            if (!res.ok) {
+                return [];
+            }
+            const body = (await res.json()) as {
+                routes?: { overview_polyline?: { points?: string } }[];
+            };
+            const encoded = body.routes?.[0]?.overview_polyline?.points;
+            return encoded ? decodeGoongPolyline(encoded) : [];
+        } catch {
+            return [];
         }
     }
 }

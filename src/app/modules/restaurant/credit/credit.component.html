@@ -197,7 +197,12 @@
             }
         </section>
 
-        <!-- Transactions -->
+        <!--
+          The ledger. Same row as Admin ▸ Nhà hàng ▸ Công nợ: when a bill is
+          disputed, both sides have to be reading one description of the same
+          movement — a date, what kind of movement it was, how much, and the
+          note behind it.
+        -->
         <section class="flex flex-col gap-3">
             <h2 class="text-xl font-semibold">
                 {{ t('restaurantCredit.transactions.title') }}
@@ -208,29 +213,45 @@
                 >
                     @for (tx of transactions(); track tx.id) {
                         <div
-                            class="flex items-center justify-between gap-4 p-4 text-sm"
+                            class="flex flex-wrap items-center gap-x-4 gap-y-2 p-4 text-sm"
                         >
-                            <div class="flex flex-col gap-0.5">
-                                <span class="font-medium">{{
-                                    tx.description || tx.type
-                                }}</span>
-                                <span class="text-secondary">{{
-                                    formatDate(tx.createdAt)
-                                }}</span>
-                            </div>
-                            <div class="flex flex-col items-end gap-0.5">
-                                <span class="font-mono font-semibold">{{
-                                    formatAmount(tx.amount)
-                                }}</span>
-                                <span class="text-secondary text-xs">
-                                    {{
-                                        t(
-                                            'restaurantCredit.transactions.balanceAfter'
-                                        )
-                                    }}:
-                                    {{ formatAmount(tx.balanceAfter) }}
-                                </span>
-                            </div>
+                            <span
+                                class="text-secondary w-36 shrink-0 tabular-nums sm:w-44"
+                            >
+                                {{ formatDate(tx.createdAt) }}
+                            </span>
+                            <span
+                                [class]="
+                                    creditTypePillClass(tx.type) + ' shrink-0'
+                                "
+                            >
+                                {{
+                                    tx.type
+                                        | apiLabel
+                                            : 'admin.restaurants.transactions.type'
+                                }}
+                            </span>
+                            <span
+                                class="font-mono font-semibold tabular-nums"
+                                >{{ formatAmount(tx.amount) }}</span
+                            >
+                            @if (transactionNote(tx); as note) {
+                                <span
+                                    class="text-secondary min-w-0 flex-1 truncate"
+                                    [matTooltip]="note"
+                                    >{{ note }}</span
+                                >
+                            }
+                            <span
+                                class="text-secondary ml-auto shrink-0 text-xs tabular-nums"
+                            >
+                                {{
+                                    t(
+                                        'restaurantCredit.transactions.balanceAfter'
+                                    )
+                                }}:
+                                {{ formatAmount(tx.balanceAfter) }}
+                            </span>
                         </div>
                     }
                 </div>
