@@ -21,6 +21,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ActivatedRoute, Router } from '@angular/router';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { includesFolded } from 'app/core/util/text-search';
@@ -58,6 +59,22 @@ interface ProductSelectionRow {
     category: string;
     unit: string;
     description: string;
+}
+
+/**
+ * What one listing's drafts differ from what the server holds — the unit this
+ * screen saves in.
+ *
+ * Each field is `null` when that field was not touched, which is also what the
+ * write path reads: a field left alone issues no call at all, so an admin who
+ * retypes a price does not silently rewrite the quantity or replace the tag set
+ * with an identical one.
+ */
+interface RowChange {
+    row: MarketProductRow;
+    price: number | null;
+    quantity: number | null;
+    tagIds: string[] | null;
 }
 
 /**
@@ -104,6 +121,49 @@ function decimalPlaces(value: number): number {
     return dot === -1 ? 0 : text.length - dot - 1;
 }
 
+/** Two tag-id sets as one comparable string — order carries no meaning. */
+function tagKey(ids: readonly string[]): string {
+    return [...ids].sort().join(' ');
+}
+
+/**
+ * How many listings the batch save has in flight at once.
+ *
+ * A market-wide sweep can touch dozens of rows, and each one is up to three
+ * calls; firing them all at once only moves the queue into the browser's
+ * connection pool, where neither the progress bar nor the server sees it.
+ */
+const SAVE_CONCURRENCY = 4;
+
+/**
+ * Runs `task` over `items` with at most `limit` in flight, settling every one
+ * and keeping the results in the order the items came in — the caller reports
+ * failures per listing, so it has to be able to say *which* listing.
+ */
+async function settleWithLimit<T>(
+    items: readonly T[],
+    limit: number,
+    task: (item: T) => Promise<void>
+): Promise<PromiseSettledResult<void>[]> {
+    const results: PromiseSettledResult<void>[] = [];
+    let next = 0;
+    const worker = async (): Promise<void> => {
+        while (next < items.length) {
+            const index = next++;
+            try {
+                await task(items[index]);
+                results[index] = { status: 'fulfilled', value: undefined };
+            } catch (reason) {
+                results[index] = { status: 'rejected', reason };
+            }
+        }
+    };
+    await Promise.all(
+        Array.from({ length: Math.min(limit, items.length) }, () => worker())
+    );
+    return results;
+}
+
 /**
  * Admin ▸ Catalog ▸ Markets ▸ Pricing — inventory list + inline quick multi-add.
  */
@@ -132,7 +192,7 @@ function decimalPlaces(value: number): number {
     ],
     styles: [
         `
-            /* Actions column carries the pin indicator + history + save. */
+            /* Actions column carries the pin indicator + history + undo. */
             .market-products-grid {
                 /* thumb | product | price | quantity | tags | actions */
                 grid-template-columns:
@@ -145,6 +205,17 @@ function decimalPlaces(value: number): number {
                         3.25rem minmax(0, 1.2fr) minmax(0, 1fr) 7rem 8.5rem
                         8.5rem minmax(0, 1fr) 9.5rem;
                 }
+            }
+
+            /*
+             * An edited row, until the batch is saved. Amber at low alpha plus
+             * a bar down the edge rather than a solid fill: it has to read as
+             * "unsaved" against both themes and still leave the row's own text
+             * legible, since it is the row you are in the middle of typing in.
+             */
+            .market-products-grid.is-changed {
+                background-color: rgb(245 158 11 / 0.08);
+                box-shadow: inset 3px 0 0 0 rgb(245 158 11);
             }
 
             .market-products-grid .product-thumb {
@@ -169,6 +240,7 @@ export class MarketProductsComponent implements OnInit {
     private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _confirmation = inject(FuseConfirmationService);
 
     /** When true, renders only the pricing toolbar + grid (for market edit tabs). */
     readonly embedded = input(false);
@@ -248,6 +320,14 @@ export class MarketProductsComponent implements OnInit {
         const term = this.search().trim();
         const category = this.categoryFilter();
         const stock = this.stockFilter();
+        const changed = this.changedIds();
+        // Reviewing a batch overrides the other filters rather than joining
+        // them: the toolbar counts every edited listing, and a category picked
+        // ten minutes ago quietly hiding three of them is how a batch gets
+        // saved without its author ever seeing what was in it.
+        if (this.changedOnly()) {
+            return this.rows().filter((row) => changed.has(row.productId));
+        }
         return this.rows().filter((row) => {
             if (term && !includesFolded(row.name, term)) {
                 return false;
@@ -336,9 +416,18 @@ export class MarketProductsComponent implements OnInit {
         }
     }
 
+    // ── Drafts ───────────────────────────────────────────────────────────
+    //
+    // Signals, not plain objects: what is unsaved is derived from them (see
+    // {@link pendingChanges}), and a `Record` mutated in place would leave the
+    // count, the row highlight and the save button reading a stale edit.
+    //
+    // Keyed by product id and kept for the whole inventory, so an edit survives
+    // paging, sorting and filtering — the batch is the market, not the page.
+
     /** Per-row draft edits, keyed by product id. */
-    priceDraft: Record<string, number | null> = {};
-    quantityDraft: Record<string, number | null> = {};
+    readonly priceDraft = signal<Record<string, number | null>>({});
+    readonly quantityDraft = signal<Record<string, number | null>>({});
     /**
      * Drafted tag **ids** per product id.
      *
@@ -348,7 +437,193 @@ export class MarketProductsComponent implements OnInit {
      * does not exist has to have it created in Admin ▸ Catalog ▸ Tags — which
      * is the point of a controlled vocabulary.
      */
-    tagsDraft: Record<string, string[]> = {};
+    readonly tagsDraft = signal<Record<string, string[]>>({});
+
+    setPriceDraft(productId: string, value: number | null): void {
+        this.priceDraft.update((draft) => ({ ...draft, [productId]: value }));
+    }
+
+    setQuantityDraft(productId: string, value: number | null): void {
+        this.quantityDraft.update((draft) => ({
+            ...draft,
+            [productId]: value,
+        }));
+    }
+
+    setTagsDraft(productId: string, value: string[]): void {
+        this.tagsDraft.update((draft) => ({ ...draft, [productId]: value }));
+    }
+
+    // ── Pending changes ──────────────────────────────────────────────────
+    //
+    // Editing and saving are separate acts here: a row is edited in place and
+    // nothing is written until the batch is saved, at which point only the
+    // fields that actually differ are sent. Which is why every one of these is
+    // a diff against {@link rows} — the last thing the server told us — rather
+    // than a "touched" flag, so an edit typed back to its original value costs
+    // no request.
+
+    /**
+     * Listings whose drafts differ from the stored row.
+     *
+     * Wider than {@link pendingChanges} on purpose: a cleared price is an edit
+     * the admin can see and undo, so it counts as changed and highlights its
+     * row, even though there is nothing valid to write for it.
+     */
+    readonly changedIds = computed(() => {
+        const ids = new Set<string>();
+        for (const row of this.rows()) {
+            if (this._differsFromStored(row)) {
+                ids.add(row.productId);
+            }
+        }
+        return ids;
+    });
+
+    readonly changedCount = computed(() => this.changedIds().size);
+
+    /** What the batch would write, one entry per edited listing, in list order. */
+    readonly pendingChanges = computed<RowChange[]>(() =>
+        this.rows()
+            .map((row) => this._changeFor(row))
+            .filter((change): change is RowChange => change !== null)
+    );
+
+    /**
+     * Listings whose edits the server would reject, keyed to the reason.
+     *
+     * Checked here rather than left to the API because a batch is all-or-
+     * nothing to the person who typed it: one row with a price of 0 would come
+     * back as a partial failure after the other forty had already been written.
+     */
+    readonly rowErrors = computed(() => {
+        const errors = new Map<string, string>();
+        for (const row of this.rows()) {
+            const key =
+                this._priceQuantityErrorKey(row) ??
+                this.tagsErrorKey(row.productId);
+            if (key) {
+                errors.set(row.productId, key);
+            }
+        }
+        return errors;
+    });
+
+    readonly invalidCount = computed(() => this.rowErrors().size);
+
+    readonly canSaveAll = computed(
+        () =>
+            this.changedCount() > 0 &&
+            this.invalidCount() === 0 &&
+            !this.saving()
+    );
+
+    isChanged(productId: string): boolean {
+        return this.changedIds().has(productId);
+    }
+
+    /**
+     * The reason this row cannot be saved, as an i18n key — price and quantity
+     * only. A tag overflow reports itself under the tag picker instead, so the
+     * message sits next to the control that caused it.
+     */
+    rowErrorKey(productId: string): string | null {
+        const key = this.rowErrors().get(productId) ?? null;
+        return key === 'admin.markets.pricing.tagsTooMany' ? null : key;
+    }
+
+    /** Localized reason the last batch save was rejected, kept next to it. */
+    readonly saveError = signal<string | null>(null);
+
+    /** Narrows the grid to the edited rows, for reviewing a batch before saving. */
+    readonly changedOnly = signal(false);
+
+    toggleChangedOnly(): void {
+        this.changedOnly.update((on) => !on);
+        this._resetPaging();
+    }
+
+    /** Whether any of this listing's drafts has moved off the stored value. */
+    private _differsFromStored(row: MarketProductRow): boolean {
+        return (
+            num(this.priceDraft()[row.productId]) !== row.price ||
+            num(this.quantityDraft()[row.productId]) !== row.quantity ||
+            tagKey(this.draftTags(row.productId)) !==
+                tagKey(row.tags.map((tag) => tag.id))
+        );
+    }
+
+    /**
+     * What one listing would write, or null when it is untouched.
+     *
+     * Reads the drafts as signals, so every derivation above recomputes as the
+     * admin types rather than on the next change-detection pass that happens to
+     * come along.
+     */
+    private _changeFor(row: MarketProductRow): RowChange | null {
+        const price = num(this.priceDraft()[row.productId]);
+        const quantity = num(this.quantityDraft()[row.productId]);
+        const tagIds = this.draftTags(row.productId);
+        const change: RowChange = {
+            row,
+            price: price !== null && price !== row.price ? price : null,
+            quantity:
+                quantity !== null && quantity !== row.quantity
+                    ? quantity
+                    : null,
+            // Tags go as a whole set (the endpoint replaces, it does not merge),
+            // so the drafted set is sent only when it is a different set.
+            tagIds:
+                tagKey(tagIds) !== tagKey(row.tags.map((tag) => tag.id))
+                    ? tagIds
+                    : null,
+        };
+        return change.price === null &&
+            change.quantity === null &&
+            change.tagIds === null
+            ? null
+            : change;
+    }
+
+    /**
+     * Client-side verdict on an edited row's price and quantity, mirroring the
+     * handler (`> 0`, `>= 0`) and the validator (`<= MaxPriceVnd`, at most two
+     * decimals, whole quantities).
+     *
+     * Only rows whose value the admin has moved are judged: a listing the
+     * server itself returned without a price is not this screen's error to
+     * report, and flagging it would block a batch over a row nobody touched.
+     */
+    private _priceQuantityErrorKey(row: MarketProductRow): string | null {
+        const price = num(this.priceDraft()[row.productId]);
+        if (price !== row.price) {
+            if (price === null) {
+                return 'admin.markets.pricing.priceRequired';
+            }
+            if (price <= 0) {
+                return 'admin.markets.pricing.pricePositive';
+            }
+            if (price > MAX_PRICE_VND) {
+                return 'admin.markets.pricing.priceTooHigh';
+            }
+            if (decimalPlaces(price) > 2) {
+                return 'admin.markets.pricing.priceDecimals';
+            }
+        }
+        const quantity = num(this.quantityDraft()[row.productId]);
+        if (quantity !== row.quantity) {
+            if (quantity === null) {
+                return 'admin.markets.pricing.quantityRequired';
+            }
+            if (quantity < 0) {
+                return 'admin.markets.pricing.quantityNonNegative';
+            }
+            if (!Number.isInteger(quantity)) {
+                return 'admin.markets.pricing.quantityInteger';
+            }
+        }
+        return null;
+    }
 
     /** The tag catalog, loaded once — the source for every row's picker. */
     readonly tagCatalog = signal<CatalogTag[]>([]);
@@ -571,7 +846,10 @@ export class MarketProductsComponent implements OnInit {
                 if (!failures.length) {
                     this._notify('admin.crud.createSuccess');
                     this.closeQuickAdd();
-                    this.load();
+                    // Keep whatever the grid has drafted: listing new products
+                    // is a different act from editing the ones already here,
+                    // and it must not quietly throw the other one away.
+                    this.load(this.changedIds());
                     return;
                 }
                 // Report the server's own reason for the first failure, and say
@@ -589,12 +867,20 @@ export class MarketProductsComponent implements OnInit {
                 );
                 // Keep the picker open so the rows that failed can be retried,
                 // but refresh so the ones that succeeded drop out of the list.
-                this.load();
+                this.load(this.changedIds());
             })
             .finally(() => this.saving.set(false));
     }
 
-    load(): void {
+    /**
+     * Re-reads the inventory and reseeds the drafts from it.
+     *
+     * `keepDraftsFor` holds back that reseeding for listings the caller knows
+     * are still unsaved — the rows a partial batch failed on. Without it the
+     * refresh that follows a failure would overwrite exactly the edits the
+     * admin now has to retry.
+     */
+    load(keepDraftsFor?: ReadonlySet<string>): void {
         const marketId = this.effectiveMarketId();
         if (!marketId) {
             return;
@@ -608,29 +894,86 @@ export class MarketProductsComponent implements OnInit {
                 // The open page may no longer exist — a quick-add reload can
                 // return fewer rows than the offset it is read at.
                 this._clampPaging();
-                for (const row of mapped) {
-                    this.priceDraft[row.productId] = row.price;
-                    this.quantityDraft[row.productId] = row.quantity;
-                    this.tagsDraft[row.productId] = row.tags.map(
-                        (tag) => tag.id
-                    );
-                }
+                this._seedDrafts(mapped, keepDraftsFor);
             })
             .catch(() => {
                 this.rows.set([]);
+                this._seedDrafts([]);
                 this._notify('admin.crud.loadError');
             })
             .finally(() => this.loading.set(false));
     }
 
     /**
+     * Points every draft back at the stored row, except for the listings named
+     * in `keep`. Rebuilt rather than merged so drafts for listings that are no
+     * longer at this chợ do not linger and count as pending changes forever.
+     */
+    private _seedDrafts(
+        rows: readonly MarketProductRow[],
+        keep?: ReadonlySet<string>
+    ): void {
+        const prices = this.priceDraft();
+        const quantities = this.quantityDraft();
+        const tags = this.tagsDraft();
+        const nextPrices: Record<string, number | null> = {};
+        const nextQuantities: Record<string, number | null> = {};
+        const nextTags: Record<string, string[]> = {};
+        for (const row of rows) {
+            const id = row.productId;
+            const kept = keep?.has(id) === true;
+            nextPrices[id] = kept && id in prices ? prices[id] : row.price;
+            nextQuantities[id] =
+                kept && id in quantities ? quantities[id] : row.quantity;
+            nextTags[id] =
+                kept && id in tags ? tags[id] : row.tags.map((tag) => tag.id);
+        }
+        this.priceDraft.set(nextPrices);
+        this.quantityDraft.set(nextQuantities);
+        this.tagsDraft.set(nextTags);
+    }
+
+    /**
      * Opens the recorded price/quantity changes for this listing.
      *
+     * Asks first when the grid has unsaved edits: this is the one control on
+     * the screen that leaves it, and the batch does not survive the trip.
+     */
+    openPriceHistory(row: MarketProductRow): void {
+        if (!this.changedCount()) {
+            this._goToPriceHistory(row);
+            return;
+        }
+        const ref = this._confirmation.open({
+            title: this._transloco.translate(
+                'admin.markets.pricing.leaveTitle'
+            ),
+            message: this._transloco.translate(
+                'admin.markets.pricing.leaveMessage',
+                { count: this.changedCount() }
+            ),
+            actions: {
+                confirm: {
+                    label: this._transloco.translate(
+                        'admin.markets.pricing.leaveConfirm'
+                    ),
+                    color: 'warn',
+                },
+            },
+        });
+        ref.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._goToPriceHistory(row);
+            }
+        });
+    }
+
+    /**
      * The names travel in navigation state so the screen can title itself
      * immediately; it re-fetches them when opened by deep link, so this is an
      * optimisation rather than the only source.
      */
-    openPriceHistory(row: MarketProductRow): void {
+    private _goToPriceHistory(row: MarketProductRow): void {
         void this._router.navigate(
             [
                 '/admin/markets',
@@ -653,7 +996,7 @@ export class MarketProductsComponent implements OnInit {
 
     /** The tag ids currently drafted for a row. */
     draftTags(productId: string): string[] {
-        return this.tagsDraft[productId] ?? [];
+        return this.tagsDraft()[productId] ?? [];
     }
 
     /**
@@ -689,57 +1032,133 @@ export class MarketProductsComponent implements OnInit {
         return this.tagCatalog().find((tag) => tag.id === tagId)?.name ?? tagId;
     }
 
-    saveRow(row: MarketProductRow): void {
-        if (this.tagsErrorKey(row.productId)) {
+    /** Puts one listing's drafts back to what the server holds. */
+    revertRow(productId: string): void {
+        const row = this.rows().find((item) => item.productId === productId);
+        if (!row || this.saving()) {
             return;
         }
-        const price = num(this.priceDraft[row.productId]);
-        const quantity = num(this.quantityDraft[row.productId]);
-        const tasks: Promise<void>[] = [];
-        if (price != null && price !== row.price) {
-            tasks.push(
-                this._catalog.updateMarketPrice(
-                    this.effectiveMarketId(),
-                    row.productId,
-                    price
-                )
-            );
-        }
-        if (quantity != null && quantity !== row.quantity) {
-            tasks.push(
-                this._catalog.updateMarketQuantity(
-                    this.effectiveMarketId(),
-                    row.productId,
-                    quantity
-                )
-            );
-        }
-        // Tags go as a whole set (the endpoint replaces, it does not merge), so
-        // compare the drafted set against the stored one before sending. Both
-        // sides are sorted first: order carries no meaning, so comparing them
-        // unsorted would issue a pointless write after a mere reselection.
-        const tagIds = this.draftTags(row.productId);
-        const storedIds = row.tags.map((tag) => tag.id);
-        if ([...tagIds].sort().join(' ') !== [...storedIds].sort().join(' ')) {
-            tasks.push(
-                this._catalog.setMarketProductTags(
-                    this.effectiveMarketId(),
-                    row.productId,
-                    tagIds
-                )
-            );
-        }
-        if (!tasks.length) {
+        this.setPriceDraft(productId, row.price);
+        this.setQuantityDraft(productId, row.quantity);
+        this.setTagsDraft(
+            productId,
+            row.tags.map((tag) => tag.id)
+        );
+        this._afterDraftsSettled();
+    }
+
+    /** Drops every unsaved edit across the inventory. */
+    discardAll(): void {
+        if (this.saving() || !this.changedCount()) {
             return;
         }
+        this._seedDrafts(this.rows());
+        this.saveError.set(null);
+        this._afterDraftsSettled();
+    }
+
+    /**
+     * Writes every edited listing in one go.
+     *
+     * Per listing rather than per field: the three endpoints behind a row are
+     * an implementation detail of this screen, and an admin who retyped a price
+     * and a quantity means one change to one product. Failures are reported the
+     * same way — "3 of 40 listings could not be saved" — because that is the
+     * unit they can go back and fix.
+     */
+    saveAll(): void {
+        if (!this.canSaveAll()) {
+            return;
+        }
+        const changes = this.pendingChanges();
+        this.saveError.set(null);
         this.saving.set(true);
-        Promise.all(tasks)
-            .then(() => {
-                this._notify('admin.crud.updateSuccess');
-                this.load();
+        void settleWithLimit(changes, SAVE_CONCURRENCY, (change) =>
+            this._writeChange(change)
+        )
+            .then(async (results) => {
+                const failures = results.filter(
+                    (result): result is PromiseRejectedResult =>
+                        result.status === 'rejected'
+                );
+                if (!failures.length) {
+                    this._notify('admin.crud.updateSuccess');
+                    // Nothing left to review, so the review filter goes with
+                    // it — otherwise the grid empties out under the admin.
+                    this.changedOnly.set(false);
+                    this.load();
+                    return;
+                }
+                // Report the server's own reason for the first failure, and say
+                // how many of the batch it applies to.
+                const reason = await describeApiError(
+                    failures[0].reason,
+                    (key) => this._transloco.translate(key),
+                    'admin.crud.saveError'
+                );
+                this.saveError.set(
+                    this._transloco.translate(
+                        'admin.markets.pricing.savePartial',
+                        { failed: failures.length, total: results.length }
+                    ) + ` ${reason}`
+                );
+                // Refresh so the listings that landed show their new values,
+                // while the ones that did not keep the edits to retry.
+                this.load(
+                    new Set(
+                        changes
+                            .filter(
+                                (_, index) =>
+                                    results[index].status === 'rejected'
+                            )
+                            .map((change) => change.row.productId)
+                    )
+                );
             })
-            .catch(() => this._notify('admin.crud.saveError'))
             .finally(() => this.saving.set(false));
+    }
+
+    /**
+     * One listing's writes, in sequence: price, then quantity, then tags. Not
+     * `Promise.all` — the three land in the same row, and a listing that fails
+     * halfway is easier to reason about than one where two of three raced.
+     */
+    private async _writeChange(change: RowChange): Promise<void> {
+        const marketId = this.effectiveMarketId();
+        const productId = change.row.productId;
+        if (change.price !== null) {
+            await this._catalog.updateMarketPrice(
+                marketId,
+                productId,
+                change.price
+            );
+        }
+        if (change.quantity !== null) {
+            await this._catalog.updateMarketQuantity(
+                marketId,
+                productId,
+                change.quantity
+            );
+        }
+        if (change.tagIds !== null) {
+            await this._catalog.setMarketProductTags(
+                marketId,
+                productId,
+                change.tagIds
+            );
+        }
+    }
+
+    /**
+     * Leaves the review filter when there is nothing left to review, so
+     * discarding or reverting the last edit does not strand the admin on an
+     * empty grid with no obvious way back to the inventory.
+     */
+    private _afterDraftsSettled(): void {
+        if (this.changedOnly() && !this.changedCount()) {
+            this.changedOnly.set(false);
+        }
+        this._clampPaging();
     }
 
     private _loadPickerProducts(): void {
