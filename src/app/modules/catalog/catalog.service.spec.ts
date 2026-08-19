@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { MAX_PAGE_SIZE } from 'app/core/api/envelope';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { marketsApi, productsApi } from 'contract';
+import { firstValueFrom } from 'rxjs';
 import { CatalogService } from './catalog.service';
 
 /** A market-listing row shaped like the backend's (untyped) response. */
@@ -523,5 +524,71 @@ describe('CatalogService category counts', () => {
         await service.categoryCounts();
 
         expect(base).toHaveBeenCalledTimes(1);
+    });
+});
+
+/**
+ * The detail route resolves through {@link CatalogService.getProductById}, and a
+ * resolver that throws cancels the navigation: the address bar snapped back to
+ * `/` and the splash screen — lifted only on the first `NavigationEnd` — stayed
+ * up for good. A link to a product this market does not carry has to resolve to
+ * `null` so the page can arrive and say so.
+ */
+describe('CatalogService product detail resolution', () => {
+    let service: CatalogService;
+    let markets: MarketSelectionService;
+
+    beforeEach(() => {
+        TestBed.resetTestingModule();
+        localStorage.removeItem('freshflow.selectedMarket');
+        localStorage.removeItem('freshflow.markets');
+        service = TestBed.inject(CatalogService);
+        markets = TestBed.inject(MarketSelectionService);
+        spyOn(productsApi, 'apiV1ProductsGetRaw').and.resolveTo(
+            envelope([]) as never
+        );
+    });
+
+    afterEach(() => {
+        localStorage.removeItem('freshflow.selectedMarket');
+        localStorage.removeItem('freshflow.markets');
+    });
+
+    it('resolves null for an id this market does not list', async () => {
+        markets.select({ id: 'm1', name: 'Chợ A' });
+        spyOn(marketsApi, 'apiV1MarketsMarketIdProductsGetRaw').and.resolveTo(
+            envelope([row('p1', 'Cải ngọt')]) as never
+        );
+
+        const product = await firstValueFrom(
+            service.getProductById('no-such-id')
+        );
+
+        expect(product).toBeNull();
+        expect(service.product()).toBeNull();
+    });
+
+    it('resolves null when no market is chosen, without reading a listing', async () => {
+        const listing = spyOn(
+            marketsApi,
+            'apiV1MarketsMarketIdProductsGetRaw'
+        ).and.resolveTo(envelope([]) as never);
+
+        const product = await firstValueFrom(service.getProductById('p1'));
+
+        expect(product).toBeNull();
+        expect(listing).not.toHaveBeenCalled();
+    });
+
+    it('still resolves a product the market does list', async () => {
+        markets.select({ id: 'm1', name: 'Chợ A' });
+        spyOn(marketsApi, 'apiV1MarketsMarketIdProductsGetRaw').and.resolveTo(
+            envelope([row('p1', 'Cải ngọt')]) as never
+        );
+
+        const product = await firstValueFrom(service.getProductById('p1'));
+
+        expect(product?.name).toBe('Cải ngọt');
+        expect(service.product()?.productId).toBe('p1');
     });
 });

@@ -372,16 +372,26 @@ export class FuseVerticalNavigationComponent
         // adding the '.cdk-global-scrollblock' to the html element breaks the navigation's position.
         // This fixes the problem by reading the 'top' value from the html element and adding it as a
         // 'marginTop' to the navigation itself.
+        //
+        // 'side' mode only. That navigation is `position: sticky`, so it rides
+        // the <html> the CDK shifts up by the scroll offset and has to be pushed
+        // back down. The 'over' drawer is `position: fixed`: the shifted <html>
+        // is not its containing block, so it already sits at the top of the
+        // viewport and the same margin would push it *down* by the scroll
+        // offset — opening the mobile drawer from a scrolled page left it
+        // entirely below the fold, behind the overlay.
         this._mutationObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
                 const mutationTarget = mutation.target as HTMLElement;
                 if (mutation.attributeName === 'class') {
+                    const top = parseInt(mutationTarget.style.top, 10);
                     if (
+                        this.mode !== 'over' &&
+                        Number.isFinite(top) &&
                         mutationTarget.classList.contains(
                             'cdk-global-scrollblock'
                         )
                     ) {
-                        const top = parseInt(mutationTarget.style.top, 10);
                         this._renderer2.setStyle(
                             this._elementRef.nativeElement,
                             'margin-top',

@@ -2,17 +2,22 @@ import {
     ChangeDetectionStrategy,
     Component,
     computed,
+    DestroyRef,
+    effect,
     inject,
     OnInit,
     signal,
+    untracked,
     ViewEncapsulation,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { GuestGateService } from 'app/core/auth/guest-gate.service';
+import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { formatRelativeTime } from 'app/core/util/relative-time';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
@@ -47,12 +52,25 @@ export class ProductDetailComponent implements OnInit {
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
     private _guestGate = inject(GuestGateService);
+    private _marketSelection = inject(MarketSelectionService);
+    private _route = inject(ActivatedRoute);
+    private _destroyRef = inject(DestroyRef);
 
     /** Chip colour for a tag, keyed on its name so it is the same everywhere. */
     readonly tagClass = tagClass;
 
     readonly product = this._catalogService.product;
     readonly categories = this._catalogService.categories;
+
+    /**
+     * True while there is nothing to look the product up in: listings are
+     * per-market, and a shared link can be opened by someone who has not picked
+     * one yet. The header picker asks on first visit, so this is a wait, not a
+     * dead end — hence a different message from "no such product".
+     */
+    readonly awaitingMarket = computed(
+        () => !this.product() && !this._marketSelection.hasSelection()
+    );
 
     readonly selectedIndex = signal(0);
     readonly descriptionExpanded = signal(true);
@@ -151,6 +169,29 @@ export class ProductDetailComponent implements OnInit {
             this._translocoService.getActiveLang()
         )
     );
+
+    constructor() {
+        // Resolve again once the picker settles on a market. Without this, a
+        // link opened before that choice would sit on its empty state until the
+        // visitor thought to reload.
+        effect(() => {
+            const marketId = this._marketSelection.selectedId();
+            if (!marketId || untracked(() => this.product())) {
+                return;
+            }
+            const productId = this._route.snapshot.paramMap.get('productId');
+            if (!productId) {
+                return;
+            }
+            this._catalogService
+                .getProductById(productId)
+                .pipe(takeUntilDestroyed(this._destroyRef))
+                // A failed listing read leaves the empty state up; it is the
+                // same answer as an empty listing, and the page has nothing
+                // else to show either way.
+                .subscribe({ error: () => undefined });
+        });
+    }
 
     ngOnInit(): void {
         // Deep-linkable route — ensure favorites are loaded even if the

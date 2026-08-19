@@ -4,3 +4,16 @@
 
 /* Perfect scrollbar */
 @import 'perfect-scrollbar/css/perfect-scrollbar.css';
+
+/**
+ * CDK overlay structural styles.
+ *
+ * The CDK injects these itself, but only once an *overlay* is created — and the
+ * mobile navigation drawer is not one. It uses the block scroll strategy alone
+ * (`.cdk-global-scrollblock` on <html>), so on a page where no dialog, menu or
+ * tooltip had opened yet the class landed with no rule behind it and the page
+ * kept scrolling behind the open drawer. Importing them up front is the
+ * documented way to use the CDK's overlay behaviour without Material; the
+ * runtime copy is identical, so the duplicate is inert.
+ */
+@import '@angular/cdk/overlay-prebuilt.css';

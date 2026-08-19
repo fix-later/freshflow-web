@@ -13,11 +13,11 @@ class StubTranslocoLoader {
 
 /** The statement labels this file asserts on, and nothing else. */
 const LABELS: Record<string, string> = {
-    'restaurantCredit.statements.openingBalance': 'Số dư đầu kỳ',
+    'restaurantCredit.statements.openingBalance': 'Dư nợ đầu kỳ',
     'restaurantCredit.statements.charges': 'Ghi nợ trong kỳ',
     'restaurantCredit.statements.payments': 'Đã thanh toán',
     'restaurantCredit.statements.refunds': 'Hoàn tiền',
-    'restaurantCredit.statements.closingBalance': 'Số dư cuối kỳ',
+    'restaurantCredit.statements.closingBalance': 'Dư nợ cuối kỳ',
     'restaurantCredit.statements.dueDate': 'Hạn thanh toán',
 };
 
@@ -72,10 +72,10 @@ describe('Restaurant credit — statement breakdown', () => {
         const component = build(statement());
 
         expect(component.statementEntries().map((row) => row.label)).toEqual([
-            'Số dư đầu kỳ',
+            'Dư nợ đầu kỳ',
             'Ghi nợ trong kỳ',
             'Đã thanh toán',
-            'Số dư cuối kỳ',
+            'Dư nợ cuối kỳ',
         ]);
     });
 

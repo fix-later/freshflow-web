@@ -347,7 +347,17 @@ export class CatalogService {
         return (await this._getMarketListing(marketId)).products;
     }
 
-    getProductById(productId: string): Observable<CatalogProduct> {
+    /**
+     * The product behind the detail route, or `null` when this market has no
+     * such listing.
+     *
+     * `null` rather than an error on purpose: this feeds a route resolver, and a
+     * resolver that throws cancels the navigation — the address bar snapped back
+     * to `/` and the splash screen, which only lifts on the first
+     * `NavigationEnd`, span forever. A dead link has to be able to *arrive*
+     * somewhere, so the page can say the product is not there.
+     */
+    getProductById(productId: string): Observable<CatalogProduct | null> {
         return from(this._resolveProduct(productId)).pipe(
             tap((product) => this._product.set(product))
         );
@@ -791,8 +801,16 @@ export class CatalogService {
      * loaded; on a deep link it reads the selected market's listing through the
      * shared cache — without `onProgress`, so the crawl fills the cache for the
      * catalog page without writing into a grid this route is not showing.
+     *
+     * Two ways to come back empty, both of them `null` (see
+     * {@link getProductById}): no market is chosen yet, so there is no listing
+     * to look in — the page waits for the header picker and asks again — or the
+     * listing simply carries no such row, which is what a stale or invented link
+     * looks like.
      */
-    private async _resolveProduct(productId: string): Promise<CatalogProduct> {
+    private async _resolveProduct(
+        productId: string
+    ): Promise<CatalogProduct | null> {
         const inGrid = this._products().find(
             (product) => product.productId === productId
         );
@@ -802,16 +820,14 @@ export class CatalogService {
 
         const marketId = this._marketSelection.selectedId();
         if (!marketId) {
-            throw new Error('No market selected');
+            return null;
         }
 
         const listing = await this._getMarketListing(marketId);
-        const found = listing.products.find(
-            (product) => product.productId === productId
+        return (
+            listing.products.find(
+                (product) => product.productId === productId
+            ) ?? null
         );
-        if (!found) {
-            throw new Error(`Product ${productId} not found`);
-        }
-        return found;
     }
 }

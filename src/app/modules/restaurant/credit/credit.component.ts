@@ -14,6 +14,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
+import { translateCreditNote } from 'app/core/i18n/credit-note';
 import { creditTypePillClass } from 'app/shared/status-pills';
 import { RestaurantCreditService } from './restaurant-credit.service';
 import {
@@ -202,11 +203,16 @@ export class CreditComponent implements OnInit {
 
     readonly creditTypePillClass = creditTypePillClass;
 
-    /** What a ledger entry says beyond its type — the note, else the reference. */
+    /**
+     * What a ledger entry says beyond its type — the note, else the reference.
+     * The backend writes some of these notes itself ("Order confirmed"), and a
+     * restaurant should not be reading English out of its own ledger.
+     */
     transactionNote(tx: CreditTransaction): string {
-        return String(
-            tx.description ?? tx['note'] ?? tx.reference ?? ''
-        ).trim();
+        return translateCreditNote(
+            String(tx.description ?? tx['note'] ?? tx.reference ?? ''),
+            (key, params) => this._transloco.translate(key, params)
+        );
     }
 
     loadMoreTransactions(): void {

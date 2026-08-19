@@ -46,6 +46,7 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
+import { translateCreditNote } from 'app/core/i18n/credit-note';
 import { orderStatusPillClass } from 'app/modules/orders/orders.types';
 import {
     creditTypePillClass,
@@ -1007,7 +1008,14 @@ export class RestaurantDetailComponent implements OnInit {
             {
                 key: 'note',
                 label: 'admin.restaurants.transactions.description',
-                value: this._textOrDash(tx.note ?? tx.description),
+                // The backend writes its own notes ("Order confirmed"); an
+                // operator's note passes through as typed.
+                value: this._textOrDash(
+                    translateCreditNote(
+                        tx.note ?? tx.description,
+                        (key, params) => this._transloco.translate(key, params)
+                    )
+                ),
             },
         ];
 

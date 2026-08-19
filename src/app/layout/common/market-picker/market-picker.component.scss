@@ -50,19 +50,34 @@
     padding: 1.25rem 1.75rem 1.75rem;
 }
 
-/* Two across from `sm`, three from `lg` — a chợ card stops being readable
-   under about 16rem, which is what caps the columns rather than the count. */
-.ff-mp__grid {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: 1fr;
+/*
+ * The board is one carousel row (`cardsPerView` decides how many cards share
+ * it). The gap matches what the old grid used, and it is set on the carousel's
+ * own variable so the row's outer edges stay flush with the dialog's padding
+ * rather than gaining half a gap on each side.
+ */
+.ff-mp__carousel {
+    --ff-carousel-gap: 0.5rem;
 
-    @media (min-width: 640px) {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-inline: -0.5rem;
+
+    /* A card is a flex child of the slide, so it stretches to the tallest card
+       in view — the same equal-height row the grid gave. */
+    .ff-mp__card {
+        height: 100%;
     }
 
-    @media (min-width: 1024px) {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+    /*
+     * Arrows over the artwork band, not over the card's middle.
+     *
+     * The carousel keeps them inside its own box (an ancestor that scrolls
+     * would clip anything hanging off it), and on a phone one card fills the
+     * row — so at the default `top: 50%` the left arrow sat on top of the chợ's
+     * name, the one thing being chosen between. `.ff-mp__art` is 7.5rem tall
+     * and the viewport insets by 0.25rem, which puts its middle here.
+     */
+    .ff-carousel__nav {
+        top: 4rem;
     }
 }
 

@@ -269,5 +269,50 @@
                 </div>
             </div>
         </div>
+    } @else {
+        <!--
+          Nothing resolved. A link to a product this market does not carry used
+          to throw out of the route resolver, which cancelled the navigation and
+          left the app on a splash screen that never lifts — so a dead link now
+          lands here and says so, with the way back to the board.
+        -->
+        <div
+            class="flex flex-col items-center justify-center gap-4 py-20 text-center"
+            role="status"
+        >
+            <div
+                class="flex h-16 w-16 items-center justify-center rounded-full bg-primary-50 text-primary dark:bg-primary-500/10"
+            >
+                <mat-icon
+                    class="text-current icon-size-8"
+                    [svgIcon]="
+                        awaitingMarket()
+                            ? 'heroicons_outline:building-storefront'
+                            : 'heroicons_outline:magnifying-glass'
+                    "
+                ></mat-icon>
+            </div>
+            <div>
+                <p class="text-2xl font-bold tracking-tight">
+                    {{
+                        awaitingMarket()
+                            ? t('catalog.detail.noMarket.title')
+                            : t('catalog.detail.notFound.title')
+                    }}
+                </p>
+                <p class="text-secondary mt-1">
+                    {{
+                        awaitingMarket()
+                            ? t('catalog.detail.noMarket.description')
+                            : t('catalog.detail.notFound.description')
+                    }}
+                </p>
+            </div>
+            @if (!awaitingMarket()) {
+                <a mat-flat-button color="primary" routerLink="/catalog">
+                    {{ t('catalog.detail.notFound.browse') }}
+                </a>
+            }
+        </div>
     }
 </div>
