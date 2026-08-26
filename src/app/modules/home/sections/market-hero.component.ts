@@ -43,7 +43,7 @@ export const MARKET_SCENE_PUBLIC_ID = 'market-scene_x7lbcm';
  * makes it an automatic one. The extension is part of the path — swapping the
  * file for another format means changing it here too.
  */
-export const MARKET_SCENE_POSTER = '/images/background/thumbnail.webp';
+export const MARKET_SCENE_POSTER = '/images/pages/home/thumbnail.webp';
 
 /**
  * Section 1: the hero, "Hôm nay đi chợ mua gì?".

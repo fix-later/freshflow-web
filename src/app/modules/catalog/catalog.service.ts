@@ -238,6 +238,37 @@ export class CatalogService {
     }
 
     /**
+     * How many of `marketId`'s listings sit in each category, keyed by
+     * category id.
+     *
+     * This is what the storefront's aisle board counts, for two reasons. It is
+     * the honest number — a buyer walking into "Thuỷ sản" gets what *this* chợ
+     * sells today, not what the catalogue defines. And `GET /products`, which
+     * {@link categoryCounts} reduces, is `[Authorize]`-only: a guest gets 401,
+     * every count came back zero, and the board rendered "no aisles" on the
+     * landing page of an open storefront. `GET /markets/{id}/products` is
+     * `[AllowAnonymous]`, so this reads for signed-out visitors too.
+     *
+     * Costs no extra request beyond the crawl the catalog page performs anyway
+     * — the listing is cached per market for the session and shared with it.
+     */
+    async marketCategoryCounts(
+        marketId: string
+    ): Promise<ReadonlyMap<string, number>> {
+        const counts = new Map<string, number>();
+        for (const product of await this.peekMarketListing(marketId)) {
+            if (!product.categoryId) {
+                continue;
+            }
+            counts.set(
+                product.categoryId,
+                (counts.get(product.categoryId) ?? 0) + 1
+            );
+        }
+        return counts;
+    }
+
+    /**
      * How many catalogue products sit in each category, keyed by category id.
      *
      * Costs **no** request: {@link _loadBaseProducts} already walks the whole
@@ -245,10 +276,9 @@ export class CatalogService {
      * unit or images, so the base products are fetched regardless), and this is
      * a reduction over that cached map.
      *
-     * Counts the **catalogue**, not the selected market's listings — the market
-     * listing endpoint is cursor-paginated and reports no total, so a
-     * per-market count is not obtainable without walking every page. Callers
-     * must label the number accordingly.
+     * Counts the **catalogue**, not any one market's listings, and reads
+     * `GET /products`, which requires a session — see
+     * {@link marketCategoryCounts} for the storefront-facing count.
      */
     async categoryCounts(): Promise<ReadonlyMap<string, number>> {
         const counts = new Map<string, number>();
@@ -289,6 +319,45 @@ export class CatalogService {
         });
         this._featuredByMarket.set(marketId, pending);
         return pending;
+    }
+
+    /**
+     * Applies one `PriceUpdated` broadcast to the listing already on screen.
+     *
+     * Only the two fields the event actually carries are written. `newPrice`
+     * replaces the price, and `currentQuantity` is stock **on hand** — which is
+     * `totalQuantity` here, *not* `quantity`: the latter is what is left after
+     * other buyers' open orders reserve their share, a number the pricing hub
+     * does not know. Overwriting availability with stock-on-hand would quietly
+     * offer more than can be ordered, so it is left for the next read.
+     *
+     * A `marketProductId` this does not hold is ignored: the buyer is looking
+     * at another market, or at a page whose listing has not landed yet.
+     */
+    applyPriceUpdate(update: {
+        marketProductId: string;
+        newPrice: number;
+        currentQuantity: number;
+    }): void {
+        const patch = (product: CatalogProduct): CatalogProduct =>
+            product.marketProductId === update.marketProductId
+                ? {
+                      ...product,
+                      price: update.newPrice,
+                      totalQuantity: update.currentQuantity,
+                  }
+                : product;
+
+        const products = this._products();
+        if (
+            products.some((p) => p.marketProductId === update.marketProductId)
+        ) {
+            this._products.set(products.map(patch));
+        }
+        const open = this._product();
+        if (open?.marketProductId === update.marketProductId) {
+            this._product.set(patch(open));
+        }
     }
 
     /**

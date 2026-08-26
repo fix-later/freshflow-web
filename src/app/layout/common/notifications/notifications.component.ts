@@ -17,11 +17,15 @@ import {
     input,
     signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatBadgeModule } from '@angular/material/badge';
 import { MatButton, MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { NotificationRealtimeService } from 'app/core/realtime/notification-realtime.service';
+import { UserService } from 'app/core/user/user.service';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
 import { NotificationView } from 'app/layout/common/notifications/notifications.types';
 
@@ -34,6 +38,7 @@ import { NotificationView } from 'app/layout/common/notifications/notifications.
     exportAs: 'notifications',
     standalone: true,
     imports: [
+        MatBadgeModule,
         MatButtonModule,
         MatIconModule,
         MatTooltipModule,
@@ -50,6 +55,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     private readonly _overlay = inject(Overlay);
     private readonly _viewContainerRef = inject(ViewContainerRef);
     protected readonly notificationsService = inject(NotificationsService);
+    private readonly _realtime = inject(NotificationRealtimeService);
+    private readonly _user = inject(UserService);
     private readonly _transloco = inject(TranslocoService);
 
     /** Storefront-only: hover scale + bell nudge on unread increase. */
@@ -123,10 +130,19 @@ export class NotificationsComponent implements OnInit, OnDestroy {
         // Eagerly-rendered header trigger — load once so the badge count and
         // panel are ready regardless of which page the user lands on.
         void this.notificationsService.ensureLoaded();
+        // …then keep it live. The first read is still needed: the hub only
+        // sends what happens from now on, it replays nothing.
+        void this._realtime.connect();
+        // A guest's `connect()` is a no-op — the bell renders on the storefront
+        // before sign-in — so signing in without a reload has to ask again.
+        this._user.user$
+            .pipe(takeUntilDestroyed(this._destroyRef))
+            .subscribe(() => void this._realtime.resync());
     }
 
     ngOnDestroy(): void {
         this._overlayRef?.dispose();
+        void this._realtime.disconnect();
     }
 
     openPanel(): void {

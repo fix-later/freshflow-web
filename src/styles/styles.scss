@@ -4,6 +4,27 @@
 /* ----------------------------------------------------------------------------------------------------- */
 
 /**
+ * Keep the page's scrollbar gutter reserved at all times.
+ *
+ * Opening a dialog, a drawer or any CDK overlay blocks page scrolling
+ * (`.cdk-global-scrollblock` on <html>), and on a platform with classic
+ * scrollbars — Windows, most of our users — the scrollbar that disappears with
+ * it takes ~15px of width with it. Every centred element on the page then slides
+ * sideways as the dialog opens and slides back as it closes.
+ *
+ * `stable` reserves the gutter whether or not a scrollbar is drawn, so the
+ * content box keeps the same width in both states: the track stays, the thumb
+ * goes, nothing moves. Platforms with overlay scrollbars (macOS, mobile) reserve
+ * nothing, which is correct there — they had no jump to fix.
+ *
+ * This belongs on <html> because that is the element the viewport takes its
+ * scrolling from, and it is what the CDK toggles.
+ */
+html {
+    scrollbar-gutter: stable;
+}
+
+/**
  * App-wide typography: Google Sans Flex (UI + headings). Mono stays IBM Plex
  * Mono for prices / IDs via `font-mono`.
  */

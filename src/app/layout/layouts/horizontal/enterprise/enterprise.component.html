@@ -386,13 +386,33 @@
                 <storefront-search></storefront-search>
 
                 <div class="flex shrink-0 items-center gap-4">
-                    <order-tracking></order-tracking>
+                    <!-- Signed-in only: it previews *this account's* latest
+                         order, which for a guest is a 401 behind an icon that
+                         promises something it cannot show. -->
+                    @if (isSignedIn()) {
+                        <order-tracking></order-tracking>
+                    }
 
-                    <div class="flex items-center gap-1 border-l pl-3.5">
+                    <!-- The rule separates tracking from the account group; with
+                         nothing to its left it would open the cluster with a
+                         stray vertical line. -->
+                    <div
+                        class="flex items-center gap-1"
+                        [class.border-l]="isSignedIn()"
+                        [class.pl-3.5]="isSignedIn()"
+                    >
                         @if (isSignedIn()) {
                             <user></user>
                         } @else {
                             <quick-sign-in></quick-sign-in>
+                        }
+
+                        <!-- Signed-in only: a guest has no `user:{id}` group to
+                             listen on, and the panel would answer 401. The
+                             mobile bar puts the bell in the same place, before
+                             favourites. -->
+                        @if (isSignedIn()) {
+                            <notifications [microMotion]="true"></notifications>
                         }
 
                         <favorites></favorites>

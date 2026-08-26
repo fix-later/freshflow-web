@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import {
     extractList,
     extractTotal,
+    fetchAllOffset,
     parseJson,
     unwrapData,
     withId,
@@ -151,6 +152,38 @@ export class RestaurantScheduledOrdersService {
      * Past orders. Distinct from `GET /orders`, which lists the live working
      * set — this one is the archive and takes a date range and status filter.
      */
+    /**
+     * Every order of one status, walked page by page.
+     *
+     * The history filter takes a single status, so a grouped tab ("đang xử lý"
+     * is three of them) has to read each one whole and merge — there is no page
+     * 2 of a group. Bounded by {@link MAX_PAGE_SIZE} per request and by the
+     * shared crawl's own page cap, and only ever used for the in-flight
+     * statuses, which are few.
+     */
+    async listAllHistory(options: {
+        status: string;
+        from?: Date;
+        to?: Date;
+    }): Promise<OrderHistoryEntry[]> {
+        const restaurantId = await this._restaurantId();
+        const rows = await fetchAllOffset<Record<string, unknown>>(
+            (page, pageSize) =>
+                ordersApi
+                    .apiV1OrdersHistoryGetRaw({
+                        restaurantId,
+                        status: options.status,
+                        from: options.from,
+                        to: options.to,
+                        sort: 'createdAt:desc',
+                        page,
+                        pageSize,
+                    })
+                    .then((res) => res.raw)
+        );
+        return withId(rows, 'orderId') as unknown as OrderHistoryEntry[];
+    }
+
     async listHistory(options?: {
         page?: number;
         status?: string;
