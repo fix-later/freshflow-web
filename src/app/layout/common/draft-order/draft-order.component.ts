@@ -8,6 +8,7 @@ import {
     signal,
     untracked,
 } from '@angular/core';
+import { MatBadgeModule } from '@angular/material/badge';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
@@ -30,7 +31,7 @@ const BUMP_MS = 520;
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'draftOrder',
     standalone: true,
-    imports: [MatIconModule, MatTooltipModule, TranslocoModule],
+    imports: [MatBadgeModule, MatIconModule, MatTooltipModule, TranslocoModule],
 })
 export class DraftOrderComponent {
     protected readonly draftOrderService = inject(DraftOrderService);

@@ -17,13 +17,19 @@ interface HistoryQuery {
 }
 
 /**
- * Records the filter each read asked for. The whole point of the tabs is that
- * the *server* narrows the list, so what was sent is the thing to assert — a
- * stub that just returns rows would pass with the filtering done anywhere.
+ * Records the filter each read asked for. A tab that maps to one status must
+ * still be narrowed by the *server* — a stub that just returned rows would pass
+ * with the filtering done anywhere — while a grouped tab is read whole, one
+ * status at a time, which is what {@link whole} records.
  */
 class StubHistoryService {
     calls: HistoryQuery[] = [];
-    /** Resolvers, so a test can settle two reads out of order. */
+    whole: string[] = [];
+    /** Rows answered per status by the grouped read. */
+    rowsByStatus: Record<string, { orderId: string; createdAt: string }[]> = {};
+    /** How many drafts the buyer is holding, as the server counts them. */
+    draftTotal = 0;
+
     private _pending: ((value: {
         items: unknown[];
         total?: number;
@@ -33,16 +39,36 @@ class StubHistoryService {
         options?: HistoryQuery
     ): Promise<{ items: unknown[]; total?: number }> {
         this.calls.push({ status: options?.status, page: options?.page });
+        // The draft count "all" subtracts is not a read a test drives by hand:
+        // it answers straight away, so `settle`'s indices go on meaning the
+        // paged reads and nothing else.
+        if (options?.status === 'draft') {
+            return Promise.resolve({ items: [], total: this.draftTotal });
+        }
         return new Promise((resolve) => this._pending.push(resolve));
     }
 
-    /** Settles the nth read (0-based) with rows carrying `status`. */
+    listAllHistory(options: { status: string }): Promise<unknown[]> {
+        this.whole.push(options.status);
+        return Promise.resolve(this.rowsByStatus[options.status] ?? []);
+    }
+
+    /** Settles the nth paged read (0-based) with rows carrying `status`. */
     settle(index: number, status: string, count = 1): void {
         const rows = Array.from({ length: count }, (_, i) => ({
             orderId: `${status}-${i}`,
             status,
         }));
         this._pending[index]({ items: rows, total: count });
+    }
+
+    /** Settles the nth paged read (0-based) with the rows exactly as given. */
+    settleRows(
+        index: number,
+        rows: { orderId: string; status: string }[],
+        total: number
+    ): void {
+        this._pending[index]({ items: rows, total });
     }
 }
 
@@ -86,7 +112,24 @@ function build(queryStatus?: string): {
     };
 }
 
+/**
+ * The buyer's list is indexed by stage, not by the eight statuses the order
+ * moves through: `confirmed`, `batched` and `picked_up` are operations talking
+ * to itself, and all three answer the buyer's only question the same way.
+ */
 describe('OrdersListComponent — status tabs', () => {
+    it('offers the four stages a restaurant cares about, plus all', () => {
+        const { list } = build();
+
+        expect([...list.tabs]).toEqual([
+            'all',
+            'processing',
+            'awaiting',
+            'delivered',
+            'cancelled',
+        ]);
+    });
+
     it('opens on every status and asks the server for no filter', () => {
         const { list, history } = build();
 
@@ -94,12 +137,59 @@ describe('OrdersListComponent — status tabs', () => {
         expect(history.calls).toEqual([{ status: undefined, page: 1 }]);
     });
 
-    it('sends the picked status as the filter', () => {
+    it('sends a single-status tab as the server filter', () => {
         const { list, history } = build();
 
-        list.selectTab('delivering');
+        list.selectTab('delivered');
 
-        expect(history.calls[1]).toEqual({ status: 'delivering', page: 1 });
+        expect(history.calls[1]).toEqual({ status: 'delivered', page: 1 });
+        // Paged by the server: the archive tabs can be long.
+        expect(history.whole).toEqual([]);
+    });
+
+    it('reads every status of a grouped tab and merges them newest first', async () => {
+        const { list, history } = build();
+        history.rowsByStatus = {
+            confirmed: [{ orderId: 'c-1', createdAt: '2026-08-20T09:00:00Z' }],
+            batched: [{ orderId: 'b-1', createdAt: '2026-08-22T09:00:00Z' }],
+            picked_up: [{ orderId: 'p-1', createdAt: '2026-08-21T09:00:00Z' }],
+        };
+
+        list.selectTab('processing');
+        await flush();
+
+        // One read per status: the filter takes one, and page 2 of a group is
+        // not composable from page 2 of each.
+        expect(history.whole).toEqual(['confirmed', 'batched', 'picked_up']);
+        expect(list.rows().map((row) => row.orderId)).toEqual([
+            'b-1',
+            'p-1',
+            'c-1',
+        ]);
+        expect(list.totalCount()).toBe(3);
+    });
+
+    it('pages a grouped tab over the merged rows', async () => {
+        const { list, history } = build();
+        history.rowsByStatus = {
+            at_hub: Array.from({ length: 15 }, (_, i) => ({
+                orderId: `h-${i}`,
+                createdAt: `2026-08-${10 + i}T09:00:00Z`,
+            })),
+            delivering: Array.from({ length: 10 }, (_, i) => ({
+                orderId: `d-${i}`,
+                createdAt: `2026-07-${10 + i}T09:00:00Z`,
+            })),
+        };
+
+        list.selectTab('awaiting');
+        await flush();
+        expect(list.rows().length).toBe(20);
+        expect(list.totalCount()).toBe(25);
+
+        list.nextPage();
+        await flush();
+        expect(list.rows().length).toBe(5);
     });
 
     it('starts the new tab at its own first page', async () => {
@@ -130,18 +220,23 @@ describe('OrdersListComponent — status tabs', () => {
         expect(list.activeTab()).toBe('all');
     });
 
-    /** The API's filter aliases still name a real tab. */
-    it('opens an alias on the status it means', () => {
-        expect(build('in_transit').list.activeTab()).toBe('delivering');
-        expect(build('ready_for_pickup').list.activeTab()).toBe('picked_up');
+    /**
+     * Links written before the grouping — in response statuses or in the API's
+     * filter aliases — still open the tab that now contains that status.
+     */
+    it('opens a status or an alias on the tab that now holds it', () => {
+        expect(build('batched').list.activeTab()).toBe('processing');
+        expect(build('ready_for_pickup').list.activeTab()).toBe('processing');
+        expect(build('at_hub').list.activeTab()).toBe('awaiting');
+        expect(build('in_transit').list.activeTab()).toBe('awaiting');
     });
 
     it('writes the tab to the url, and drops the param on all', async () => {
         const { list, router } = build();
 
-        list.selectTab('at_hub');
+        list.selectTab('processing');
         await flush();
-        expect(router.url).toContain('status=at_hub');
+        expect(router.url).toContain('status=processing');
 
         list.selectTab('all');
         await flush();
@@ -166,5 +261,46 @@ describe('OrdersListComponent — status tabs', () => {
         expect(list.activeTab()).toBe('cancelled');
         expect(list.rows().map((row) => row.status)).toEqual(['cancelled']);
         expect(list.loading()).toBeFalse();
+    });
+
+    /**
+     * A draft is the buyer's cart, not an order they placed — one is left
+     * behind per market session they browsed and abandoned. "All" sends no
+     * status, so the server hands them back with everything else.
+     */
+    it('keeps the buyer own drafts out of the all tab', async () => {
+        const { list, history } = build();
+        history.draftTotal = 2;
+        history.settleRows(
+            0,
+            [
+                { orderId: 'd-0', status: 'draft' },
+                { orderId: 'c-0', status: 'confirmed' },
+                { orderId: 'v-0', status: 'delivered' },
+            ],
+            12
+        );
+        await flush();
+
+        expect(list.rows().map((row) => row.orderId)).toEqual(['c-0', 'v-0']);
+        // The pager counts what the tab renders: 12 rows less the 2 drafts.
+        // Left at 12 it would offer a last page that comes back empty.
+        expect(list.totalCount()).toBe(10);
+        expect(history.calls).toContain({ status: 'draft', page: 1 });
+    });
+
+    /** Only "all" is unfiltered, so only "all" pays for the draft count. */
+    it('leaves a single-status tab to the server filter alone', async () => {
+        const { list, history } = build();
+
+        list.selectTab('delivered');
+        history.settle(1, 'delivered', 3);
+        await flush();
+
+        expect(list.rows().length).toBe(3);
+        expect(list.totalCount()).toBe(3);
+        expect(
+            history.calls.some((call) => call.status === 'draft')
+        ).toBeFalse();
     });
 });

@@ -2,7 +2,9 @@ import {
     ChangeDetectionStrategy,
     Component,
     DestroyRef,
+    effect,
     inject,
+    Injector,
     OnInit,
     signal,
     ViewEncapsulation,
@@ -25,6 +27,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { isImageFile } from 'app/core/api/cloudinary-upload';
 import { describeApiError } from 'app/core/api/error-codes';
+
 import {
     applyApiErrorToForm,
     clearServerErrors,
@@ -36,6 +39,7 @@ import {
     nonBlankValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
 import {
@@ -93,6 +97,8 @@ export class OrderDetailComponent implements OnInit {
     private readonly _fb = inject(FormBuilder);
     private readonly _destroyRef = inject(DestroyRef);
     private readonly _claims = inject(RestaurantClaimsService);
+    private readonly _realtime = inject(OrderRealtimeService);
+    private readonly _injector = inject(Injector);
 
     readonly order = signal<OrderRow | null>(null);
     readonly loading = signal(false);
@@ -348,6 +354,37 @@ export class OrderDetailComponent implements OnInit {
             return;
         }
         this._fetch(orderId);
+        this._goLive(orderId);
+    }
+
+    /**
+     * Follows this one order on the order and delivery hubs.
+     *
+     * An event says *this order moved*, never what it now looks like — a status
+     * broadcast carries no totals, no items, no proof URL — so the page re-reads
+     * itself rather than patching a status into a body that would then disagree
+     * with it. `keepVisible` keeps the current order on screen while it does,
+     * so a status arriving does not blank the page the buyer is reading.
+     */
+    private _goLive(orderId: string): void {
+        void this._realtime.connect();
+        // Reconnected after a gap: events for this order may have come and gone
+        // while the socket was down, and the hub replays none of them.
+        this._realtime.setReconnectHandler(() => this._fetch(orderId, true));
+        this._destroyRef.onDestroy(() => {
+            this._realtime.setReconnectHandler(null);
+            void this._realtime.disconnect();
+        });
+
+        effect(
+            () => {
+                const touched = this._realtime.touched();
+                if (touched?.orderId === orderId) {
+                    this._fetch(orderId, true);
+                }
+            },
+            { injector: this._injector }
+        );
     }
 
     canCancel(): boolean {

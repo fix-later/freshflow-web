@@ -29,7 +29,6 @@ import { OrdersService } from 'app/modules/orders/orders.service';
 import {
     MarketSessionWindow,
     OrderConfirmPreview,
-    OrderRow,
 } from 'app/modules/orders/orders.types';
 import { DeliveryAddressesComponent } from 'app/modules/restaurant/delivery-addresses/delivery-addresses.component';
 import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
@@ -41,9 +40,8 @@ const CUTOFF_HOUR = 22;
 
 /**
  * Every order delivers in the same fixed early-morning window — the restaurant
- * only picks the day (see `deliveryDate`), never the time. Kept as a single
- * constant (rather than a start/end pair) because only the start is ever
- * written to `scheduledFor`; "4-6h sáng" is the human label for this hour.
+ * picks the day, never the time. Only the start is ever written to
+ * `scheduledFor`; "4-6h sáng" is the human label for this hour.
  */
 const DELIVERY_HOUR = 4;
 
@@ -51,7 +49,8 @@ const DELIVERY_HOUR = 4;
  * How many days of delivery dates the picker offers, counting the earliest
  * selectable day. Prices are quoted per market day and only locked at
  * confirmation (BR-ORD-3), so booking months ahead would promise a slot the
- * procurement side cannot plan or price.
+ * procurement side cannot plan or price. Replaced at runtime by the server's
+ * `deliveryWindowDays` operational setting.
  */
 const DELIVERY_WINDOW_DAYS = 7;
 
@@ -118,9 +117,12 @@ export class CheckoutComponent implements OnInit {
     readonly placed = signal(false);
     readonly submitting = signal(false);
 
-    /** The draft this checkout created, and the order it was created for. */
-    private _draftId: string | null = null;
-    private _draftKey: string | null = null;
+    /**
+     * What was last written to the draft, so a re-price does not re-PATCH the
+     * same thing. `null` until this screen has written (or read) anything —
+     * see {@link _syncDraft}.
+     */
+    private _draftSent: { notes: string; scheduledFor: string } | null = null;
     /**
      * Reasons the server refused to confirm, already localized — the preview
      * reports them as `{ code, message }` with an English message, so each one
@@ -145,15 +147,14 @@ export class CheckoutComponent implements OnInit {
     readonly deliveryWindowDays = signal(DELIVERY_WINDOW_DAYS);
 
     /**
-     * Last day the restaurant may pick. The window counts the earliest day, so
-     * a delivery cannot be booked further out than the market can plan for.
+     * Last day the restaurant may pick.
      *
      * One day shorter than the server's own `D..D+windowDays` window
      * (`OrderCutoffScheduler.IsWithinDeliveryWindow`): that check's upper bound
      * is an exact midnight cutoff, not end-of-day, so the nominal last day would
      * only ever accept a `scheduledFor` of precisely 00:00 — never
-     * `DELIVERY_HOUR` (04:00), which every order now carries. Capping the
-     * picker here keeps every day it actually offers usable.
+     * {@link DELIVERY_HOUR} (04:00), which every order carries. Capping the
+     * picker here keeps every day it offers usable.
      */
     readonly maxDeliveryDate = computed(() =>
         this.minDeliveryDate()
@@ -286,12 +287,63 @@ export class CheckoutComponent implements OnInit {
         }
         this._applyOrderingWindow();
         this._loadMarketSession();
-        void this._restaurantProfile
-            .loadDeliveryAddresses()
-            .catch(() => {
-                // The summary just shows no address; not fatal to checkout.
-            })
-            .then(() => this.refreshQuote());
+        void this._seedFromDraft().then(() =>
+            this._restaurantProfile
+                .loadDeliveryAddresses()
+                .catch(() => {
+                    // The summary just shows no address; not fatal to checkout.
+                })
+                .then(() => this.refreshQuote())
+        );
+    }
+
+    /**
+     * Fills the form from the draft the cart is backed by.
+     *
+     * The note and the delivery day live on that draft, so a checkout opened a
+     * second time — or in a second tab — has to show what is actually booked
+     * rather than an empty box and today's earliest day. Without this the first
+     * quote would write those defaults straight over the buyer's earlier
+     * choices, which they never asked to change.
+     *
+     * Seeding {@link _draftSent} from the same read is what stops that first
+     * quote from PATCHing values the draft already holds.
+     */
+    private async _seedFromDraft(): Promise<void> {
+        await this._draftOrder.settled();
+        const orderId = this._draftOrder.orderId();
+        if (!orderId) {
+            return;
+        }
+        const draft = await this._orders.getOrder(orderId).catch(() => null);
+        if (!draft) {
+            return;
+        }
+
+        const notes = typeof draft.notes === 'string' ? draft.notes : '';
+        if (notes && !this.extraNote()) {
+            this.extraNote.set(notes);
+        }
+
+        const booked =
+            typeof draft.scheduledFor === 'string'
+                ? DateTime.fromISO(draft.scheduledFor)
+                : null;
+        // A day booked before the cutoff moved can sit outside today's window;
+        // the picker's own bounds decide, and the seed is simply skipped.
+        if (
+            booked?.isValid &&
+            booked >= this.minDeliveryDate() &&
+            booked <= this.maxDeliveryDate().endOf('day')
+        ) {
+            this.deliveryDate.set(booked.startOf('day'));
+            this._loadMarketSession();
+        }
+
+        this._draftSent = {
+            notes: this.extraNote(),
+            scheduledFor: this._scheduledFor().toISOString(),
+        };
     }
 
     /**
@@ -315,7 +367,6 @@ export class CheckoutComponent implements OnInit {
         try {
             const orderId = await this._draftFor(
                 items,
-                this._scheduledFor(),
                 this.extraNote().trim() || undefined
             );
             this.quote.set(
@@ -373,13 +424,14 @@ export class CheckoutComponent implements OnInit {
                     return;
                 }
                 this.minDeliveryDate.set(earliest);
-                // A later cutoff moves the whole window, so a date picked
-                // before the correction can fall outside it at either end.
+                // A later cutoff moves the whole window, so a day picked before
+                // the correction can fall outside it at either end.
                 if (this.deliveryDate() < earliest) {
                     this.deliveryDate.set(earliest);
                 } else if (this.deliveryDate() > this.maxDeliveryDate()) {
                     this.deliveryDate.set(this.maxDeliveryDate());
                 }
+                this._loadMarketSession();
             })
             .catch(() => {
                 // Keep the local cutoff rule; the server still enforces its own.
@@ -432,18 +484,25 @@ export class CheckoutComponent implements OnInit {
         return line.unitPrice * line.quantity;
     }
 
+    /**
+     * Takes the day the picker settled on, clamped to the bookable window.
+     *
+     * The picker's own `min`/`max` block most of this, but a value restored
+     * into the field — or one typed while the window was still being corrected
+     * by the server — can still land outside it.
+     */
     onDeliveryDateChange(value: DateTime | null): void {
         if (!value || !value.isValid || value < this.minDeliveryDate()) {
             this.deliveryDate.set(this.minDeliveryDate());
             return;
         }
-        // The picker's own `max` blocks this, but a typed or restored value
-        // can still land past the window.
         if (value > this.maxDeliveryDate()) {
             this.deliveryDate.set(this.maxDeliveryDate());
             return;
         }
         this.deliveryDate.set(value.startOf('day'));
+        // Another day is another chợ session, and another price for the same
+        // basket — both are re-read rather than assumed unchanged.
         this._loadMarketSession();
         void this.refreshQuote();
     }
@@ -495,7 +554,12 @@ export class CheckoutComponent implements OnInit {
             });
             return;
         }
-        if (this.deliveryDate() < this.minDeliveryDate()) {
+        if (
+            this.deliveryDate() < this.minDeliveryDate() ||
+            this.deliveryDate() > this.maxDeliveryDate()
+        ) {
+            // The server refuses this as 422 DELIVERY_DATE_OUT_OF_WINDOW; say
+            // so here, where the field the buyer can fix is.
             this.deliveryDate.set(this.minDeliveryDate());
             this._snackBar.open(
                 this._transloco.translate('checkout.shipping.dateInvalid'),
@@ -524,12 +588,11 @@ export class CheckoutComponent implements OnInit {
         }
 
         const items = this._items();
-        const scheduledFor = this._scheduledFor();
         const notes = this.extraNote().trim() || undefined;
 
         this.submitting.set(true);
         this.blockers.set([]);
-        void this._placeOrder(items, scheduledFor, notes).finally(() =>
+        void this._placeOrder(items, notes).finally(() =>
             this.submitting.set(false)
         );
     }
@@ -543,7 +606,6 @@ export class CheckoutComponent implements OnInit {
      */
     private async _placeOrder(
         items: { marketProductId: string; quantity: number }[],
-        scheduledFor: Date,
         notes: string | undefined
     ): Promise<void> {
         const addressId = this._addressId();
@@ -551,7 +613,7 @@ export class CheckoutComponent implements OnInit {
             return;
         }
         try {
-            const orderId = await this._draftFor(items, scheduledFor, notes);
+            const orderId = await this._draftFor(items, notes);
 
             const preview = await this._orders
                 .getConfirmPreview(orderId, addressId)
@@ -581,8 +643,7 @@ export class CheckoutComponent implements OnInit {
             this._noteResolvedSchedule(preview?.resolvedScheduledFor ?? null);
 
             await this._orders.confirmOrder(orderId, addressId);
-            this._draftId = null;
-            this._draftKey = null;
+            this._draftSent = null;
             this.quote.set(null);
             this.placed.set(true);
             this._draftOrder.clear();
@@ -607,10 +668,11 @@ export class CheckoutComponent implements OnInit {
     }
 
     /**
-     * Tells the buyer when the server settled on a different delivery slot than
-     * the one they picked — the cutoff can roll an order to the next cycle
-     * (BR-ORD-2), and finding that out from the order list afterwards is worse
-     * than a line on the confirmation.
+     * Tells the buyer when the server settled on a different delivery day than
+     * the one this screen announced — the cutoff can roll an order to the next
+     * cycle (BR-ORD-2) between the page loading and the confirm landing, and
+     * finding that out from the order list afterwards is worse than a line on
+     * the confirmation.
      */
     private _noteResolvedSchedule(resolved: string | null): void {
         if (!resolved) {
@@ -630,81 +692,93 @@ export class CheckoutComponent implements OnInit {
     }
 
     /**
-     * The server-side draft to confirm, reusing the one this checkout already
-     * created when nothing about the order has changed.
+     * The draft that gets confirmed — the cart's own.
      *
-     * `POST /orders` creates a real order in `draft` status (BR-ORD-4), and a
-     * blocked or failed attempt leaves it there. Creating a fresh one per retry
-     * therefore littered the restaurant's order list with a draft per attempt.
-     * A retry now confirms the same draft; only an edited cart, date, slot or
-     * note starts a new one, and the superseded draft is cancelled so it does
-     * not linger either.
+     * The cart *is* a draft order (`POST /orders` on the first item, then
+     * `POST|PUT|DELETE /orders/{id}/items` as it is edited), so checkout has
+     * nothing to create: it edits that draft and confirms it.
+     *
+     * This used to open a second draft whenever the note or the delivery day
+     * differed, because neither could be changed after creation. Both now move
+     * through `PATCH /orders/{id}/draft`, so the restaurant's order list stops
+     * collecting an abandoned draft per checkout attempt.
+     *
+     * A draft is still created here for the one case the cart cannot cover:
+     * a basket restored into a session whose draft has since been confirmed or
+     * cancelled elsewhere.
      */
     private async _draftFor(
         items: { marketProductId: string; quantity: number }[],
-        scheduledFor: Date,
         notes: string | undefined
     ): Promise<string> {
-        const key = JSON.stringify([items, scheduledFor.toISOString(), notes]);
-        if (this._draftId && this._draftKey === key) {
-            return this._draftId;
-        }
+        // The basket lives on the draft already; let the cart's queued item
+        // writes land before this decides which draft to confirm.
+        await this._draftOrder.settled();
 
-        // The cart is itself a draft order now, so the first attempt reuses it
-        // rather than opening a second one beside it. Only its delivery date
-        // and notes can disqualify it: the items are the cart's, and a draft's
-        // `scheduledFor` cannot be changed after creation.
+        const scheduledFor = this._scheduledFor();
         const cartDraftId = this._draftOrder.orderId();
-        if (!this._draftId && cartDraftId) {
-            const draft = await this._orders
-                .getOrder(cartDraftId)
-                .catch(() => null);
-            if (draft && this._draftMatches(draft, scheduledFor, notes)) {
-                this._draftId = cartDraftId;
-                this._draftKey = key;
-                return cartDraftId;
-            }
+        if (cartDraftId) {
+            await this._syncDraft(cartDraftId, notes, scheduledFor);
+            return cartDraftId;
         }
 
-        const stale = this._draftId ?? cartDraftId;
-        this._draftId = null;
-        if (stale) {
-            // Best-effort: a draft we can't cancel is not worth failing on.
-            void this._orders
-                .cancelOrder(
-                    stale,
-                    this._transloco.translate('checkout.draftSuperseded')
-                )
-                .catch(() => undefined);
-        }
         const orderId = await this._orders.createOrder(
             items,
             scheduledFor,
             notes
         );
-        this._draftId = orderId;
-        this._draftKey = key;
+        this._draftSent = {
+            notes: notes ?? '',
+            scheduledFor: scheduledFor.toISOString(),
+        };
         // The cart follows the draft it is backed by, so a reload after this
         // point restores the order that is actually open.
         this._draftOrder.adopt(orderId);
         return orderId;
     }
 
-    /** True when this draft already carries the chosen slot and note. */
-    private _draftMatches(
-        draft: OrderRow,
-        scheduledFor: Date,
-        notes: string | undefined
-    ): boolean {
-        const draftSchedule = draft['scheduledFor'];
-        const scheduleMatches =
-            typeof draftSchedule === 'string' &&
-            new Date(draftSchedule).getTime() === scheduledFor.getTime();
-        const draftNotes = (draft['notes'] as string | null) ?? '';
-        return scheduleMatches && draftNotes === (notes ?? '');
+    /**
+     * Writes the note and the delivery day onto the draft, once per change.
+     *
+     * Checkout re-prices on every address, basket or date edit, and each of
+     * those runs through {@link _draftFor}; without this the same values would
+     * be PATCHed on every quote.
+     *
+     * Both fields go in one call because the endpoint writes both: the handler
+     * assigns whatever it is given, so sending the note alone would clear the
+     * date it had just been told. A failed write is swallowed — the confirm
+     * that follows is what decides the order, and it prices the draft the
+     * server actually holds.
+     */
+    private async _syncDraft(
+        orderId: string,
+        notes: string | undefined,
+        scheduledFor: Date
+    ): Promise<void> {
+        const next = {
+            notes: notes ?? '',
+            scheduledFor: scheduledFor.toISOString(),
+        };
+        const sent = this._draftSent;
+        if (
+            sent &&
+            sent.notes === next.notes &&
+            sent.scheduledFor === next.scheduledFor
+        ) {
+            return;
+        }
+        try {
+            await this._orders.updateDraftOrder(orderId, {
+                notes: notes ?? null,
+                scheduledFor,
+            });
+            this._draftSent = next;
+        } catch {
+            // Leave the baseline alone so the next attempt tries again.
+        }
     }
 
-    /** Combines the selected delivery day with the fixed early-morning delivery hour. */
+    /** The picked day at the fixed early-morning delivery hour. */
     private _scheduledFor(): Date {
         return this.deliveryDate()
             .set({ hour: DELIVERY_HOUR, minute: 0, second: 0, millisecond: 0 })

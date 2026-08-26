@@ -92,6 +92,66 @@ describe('OrdersService', () => {
         });
     });
 
+    describe('updateDraftOrder', () => {
+        /**
+         * The endpoint that lets the cart's own draft be the order that gets
+         * confirmed, rather than a second draft opened just to carry the note.
+         */
+        it('patches the note onto the draft', async () => {
+            const patch = spyOn(
+                ordersApi,
+                'apiV1OrdersOrderIdDraftPatchRaw'
+            ).and.resolveTo(rawResponse({}));
+
+            await service.updateDraftOrder('o-4', { notes: 'Giao trước 5h' });
+
+            expect(patch).toHaveBeenCalledWith({
+                orderId: 'o-4',
+                updateDraftOrderRequest: {
+                    notes: 'Giao trước 5h',
+                    scheduledFor: null,
+                },
+            });
+        });
+
+        it('sends both fields, since the handler writes both on every call', async () => {
+            const patch = spyOn(
+                ordersApi,
+                'apiV1OrdersOrderIdDraftPatchRaw'
+            ).and.resolveTo(rawResponse({}));
+            const day = new Date('2026-08-27T04:00:00.000Z');
+
+            await service.updateDraftOrder('o-4', {
+                notes: 'Giao trước 5h',
+                scheduledFor: day,
+            });
+
+            expect(patch).toHaveBeenCalledWith({
+                orderId: 'o-4',
+                updateDraftOrderRequest: {
+                    notes: 'Giao trước 5h',
+                    scheduledFor: day,
+                },
+            });
+        });
+
+        it('clears a field with an explicit null rather than omitting it', async () => {
+            const patch = spyOn(
+                ordersApi,
+                'apiV1OrdersOrderIdDraftPatchRaw'
+            ).and.resolveTo(rawResponse({}));
+
+            // Both properties are nullable server-side, and the handler assigns
+            // whatever it is given: null is "no note", "no date".
+            await service.updateDraftOrder('o-4', {});
+
+            expect(patch).toHaveBeenCalledWith({
+                orderId: 'o-4',
+                updateDraftOrderRequest: { notes: null, scheduledFor: null },
+            });
+        });
+    });
+
     describe('getConfirmPreview', () => {
         it('passes the delivery address the fee is priced from', async () => {
             const get = spyOn(

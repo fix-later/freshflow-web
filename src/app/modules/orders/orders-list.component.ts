@@ -1,9 +1,12 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    DestroyRef,
+    effect,
     inject,
     OnInit,
     signal,
+    untracked,
     ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +15,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
 import {
     RestaurantScheduledOrdersService,
     SCHEDULED_PAGE_SIZE,
@@ -19,6 +23,7 @@ import {
 import {
     normalizeOrderStatus,
     ORDER_STATUS_TABS,
+    ORDER_TAB_STATUSES,
     OrderRow,
     orderStatusPillClass,
     OrderStatusTab,
@@ -46,6 +51,8 @@ export class OrdersListComponent implements OnInit {
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _realtime = inject(OrderRealtimeService);
+    private readonly _destroyRef = inject(DestroyRef);
 
     readonly statusPillClass = orderStatusPillClass;
     readonly statusKey = (status: string | null | undefined): string =>
@@ -80,9 +87,40 @@ export class OrdersListComponent implements OnInit {
      */
     private _loadToken = 0;
 
-    /** The i18n key for a tab's label — the status labels do double duty. */
+    /** Timestamp of the last realtime event acted on, so none is handled twice. */
+    private _handledAt = 0;
+
+    constructor() {
+        // A status broadcast names one order and carries none of the columns
+        // this table shows, so the page it belongs to is re-read rather than
+        // patched. Only orders already on screen trigger it: an admin session
+        // sees every restaurant's traffic on `admin:orders`, and reloading for
+        // an order that is not in this list would be a reload for nothing.
+        //
+        // `rows` is read untracked on purpose. Tracked, the reload this effect
+        // performs would rewrite `rows`, re-run the effect, still find the
+        // order, and reload again — forever. The only dependency here is the
+        // event, and each event is handled once.
+        effect(() => {
+            const touched = this._realtime.touched();
+            if (!touched || touched.at === this._handledAt) {
+                return;
+            }
+            this._handledAt = touched.at;
+            const onScreen = untracked(() =>
+                this.rows().some(
+                    (row) => (row.id ?? row.orderId) === touched.orderId
+                )
+            );
+            if (onScreen) {
+                this.load();
+            }
+        });
+    }
+
+    /** The i18n key for a tab's label. */
     tabLabelKey(tab: OrderStatusTab): string {
-        return tab === 'all' ? 'orders.tabs.all' : `orders.status.${tab}`;
+        return `orders.tabs.${tab}`;
     }
 
     selectTab(tab: OrderStatusTab): void {
@@ -109,6 +147,14 @@ export class OrdersListComponent implements OnInit {
             orderStatusTabOf(this._route.snapshot.queryParamMap.get('status'))
         );
         this.load();
+        void this._realtime.connect();
+        // Reconnected: the socket was deaf for a while and the hub replays
+        // nothing, so the visible page is re-read wholesale.
+        this._realtime.setReconnectHandler(() => this.load());
+        this._destroyRef.onDestroy(() => {
+            this._realtime.setReconnectHandler(null);
+            void this._realtime.disconnect();
+        });
     }
 
     load(): void {
@@ -117,11 +163,7 @@ export class OrdersListComponent implements OnInit {
         const tab = this.activeTab();
         const token = ++this._loadToken;
 
-        this._historyService
-            .listHistory({
-                status: tab === 'all' ? undefined : tab,
-                page: this.page(),
-            })
+        this._read(tab)
             .then(({ items, total }) => {
                 if (token !== this._loadToken) {
                     return;
@@ -151,6 +193,85 @@ export class OrdersListComponent implements OnInit {
                     this.loading.set(false);
                 }
             });
+    }
+
+    /**
+     * One page of the active tab.
+     *
+     * A tab covering a single status (or none, for "all") is one server query
+     * with server paging, exactly as before. A **grouped** tab cannot be: the
+     * filter takes one status (`OrderQueryParsing.TryParseStatus`), and paging
+     * cannot be composed across three separate paged reads — page 2 of
+     * "confirmed" and page 2 of "batched" do not make page 2 of the group.
+     *
+     * So a group is read whole, once per status, and paged here. That is
+     * affordable precisely because of what a group *is*: orders still in
+     * flight, which are few by nature. The two large tabs — delivered and
+     * cancelled — are single statuses and keep server paging.
+     */
+    private async _read(
+        tab: OrderStatusTab
+    ): Promise<{ items: OrderRow[]; total: number }> {
+        const statuses = ORDER_TAB_STATUSES[tab] ?? [];
+
+        if (statuses.length <= 1) {
+            const { items, total } = await this._historyService.listHistory({
+                status: statuses[0],
+                page: this.page(),
+            });
+            const rows = items as unknown as OrderRow[];
+            if (statuses.length === 1) {
+                return { items: rows, total: total ?? rows.length };
+            }
+            // "all" sends no status, so the server hands back drafts too — the
+            // buyer's own carts, one abandoned per market session. They are not
+            // orders and must not sit in the order history.
+            const placed = rows.filter(
+                (row) => normalizeOrderStatus(row.status) !== 'draft'
+            );
+            const drafts = await this._draftCount();
+            return {
+                items: placed,
+                total: Math.max(0, (total ?? rows.length) - drafts),
+            };
+        }
+
+        const pages = await Promise.all(
+            statuses.map((status) =>
+                this._historyService.listAllHistory({ status })
+            )
+        );
+        const merged = (pages.flat() as unknown as OrderRow[]).sort(
+            (left, right) =>
+                Date.parse(String(right.createdAt ?? '')) -
+                Date.parse(String(left.createdAt ?? ''))
+        );
+        const start = (this.page() - 1) * SCHEDULED_PAGE_SIZE;
+        return {
+            items: merged.slice(start, start + SCHEDULED_PAGE_SIZE),
+            total: merged.length,
+        };
+    }
+
+    /**
+     * How many drafts the buyer is holding, so "all" can report a count that
+     * matches what it renders.
+     *
+     * Without this the pager counts rows the tab has just filtered out and
+     * offers a last page that comes back empty. A failed count is treated as
+     * zero: an over-count is a cosmetic pager bug, while letting it throw would
+     * cost the buyer the whole list.
+     */
+    private async _draftCount(): Promise<number> {
+        try {
+            const { items, total } = await this._historyService.listHistory({
+                status: 'draft',
+                page: 1,
+            });
+            return total ?? items.length;
+        } catch {
+            return 0;
+        }
     }
 
     hasNextPage(): boolean {

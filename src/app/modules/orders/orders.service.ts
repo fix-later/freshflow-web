@@ -70,6 +70,37 @@ export class OrdersService {
         return withId([data], 'orderId')[0];
     }
 
+    /**
+     * Edits a draft order in place (`PATCH /orders/{id}/draft`).
+     *
+     * Before this endpoint existed neither field could be changed after
+     * creation, so checkout had to open a *second* draft just to carry the
+     * buyer's note — leaving the cart's own draft behind, unconfirmed. Now the
+     * cart's draft is the order that gets confirmed.
+     *
+     * **Both fields are written every call.** The handler assigns whatever it
+     * is given, so an omitted `scheduledFor` clears the draft's delivery date
+     * rather than leaving it alone; send the value to keep, not just the value
+     * to change.
+     *
+     * Draft-only: the backend answers `409 ORDER_NOT_DRAFT` once the order is
+     * confirmed — both fields are part of what the restaurant agreed to — and
+     * `422 DELIVERY_DATE_OUT_OF_WINDOW` for a date outside the D..D+n booking
+     * window, the same rule order creation applies.
+     */
+    async updateDraftOrder(
+        orderId: string,
+        draft: { notes?: string | null; scheduledFor?: Date | null }
+    ): Promise<void> {
+        await ordersApi.apiV1OrdersOrderIdDraftPatchRaw({
+            orderId,
+            updateDraftOrderRequest: {
+                notes: draft.notes ?? null,
+                scheduledFor: draft.scheduledFor ?? null,
+            },
+        });
+    }
+
     /** Creates a draft order and returns its id (for an immediate confirm). */
     async createOrder(
         items: DraftOrderItemRequest[],

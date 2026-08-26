@@ -30,23 +30,39 @@ interface Calls {
     created: number;
     confirmed: string[];
     cancelled: string[];
+    /** Every note written to a draft, in order. */
+    /** Every draft edit written, in order. */
+    edits: {
+        orderId: string;
+        notes: string | null;
+        scheduledFor: Date | null;
+    }[];
 }
 
 /**
- * `POST /orders` creates a real order in `draft` status, so a blocked or failed
- * attempt leaves one behind. Creating a fresh draft per retry littered the
- * restaurant's own order list with a draft per attempt — which is what made
- * "draft" show up among their order statuses.
+ * The cart *is* a draft order, and `PATCH /orders/{id}/notes` is what lets
+ * checkout put the buyer's note on it. So checkout confirms the cart's own
+ * draft instead of opening a second one — which is what used to leave an
+ * abandoned draft in the restaurant's order list per checkout attempt.
  */
-function build(previewResult: OrderConfirmPreview): {
+function build(
+    previewResult: OrderConfirmPreview,
+    /** Draft the cart already holds; `null` is a cart that has not synced one. */
+    cartDraftId: string | null = null
+): {
     component: CheckoutComponent;
     calls: Calls;
-    /** Lets a test unblock the gate between attempts. */
     setPreview(next: OrderConfirmPreview): void;
 } {
-    const calls: Calls = { created: 0, confirmed: [], cancelled: [] };
+    const calls: Calls = {
+        created: 0,
+        confirmed: [],
+        cancelled: [],
+        edits: [],
+    };
     let current = previewResult;
     let next = 0;
+    let adopted: string | null = cartDraftId;
 
     TestBed.configureTestingModule({
         providers: [
@@ -72,12 +88,18 @@ function build(previewResult: OrderConfirmPreview): {
                 useValue: {
                     lines: () => [],
                     subtotal: () => 0,
-                    clear: () => undefined,
-                    // The cart is a server draft now; these two are what
-                    // checkout reads and writes on it. `null` here is the
-                    // "cart has no draft yet" path these cases exercise.
-                    orderId: () => null,
-                    adopt: () => undefined,
+                    // Emptying the cart drops the draft it was backed by, the
+                    // same as the real service after a confirm.
+                    clear: () => {
+                        adopted = null;
+                    },
+                    orderId: () => adopted,
+                    adopt: (id: string) => {
+                        adopted = id;
+                    },
+                    // Checkout waits on the cart's item writes before it picks
+                    // a draft; nothing is queued here.
+                    settled: () => Promise.resolve(),
                 },
             },
             {
@@ -86,6 +108,20 @@ function build(previewResult: OrderConfirmPreview): {
                     createOrder: () => {
                         calls.created += 1;
                         return Promise.resolve(`order-${++next}`);
+                    },
+                    updateDraftOrder: (
+                        orderId: string,
+                        draft: {
+                            notes?: string | null;
+                            scheduledFor?: Date | null;
+                        }
+                    ) => {
+                        calls.edits.push({
+                            orderId,
+                            notes: draft.notes ?? null,
+                            scheduledFor: draft.scheduledFor ?? null,
+                        });
+                        return Promise.resolve();
                     },
                     getConfirmPreview: () => Promise.resolve(current),
                     confirmOrder: (id: string) => {
@@ -116,35 +152,44 @@ function build(previewResult: OrderConfirmPreview): {
 function attempt(
     component: CheckoutComponent,
     items: { marketProductId: string; quantity: number }[],
-    when = new Date(2026, 7, 6, 9, 0, 0)
+    notes?: string
 ): Promise<void> {
     return (
         component as unknown as {
             _placeOrder(
                 items: { marketProductId: string; quantity: number }[],
-                scheduledFor: Date,
                 notes: string | undefined
             ): Promise<void>;
         }
-    )._placeOrder(items, when, undefined);
+    )._placeOrder(items, notes);
 }
 
 const cart = [{ marketProductId: 'p1', quantity: 2 }];
 
 describe('Checkout draft reuse', () => {
+    it('confirms the cart’s own draft instead of creating another', async () => {
+        const { component, calls } = build(preview({}), 'cart-draft');
+
+        await attempt(component, cart);
+
+        expect(calls.created).toBe(0);
+        expect(calls.confirmed).toEqual(['cart-draft']);
+    });
+
     it('reuses the same draft when a blocked attempt is retried', async () => {
         const { component, calls } = build(
             preview({
                 canConfirm: false,
                 blockers: [{ code: 'CREDIT_LIMIT_EXCEEDED', message: null }],
-            })
+            }),
+            'cart-draft'
         );
 
         await attempt(component, cart);
         await attempt(component, cart);
         await attempt(component, cart);
 
-        expect(calls.created).toBe(1);
+        expect(calls.created).toBe(0);
         expect(calls.confirmed).toEqual([]);
         expect(calls.cancelled).toEqual([]);
         // Localized through the shared code map, not echoed verbatim. The stub
@@ -154,44 +199,105 @@ describe('Checkout draft reuse', () => {
         ]);
     });
 
-    it('confirms the draft it already created once the block clears', async () => {
+    it('confirms the draft once the block clears', async () => {
         const { component, calls, setPreview } = build(
             preview({
                 canConfirm: false,
                 blockers: [{ code: 'CREDIT_LIMIT_EXCEEDED', message: null }],
-            })
+            }),
+            'cart-draft'
         );
 
         await attempt(component, cart);
-        expect(calls.created).toBe(1);
+        expect(calls.confirmed).toEqual([]);
 
         // Admin raises the credit limit; the buyer presses Place order again.
         setPreview(preview({}));
         await attempt(component, cart);
 
-        expect(calls.created).toBe(1);
-        expect(calls.confirmed).toEqual(['order-1']);
+        expect(calls.created).toBe(0);
+        expect(calls.confirmed).toEqual(['cart-draft']);
     });
 
-    it('replaces and cancels the stale draft when the order changes', async () => {
+    it('writes the note and the picked day onto that draft before confirming it', async () => {
+        const { component, calls } = build(preview({}), 'cart-draft');
+
+        await attempt(component, cart, 'Giao trước 5h sáng');
+
+        expect(calls.edits.length).toBe(1);
+        const [edit] = calls.edits;
+        expect(edit.orderId).toBe('cart-draft');
+        expect(edit.notes).toBe('Giao trước 5h sáng');
+        // Both fields in one call: the endpoint assigns whatever it is given,
+        // so a note-only write would clear the day it had just been told.
+        expect(edit.scheduledFor).toEqual(
+            component.deliveryDate().set({ hour: 4 }).toJSDate()
+        );
+        expect(calls.confirmed).toEqual(['cart-draft']);
+    });
+
+    it('writes the new day when the picker moves, without touching the note', async () => {
+        const { component, calls } = build(
+            preview({ canConfirm: false }),
+            'cart-draft'
+        );
+
+        await attempt(component, cart, 'Ghi chú');
+        component.onDeliveryDateChange(
+            component.deliveryDate().plus({ days: 1 })
+        );
+        await attempt(component, cart, 'Ghi chú');
+
+        expect(calls.edits.length).toBe(2);
+        expect(calls.edits.map((call) => call.notes)).toEqual([
+            'Ghi chú',
+            'Ghi chú',
+        ]);
+        expect(calls.edits[1].scheduledFor?.getTime()).toBeGreaterThan(
+            calls.edits[0].scheduledFor!.getTime()
+        );
+    });
+
+    it('writes once, however many times the order is re-priced', async () => {
+        const { component, calls } = build(
+            preview({ canConfirm: false }),
+            'cart-draft'
+        );
+
+        await attempt(component, cart, 'Cùng một ghi chú');
+        await attempt(component, cart, 'Cùng một ghi chú');
+        await attempt(component, cart, 'Ghi chú đã sửa');
+
+        // Two writes, not three: the second attempt changed nothing.
+        expect(calls.edits.map((call) => call.notes)).toEqual([
+            'Cùng một ghi chú',
+            'Ghi chú đã sửa',
+        ]);
+    });
+
+    it('opens a draft only when the cart has none to confirm', async () => {
         const { component, calls } = build(preview({ canConfirm: false }));
 
         await attempt(component, cart);
-        await attempt(component, [{ marketProductId: 'p1', quantity: 5 }]);
+        // The cart adopts what was created, so the retry confirms that one
+        // rather than opening another beside it.
+        await attempt(component, cart);
 
-        expect(calls.created).toBe(2);
-        expect(calls.cancelled).toEqual(['order-1']);
+        expect(calls.created).toBe(1);
+        expect(calls.cancelled).toEqual([]);
     });
 
     it('starts a fresh draft after a successful order', async () => {
-        const { component, calls } = build(preview({}));
+        const { component, calls } = build(preview({}), 'cart-draft');
 
         await attempt(component, cart);
-        expect(calls.confirmed).toEqual(['order-1']);
+        expect(calls.confirmed).toEqual(['cart-draft']);
 
+        // The cart was emptied with the confirm, so the next order is a new
+        // draft — not a second confirm of the one just placed.
         await attempt(component, cart);
-        expect(calls.created).toBe(2);
-        expect(calls.confirmed).toEqual(['order-1', 'order-2']);
+        expect(calls.created).toBe(1);
+        expect(calls.confirmed).toEqual(['cart-draft', 'order-1']);
         expect(calls.cancelled).toEqual([]);
     });
 });
