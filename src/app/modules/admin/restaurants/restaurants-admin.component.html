@@ -196,12 +196,6 @@
                             </div>
                         }
                         <div class="truncate text-right">
-                            {{ t('admin.restaurants.table.approval') }}
-                        </div>
-                        <div class="truncate text-right">
-                            {{ t('admin.users.table.status') }}
-                        </div>
-                        <div class="truncate text-right">
                             {{ t('admin.crud.details') }}
                         </div>
                     </div>
@@ -281,67 +275,6 @@
                                 >
                                     {{ t(approvalKey(user)) }}
                                 </span>
-                            </div>
-                            <div class="flex justify-end">
-                                @if (canApprove(user)) {
-                                    <button
-                                        class="h-7 min-h-7 px-2 leading-6"
-                                        mat-flat-button
-                                        color="primary"
-                                        type="button"
-                                        data-testid="restaurant-approve"
-                                        [disabled]="
-                                            !user.restaurantId ||
-                                            approvingId() !== null
-                                        "
-                                        [matTooltip]="
-                                            t(
-                                                'admin.restaurants.approve.submit'
-                                            )
-                                        "
-                                        (click)="approve(user)"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:check-circle"
-                                        ></mat-icon>
-                                        <span
-                                            class="ml-1.5 mr-1 min-w-0 truncate text-sm"
-                                            >{{
-                                                t(
-                                                    'admin.restaurants.table.approval'
-                                                )
-                                            }}</span
-                                        >
-                                    </button>
-                                } @else {
-                                    <span class="text-secondary">—</span>
-                                }
-                            </div>
-                            <div class="flex justify-end">
-                                <button
-                                    class="h-7 min-h-7 min-w-10 px-2 leading-6"
-                                    mat-stroked-button
-                                    type="button"
-                                    [disabled]="accountStatusId() !== null"
-                                    [matTooltip]="
-                                        t(
-                                            user.isActive === false
-                                                ? 'admin.users.actions.activate'
-                                                : 'admin.users.actions.deactivate'
-                                        )
-                                    "
-                                    (click)="toggleAccountActive(user)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        [svgIcon]="
-                                            user.isActive === false
-                                                ? 'heroicons_outline:play'
-                                                : 'heroicons_outline:pause'
-                                        "
-                                    ></mat-icon>
-                                </button>
                             </div>
                             <div class="flex justify-end">
                                 <button

@@ -63,7 +63,15 @@ interface CandidateRow {
     avatarUrl: string;
     /** Every market / hub this person already works at, comma-joined. */
     position: string;
-    /** Already on this chợ — listed, but not pickable again. */
+    /**
+     * Already where this pick would put them — the chợ for an agent, the
+     * *selected hub* for a hub-scoped role. Listed, but not pickable again.
+     *
+     * The distinction matters: the platform lets one person work several hubs
+     * (`hub_staff_assignments` is keyed on `(hub_id, user_id)`), so judging a
+     * hub pick by the whole chợ's roster is what made the second hub of a chợ
+     * impossible to staff with anyone already on the first.
+     */
     alreadyHere: boolean;
     /**
      * Deactivated accounts are listed but not pickable:
@@ -296,6 +304,16 @@ export class MarketStaffPanelComponent implements OnInit {
         this.addForm.patchValue({ hubId: '' });
         this.picked.set(new Set());
         void this._loadCandidates(role);
+    }
+
+    /**
+     * Switching hub changes *which roster* is being edited, so who counts as
+     * already assigned changes with it. Picks are dropped rather than carried
+     * over: they were made against the previous hub's list.
+     */
+    onHubChange(hubId: string): void {
+        this.picked.set(new Set());
+        void this._loadCandidates(this.addForm.controls.role.value, hubId);
     }
 
     isPicked(id: string): boolean {
@@ -557,20 +575,16 @@ export class MarketStaffPanelComponent implements OnInit {
      * they already work — so an admin can see they are taking someone off
      * another market or hub before picking them.
      */
-    private async _loadCandidates(role: string): Promise<void> {
+    private async _loadCandidates(role: string, hubId = ''): Promise<void> {
         this.loadingCandidates.set(true);
         try {
-            // Everyone of that role is listed — the ones already on this chợ
-            // are shown greyed out rather than hidden, so it is obvious they
-            // are here and not simply missing.
-            const taken = new Set(
-                this.rows()
-                    .filter((row) => row.role === role)
-                    .map((row) => row.id)
-            );
-            const [people, positions] = await Promise.all([
+            // Everyone of that role is listed — the ones already assigned are
+            // shown greyed out rather than hidden, so it is obvious they are
+            // here and not simply missing.
+            const [people, positions, taken] = await Promise.all([
                 this._usersOf(role),
                 this._positionsFor(role),
+                this._takenIds(role, hubId),
             ]);
             this.candidates.set(
                 people.map((person) => ({
@@ -585,6 +599,30 @@ export class MarketStaffPanelComponent implements OnInit {
         } finally {
             this.loadingCandidates.set(false);
         }
+    }
+
+    /**
+     * Who is already where this pick would land.
+     *
+     * An agent is assigned to the chợ, so the panel's own roster answers it.
+     * A hub-scoped role is assigned to *one hub*, so only that hub's roster
+     * does — reading it from the panel instead would treat "works at another
+     * hub of this chợ" as "already here" and leave the second hub unstaffable.
+     * Empty while no hub is picked yet: nothing is taken until the dialog
+     * knows which roster it is editing.
+     */
+    private async _takenIds(role: string, hubId: string): Promise<Set<string>> {
+        if (!HUB_SCOPED_ROLES.includes(role)) {
+            return new Set(
+                this.rows()
+                    .filter((row) => row.role === role)
+                    .map((row) => row.id)
+            );
+        }
+        if (!hubId) {
+            return new Set<string>();
+        }
+        return new Set(await this._readRoster(role, hubId).catch(() => []));
     }
 
     /** userId → every market (agents) or hub (staff) they are attached to. */

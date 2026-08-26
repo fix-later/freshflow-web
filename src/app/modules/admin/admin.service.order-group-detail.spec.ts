@@ -1,4 +1,4 @@
-import { rawApi } from 'contract';
+import { adminApi } from 'contract';
 import { AdminService } from './admin.service';
 
 /**
@@ -16,8 +16,11 @@ describe('AdminService order group detail', () => {
     });
 
     it('reads one batch from the detail endpoint and normalises the row', async () => {
-        const send = spyOn(rawApi, 'send').and.resolveTo(
-            new Response(
+        const get = spyOn(
+            adminApi,
+            'apiV1AdminOrderGroupsBatchIdGetRaw'
+        ).and.resolveTo({
+            raw: new Response(
                 JSON.stringify({
                     data: {
                         id: 'batch-1',
@@ -29,15 +32,12 @@ describe('AdminService order group detail', () => {
                         exceptions: [{ id: 'exception-1' }],
                     },
                 })
-            )
-        );
+            ),
+        } as never);
 
-        const batch = await service.getOrderGroup('batch/1');
+        const batch = await service.getOrderGroup('batch-1');
 
-        expect(send).toHaveBeenCalledWith(
-            '/api/v1/admin/order-groups/batch%2F1',
-            'GET'
-        );
+        expect(get).toHaveBeenCalledWith({ batchId: 'batch-1' });
         expect(batch?.id).toBe('batch-1');
         expect(batch?.batchNumber).toBe('CHO-1708');
         // Normalised the same way list rows are, so the detail page binds the
@@ -48,7 +48,7 @@ describe('AdminService order group detail', () => {
     });
 
     it('falls back to scanning the list when the endpoint is not there', async () => {
-        spyOn(rawApi, 'send').and.rejectWith(
+        spyOn(adminApi, 'apiV1AdminOrderGroupsBatchIdGetRaw').and.rejectWith(
             new Response(null, { status: 404 })
         );
         const getOrderGroups = spyOn(service, 'getOrderGroups').and.resolveTo({

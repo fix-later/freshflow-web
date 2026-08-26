@@ -20,6 +20,7 @@ import {
     shippingApi,
     vehiclesApi,
 } from 'contract';
+import { DateTime } from 'luxon';
 import {
     CrudFormValue,
     CrudOption,
@@ -48,6 +49,30 @@ const DRIVER_ROLE = 'driver';
 
 /** Role whose users own a restaurant — the delivery destinations of a route. */
 const RESTAURANT_ROLE = 'restaurant';
+
+/** Where a hub-day is decided: the API keys these lists on the local calendar. */
+const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
+
+/**
+ * `yyyy-MM-dd` — or today in Vietnam — as the instant the generated client
+ * serialises back to that same day.
+ *
+ * A `DateOnly` parameter goes out as `date.toISOString().substring(0, 10)`,
+ * which is UTC. A `Date` built from local *now* therefore names the previous
+ * day everywhere east of Greenwich — before 07:00 in Hanoi the hub would be
+ * asked about yesterday. So the day is chosen in `Asia/Ho_Chi_Minh` and then
+ * pinned to UTC midnight, which survives the conversion intact.
+ */
+function utcDay(date?: string): Date {
+    return (
+        date
+            ? DateTime.fromISO(date, { zone: 'utc' })
+            : DateTime.now()
+                  .setZone(VIETNAM_ZONE)
+                  .startOf('day')
+                  .setZone('utc', { keepLocalTime: true })
+    ).toJSDate();
+}
 
 function str(value: unknown): string {
     return value == null ? '' : String(value);
@@ -593,9 +618,15 @@ export class LogisticsAdminService {
     async getProcurementPlan(hubId: string, date?: string): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdProcurementPlanGetRaw({
             hubId,
-            date: date ? new Date(date) : new Date(),
+            date: utcDay(date),
         });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+        // The plan is `{ hubId, date, batches: [...] }`, and a batch names
+        // itself `batchId` — without the alternate every row would carry an
+        // empty `id` and the screen could not address one.
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'batchId'
+        );
     }
 
     /**
@@ -610,10 +641,20 @@ export class LogisticsAdminService {
     ): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdOrdersByRestaurantGetRaw({
             hubId,
-            serviceDate: serviceDate ? new Date(serviceDate) : new Date(),
+            serviceDate: utcDay(serviceDate),
             includeBatched,
         });
-        return withId<CrudRow>(extractList(await parseJson(res.raw)), 'id');
+        // `{ hubId, serviceDate, restaurants: [...] }` — the list hangs off a
+        // key `extractList` does not know, so it is read by name rather than
+        // discovered, and every row is one restaurant's orders.
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        const restaurants = data?.['restaurants'];
+        return withId<CrudRow>(
+            Array.isArray(restaurants) ? (restaurants as CrudRow[]) : [],
+            'restaurantId'
+        );
     }
 
     /**
@@ -624,18 +665,19 @@ export class LogisticsAdminService {
     async getSortingProgress(
         hubId: string,
         serviceDate?: string
-    ): Promise<CrudRow | null> {
+    ): Promise<CrudRow[]> {
         const res = await hubInboundApi.apiV1HubsHubIdSortingProgressGetRaw({
             hubId,
-            serviceDate: serviceDate ? new Date(serviceDate) : undefined,
+            // Required server-side (`ServiceDate` is `NotEmpty`): omitting it
+            // binds `0001-01-01` and answers 400, so it defaults to today.
+            serviceDate: utcDay(serviceDate),
         });
-        const data = unwrapData<Record<string, unknown>>(
-            await parseJson(res.raw)
+        // One row per order item being sorted — the endpoint answers a list,
+        // not the single progress record this once expected.
+        return withId<CrudRow>(
+            extractList(await parseJson(res.raw)),
+            'orderItemId'
         );
-        if (!data) {
-            return null;
-        }
-        return withId([data as CrudRow], 'id')[0];
     }
 
     // ---- Routes (M9 Logistics, admin = Full) ------------------------------
