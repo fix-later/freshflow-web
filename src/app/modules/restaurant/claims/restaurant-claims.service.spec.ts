@@ -1,4 +1,4 @@
-import { rawApi } from 'contract';
+import { claimsApi } from 'contract';
 import { RestaurantClaimsService } from './restaurant-claims.service';
 
 describe('RestaurantClaimsService', () => {
@@ -9,30 +9,34 @@ describe('RestaurantClaimsService', () => {
     });
 
     it('sends the optional proof image URL when filing a claim', async () => {
-        const send = spyOn(rawApi, 'send').and.resolveTo(
-            new Response(
+        const post = spyOn(
+            claimsApi,
+            'apiV1OrdersOrderIdClaimsPostRaw'
+        ).and.resolveTo({
+            raw: new Response(
                 JSON.stringify({
                     data: { claimId: 'claim-1', proofImageUrl: 'proof-url' },
                 })
-            )
-        );
+            ),
+        } as never);
 
         const claim = await service.fileClaim(
-            'order/with spaces',
+            'order-1',
             25000,
             'Damaged goods',
             'proof-url'
         );
 
-        expect(send).toHaveBeenCalledWith(
-            '/api/v1/orders/order%2Fwith%20spaces/claims',
-            'POST',
-            {
+        // `proofImageUrl` is part of `FileClaimRequest` now, so the generated
+        // serialiser carries it instead of stripping it as an unknown field.
+        expect(post).toHaveBeenCalledWith({
+            orderId: 'order-1',
+            fileClaimRequest: {
                 amount: 25000,
                 reason: 'Damaged goods',
                 proofImageUrl: 'proof-url',
-            }
-        );
+            },
+        });
         expect(claim.proofImageUrl).toBe('proof-url');
     });
 
@@ -44,9 +48,12 @@ describe('RestaurantClaimsService', () => {
             cloudName: 'cloud',
             folder: 'freshflow/order-claims',
         };
-        const send = spyOn(rawApi, 'send').and.resolveTo(
-            new Response(JSON.stringify({ data: signature }))
-        );
+        const sign = spyOn(
+            claimsApi,
+            'apiV1OrdersOrderIdClaimsUploadSignaturePostRaw'
+        ).and.resolveTo({
+            raw: new Response(JSON.stringify({ data: signature })),
+        } as never);
         const fetchSpy = spyOn(window, 'fetch').and.resolveTo(
             new Response(
                 JSON.stringify({
@@ -57,14 +64,11 @@ describe('RestaurantClaimsService', () => {
         );
 
         const url = await service.uploadClaimProof(
-            'order/1',
+            'order-1',
             new File(['image'], 'proof.jpg', { type: 'image/jpeg' })
         );
 
-        expect(send).toHaveBeenCalledWith(
-            '/api/v1/orders/order%2F1/claims/upload-signature',
-            'POST'
-        );
+        expect(sign).toHaveBeenCalledWith({ orderId: 'order-1' });
         expect(fetchSpy).toHaveBeenCalled();
         expect(url).toBe('https://res.cloudinary.com/cloud/proof.jpg');
     });

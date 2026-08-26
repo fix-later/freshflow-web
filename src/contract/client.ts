@@ -137,6 +137,50 @@ function refreshTokensOnce(): Promise<boolean> {
     return refreshInFlight;
 }
 
+/** Seconds before `exp` at which a token is treated as already expired. */
+const TOKEN_EXPIRY_SKEW_SECONDS = 30;
+
+/** `exp` of a JWT in seconds, or `null` when it carries none / is unreadable. */
+function tokenExpiry(token: string): number | null {
+    const payload = token.split('.')[1];
+    if (!payload) {
+        return null;
+    }
+    try {
+        const json = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+        const claims: unknown = JSON.parse(json);
+        const exp = (claims as { exp?: unknown })?.exp;
+        return typeof exp === 'number' ? exp : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * An access token that will still be accepted, refreshing first when the
+ * stored one is at or past its expiry.
+ *
+ * HTTP calls do not need this — {@link errorMiddleware} refreshes on the 401
+ * and retries. A SignalR connection has no such second chance: an expired
+ * token fails the negotiate, and the client's reconnects reuse whatever this
+ * factory returns, so an expired token would keep failing until the page is
+ * reloaded. Returns `''` when signed out, or when the refresh fails — the
+ * caller then simply does not connect.
+ */
+export async function getValidAccessToken(): Promise<string> {
+    const token = getAccessToken();
+    if (!token) {
+        return '';
+    }
+    const exp = tokenExpiry(token);
+    const stillValid =
+        exp === null || exp - TOKEN_EXPIRY_SKEW_SECONDS > Date.now() / 1000;
+    if (stillValid) {
+        return token;
+    }
+    return (await refreshTokensOnce()) ? getAccessToken() ?? '' : '';
+}
+
 // -----------------------------------------------------------------------------
 // Freshness middleware
 // -----------------------------------------------------------------------------

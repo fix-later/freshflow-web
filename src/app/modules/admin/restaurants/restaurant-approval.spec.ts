@@ -79,60 +79,23 @@ describe('Restaurant approval actions', () => {
         ]);
     });
 
-    it('offers approve for a pending restaurant even though isActive is true', () => {
-        configure({});
-        const component = TestBed.createComponent(
-            RestaurantsAdminComponent
-        ).componentInstance;
-
-        expect(component.canApprove(pending)).toBeTrue();
-        expect(
-            component.canApprove(row({ restaurantStatus: 'active' }))
-        ).toBeFalse();
-        expect(
-            component.canApprove(row({ restaurantStatus: 'suspended' }))
-        ).toBeFalse();
-    });
-
     it('falls back to isApproved when restaurantStatus is absent', () => {
         configure({});
         const component = TestBed.createComponent(
             RestaurantsAdminComponent
         ).componentInstance;
 
+        // The list no longer approves — the pill is what reads this rule now.
         expect(
-            component.canApprove(
+            component.approvalKey(
                 row({ restaurantStatus: null, isApproved: false })
             )
-        ).toBeTrue();
+        ).toBe('admin.users.approval.pending');
         expect(
-            component.canApprove(
+            component.approvalKey(
                 row({ restaurantStatus: null, isApproved: true })
             )
-        ).toBeFalse();
-    });
-
-    it('flips the row to approved without waiting for a reload', async () => {
-        let approvedId: string | null = null;
-        configure({
-            approveRestaurant: (id: string) => {
-                approvedId = id;
-                return Promise.resolve();
-            },
-        });
-        const component = TestBed.createComponent(
-            RestaurantsAdminComponent
-        ).componentInstance;
-        component.users.set([pending]);
-
-        component.approve(pending);
-        await Promise.resolve();
-        await Promise.resolve();
-
-        expect(approvedId).toBe('rest-1');
-        expect(component.users()[0].restaurantStatus).toBe('active');
-        expect(component.users()[0].isApproved).toBeTrue();
-        expect(component.canApprove(component.users()[0])).toBeFalse();
+        ).toBe('admin.users.approval.active');
     });
 
     /**
@@ -187,28 +150,6 @@ describe('Restaurant approval actions', () => {
             false,
             true,
         ]);
-    });
-
-    it('toggles account access independently from restaurant approval', async () => {
-        let activation: { userId: string; isActive: boolean } | null = null;
-        configure({
-            setUserActive: (userId: string, isActive: boolean) => {
-                activation = { userId, isActive };
-                return Promise.resolve();
-            },
-        });
-        const component = TestBed.createComponent(
-            RestaurantsAdminComponent
-        ).componentInstance;
-        component.users.set([pending]);
-
-        component.toggleAccountActive(pending);
-        await Promise.resolve();
-        await Promise.resolve();
-
-        expect(activation).toEqual({ userId: 'user-1', isActive: false });
-        expect(component.users()[0].isActive).toBeFalse();
-        expect(component.users()[0].restaurantStatus).toBe('pending');
     });
 });
 

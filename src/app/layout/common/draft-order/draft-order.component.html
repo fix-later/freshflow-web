@@ -6,18 +6,20 @@
         (click)="draftOrderService.toggleDrawer()"
         [attr.aria-label]="t('header.cart')"
         [matTooltip]="t('header.cart')"
+        [class.ff-cart-badge--bump]="justAdded()"
     >
-        @if (count() > 0) {
-            <span
-                class="ff-cart-badge absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
-                [class.ff-cart-badge--bump]="justAdded()"
-                >{{ count() }}</span
-            >
-        }
+        <!-- The badge rides the icon, not the button: the trigger is a 40px
+             target around a 24px glyph, so a badge pinned to the button's
+             corner floats away from the cart it is counting. -->
         <mat-icon
             class="ff-cart-icon icon-size-6"
             [class.ff-cart-icon--bump]="justAdded()"
             [svgIcon]="'heroicons_outline:shopping-cart'"
+            [matBadge]="count()"
+            [matBadgeHidden]="count() === 0"
+            [matBadgeDescription]="t('header.cart')"
+            matBadgeColor="primary"
+            matBadgeSize="small"
         ></mat-icon>
     </button>
 </ng-container>

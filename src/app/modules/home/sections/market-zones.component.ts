@@ -2,8 +2,10 @@ import {
     ChangeDetectionStrategy,
     Component,
     computed,
+    effect,
     inject,
     signal,
+    untracked,
     ViewEncapsulation,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
@@ -11,6 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { TranslocoModule } from '@jsverse/transloco';
 import { activeLang } from 'app/core/i18n/active-lang';
+import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { CatalogService } from 'app/modules/catalog/catalog.service';
 import { MarketZone } from '../storefront-landing.types';
 
@@ -37,9 +40,12 @@ const MIN_ZONES_FOR_BENTO = 6;
  * it had not been taught and was owned by no one — a category with no picture
  * now simply shows no picture.
  *
- * Counts are real, from `CatalogService.categoryCounts()`, which costs no
- * request. They count the catalogue rather than this market's listings: the
- * listing endpoint reports no total. The label says so.
+ * Counts are real, and they count **this chợ's** listings
+ * (`CatalogService.marketCategoryCounts()`) — what the buyer can actually put
+ * in a basket today. They used to count the whole catalogue through
+ * `GET /products`, which needs a session: a signed-out visitor got 401, every
+ * count fell to zero, and this board — on the landing page of a deliberately
+ * open storefront — said there were no aisles at all.
  */
 @Component({
     selector: 'market-zones',
@@ -52,6 +58,7 @@ const MIN_ZONES_FOR_BENTO = 6;
 })
 export class MarketZonesComponent {
     private _catalog = inject(CatalogService);
+    private _markets = inject(MarketSelectionService);
 
     private readonly _lang = activeLang();
     readonly isVi = computed(() => this._lang() === 'vi');
@@ -95,6 +102,13 @@ export class MarketZonesComponent {
             .getCategories()
             .pipe(takeUntilDestroyed())
             .subscribe(() => void this._loadCounts());
+
+        // The board belongs to the chợ on screen, so switching market re-counts
+        // rather than leaving the previous chợ's aisles up.
+        effect(() => {
+            this._markets.selectedId();
+            void this._loadCounts();
+        });
     }
 
     zoneLabel(zone: MarketZone): string {
@@ -102,6 +116,13 @@ export class MarketZonesComponent {
     }
 
     private async _loadCounts(): Promise<void> {
-        this._counts.set(await this._catalog.categoryCounts());
+        const marketId = untracked(() => this._markets.selectedId());
+        if (!marketId) {
+            // No chợ chosen yet: the picker is the next thing the visitor does,
+            // and counting some other market's aisles would be a guess.
+            this._counts.set(new Map());
+            return;
+        }
+        this._counts.set(await this._catalog.marketCategoryCounts(marketId));
     }
 }

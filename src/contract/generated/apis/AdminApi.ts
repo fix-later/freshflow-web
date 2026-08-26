@@ -157,6 +157,10 @@ export interface ApiV1AdminOrderGroupsBatchIdCancelPostRequest {
     cancelOrderGroupRequest?: CancelOrderGroupRequest;
 }
 
+export interface ApiV1AdminOrderGroupsBatchIdGetRequest {
+    batchId: string;
+}
+
 export interface ApiV1AdminOrderGroupsBatchIdManifestPostRequest {
     batchId: string;
 }
@@ -975,6 +979,56 @@ export class AdminApi extends runtime.BaseAPI {
      */
     async apiV1AdminOrderGroupsBatchIdCancelPost(requestParameters: ApiV1AdminOrderGroupsBatchIdCancelPostRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1AdminOrderGroupsBatchIdCancelPostRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1AdminOrderGroupsBatchIdGet without sending the request
+     */
+    async apiV1AdminOrderGroupsBatchIdGetRequestOpts(requestParameters: ApiV1AdminOrderGroupsBatchIdGetRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['batchId'] == null) {
+            throw new runtime.RequiredError(
+                'batchId',
+                'Required parameter "batchId" was null or undefined when calling apiV1AdminOrderGroupsBatchIdGet().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/admin/order-groups/{batchId}`;
+        urlPath = urlPath.replace('{batchId}', encodeURIComponent(String(requestParameters['batchId'])));
+
+        return {
+            path: urlPath,
+            method: 'GET',
+            headers: headerParameters,
+            query: queryParameters,
+        };
+    }
+
+    /**
+     */
+    async apiV1AdminOrderGroupsBatchIdGetRaw(requestParameters: ApiV1AdminOrderGroupsBatchIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1AdminOrderGroupsBatchIdGetRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1AdminOrderGroupsBatchIdGet(requestParameters: ApiV1AdminOrderGroupsBatchIdGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1AdminOrderGroupsBatchIdGetRaw(requestParameters, initOverrides);
     }
 
     /**

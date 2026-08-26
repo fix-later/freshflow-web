@@ -1,12 +1,22 @@
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { MarketSelectionService } from 'app/core/market/market-selection.service';
 import { UserService } from 'app/core/user/user.service';
 import { CatalogProduct } from 'app/modules/catalog/catalog.types';
 import { OrdersService } from 'app/modules/orders/orders.service';
 import { OrderRow } from 'app/modules/orders/orders.types';
+import { DateTime } from 'luxon';
+import { clampToStock } from './draft-order.rules';
 import { DraftOrderLine, DraftSyncState } from './draft-order.types';
+
+/**
+ * Business dates are GMT+7 across FreshFlow (BR-002), so "the day this session
+ * trades on" is a Hanoi calendar day, not the browser's.
+ */
+const SESSION_ZONE = 'Asia/Ho_Chi_Minh';
 
 /**
  * The restaurant's in-progress order — and, for a signed-in restaurant, the
@@ -32,6 +42,16 @@ export class DraftOrderService {
     private readonly _orders = inject(OrdersService);
     private readonly _userService = inject(UserService);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _snackBar = inject(MatSnackBar);
+    /**
+     * Which chợ the buyer is shopping — the session whose window decides
+     * whether a draft still belongs to the cart is that chợ's, not a
+     * platform-wide one. Optional so a harness that never selects a market
+     * still resolves the service (see `_currentSessionWindow`).
+     */
+    private readonly _markets = inject(MarketSelectionService, {
+        optional: true,
+    });
 
     private readonly _lines = signal<DraftOrderLine[]>([]);
 
@@ -201,9 +221,21 @@ export class DraftOrderService {
     ): void {
         const price = unitPrice ?? product.price ?? 0;
         const existing = this._find(product.marketProductId, product.id);
+        const held = existing?.quantity ?? 0;
+
+        // What the listing can still supply on top of what this cart already
+        // holds. Enforced here rather than at each tile: the cart row's stepper
+        // used to be the only thing checking it, so ten presses of "add" on a
+        // catalog tile walked straight past the stock the server would refuse.
+        const wanted = clampToStock(product, held + quantity) - held;
+        if (wanted <= 0) {
+            this._refuseOverStock(product, held);
+            return;
+        }
+        quantity = wanted;
 
         if (existing) {
-            this.setQuantity(product.id, existing.quantity + quantity);
+            this.setQuantity(product.id, held + quantity);
             return;
         }
 
@@ -233,6 +265,14 @@ export class DraftOrderService {
         const line = this._find(productId, productId);
         if (!line) {
             return;
+        }
+        const allowed = clampToStock(line.product, quantity);
+        if (allowed < quantity) {
+            this._refuseOverStock(line.product, allowed);
+            if (allowed <= 0 || allowed === line.quantity) {
+                return;
+            }
+            quantity = allowed;
         }
         this._lines.update((lines) =>
             lines.map((entry) =>
@@ -300,6 +340,19 @@ export class DraftOrderService {
     }
 
     /**
+     * Resolves once every queued write has landed on the server.
+     *
+     * Checkout confirms the draft the cart is backed by rather than sending the
+     * basket again, so it has to know the item writes are in before it prices
+     * and commits — a `+` clicked a moment before "Place order" is still in
+     * flight. Rejections are already reported by `_enqueue`, so this only
+     * waits; it never becomes the failure path for a sync error.
+     */
+    settled(): Promise<void> {
+        return this._queue;
+    }
+
+    /**
      * Empties the cart locally. Used after a confirm, when the draft has become
      * a real order — so it deliberately does *not* cancel anything server-side.
      */
@@ -326,6 +379,26 @@ export class DraftOrderService {
         } catch (err) {
             await this._reportSyncFailure(err);
         }
+    }
+
+    /**
+     * Says why the cart did not take what was asked for.
+     *
+     * A badge that simply does not move is indistinguishable from a dropped
+     * click, and the surfaces that add to the cart — tiles, the product page,
+     * Hot Deals — have no error area of their own, so this is said where the
+     * buyer is looking.
+     */
+    private _refuseOverStock(product: CatalogProduct, available: number): void {
+        this._snackBar.open(
+            this._transloco.translate('cart.overStock', {
+                product: product.name,
+                available,
+                unit: product.unitShort || product.unit,
+            }),
+            undefined,
+            { duration: 4000 }
+        );
     }
 
     // ── internals ────────────────────────────────────────────────────────
@@ -395,22 +468,129 @@ export class DraftOrderService {
         await this._reload();
     }
 
-    /** The restaurant's open draft, if it has one. */
+    /**
+     * The draft to come back to: the newest one **opened on the trading day of
+     * the chợ session that is currently open**.
+     *
+     * The backend lets several drafts exist, and taking the newest of them
+     * unconditionally meant a basket abandoned days ago came back as today's
+     * cart — with prices that have since moved and a chợ session that has
+     * already been batched. Two things must hold for a draft to still be the
+     * cart: the session is open, and the draft was opened on that session's
+     * day.
+     *
+     * Otherwise nothing is adopted and the buyer starts clean; the stale
+     * drafts stay on the server for their own history. Only when the session
+     * cannot be read at all does this fall back to the previous newest-wins
+     * behaviour: losing a cart the buyer just built is worse than restoring one
+     * that confirm would reject anyway.
+     */
     private async _findDraft(): Promise<OrderRow | null> {
         const { orders } = await this._orders.listOrders({
             status: 'draft',
-            pageSize: 5,
+            // Wide enough that a run of stale drafts cannot push the in-window
+            // one off the page — the filter below, not the page size, is what
+            // narrows this now.
+            pageSize: 20,
         });
         if (!orders.length) {
             return null;
         }
-        // Newest first — the backend allows several drafts to exist, and the
-        // one the buyer was last building is the one to come back to.
-        return [...orders].sort((a, b) =>
+        // Newest first — the one the buyer was last building comes first.
+        const newestFirst = [...orders].sort((a, b) =>
             String(b['createdAt'] ?? '').localeCompare(
                 String(a['createdAt'] ?? '')
             )
-        )[0];
+        );
+
+        const session = await this._currentSession();
+        if (!session) {
+            return newestFirst[0];
+        }
+        if (!session.open) {
+            // The chợ is not taking orders, so there is no cart to be building.
+            return null;
+        }
+        return (
+            newestFirst.find((order) =>
+                this._isOnDay(order['createdAt'], session.day)
+            ) ?? null
+        );
+    }
+
+    /**
+     * Whether an order was opened on `day`, compared in Vietnam time.
+     *
+     * Business dates are GMT+7 across the system (BR-002) while `createdAt`
+     * arrives as a UTC instant, so a draft opened at 08:00 Hanoi on the 5th is
+     * `2026-08-05T01:00:00Z` — the same calendar day only once converted.
+     */
+    private _isOnDay(createdAt: unknown, day: string): boolean {
+        if (typeof createdAt !== 'string' || !createdAt) {
+            // A draft the list did not date cannot be placed in a session.
+            // Treat it as out rather than guess it in.
+            return false;
+        }
+        const created = DateTime.fromISO(createdAt).setZone(SESSION_ZONE);
+        return created.isValid && created.toFormat('yyyy-MM-dd') === day;
+    }
+
+    /**
+     * The chợ session that is currently taking orders: the day it trades on,
+     * and whether it is still open.
+     *
+     * Which session is "current" comes from `earliestServiceDate` — the next
+     * deliverable day is the one being ordered into. Its trading day is the
+     * calendar day of `closesAt`, because a session for service date `D` stops
+     * accepting orders at the cutoff on `D-1`
+     * (`ProcurementBatchCycle.GetCloseAtUtc`). The deadline is read from the
+     * session rather than the browser clock, so a skewed device cannot decide
+     * which day a draft belongs to.
+     *
+     * Three distinct answers:
+     *  - `{ open: true, day }` — filter drafts to that day.
+     *  - `{ open: false }` — the chợ is closed; adopt nothing.
+     *  - `null` — *unknown* (no chợ chosen, no session row, lookup failed), so
+     *    the caller keeps the previous newest-wins behaviour rather than
+     *    emptying a basket the buyer just built.
+     */
+    private async _currentSession(): Promise<
+        { open: true; day: string } | { open: false } | null
+    > {
+        try {
+            const marketId = this._markets?.selectedId() ?? null;
+            if (!marketId) {
+                return null;
+            }
+            const serviceDate = (await this._orders.getOrderingWindow())
+                .earliestServiceDate;
+            if (!serviceDate) {
+                return null;
+            }
+
+            const session = await this._orders.getMarketSession(
+                marketId,
+                serviceDate
+            );
+            if (!session) {
+                return null;
+            }
+            if (session.status !== 'open') {
+                return { open: false };
+            }
+            if (!session.closesAt) {
+                return null;
+            }
+            const closes = DateTime.fromISO(session.closesAt).setZone(
+                SESSION_ZONE
+            );
+            return closes.isValid
+                ? { open: true, day: closes.toFormat('yyyy-MM-dd') }
+                : null;
+        } catch {
+            // Unknown, not empty — see `_findDraft`.
+            return null;
+        }
     }
 
     /** Re-reads the draft and replaces the local lines with the server's. */

@@ -6,18 +6,18 @@
         (click)="favoritesService.toggleDrawer()"
         [attr.aria-label]="t('header.favorites')"
         [matTooltip]="t('header.favorites')"
+        [class.ff-fav-badge--bump]="justAdded()"
     >
-        @if (count() > 0) {
-            <span
-                class="ff-fav-badge absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.5625rem] font-bold text-on-primary"
-                [class.ff-fav-badge--bump]="justAdded()"
-                >{{ count() }}</span
-            >
-        }
+        <!-- On the icon, not the button — see the cart trigger. -->
         <mat-icon
             class="icon-size-6"
             [class.ff-fav-icon--bump]="justAdded()"
             [svgIcon]="'heroicons_outline:heart'"
+            [matBadge]="count()"
+            [matBadgeHidden]="count() === 0"
+            [matBadgeDescription]="t('header.favorites')"
+            matBadgeColor="primary"
+            matBadgeSize="small"
         ></mat-icon>
     </button>
 </ng-container>

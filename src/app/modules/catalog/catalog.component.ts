@@ -29,6 +29,7 @@ import { ApprovalBannerComponent } from 'app/core/auth/components/approval-banne
 import { GuestGateService } from 'app/core/auth/guest-gate.service';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { MarketSelectionService } from 'app/core/market/market-selection.service';
+import { PricingRealtimeService } from 'app/core/realtime/pricing-realtime.service';
 import { formatRelativeTime } from 'app/core/util/relative-time';
 import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
 import { FavoritesService } from 'app/layout/common/favorites/favorites.service';
@@ -95,6 +96,7 @@ export class CatalogComponent implements OnInit {
     private _favoritesService = inject(FavoritesService);
     private _draftOrder = inject(DraftOrderService);
     private _marketSelection = inject(MarketSelectionService);
+    private _pricingRealtime = inject(PricingRealtimeService);
     private _guestGate = inject(GuestGateService);
     private _permissions = inject(PermissionsService);
     private _route = inject(ActivatedRoute);
@@ -436,6 +438,12 @@ export class CatalogComponent implements OnInit {
     ngOnInit(): void {
         void this._favoritesService.ensureLoaded();
         void this._marketSelection.ensureLoaded();
+        // Live prices for as long as the grid is on screen. The service follows
+        // the market picker on its own, and releases the socket on destroy.
+        void this._pricingRealtime.connect();
+        this._destroyRef.onDestroy(
+            () => void this._pricingRealtime.disconnect()
+        );
         this.searchControl.valueChanges
             .pipe(
                 debounceTime(150),

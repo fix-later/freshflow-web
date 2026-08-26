@@ -118,6 +118,23 @@ export class NotificationsService {
         this._error.set(null);
     }
 
+    /**
+     * Takes one notification pushed over SignalR (`NotificationCreated`) and
+     * puts it at the top of the list.
+     *
+     * The hub sends the same `NotificationDto` the list endpoint does, so it is
+     * parsed by the same mapper rather than trusted field by field. A repeat of
+     * an id already held is ignored: a reconnect re-reads the first page, and
+     * that page can carry a row this already received.
+     */
+    receive(row: RawRow): void {
+        const view = this._toView(row);
+        if (!view.id || this._items().some((item) => item.id === view.id)) {
+            return;
+        }
+        this._items.set([view, ...this._items()]);
+    }
+
     /** Marks one notification read, optimistically, reverting on failure. */
     async markRead(id: string): Promise<void> {
         const item = this._items().find((i) => i.id === id);

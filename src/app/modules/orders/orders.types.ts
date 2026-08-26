@@ -212,25 +212,69 @@ export const ORDER_STATUSES = [
 
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-/** The `/orders` status tabs — every lifecycle status, with "all" in front. */
-export const ORDER_STATUS_TABS = ['all', ...ORDER_STATUSES] as const;
+/**
+ * The restaurant's order-history tabs.
+ *
+ * Four stages, not eight statuses. `confirmed`, `batched` and `picked_up` are
+ * the operations side talking to itself — the chợ agent has bought the goods,
+ * a batch has been cut, a run has collected it — and none of that is a
+ * different answer to the only question the buyer is asking, which is *where is
+ * my order*. They collapse into "đang xử lý"; `at_hub` and `delivering` are the
+ * stage where the goods are on their way, and the last two speak for themselves.
+ *
+ * A tab therefore covers one or more statuses, and the row's own pill still
+ * shows exactly which one — the grouping is the index, not a loss of detail.
+ *
+ * `draft` is deliberately absent: a draft is the cart, not an order placed.
+ * `all` cannot express that here — it sends no `status` at all, precisely so
+ * the big tab keeps server paging, and the API has no "every status except
+ * this one" filter. So `all` drops drafts from the page it receives and
+ * subtracts their count from the total (`_read`). The count keeps the pager
+ * honest; the trade-off is that a page containing drafts renders fewer than
+ * {@link SCHEDULED_PAGE_SIZE} rows. Listing the seven placed statuses here
+ * instead would push `all` down the grouped path, which crawls every page of
+ * every status — unaffordable for a restaurant's whole delivered history.
+ */
+export const ORDER_TAB_STATUSES: Record<string, readonly OrderStatus[]> = {
+    all: [],
+    processing: ['confirmed', 'batched', 'picked_up'],
+    awaiting: ['at_hub', 'delivering'],
+    delivered: ['delivered'],
+    cancelled: ['cancelled'],
+};
+
+export const ORDER_STATUS_TABS = [
+    'all',
+    'processing',
+    'awaiting',
+    'delivered',
+    'cancelled',
+] as const;
 
 /** The `?status=` value a tab travels under. */
 export type OrderStatusTab = (typeof ORDER_STATUS_TABS)[number];
 
 /**
- * The tab a `?status=` value names. A hand-typed or stale slug lands on "all"
- * rather than on a tab that does not exist — and an alias is normalized first,
- * so a link written in the API's filter vocabulary still opens the right tab.
+ * The tab a `?status=` value names.
+ *
+ * Takes a tab slug (`processing`), a response status (`batched`) or an API
+ * filter alias (`in_transit`) — a link written in any of those vocabularies
+ * opens the tab that now contains it, so bookmarks and links from before the
+ * grouping still land somewhere true. Anything unrecognised falls back to
+ * "all", never to a tab that does not exist.
  */
 export function orderStatusTabOf(
     value: string | null | undefined
 ): OrderStatusTab {
     const slug = normalizeOrderStatus(value);
+    if ((ORDER_STATUS_TABS as readonly string[]).includes(slug)) {
+        return slug as OrderStatusTab;
+    }
     const canonical = STATUS_ALIASES[slug] ?? slug;
-    return (ORDER_STATUS_TABS as readonly string[]).includes(canonical)
-        ? (canonical as OrderStatusTab)
-        : 'all';
+    const tab = ORDER_STATUS_TABS.find((name) =>
+        ORDER_TAB_STATUSES[name].includes(canonical as OrderStatus)
+    );
+    return tab ?? 'all';
 }
 
 /** The filter aliases the backend accepts, pointed at the status they mean. */

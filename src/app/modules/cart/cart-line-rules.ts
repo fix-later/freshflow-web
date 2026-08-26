@@ -10,7 +10,15 @@
  * checkout have to agree: the cart's stepper keeps a line inside the bounds,
  * and the checkout re-checks them before it creates a draft, for a cart that
  * was restored from storage after the listing moved underneath it.
+ *
+ * The pack size and the stock ceiling themselves come from
+ * `draft-order.rules.ts`, which `DraftOrderService` enforces on every write —
+ * these are the line-level *messages*, not a second copy of the rule.
  */
+import {
+    maxQuantityFor,
+    packSizeOf,
+} from 'app/layout/common/draft-order/draft-order.rules';
 import { DraftOrderLine } from 'app/layout/common/draft-order/draft-order.types';
 
 /** An i18n key plus its interpolation params, for the caller to translate. */
@@ -30,8 +38,7 @@ export interface CartLineIssue {
  * product with no packing code in the first place.
  */
 export function packSize(line: DraftOrderLine): number {
-    const weight = line.product.packWeightKg;
-    return typeof weight === 'number' && weight > 0 ? weight : 1;
+    return packSizeOf(line.product);
 }
 
 /**
@@ -67,12 +74,7 @@ export function minQuantity(line: DraftOrderLine): number {
  * "unknown", not "none", so it must not cap anything.
  */
 export function maxQuantity(line: DraftOrderLine): number | null {
-    const available = line.product.quantity;
-    if (typeof available !== 'number' || !Number.isFinite(available)) {
-        return null;
-    }
-    const step = packSize(line);
-    return Math.floor(available / step) * step;
+    return maxQuantityFor(line.product);
 }
 
 /** True when `+` (one more case) would push the line past what the listing has. */

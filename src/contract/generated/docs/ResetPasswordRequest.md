@@ -6,7 +6,8 @@
 
 Name | Type
 ------------ | -------------
-`token` | string
+`identifier` | string
+`code` | string
 `newPassword` | string
 
 ## Example
@@ -16,7 +17,8 @@ import type { ResetPasswordRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "token": null,
+  "identifier": null,
+  "code": null,
   "newPassword": null,
 } satisfies ResetPasswordRequest
 

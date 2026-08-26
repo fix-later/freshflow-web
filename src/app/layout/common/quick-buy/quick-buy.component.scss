@@ -212,6 +212,43 @@ quick-buy {
     padding: 1.5rem 1rem;
     @apply bg-default;
 
+    /*
+     * The conversation's backdrop: the same hand-drawn produce pattern the
+     * storefront's aisle board carries, so the assistant reads as part of the
+     * market rather than as a chat widget bolted onto it. Applies to the docked
+     * box and to full screen alike — both are this element.
+     *
+     * Behind the bubbles, which keep their own `bg-card`, so no message loses
+     * contrast against it. Left off in dark mode, where a bright paper texture
+     * would be the only light surface on the screen.
+     *
+     * Tiled at a fixed width rather than stretched to cover: `cover` scales the
+     * doodles with the surface, so the same pattern that reads as fine texture
+     * in the 24rem box became palm-sized vegetables across a 1440px full
+     * screen. Pinning the tile keeps one scale everywhere.
+     *
+     * A wash of the page background sits over it — the artwork is a backdrop,
+     * and at full strength its outlines cut through the text sitting on them.
+     * Painted as a second background layer rather than as an overlay element so
+     * it stays put while the conversation scrolls past.
+     */
+    background-image: linear-gradient(
+            color-mix(in srgb, var(--fuse-bg-default) 78%, transparent),
+            color-mix(in srgb, var(--fuse-bg-default) 78%, transparent)
+        ),
+        url('/images/pages/ai/cover-ai.jpg');
+    background-position:
+        top center,
+        top center;
+    background-repeat: no-repeat, repeat;
+    background-size:
+        cover,
+        26rem auto;
+
+    .dark & {
+        background-image: none;
+    }
+
     /* The scroller is the full-width band; the column inside it is what holds
        the messages, so it has to be the flex context and to fill the height —
        otherwise the empty state has nothing to centre itself in. */

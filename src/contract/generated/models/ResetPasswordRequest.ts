@@ -19,8 +19,23 @@ import { mapValues } from '../runtime';
  * @interface ResetPasswordRequest
  */
 export interface ResetPasswordRequest {
+    /**
+     * 
+     * @type {string}
+     * @memberof ResetPasswordRequest
+     */
     identifier: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResetPasswordRequest
+     */
     code: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ResetPasswordRequest
+     */
     newPassword: string;
 }
 
@@ -43,6 +58,7 @@ export function ResetPasswordRequestFromJSONTyped(json: any, ignoreDiscriminator
         return json;
     }
     return {
+        
         'identifier': json['identifier'],
         'code': json['code'],
         'newPassword': json['newPassword'],
@@ -59,6 +75,7 @@ export function ResetPasswordRequestToJSONTyped(value?: ResetPasswordRequest | n
     }
 
     return {
+        
         'identifier': value['identifier'],
         'code': value['code'],
         'newPassword': value['newPassword'],

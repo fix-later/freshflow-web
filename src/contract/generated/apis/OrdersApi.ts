@@ -64,6 +64,11 @@ import {
     ReportOrderIssueRequestToJSON,
 } from '../models/ReportOrderIssueRequest';
 import {
+    type UpdateDraftOrderRequest,
+    UpdateDraftOrderRequestFromJSON,
+    UpdateDraftOrderRequestToJSON,
+} from '../models/UpdateDraftOrderRequest';
+import {
     type UpdateOrderItemRequest,
     UpdateOrderItemRequestFromJSON,
     UpdateOrderItemRequestToJSON,
@@ -112,6 +117,11 @@ export interface ApiV1OrdersOrderIdConfirmPostRequest {
 export interface ApiV1OrdersOrderIdConfirmPreviewGetRequest {
     orderId: string;
     deliveryAddressId?: string;
+}
+
+export interface ApiV1OrdersOrderIdDraftPatchRequest {
+    orderId: string;
+    updateDraftOrderRequest?: UpdateDraftOrderRequest;
 }
 
 export interface ApiV1OrdersOrderIdGetRequest {
@@ -544,6 +554,59 @@ export class OrdersApi extends runtime.BaseAPI {
      */
     async apiV1OrdersOrderIdConfirmPreviewGet(requestParameters: ApiV1OrdersOrderIdConfirmPreviewGetRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
         await this.apiV1OrdersOrderIdConfirmPreviewGetRaw(requestParameters, initOverrides);
+    }
+
+    /**
+     * Creates request options for apiV1OrdersOrderIdDraftPatch without sending the request
+     */
+    async apiV1OrdersOrderIdDraftPatchRequestOpts(requestParameters: ApiV1OrdersOrderIdDraftPatchRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['orderId'] == null) {
+            throw new runtime.RequiredError(
+                'orderId',
+                'Required parameter "orderId" was null or undefined when calling apiV1OrdersOrderIdDraftPatch().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+        if (this.configuration && this.configuration.accessToken) {
+            const token = this.configuration.accessToken;
+            const tokenString = await token("Bearer", []);
+
+            if (tokenString) {
+                headerParameters["Authorization"] = `Bearer ${tokenString}`;
+            }
+        }
+
+        let urlPath = `/api/v1/orders/{orderId}/draft`;
+        urlPath = urlPath.replace('{orderId}', encodeURIComponent(String(requestParameters['orderId'])));
+
+        return {
+            path: urlPath,
+            method: 'PATCH',
+            headers: headerParameters,
+            query: queryParameters,
+            body: UpdateDraftOrderRequestToJSON(requestParameters['updateDraftOrderRequest']),
+        };
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdDraftPatchRaw(requestParameters: ApiV1OrdersOrderIdDraftPatchRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+        const requestOptions = await this.apiV1OrdersOrderIdDraftPatchRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        return new runtime.VoidApiResponse(response);
+    }
+
+    /**
+     */
+    async apiV1OrdersOrderIdDraftPatch(requestParameters: ApiV1OrdersOrderIdDraftPatchRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
+        await this.apiV1OrdersOrderIdDraftPatchRaw(requestParameters, initOverrides);
     }
 
     /**

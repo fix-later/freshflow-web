@@ -1103,21 +1103,16 @@ export class AdminService {
      * `ProcurementBatchDto` as the list, so the row carries full detail —
      * items / members / exceptions — and goes through the same normalisation.
      *
-     * Raw client: the endpoint postdates the checked-in `openapi.json` snapshot
-     * (see `contract/raw.ts`). Move it to `adminApi` at the next
-     * `npm run generate:api`.
-     *
      * Falls back to scanning the list for a backend that predates the endpoint;
      * without that a 404 would break the batch detail page against an older API.
      */
     async getOrderGroup(batchId: string): Promise<AdminOrderGroupRow | null> {
         try {
-            const response = await rawApi.send(
-                `/api/v1/admin/order-groups/${encodeURIComponent(batchId)}`,
-                'GET'
-            );
+            const res = await adminApi.apiV1AdminOrderGroupsBatchIdGetRaw({
+                batchId,
+            });
             const data = unwrapData<Record<string, unknown>>(
-                await parseJson(response)
+                await parseJson(res.raw)
             );
             if (data) {
                 const [row] = withId<AdminOrderGroupRow>(

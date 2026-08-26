@@ -8,6 +8,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1InvoicesInvoiceIdExportGet**](InvoicesApi.md#apiv1invoicesinvoiceidexportget) | **GET** /api/v1/invoices/{invoiceId}/export |  |
 | [**apiV1InvoicesInvoiceIdGet**](InvoicesApi.md#apiv1invoicesinvoiceidget) | **GET** /api/v1/invoices/{invoiceId} |  |
 | [**apiV1InvoicesInvoiceIdPdfGet**](InvoicesApi.md#apiv1invoicesinvoiceidpdfget) | **GET** /api/v1/invoices/{invoiceId}/pdf |  |
+| [**apiV1InvoicesSummaryGet**](InvoicesApi.md#apiv1invoicessummaryget) | **GET** /api/v1/invoices/summary |  |
 
 
 
@@ -273,6 +274,81 @@ example().catch(console.error);
 | Name | Type | Description  | Notes |
 |------------- | ------------- | ------------- | -------------|
 | **invoiceId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1InvoicesSummaryGet
+
+> apiV1InvoicesSummaryGet(from, to, restaurantId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  InvoicesApi,
+} from '';
+import type { ApiV1InvoicesSummaryGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new InvoicesApi(config);
+
+  const body = {
+    // Date (optional)
+    from: 2013-10-20T19:20:30+01:00,
+    // Date (optional)
+    to: 2013-10-20T19:20:30+01:00,
+    // string (optional)
+    restaurantId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1InvoicesSummaryGetRequest;
+
+  try {
+    const data = await api.apiV1InvoicesSummaryGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **from** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **to** | `Date` |  | [Optional] [Defaults to `undefined`] |
+| **restaurantId** | `string` |  | [Optional] [Defaults to `undefined`] |
 
 ### Return type
 

@@ -24,7 +24,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
-import { describeApiError } from 'app/core/api/error-codes';
 import { debounceTime, distinctUntilChanged } from 'rxjs';
 import { AdminService } from '../admin.service';
 import { AdminUserRow, RESTAURANT_APPROVAL_STATUSES } from '../admin.types';
@@ -98,10 +97,21 @@ export function restaurantsForReview(
     styles: [
         `
             .restaurants-grid {
-                /* avatar | email | name | phone | status | approval | approve | account | details */
+                /*
+                 * avatar | email | name | phone | status | approval | details
+                 *
+                 * Only the two free-text columns stretch, and they stretch
+                 * together: email and restaurant name are the fields that
+                 * actually run long (a 45-character QA address, a company's
+                 * full legal name), so the room left over belongs to them in
+                 * equal shares. Everything else is sized to its content — a
+                 * phone number, two pills of known width, one icon button — and
+                 * holding those at a fixed width is what stops the pills from
+                 * drifting into the middle of an over-wide column.
+                 */
                 grid-template-columns:
-                    2.25rem minmax(0, 1.35fr) minmax(0, 1.2fr) 7rem 7rem
-                    minmax(0, 0.9fr) 7.5rem auto 5rem;
+                    2.25rem minmax(0, 1fr) minmax(0, 1fr) 8rem 8.5rem 8.5rem
+                    4.5rem;
 
                 > * {
                     min-width: 0;
@@ -150,10 +160,6 @@ export class RestaurantsAdminComponent implements OnInit {
     });
     readonly totalCount = signal(0);
     readonly loading = signal(false);
-    /** User id whose account activation call is in flight. */
-    readonly accountStatusId = signal<string | null>(null);
-    /** Restaurant id whose approval call is in flight, so only its row spins. */
-    readonly approvingId = signal<string | null>(null);
     readonly pageIndex = signal(0);
     readonly pageSize = signal(DEFAULT_PAGE_SIZE);
     readonly approvalStatuses = RESTAURANT_APPROVAL_STATUSES;
@@ -206,64 +212,6 @@ export class RestaurantsAdminComponent implements OnInit {
             : 'admin.users.approval.pending';
     }
 
-    /**
-     * A restaurant is approvable while it is still waiting for review.
-     * Deliberately *not* keyed off `isActive`: the live API reports that as
-     * `true` for every restaurant, pending ones included.
-     */
-    canApprove(user: AdminUserRow): boolean {
-        return this.approvalKey(user).endsWith('.pending');
-    }
-
-    /**
-     * Approve straight from the list — the common case is a queue of waiting
-     * sign-ups, and opening each one just to approve it is a detour.
-     */
-    approve(user: AdminUserRow): void {
-        const restaurantId = user.restaurantId;
-        if (!restaurantId || this.approvingId()) {
-            return;
-        }
-        this.approvingId.set(user.id);
-        this._admin
-            .approveRestaurant(restaurantId)
-            .then(() => {
-                // The endpoint moves `restaurantStatus`, never `isActive`.
-                this.users.update((list) =>
-                    restaurantsForReview(
-                        list.map((row) =>
-                            row.id === user.id
-                                ? {
-                                      ...row,
-                                      isApproved: true,
-                                      restaurantStatus: 'active',
-                                  }
-                                : row
-                        )
-                    )
-                );
-                this._snackBar.open(
-                    this._transloco.translate(
-                        'admin.restaurants.approve.success'
-                    ),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .catch(async (err) => {
-                this._snackBar.open(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.userDetail.actionError'
-                    ),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .finally(() => this.approvingId.set(null));
-    }
-
     approvalPillClass(user: AdminUserRow): string {
         const key = this.approvalKey(user);
         if (key.endsWith('.active')) {
@@ -304,49 +252,6 @@ export class RestaurantsAdminComponent implements OnInit {
             isActive: '',
             restaurantStatus: '',
         });
-    }
-
-    /**
-     * Enables or disables login for the user account. This is deliberately
-     * separate from the restaurant approval lifecycle: suspending a restaurant
-     * controls whether it may operate, while this endpoint controls sign-in.
-     */
-    toggleAccountActive(user: AdminUserRow): void {
-        if (this.accountStatusId()) {
-            return;
-        }
-        const isActive = user.isActive === false;
-        this.accountStatusId.set(user.id);
-        this._admin
-            .setUserActive(user.id, isActive)
-            .then(() => {
-                this.users.update((list) =>
-                    list.map((row) =>
-                        row.id === user.id ? { ...row, isActive } : row
-                    )
-                );
-                this._snackBar.open(
-                    this._transloco.translate(
-                        isActive
-                            ? 'admin.users.activate.success'
-                            : 'admin.users.deactivate.success'
-                    ),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .catch(async (err) => {
-                this._snackBar.open(
-                    await describeApiError(
-                        err,
-                        (key) => this._transloco.translate(key),
-                        'admin.userDetail.actionError'
-                    ),
-                    undefined,
-                    { duration: 5000 }
-                );
-            })
-            .finally(() => this.accountStatusId.set(null));
     }
 
     openDetail(user: AdminUserRow): void {

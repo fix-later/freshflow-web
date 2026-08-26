@@ -228,7 +228,10 @@
                         subscriptSizing="dynamic"
                     >
                         <mat-label>{{ t('admin.hubs.title') }}</mat-label>
-                        <mat-select formControlName="hubId">
+                        <mat-select
+                            formControlName="hubId"
+                            (selectionChange)="onHubChange($event.value)"
+                        >
                             @for (hub of hubs(); track hub.id) {
                                 <mat-option [value]="hub.id">{{
                                     hub.name
@@ -290,7 +293,13 @@
                                 "
                                 [matTooltip]="
                                     person.alreadyHere
-                                        ? t('admin.markets.staff.alreadyHere')
+                                        ? needsHub()
+                                            ? t(
+                                                  'admin.markets.staff.alreadyOnHub'
+                                              )
+                                            : t(
+                                                  'admin.markets.staff.alreadyHere'
+                                              )
                                         : person.inactive
                                           ? t(
                                                 'admin.markets.staff.inactiveNotAssignable'
