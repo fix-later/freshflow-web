@@ -8,6 +8,7 @@ Name | Type
 ------------ | -------------
 `amount` | number
 `reason` | string
+`proofImageUrl` | string
 
 ## Example
 
@@ -18,6 +19,7 @@ import type { FileClaimRequest } from ''
 const example = {
   "amount": null,
   "reason": null,
+  "proofImageUrl": null,
 } satisfies FileClaimRequest
 
 console.log(example)

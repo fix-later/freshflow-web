@@ -18,6 +18,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1AdminOperationalSettingsPut**](AdminApi.md#apiv1adminoperationalsettingsput) | **PUT** /api/v1/admin/operational-settings |  |
 | [**apiV1AdminOrderGroupsAutoBatchPost**](AdminApi.md#apiv1adminordergroupsautobatchpost) | **POST** /api/v1/admin/order-groups/auto-batch |  |
 | [**apiV1AdminOrderGroupsBatchIdCancelPost**](AdminApi.md#apiv1adminordergroupsbatchidcancelpost) | **POST** /api/v1/admin/order-groups/{batchId}/cancel |  |
+| [**apiV1AdminOrderGroupsBatchIdGet**](AdminApi.md#apiv1adminordergroupsbatchidget) | **GET** /api/v1/admin/order-groups/{batchId} |  |
 | [**apiV1AdminOrderGroupsBatchIdManifestPost**](AdminApi.md#apiv1adminordergroupsbatchidmanifestpost) | **POST** /api/v1/admin/order-groups/{batchId}/manifest |  |
 | [**apiV1AdminOrderGroupsGet**](AdminApi.md#apiv1adminordergroupsget) | **GET** /api/v1/admin/order-groups |  |
 | [**apiV1AdminOrderGroupsProgressGet**](AdminApi.md#apiv1adminordergroupsprogressget) | **GET** /api/v1/admin/order-groups/progress |  |
@@ -1034,6 +1035,75 @@ example().catch(console.error);
 ### HTTP request headers
 
 - **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: Not defined
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1AdminOrderGroupsBatchIdGet
+
+> apiV1AdminOrderGroupsBatchIdGet(batchId)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  AdminApi,
+} from '';
+import type { ApiV1AdminOrderGroupsBatchIdGetRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new AdminApi(config);
+
+  const body = {
+    // string
+    batchId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+  } satisfies ApiV1AdminOrderGroupsBatchIdGetRequest;
+
+  try {
+    const data = await api.apiV1AdminOrderGroupsBatchIdGet(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **batchId** | `string` |  | [Defaults to `undefined`] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
 - **Accept**: Not defined
 
 

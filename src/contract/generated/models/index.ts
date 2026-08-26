@@ -80,6 +80,7 @@ export * from './UnregisterNotificationDeviceRequest';
 export * from './UpdateAvailableQuantityRequest';
 export * from './UpdateCategoryRequest';
 export * from './UpdateDeliveryStatusRequest';
+export * from './UpdateDraftOrderRequest';
 export * from './UpdateHubRequest';
 export * from './UpdateMarketRequest';
 export * from './UpdateMarketSessionRequest';

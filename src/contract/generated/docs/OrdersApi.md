@@ -10,6 +10,7 @@ All URIs are relative to *http://localhost*
 | [**apiV1OrdersOrderIdCancelPatch**](OrdersApi.md#apiv1ordersorderidcancelpatch) | **PATCH** /api/v1/orders/{orderId}/cancel |  |
 | [**apiV1OrdersOrderIdConfirmPost**](OrdersApi.md#apiv1ordersorderidconfirmpost) | **POST** /api/v1/orders/{orderId}/confirm |  |
 | [**apiV1OrdersOrderIdConfirmPreviewGet**](OrdersApi.md#apiv1ordersorderidconfirmpreviewget) | **GET** /api/v1/orders/{orderId}/confirm-preview |  |
+| [**apiV1OrdersOrderIdDraftPatch**](OrdersApi.md#apiv1ordersorderiddraftpatch) | **PATCH** /api/v1/orders/{orderId}/draft |  |
 | [**apiV1OrdersOrderIdGet**](OrdersApi.md#apiv1ordersorderidget) | **GET** /api/v1/orders/{orderId} |  |
 | [**apiV1OrdersOrderIdIssuesPost**](OrdersApi.md#apiv1ordersorderidissuespost) | **POST** /api/v1/orders/{orderId}/issues |  |
 | [**apiV1OrdersOrderIdItemsItemIdActualQuantityPatch**](OrdersApi.md#apiv1ordersorderiditemsitemidactualquantitypatch) | **PATCH** /api/v1/orders/{orderId}/items/{itemId}/actual-quantity |  |
@@ -504,6 +505,82 @@ example().catch(console.error);
 | **200** | OK |  -  |
 | **403** | Forbidden |  -  |
 | **404** | Not Found |  -  |
+
+[[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
+
+
+## apiV1OrdersOrderIdDraftPatch
+
+> apiV1OrdersOrderIdDraftPatch(orderId, updateDraftOrderRequest)
+
+
+
+### Example
+
+```ts
+import {
+  Configuration,
+  OrdersApi,
+} from '';
+import type { ApiV1OrdersOrderIdDraftPatchRequest } from '';
+
+async function example() {
+  console.log("🚀 Testing  SDK...");
+  const config = new Configuration({ 
+    // Configure HTTP bearer authorization: Bearer
+    accessToken: "YOUR BEARER TOKEN",
+  });
+  const api = new OrdersApi(config);
+
+  const body = {
+    // string
+    orderId: 38400000-8cf0-11bd-b23e-10b96e4ef00d,
+    // UpdateDraftOrderRequest (optional)
+    updateDraftOrderRequest: ...,
+  } satisfies ApiV1OrdersOrderIdDraftPatchRequest;
+
+  try {
+    const data = await api.apiV1OrdersOrderIdDraftPatch(body);
+    console.log(data);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+// Run the test
+example().catch(console.error);
+```
+
+### Parameters
+
+
+| Name | Type | Description  | Notes |
+|------------- | ------------- | ------------- | -------------|
+| **orderId** | `string` |  | [Defaults to `undefined`] |
+| **updateDraftOrderRequest** | [UpdateDraftOrderRequest](UpdateDraftOrderRequest.md) |  | [Optional] |
+
+### Return type
+
+`void` (Empty response body)
+
+### Authorization
+
+[Bearer](../README.md#Bearer)
+
+### HTTP request headers
+
+- **Content-Type**: `application/json`, `text/json`, `application/*+json`
+- **Accept**: `text/plain`, `application/json`, `text/json`
+
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | OK |  -  |
+| **403** | Forbidden |  -  |
+| **404** | Not Found |  -  |
+| **409** | Conflict |  -  |
+| **422** | Unprocessable Content |  -  |
 
 [[Back to top]](#) [[Back to API list]](../README.md#api-endpoints) [[Back to Model list]](../README.md#models) [[Back to README]](../README.md)
 

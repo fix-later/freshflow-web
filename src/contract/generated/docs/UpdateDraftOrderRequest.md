@@ -1,26 +1,24 @@
 
-# ResetPasswordRequest
+# UpdateDraftOrderRequest
 
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`identifier` | string
-`code` | string
-`newPassword` | string
+`notes` | string
+`scheduledFor` | Date
 
 ## Example
 
 ```typescript
-import type { ResetPasswordRequest } from ''
+import type { UpdateDraftOrderRequest } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "identifier": null,
-  "code": null,
-  "newPassword": null,
-} satisfies ResetPasswordRequest
+  "notes": null,
+  "scheduledFor": null,
+} satisfies UpdateDraftOrderRequest
 
 console.log(example)
 
@@ -29,7 +27,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as ResetPasswordRequest
+const exampleParsed = JSON.parse(exampleJSON) as UpdateDraftOrderRequest
 console.log(exampleParsed)
 ```
 

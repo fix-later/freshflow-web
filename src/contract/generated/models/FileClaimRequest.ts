@@ -31,6 +31,12 @@ export interface FileClaimRequest {
      * @memberof FileClaimRequest
      */
     reason: string;
+    /**
+     * 
+     * @type {string}
+     * @memberof FileClaimRequest
+     */
+    proofImageUrl?: string | null;
 }
 
 /**
@@ -53,6 +59,7 @@ export function FileClaimRequestFromJSONTyped(json: any, ignoreDiscriminator: bo
         
         'amount': json['amount'] == null ? undefined : json['amount'],
         'reason': json['reason'],
+        'proofImageUrl': json['proofImageUrl'] == null ? undefined : json['proofImageUrl'],
     };
 }
 
@@ -69,6 +76,7 @@ export function FileClaimRequestToJSONTyped(value?: FileClaimRequest | null, ign
         
         'amount': value['amount'],
         'reason': value['reason'],
+        'proofImageUrl': value['proofImageUrl'],
     };
 }
 

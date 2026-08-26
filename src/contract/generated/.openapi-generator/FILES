@@ -141,6 +141,7 @@ docs/UnregisterNotificationDeviceRequest.md
 docs/UpdateAvailableQuantityRequest.md
 docs/UpdateCategoryRequest.md
 docs/UpdateDeliveryStatusRequest.md
+docs/UpdateDraftOrderRequest.md
 docs/UpdateHubRequest.md
 docs/UpdateMarketRequest.md
 docs/UpdateMarketSessionRequest.md
@@ -239,6 +240,7 @@ models/UnregisterNotificationDeviceRequest.ts
 models/UpdateAvailableQuantityRequest.ts
 models/UpdateCategoryRequest.ts
 models/UpdateDeliveryStatusRequest.ts
+models/UpdateDraftOrderRequest.ts
 models/UpdateHubRequest.ts
 models/UpdateMarketRequest.ts
 models/UpdateMarketSessionRequest.ts
