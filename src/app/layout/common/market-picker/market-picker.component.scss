@@ -68,16 +68,21 @@
     }
 
     /*
-     * Arrows over the artwork band, not over the card's middle.
+     * Arrows at the card's own middle — the carousel's default (`top: 50%`),
+     * which here is the middle of the row of cards, since a card stretches to
+     * the full height of its slide.
      *
-     * The carousel keeps them inside its own box (an ancestor that scrolls
-     * would clip anything hanging off it), and on a phone one card fills the
-     * row — so at the default `top: 50%` the left arrow sat on top of the chợ's
-     * name, the one thing being chosen between. `.ff-mp__art` is 7.5rem tall
-     * and the viewport insets by 0.25rem, which puts its middle here.
+     * Except on a phone, where one card fills the row and that middle lands on
+     * the chợ's name — the one thing being chosen between. There they stay on
+     * the artwork band instead: `.ff-mp__art` is 7.5rem tall and the viewport
+     * insets by 0.25rem, which puts its middle here. The 680px line is the
+     * same one `cardsPerView` steps at, so the arrows move exactly when the
+     * row stops holding two cards.
      */
-    .ff-carousel__nav {
-        top: 4rem;
+    @media (max-width: 679.98px) {
+        .ff-carousel__nav {
+            top: 4rem;
+        }
     }
 }
 
