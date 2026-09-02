@@ -82,6 +82,7 @@ import {
     marketSessionBatchingStatus,
 } from './market-session-batching-status';
 import { statusLabelKey, statusPillClass } from './order-group-status';
+import { SessionReportsComponent } from './session-reports.component';
 
 /**
  * Reasons the run reports for doing nothing (`{"skipped":true,"reason":…}`).
@@ -267,6 +268,7 @@ function exactResetConfirmation(
     imports: [
         AdminLoadingStateComponent,
         RouteMapComponent,
+        SessionReportsComponent,
         ApiLabelPipe,
         MatButtonModule,
         MatDatepickerModule,

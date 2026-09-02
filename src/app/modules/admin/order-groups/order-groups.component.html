@@ -4342,6 +4342,22 @@
                             }
                         </div>
                     </mat-tab>
+                    <!--
+                      What the people working the session reported while it ran.
+                      Its own component: the panel reads two endpoints neither of
+                      the tabs beside it touches, and this dialog is long enough.
+                    -->
+                    <mat-tab
+                        [label]="
+                            t('admin.orderGroups.marketSessions.reports.tab')
+                        "
+                    >
+                        <admin-session-reports
+                            [batch]="marketSessionAssignmentBatch()"
+                            [hubId]="tracking.session.hubId ?? null"
+                            [active]="marketSessionTrackingTabIndex() === 3"
+                        ></admin-session-reports>
+                    </mat-tab>
                 </mat-tab-group>
             }
         </div>

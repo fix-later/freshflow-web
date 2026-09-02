@@ -34,6 +34,14 @@ import {
     donutChart,
     stackedBarChart,
 } from '../shared/chart-theme';
+import {
+    byReportedAtDesc,
+    canAcknowledgeIncident,
+    incidentReporterLabel,
+    incidentStatusKey,
+    incidentStatusPillClass,
+    incidentTypeLabel,
+} from './incident-labels';
 import { bucketIncidents } from './incident-trend';
 import { IncidentsService } from './incidents.service';
 import { AdminIncident, IncidentSource } from './incidents.types';
@@ -398,11 +406,7 @@ export class AdminIncidentsComponent implements OnInit {
     }
 
     canAcknowledge(incident: AdminIncident): boolean {
-        return (
-            incident.source === 'hub' &&
-            incident.status === 'open' &&
-            !!incident.hubId
-        );
+        return canAcknowledgeIncident(incident);
     }
 
     acknowledge(incident: AdminIncident): void {
@@ -441,16 +445,7 @@ export class AdminIncidentsComponent implements OnInit {
     }
 
     typeLabel(incident: AdminIncident): string {
-        const token = incident.type.trim();
-        if (!token) {
-            return '—';
-        }
-        const key =
-            incident.source === 'procurement'
-                ? `admin.orderGroups.exceptionType.${token}`
-                : `admin.incidents.condition.${token.toLowerCase()}`;
-        const label = this._transloco.translate(key);
-        return label === key ? token : label;
+        return incidentTypeLabel(incident, (key) => this._t(key));
     }
 
     kindLabel(type: string): string {
@@ -463,31 +458,15 @@ export class AdminIncidentsComponent implements OnInit {
     }
 
     statusLabel(incident: AdminIncident): string {
-        return this._t(
-            incident.status
-                ? `admin.incidents.status.${incident.status}`
-                : 'admin.incidents.status.reported'
-        );
+        return this._t(incidentStatusKey(incident));
     }
 
     statusPillClass(incident: AdminIncident): string {
-        switch (incident.status) {
-            case 'open':
-                return 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200';
-            case 'acknowledged':
-                return 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200';
-            default:
-                return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200';
-        }
+        return incidentStatusPillClass(incident);
     }
 
     reporterLabel(incident: AdminIncident): string {
-        return (
-            incident.reporterName ||
-            (incident.source === 'hub'
-                ? this._t('admin.incidents.reporter.hubStaff')
-                : '—')
-        );
+        return incidentReporterLabel(incident, (key) => this._t(key));
     }
 
     quantity(value: number | null): string {
@@ -563,13 +542,7 @@ export class AdminIncidentsComponent implements OnInit {
                         : []),
                     ...(hub.status === 'fulfilled' ? hub.value : []),
                 ];
-                this.incidents.set(
-                    rows.sort((left, right) =>
-                        (right.reportedAt ?? '').localeCompare(
-                            left.reportedAt ?? ''
-                        )
-                    )
-                );
+                this.incidents.set(rows.sort(byReportedAtDesc));
                 if (
                     procurement.status === 'rejected' &&
                     hub.status === 'rejected'

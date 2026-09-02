@@ -8,6 +8,7 @@ import {
 } from '../admin.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { CrudRow } from '../shared/resource-crud.types';
+import { byReportedAtDesc } from './incident-labels';
 import { AdminIncident, IncidentStatus } from './incidents.types';
 
 const BATCH_PAGE_SIZE = 100;
@@ -66,6 +67,7 @@ function userLabel(user: AdminUserRow | undefined): string | null {
 @Injectable({ providedIn: 'root' })
 export class IncidentsService {
     private _usersPromise: Promise<AdminUserRow[]> | null = null;
+    private _hubsPromise: Promise<CrudRow[]> | null = null;
     private readonly _orderCache = new Map<
         string,
         Promise<AdminOrderDetail | null>
@@ -86,51 +88,128 @@ export class IncidentsService {
         ]);
         const usersById = new Map(users.map((user) => [user.id, user]));
 
-        return groups.flatMap((group) => {
-            const row = group as Record<string, unknown>;
-            const productNames = new Map(
-                rowsOf(row, 'items').map((item) => [
-                    String(item['marketProductId'] ?? ''),
-                    stringOrNull(item['productNameSnapshot']),
-                ])
-            );
-            const place = batchLabel(group);
-            const batchId = stringOrNull(group.id);
+        return groups.flatMap((group) =>
+            this._toProcurementIncidents(group, usersById)
+        );
+    }
 
-            return rowsOf(row, 'exceptions').map<AdminIncident>((exception) => {
-                const reporterId = stringOrNull(exception['reportedByUserId']);
-                return {
-                    id: String(exception['id'] ?? ''),
-                    source: 'procurement',
-                    type: String(exception['type'] ?? ''),
-                    quantity: numberOrNull(exception['reportedQuantity']),
-                    note: stringOrNull(exception['note']),
-                    proofImageUrl: stringOrNull(exception['proofImageUrl']),
-                    reportedAt: stringOrNull(exception['reportedAt']),
-                    reportedBy: reporterId,
-                    reporterName: reporterId
-                        ? userLabel(usersById.get(reporterId))
-                        : null,
-                    place,
-                    subject:
-                        productNames.get(
-                            String(exception['marketProductId'] ?? '')
-                        ) ?? null,
-                    context: stringOrNull(group.batchNumber),
-                    status: null,
-                    hubId: null,
-                    acknowledgedBy: null,
-                    acknowledgedAt: null,
-                    updatedAt: stringOrNull(exception['reportedAt']),
-                    link: batchId ? `/admin/order-groups/${batchId}` : null,
-                };
-            });
+    /**
+     * The market agents' exceptions on one phiên chợ's batch.
+     *
+     * The batch row is the one the session screen already holds — the same
+     * `ProcurementBatchDto` the board reads, only for a single session — so
+     * scoping to a session costs nothing beyond resolving the reporters' names.
+     */
+    async listSessionProcurementIncidents(
+        batch: AdminOrderGroupRow | null
+    ): Promise<AdminIncident[]> {
+        if (!batch) {
+            return [];
+        }
+        const users = await this._users();
+        return this._toProcurementIncidents(
+            batch,
+            new Map(users.map((user) => [user.id, user]))
+        );
+    }
+
+    /**
+     * The hub staff's receiving discrepancies for one phiên chợ.
+     *
+     * A discrepancy names the order it was found on, never the session, so the
+     * session's own orders — the batch's `members[]` — are what narrows the
+     * hub's list. Filtering is the whole point: a hub receives from several
+     * chợ, and an unfiltered list would report another session's shortages as
+     * this one's. No batch means nothing has reached the hub under this session
+     * yet, and nothing to scope by, so it reports none rather than all.
+     */
+    async listSessionHubIncidents(
+        batch: AdminOrderGroupRow | null,
+        hubId: string | null
+    ): Promise<AdminIncident[]> {
+        if (!batch || !hubId) {
+            return [];
+        }
+        const orderIds = new Set(
+            rowsOf(batch, 'members')
+                .map((member) => stringOrNull(member['orderId']))
+                .filter((orderId): orderId is string => !!orderId)
+        );
+        if (!orderIds.size) {
+            return [];
+        }
+        const [rows, hubName] = await Promise.all([
+            this._logistics.getDiscrepancies(hubId),
+            this._hubName(hubId),
+        ]);
+        return this._enrichHubIncidents(
+            this._toHubIncidents(
+                hubId,
+                hubName,
+                rows.filter((row) => orderIds.has(String(row['orderId'] ?? '')))
+            )
+        );
+    }
+
+    /** Both streams of one session, newest first. */
+    async listSessionIncidents(
+        batch: AdminOrderGroupRow | null,
+        hubId: string | null
+    ): Promise<AdminIncident[]> {
+        const [procurement, hub] = await Promise.all([
+            this.listSessionProcurementIncidents(batch),
+            this.listSessionHubIncidents(batch, hubId),
+        ]);
+        return [...procurement, ...hub].sort(byReportedAtDesc);
+    }
+
+    private _toProcurementIncidents(
+        group: AdminOrderGroupRow,
+        usersById: ReadonlyMap<string, AdminUserRow>
+    ): AdminIncident[] {
+        const row = group as Record<string, unknown>;
+        const productNames = new Map(
+            rowsOf(row, 'items').map((item) => [
+                String(item['marketProductId'] ?? ''),
+                stringOrNull(item['productNameSnapshot']),
+            ])
+        );
+        const place = batchLabel(group);
+        const batchId = stringOrNull(group.id);
+
+        return rowsOf(row, 'exceptions').map<AdminIncident>((exception) => {
+            const reporterId = stringOrNull(exception['reportedByUserId']);
+            return {
+                id: String(exception['id'] ?? ''),
+                source: 'procurement',
+                type: String(exception['type'] ?? ''),
+                quantity: numberOrNull(exception['reportedQuantity']),
+                note: stringOrNull(exception['note']),
+                proofImageUrl: stringOrNull(exception['proofImageUrl']),
+                reportedAt: stringOrNull(exception['reportedAt']),
+                reportedBy: reporterId,
+                reporterName: reporterId
+                    ? userLabel(usersById.get(reporterId))
+                    : null,
+                place,
+                subject:
+                    productNames.get(
+                        String(exception['marketProductId'] ?? '')
+                    ) ?? null,
+                context: stringOrNull(group.batchNumber),
+                status: null,
+                hubId: null,
+                acknowledgedBy: null,
+                acknowledgedAt: null,
+                updatedAt: stringOrNull(exception['reportedAt']),
+                link: batchId ? `/admin/order-groups/${batchId}` : null,
+            };
         });
     }
 
     /** Receiving discrepancies from every hub and every cursor page. */
     async listHubIncidents(): Promise<AdminIncident[]> {
-        const hubs = await this._logistics.listHubs();
+        const hubs = await this._hubs();
         const perHub = await mapWithLimit(
             hubs.filter((hub) => !!hub.id),
             READ_CONCURRENCY,
@@ -141,7 +220,13 @@ export class IncidentsService {
             null
         );
         const base = perHub.flatMap((entry) =>
-            entry ? this._toHubIncidents(entry.hub, entry.rows) : []
+            entry
+                ? this._toHubIncidents(
+                      String(entry.hub.id),
+                      stringOrNull(entry.hub['name']),
+                      entry.rows
+                  )
+                : []
         );
         return this._enrichHubIncidents(base);
     }
@@ -171,9 +256,11 @@ export class IncidentsService {
         return [first.groups, ...remaining].flat();
     }
 
-    private _toHubIncidents(hub: CrudRow, rows: CrudRow[]): AdminIncident[] {
-        const hubId = String(hub.id);
-        const place = stringOrNull(hub['name']) ?? null;
+    private _toHubIncidents(
+        hubId: string,
+        place: string | null,
+        rows: CrudRow[]
+    ): AdminIncident[] {
         return rows.map((row) => ({
             id: String(row.id ?? row['discrepancyId'] ?? ''),
             source: 'hub' as const,
@@ -259,6 +346,19 @@ export class IncidentsService {
     private _users(): Promise<AdminUserRow[]> {
         this._usersPromise ??= this._admin.listUsers().catch(() => []);
         return this._usersPromise;
+    }
+
+    private _hubs(): Promise<CrudRow[]> {
+        this._hubsPromise ??= this._logistics.listHubs().catch(() => []);
+        return this._hubsPromise;
+    }
+
+    /** A hub's name for the "nơi xảy ra" column; the id alone would mean nothing. */
+    private async _hubName(hubId: string): Promise<string | null> {
+        const hub = (await this._hubs()).find(
+            (candidate) => String(candidate.id) === hubId
+        );
+        return hub ? stringOrNull(hub['name']) : null;
     }
 
     private _order(orderId: string): Promise<AdminOrderDetail | null> {
