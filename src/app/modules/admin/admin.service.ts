@@ -1238,6 +1238,38 @@ export class AdminService {
         return unwrapData<AdminOrderDetail>(await parseJson(res.raw)) ?? null;
     }
 
+    /** Order reads already answered this session, keyed by order id. */
+    private readonly _settledOrders = new Map<
+        string,
+        Promise<AdminOrderDetail | null>
+    >();
+
+    /**
+     * {@link getOrder} for an order that has finished moving, memoised for the
+     * browsing session.
+     *
+     * `OrdersController` is rate limited — 30 requests a minute per user, with
+     * no queue (`RateLimiting:Orders`) — and the completed-session board reads
+     * one order per line of every session on it. Without this, walking into a
+     * session's detail and back re-read the same forty orders inside the same
+     * minute and the second half came back 429.
+     *
+     * Only for orders whose figures no longer change (delivered / cancelled):
+     * anything that shows a live status must call {@link getOrder} instead.
+     * A failed read is not remembered, so a retry is a real retry.
+     */
+    getSettledOrder(orderId: string): Promise<AdminOrderDetail | null> {
+        let request = this._settledOrders.get(orderId);
+        if (!request) {
+            request = this.getOrder(orderId).catch((err: unknown) => {
+                this._settledOrders.delete(orderId);
+                throw err;
+            });
+            this._settledOrders.set(orderId, request);
+        }
+        return request;
+    }
+
     // -------------------------------------------------------------------
     // Orders (M5 — Admin sees and can cancel every restaurant's orders)
     // -------------------------------------------------------------------

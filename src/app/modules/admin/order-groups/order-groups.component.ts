@@ -99,6 +99,17 @@ const KNOWN_SKIP_REASONS = new Set([
     'outside_window',
 ]);
 
+/**
+ * How many orders the completed-session board reads at once.
+ *
+ * `/orders` allows 30 requests a minute per user and queues none of them
+ * (`RateLimiting:Orders`), and this board reads one order per line of every
+ * session it lists. Six at a time leaves room for whatever else the console is
+ * doing in the same minute; the reads are memoised in
+ * {@link AdminService.getSettledOrder}, so revisiting the board costs none.
+ */
+const HISTORY_ORDER_READ_CHUNK = 6;
+
 const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
 const UNASSIGNED_AGENT_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -372,6 +383,15 @@ export class OrderGroupsComponent implements OnInit {
         new Map()
     );
     readonly historySummaryLoading = signal(false);
+
+    /**
+     * At least one order behind the history figures could not be read.
+     *
+     * Kept apart from the loading flag because the two mean different things
+     * to a reader: loading is "not yet", this is "not known" — and a total
+     * missing an order must never be printed as if it were complete.
+     */
+    readonly historySummaryFailed = signal(false);
     readonly planningLoading = signal(false);
     readonly marketSessions = signal<AdminMarketSession[]>([]);
     readonly planningWindowDays = signal(8);
@@ -757,7 +777,8 @@ export class OrderGroupsComponent implements OnInit {
         )
     );
 
-    readonly historyInvoiceTotal = computed(() => {
+    /** The board's invoice total, or `null` when an order behind it is missing. */
+    readonly historyInvoiceTotal = computed<number | null>(() => {
         const ids = new Set<string>();
         for (const group of this.filteredGroups()) {
             for (const member of this.membersOf(group)) {
@@ -767,12 +788,16 @@ export class OrderGroupsComponent implements OnInit {
                 }
             }
         }
-        return [...ids].reduce(
-            (sum, id) =>
-                sum +
-                Number(this.historyOrderDetails().get(id)?.totalAmount ?? 0),
-            0
-        );
+        const details = this.historyOrderDetails();
+        let total = 0;
+        for (const id of ids) {
+            const detail = details.get(id);
+            if (!detail) {
+                return null;
+            }
+            total += Number(detail.totalAmount ?? 0);
+        }
+        return total;
     });
 
     readonly batchForm = this._formBuilder.group({
@@ -2734,30 +2759,52 @@ export class OrderGroupsComponent implements OnInit {
         return code || this.shortOrderId(this.batchIdOf(row));
     }
 
-    historyGroupInvoice(row: AdminOrderGroupRow): number {
-        return this.membersOf(row).reduce(
-            (sum, member) =>
-                sum +
-                Number(
-                    this.historyOrderDetails().get(String(member.orderId ?? ''))
-                        ?.totalAmount ?? 0
-                ),
-            0
-        );
+    /**
+     * What the session invoiced, or `null` when an order behind it did not
+     * load — a sum missing one of its orders is a smaller number, not a
+     * smaller truth, and it reads as a real figure on the board.
+     */
+    historyGroupInvoice(row: AdminOrderGroupRow): number | null {
+        const details = this.historyOrderDetails();
+        let total = 0;
+        for (const member of this.membersOf(row)) {
+            const detail = details.get(String(member.orderId ?? ''));
+            if (!detail) {
+                return null;
+            }
+            total += Number(detail.totalAmount ?? 0);
+        }
+        return total;
     }
 
-    historyGroupRestaurantCount(row: AdminOrderGroupRow): number {
-        return new Set(
-            this.membersOf(row)
-                .map((member) =>
-                    String(
-                        this.historyOrderDetails().get(
-                            String(member.orderId ?? '')
-                        )?.restaurantId ?? ''
-                    )
-                )
-                .filter(Boolean)
-        ).size;
+    /** Restaurants in the session, or `null` when an order did not load. */
+    historyGroupRestaurantCount(row: AdminOrderGroupRow): number | null {
+        const details = this.historyOrderDetails();
+        const restaurants = new Set<string>();
+        for (const member of this.membersOf(row)) {
+            const detail = details.get(String(member.orderId ?? ''));
+            if (!detail) {
+                return null;
+            }
+            const restaurantId = String(detail.restaurantId ?? '');
+            if (restaurantId) {
+                restaurants.add(restaurantId);
+            }
+        }
+        return restaurants.size;
+    }
+
+    /** Re-reads only the orders behind the history figures — the banner's retry. */
+    reloadHistorySummary(): void {
+        if (this.historySummaryLoading()) {
+            return;
+        }
+        void this._loadHistoryOrderDetails(this.groups());
+    }
+
+    /** A figure, or the dash that stands for "could not be read". */
+    historyCount(value: number | null): string {
+        return value === null ? '—' : String(value);
     }
 
     historyGroupItemCount(row: AdminOrderGroupRow): number {
@@ -2768,7 +2815,10 @@ export class OrderGroupsComponent implements OnInit {
         );
     }
 
-    historyMoney(value: number): string {
+    historyMoney(value: number | null): string {
+        if (value === null) {
+            return '—';
+        }
         return new Intl.NumberFormat(this._transloco.getActiveLang(), {
             style: 'currency',
             currency: 'VND',
@@ -3191,20 +3241,30 @@ export class OrderGroupsComponent implements OnInit {
         ];
         if (!ids.length) {
             this.historyOrderDetails.set(new Map());
+            this.historySummaryFailed.set(false);
             return;
         }
 
         this.historySummaryLoading.set(true);
+        this.historySummaryFailed.set(false);
         const details = new Map<string, AdminOrderDetail>();
+        let missing = 0;
         try {
-            for (let offset = 0; offset < ids.length; offset += 20) {
-                const chunk = ids.slice(offset, offset + 20);
+            for (
+                let offset = 0;
+                offset < ids.length;
+                offset += HISTORY_ORDER_READ_CHUNK
+            ) {
+                const chunk = ids.slice(
+                    offset,
+                    offset + HISTORY_ORDER_READ_CHUNK
+                );
                 const results = await Promise.all(
                     chunk.map(async (id) => {
                         try {
                             return [
                                 id,
-                                await this._admin.getOrder(id),
+                                await this._admin.getSettledOrder(id),
                             ] as const;
                         } catch {
                             return [id, null] as const;
@@ -3214,10 +3274,13 @@ export class OrderGroupsComponent implements OnInit {
                 for (const [id, detail] of results) {
                     if (detail) {
                         details.set(id, detail);
+                    } else {
+                        missing += 1;
                     }
                 }
             }
             this.historyOrderDetails.set(details);
+            this.historySummaryFailed.set(missing > 0);
         } finally {
             this.historySummaryLoading.set(false);
         }

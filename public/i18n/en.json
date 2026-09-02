@@ -656,6 +656,7 @@
     "admin.orderGroups.history.overviewTitle": "History overview",
     "admin.orderGroups.history.participant": "Participating agent",
     "admin.orderGroups.history.restaurantsShort": "restaurants",
+    "admin.orderGroups.history.summaryIncomplete": "Some orders behind these figures could not be read, so the totals that depend on them show as —. Retry in a moment.",
     "admin.orderGroups.history.scale": "Scale",
     "admin.orderGroups.history.sessionAndMarket": "Session / Market",
     "admin.orderGroups.history.subtitle": "Review and reconcile completed procurement sessions.",

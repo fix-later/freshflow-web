@@ -1162,6 +1162,30 @@
                             </article>
                         }
                     </div>
+                    <!-- `/orders` is rate limited (30/min per user), so a board
+                         this wide can come back short. Saying so beats printing
+                         a total that quietly leaves orders out. -->
+                    @if (historySummaryFailed() && !historySummaryLoading()) {
+                        <div
+                            class="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                            role="alert"
+                        >
+                            <mat-icon
+                                class="shrink-0 icon-size-5"
+                                svgIcon="heroicons_outline:exclamation-triangle"
+                            ></mat-icon>
+                            <span class="min-w-0 flex-auto">{{
+                                t('admin.orderGroups.history.summaryIncomplete')
+                            }}</span>
+                            <button
+                                mat-stroked-button
+                                type="button"
+                                (click)="reloadHistorySummary()"
+                            >
+                                {{ t('common.retry') }}
+                            </button>
+                        </div>
+                    }
                 </section>
 
                 <div
@@ -1255,7 +1279,13 @@
                                         }}
                                     </div>
                                     <div class="text-secondary mt-0.5 text-xs">
-                                        {{ historyGroupRestaurantCount(group) }}
+                                        {{
+                                            historyCount(
+                                                historyGroupRestaurantCount(
+                                                    group
+                                                )
+                                            )
+                                        }}
                                         {{
                                             t(
                                                 'admin.orderGroups.history.restaurantsShort'

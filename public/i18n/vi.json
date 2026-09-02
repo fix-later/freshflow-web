@@ -656,6 +656,7 @@
     "admin.orderGroups.history.overviewTitle": "Tổng quan lịch sử",
     "admin.orderGroups.history.participant": "MA tham gia",
     "admin.orderGroups.history.restaurantsShort": "nhà hàng",
+    "admin.orderGroups.history.summaryIncomplete": "Không đọc được một số đơn hàng nên các số liệu phụ thuộc hiện dấu —. Thử lại sau giây lát.",
     "admin.orderGroups.history.scale": "Quy mô",
     "admin.orderGroups.history.sessionAndMarket": "Phiên / Chợ",
     "admin.orderGroups.history.subtitle": "Tra cứu và đối chiếu số liệu của các phiên đã hoàn tất.",
