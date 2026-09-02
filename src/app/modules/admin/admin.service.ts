@@ -221,6 +221,32 @@ export class AdminService {
         return all;
     }
 
+    /** Display names by user id, fetched once. */
+    private _userLabels?: Promise<Map<string, string>>;
+
+    /**
+     * User id → the name to print for them, memoised for the browsing session.
+     *
+     * Several oversight screens show what a member of staff did and have only
+     * the id the record carries. Names change rarely and only the label is read
+     * here, so the walk over the user pages is done once rather than per panel.
+     * Falls back to an empty map: a screen that cannot name someone shows the
+     * role it knows, never a spinner that never ends.
+     */
+    getUserLabels(): Promise<Map<string, string>> {
+        return (this._userLabels ??= this.listUsers()
+            .then(
+                (users) =>
+                    new Map(
+                        users.map((user) => [
+                            user.id,
+                            user.fullName || user.email || user.id,
+                        ])
+                    )
+            )
+            .catch(() => new Map<string, string>()));
+    }
+
     /**
      * Creates the account and answers its new id, which the caller needs to
      * follow up with an assignment the create endpoint does not cover (a

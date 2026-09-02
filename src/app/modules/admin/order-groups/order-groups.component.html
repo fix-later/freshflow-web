@@ -4388,6 +4388,23 @@
                             [active]="marketSessionTrackingTabIndex() === 3"
                         ></admin-session-reports>
                     </mat-tab>
+                    <!--
+                      The other half of the same question: not what went wrong,
+                      but what was done — and by whom.
+                    -->
+                    <mat-tab
+                        [label]="
+                            t('admin.orderGroups.marketSessions.activity.tab')
+                        "
+                    >
+                        <admin-session-activity
+                            [batch]="marketSessionAssignmentBatch()"
+                            [hubId]="tracking.session.hubId ?? null"
+                            [marketId]="tracking.session.marketId ?? null"
+                            [serviceDate]="tracking.session.serviceDate ?? null"
+                            [active]="marketSessionTrackingTabIndex() === 4"
+                        ></admin-session-activity>
+                    </mat-tab>
                 </mat-tab-group>
             }
         </div>

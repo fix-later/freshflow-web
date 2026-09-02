@@ -82,6 +82,7 @@ import {
     marketSessionBatchingStatus,
 } from './market-session-batching-status';
 import { statusLabelKey, statusPillClass } from './order-group-status';
+import { SessionActivityComponent } from './session-activity.component';
 import { SessionReportsComponent } from './session-reports.component';
 
 /**
@@ -279,6 +280,7 @@ function exactResetConfirmation(
     imports: [
         AdminLoadingStateComponent,
         RouteMapComponent,
+        SessionActivityComponent,
         SessionReportsComponent,
         ApiLabelPipe,
         MatButtonModule,
