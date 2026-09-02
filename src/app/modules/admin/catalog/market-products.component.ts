@@ -122,6 +122,24 @@ function decimalPlaces(value: number): number {
     return dot === -1 ? 0 : text.length - dot - 1;
 }
 
+/** Distinct non-empty names, alphabetical — what every filter select shows. */
+function sortedNames(values: readonly string[]): string[] {
+    return [...new Set(values.filter((name) => !!name))].sort((a, b) =>
+        a.localeCompare(b)
+    );
+}
+
+/**
+ * At or below how many units a listing reads as "thiếu hàng" in the stock
+ * filter.
+ *
+ * Neither the API nor the specs carry a restock point per listing, so this is
+ * the screen's own line, named once here rather than left as a bare number
+ * inside the filter — and the option carries the number, so nobody has to
+ * guess what the filter just did.
+ */
+const LOW_STOCK_THRESHOLD = 10;
+
 /** Two tag-id sets as one comparable string — order carries no meaning. */
 function tagKey(ids: readonly string[]): string {
     return [...ids].sort().join(' ');
@@ -269,29 +287,85 @@ export class MarketProductsComponent implements OnInit {
         return visible.every((row) => selected.has(row.id));
     });
 
-    /** Header filters: a category name, and in-stock vs out-of-stock. */
+    /**
+     * Header filters: the category pair (parent, then child), a stock band and
+     * one catalog tag. All four narrow the same list, and combine with the
+     * search box.
+     */
+    readonly parentCategoryFilter = signal('');
     readonly categoryFilter = signal('');
     readonly stockFilter = signal('');
+    readonly tagFilter = signal('');
 
-    /** Categories actually listed at this chợ — filtering by any other is empty. */
-    readonly categoryOptions = computed(() =>
-        [
-            ...new Set(
-                this.rows()
-                    .map((row) => row.category)
-                    .filter((name) => !!name)
-            ),
-        ].sort((a, b) => a.localeCompare(b))
+    readonly lowStockThreshold = LOW_STOCK_THRESHOLD;
+
+    /**
+     * Where a listing files at the top level: its category's parent, or the
+     * category itself when that is already top-level. A product filed straight
+     * under "Rau" has to survive a "Rau" filter the same as one under
+     * "Rau ▸ Rau ăn lá", or the parent select would hide rows it names.
+     *
+     * When the category catalog failed to load the map is empty and every
+     * category reads as its own parent — the parent select then behaves like
+     * the flat one it replaced, rather than filtering everything away.
+     */
+    private _parentCategoryOf(row: MarketProductRow): string {
+        return this.parentByCategory().get(row.category) || row.category;
+    }
+
+    /** Top-level categories at this chợ — filtering by any other is empty. */
+    readonly parentCategoryOptions = computed(() =>
+        sortedNames(this.rows().map((row) => this._parentCategoryOf(row)))
     );
 
+    /**
+     * Child categories, narrowed to the picked parent. Only categories that
+     * actually sit under one are offered: a top-level category is already in
+     * the parent select, and listing it as a child of itself would read as a
+     * second, different filter that does the same thing.
+     */
+    readonly categoryOptions = computed(() => {
+        const parent = this.parentCategoryFilter();
+        const parentByCategory = this.parentByCategory();
+        return sortedNames(
+            this.rows()
+                .filter((row) => {
+                    const own = parentByCategory.get(row.category) ?? '';
+                    return !!own && (!parent || own === parent);
+                })
+                .map((row) => row.category)
+        );
+    });
+
+    /** Tags in use at this chợ — the catalog at large would filter to nothing. */
+    readonly tagFilterOptions = computed(() => {
+        const nameById = new Map<string, string>();
+        for (const row of this.rows()) {
+            for (const tag of row.tags) {
+                if (!nameById.has(tag.id)) {
+                    nameById.set(tag.id, tag.name);
+                }
+            }
+        }
+        return [...nameById]
+            .map(([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    });
+
     readonly hasActiveFilters = computed(
-        () => !!this.categoryFilter() || !!this.stockFilter()
+        () =>
+            !!this.parentCategoryFilter() ||
+            !!this.categoryFilter() ||
+            !!this.stockFilter() ||
+            !!this.tagFilter()
     );
 
     readonly filteredRows = computed(() => {
         const term = this.search().trim();
+        const parentCategory = this.parentCategoryFilter();
         const category = this.categoryFilter();
         const stock = this.stockFilter();
+        const tagId = this.tagFilter();
         const changed = this.changedIds();
         // Reviewing a batch overrides the other filters rather than joining
         // them: the toolbar counts every edited listing, and a category picked
@@ -304,7 +378,16 @@ export class MarketProductsComponent implements OnInit {
             if (term && !includesFolded(row.name, term)) {
                 return false;
             }
+            if (
+                parentCategory &&
+                this._parentCategoryOf(row) !== parentCategory
+            ) {
+                return false;
+            }
             if (category && row.category !== category) {
+                return false;
+            }
+            if (tagId && !row.tags.some((tag) => tag.id === tagId)) {
                 return false;
             }
             if (!stock) {
@@ -312,8 +395,18 @@ export class MarketProductsComponent implements OnInit {
             }
             // A listing with no quantity recorded reads as out of stock: it is
             // the same thing to a buyer, and to the picker that seeds it at 0.
-            const inStock = (row.quantity ?? 0) > 0;
-            return stock === 'in' ? inStock : !inStock;
+            const quantity = row.quantity ?? 0;
+            if (stock === 'out') {
+                return quantity <= 0;
+            }
+            // "Thiếu hàng" is a band inside "còn hàng", not a third state
+            // beside it: 3 of 10 is still sellable, and dropping those rows out
+            // of the in-stock list to keep the bands disjoint would misreport
+            // what the chợ has.
+            if (stock === 'low') {
+                return quantity > 0 && quantity <= LOW_STOCK_THRESHOLD;
+            }
+            return quantity > 0;
         });
     });
 
@@ -665,6 +758,16 @@ export class MarketProductsComponent implements OnInit {
         this._resetPaging();
     }
 
+    setParentCategoryFilter(value: string): void {
+        this.parentCategoryFilter.set(value);
+        // A child of the parent just left behind would match nothing, and the
+        // select would go on showing it as active over an empty table.
+        if (!this.categoryOptions().includes(this.categoryFilter())) {
+            this.categoryFilter.set('');
+        }
+        this._resetPaging();
+    }
+
     setCategoryFilter(value: string): void {
         this.categoryFilter.set(value);
         this._resetPaging();
@@ -675,9 +778,16 @@ export class MarketProductsComponent implements OnInit {
         this._resetPaging();
     }
 
+    setTagFilter(value: string): void {
+        this.tagFilter.set(value);
+        this._resetPaging();
+    }
+
     clearFilters(): void {
+        this.parentCategoryFilter.set('');
         this.categoryFilter.set('');
         this.stockFilter.set('');
+        this.tagFilter.set('');
         this._resetPaging();
     }
 

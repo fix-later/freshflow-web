@@ -66,11 +66,42 @@
                      the filters instead of repeating it. -->
                 <div class="flex min-w-0 flex-wrap items-end gap-3">
                     <mat-form-field
-                        class="fuse-mat-dense w-44"
+                        class="fuse-mat-dense w-40"
                         subscriptSizing="dynamic"
                     >
                         <mat-label>{{
-                            t('admin.products.category')
+                            t('admin.markets.pricing.parentCategory')
+                        }}</mat-label>
+                        <mat-icon
+                            matPrefix
+                            svgIcon="heroicons_outline:funnel"
+                        ></mat-icon>
+                        <mat-select
+                            [value]="parentCategoryFilter()"
+                            (selectionChange)="
+                                setParentCategoryFilter($event.value)
+                            "
+                        >
+                            <mat-option [value]="''">{{
+                                t('admin.crud.filterAll')
+                            }}</mat-option>
+                            @for (name of parentCategoryOptions(); track name) {
+                                <mat-option [value]="name">{{
+                                    name
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+
+                    <!-- Disabled rather than hidden when the picked parent has
+                         no children listed: a select that comes and goes moves
+                         every control beside it. -->
+                    <mat-form-field
+                        class="fuse-mat-dense w-40"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.markets.pricing.childCategory')
                         }}</mat-label>
                         <mat-icon
                             matPrefix
@@ -78,6 +109,7 @@
                         ></mat-icon>
                         <mat-select
                             [value]="categoryFilter()"
+                            [disabled]="!categoryOptions().length"
                             (selectionChange)="setCategoryFilter($event.value)"
                         >
                             <mat-option [value]="''">{{
@@ -92,7 +124,7 @@
                     </mat-form-field>
 
                     <mat-form-field
-                        class="fuse-mat-dense w-44"
+                        class="fuse-mat-dense w-40"
                         subscriptSizing="dynamic"
                     >
                         <mat-label>{{
@@ -112,9 +144,41 @@
                             <mat-option value="in">{{
                                 t('admin.markets.pricing.inStock')
                             }}</mat-option>
+                            <mat-option value="low">{{
+                                t('admin.markets.pricing.lowStock', {
+                                    max: lowStockThreshold,
+                                })
+                            }}</mat-option>
                             <mat-option value="out">{{
                                 t('admin.markets.pricing.outOfStock')
                             }}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <mat-form-field
+                        class="fuse-mat-dense w-40"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('admin.markets.pricing.tags')
+                        }}</mat-label>
+                        <mat-icon
+                            matPrefix
+                            svgIcon="heroicons_outline:funnel"
+                        ></mat-icon>
+                        <mat-select
+                            [value]="tagFilter()"
+                            [disabled]="!tagFilterOptions().length"
+                            (selectionChange)="setTagFilter($event.value)"
+                        >
+                            <mat-option [value]="''">{{
+                                t('admin.crud.filterAll')
+                            }}</mat-option>
+                            @for (tag of tagFilterOptions(); track tag.id) {
+                                <mat-option [value]="tag.id">{{
+                                    tag.name
+                                }}</mat-option>
+                            }
                         </mat-select>
                     </mat-form-field>
 
