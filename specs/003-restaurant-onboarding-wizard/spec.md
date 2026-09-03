@@ -426,3 +426,33 @@ delivery moved to one fixed early-morning window. The hint now names the
 licence, which is what that step actually asks for beyond the identity fields.
 
 ---
+
+## Addendum — 2026-09-03: the review step summarises what was entered
+
+**What was wrong.** The closing step listed section names with ticks — "Provided:
+business profile / business licence / delivery address". That restates the rail's
+progress in words the restaurant has already read, and gives them nothing to
+check. A review whose whole purpose is catching a wrong tax code or a misspelt
+street before an administrator reads it has to show the values.
+
+**What changed.** The step now restates every value the account holds, in the
+wizard's own step order — business profile (with the account's email and phone,
+which setup never asks for but an administrator still sees), the licence
+thumbnail, the optional tax and invoicing details, and each saved delivery
+address with its recipient, phone and default marker.
+
+- **FR-A6**: The review step MUST show the saved values of every section, not
+    only which sections are complete, reading them back from what the server
+    stored.
+- **FR-A7**: A field the restaurant has not provided MUST be shown as such,
+    not omitted — a silent gap reads as a rendering fault.
+- **FR-A8**: Every section, **including the optional tax step**, MUST offer a
+    way back to the step that owns it. Until now the tax step was reachable only
+    by walking the wizard, because it has no required item to be outstanding.
+- **FR-A9**: The step MUST NOT repeat the wizard's own heading for itself; the
+    progress line stays, the duplicate title goes.
+
+FR-014 is unchanged and still binding: this step posts nothing and must never
+present a control implying the account was submitted for approval.
+
+---

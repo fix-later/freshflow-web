@@ -17,10 +17,9 @@ import { TranslocoModule } from '@jsverse/transloco';
 import { BusinessProfileFormComponent } from '../business-profile/business-profile-form.component';
 import { DeliveryAddressesComponent } from '../delivery-addresses/delivery-addresses.component';
 import { SetupCompletionService } from '../setup/setup-completion.service';
-import { RequiredSetupItemId } from '../setup/setup.types';
 import { TaxProfileFormComponent } from '../tax-profile/tax-profile-form.component';
 import { OnboardingStep } from './onboarding-step.contract';
-import { ReviewStepComponent } from './review-step.component';
+import { ReviewSectionId, ReviewStepComponent } from './review-step.component';
 
 /** Wizard step order. The review step is last and saves nothing. */
 const STEP_BUSINESS = 0;
@@ -30,13 +29,17 @@ const STEP_REVIEW = 3;
 const STEP_COUNT = 4;
 
 /**
- * Which required items each data step is responsible for. Steps and items are
- * not one-to-one: the business step covers two items, because the licence is a
- * field of the same form and the same `PUT /restaurants/me/profile`.
+ * Which sections each data step is responsible for. Steps and sections are not
+ * one-to-one: the business step covers two, because the licence is a field of
+ * the same form and the same `PUT /restaurants/me/profile`.
+ *
+ * `tax` is here as a section but is not a required item — it has no verifiable
+ * state (spec Decision 2), so it never counts towards progress; it is listed so
+ * the review step's tax card can still send the restaurant back to it.
  */
-const STEP_ITEMS: ReadonlyArray<readonly RequiredSetupItemId[]> = [
+const STEP_SECTIONS: ReadonlyArray<readonly ReviewSectionId[]> = [
     ['business', 'license'], // STEP_BUSINESS
-    [], // STEP_TAX — optional, unverifiable
+    ['tax'], // STEP_TAX — optional, unverifiable
     ['address'], // STEP_ADDRESS
 ];
 
@@ -182,9 +185,11 @@ export class OnboardingComponent implements OnInit {
         this._goTo(Math.max(STEP_BUSINESS, this.stepIndex() - 1));
     }
 
-    /** Jump to the step that completes `item` (from the review step). */
-    openItem(item: RequiredSetupItemId): void {
-        const index = STEP_ITEMS.findIndex((items) => items.includes(item));
+    /** Jump to the step that owns `section` (from the review step). */
+    openSection(section: ReviewSectionId): void {
+        const index = STEP_SECTIONS.findIndex((sections) =>
+            sections.includes(section)
+        );
         if (index >= 0) {
             this._goTo(index);
         }
@@ -277,8 +282,13 @@ export class OnboardingComponent implements OnInit {
     /** First step whose required items are not all done, else the review step. */
     private _firstOutstandingStep(): number {
         const states = this._completion.states();
-        const index = STEP_ITEMS.findIndex((items) =>
-            items.some((item) => states[item] === 'outstanding')
+        // `tax` is skipped: it has no state that can be outstanding, so
+        // resuming must never stop on it.
+        const index = STEP_SECTIONS.findIndex((sections) =>
+            sections.some(
+                (section) =>
+                    section !== 'tax' && states[section] === 'outstanding'
+            )
         );
         return index >= 0 ? index : STEP_REVIEW;
     }

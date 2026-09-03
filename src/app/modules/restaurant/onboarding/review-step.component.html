@@ -1,39 +1,18 @@
 <ng-container *transloco="let t">
-    <div class="flex flex-col gap-6">
-        <!-- Progress headline -->
-        <div>
-            <div class="text-2xl font-semibold">
-                {{ t('restaurantOnboarding.review.title') }}
-            </div>
-            <div class="text-secondary mt-1">
-                {{
-                    t('restaurantOnboarding.review.progress', {
-                        completed: progress().completed,
-                        total: progress().total,
-                    })
-                }}
-            </div>
+    <div class="ff-review flex flex-col gap-6">
+        <!--
+          Progress line only: the wizard's own header already titles this step,
+          so repeating "Review your setup" here would be the same heading twice
+          on one screen.
+        -->
+        <div class="text-secondary">
+            {{
+                t('restaurantOnboarding.review.progress', {
+                    completed: progress().completed,
+                    total: progress().total,
+                })
+            }}
         </div>
-
-        <!-- What was provided -->
-        @if (doneItems().length > 0) {
-            <div>
-                <div class="mb-2 font-medium">
-                    {{ t('restaurantOnboarding.review.providedTitle') }}
-                </div>
-                <ul class="flex flex-col gap-2">
-                    @for (item of doneItems(); track item) {
-                        <li class="flex items-center gap-2">
-                            <mat-icon
-                                class="text-green-600 icon-size-5"
-                                [svgIcon]="'heroicons_outline:check-circle'"
-                            ></mat-icon>
-                            <span>{{ t(itemLabelKey(item)) }}</span>
-                        </li>
-                    }
-                </ul>
-            </div>
-        }
 
         <!--
           Outstanding items are named individually and each opens its own step
@@ -60,7 +39,7 @@
                             <button
                                 mat-stroked-button
                                 type="button"
-                                (click)="openItem.emit(item)"
+                                (click)="openSection.emit(item)"
                             >
                                 {{ t('restaurantOnboarding.review.openItem') }}
                             </button>
@@ -69,6 +48,212 @@
                 </ul>
             </div>
         }
+
+        <!--
+          Everything that was entered, restated in the wizard's own step order.
+          This is the last chance to catch a wrong tax code or a misspelt
+          address before an admin reads it, so each card shows the saved values
+          and links back to the step that owns them.
+        -->
+        <div class="flex flex-col gap-4">
+            <div class="font-medium">
+                {{ t('restaurantOnboarding.review.providedTitle') }}
+            </div>
+
+            <!-- Business profile -->
+            <section class="ff-review__card">
+                <header class="ff-review__card-head">
+                    <mat-icon
+                        class="ff-review__card-icon icon-size-5"
+                        [svgIcon]="'heroicons_outline:building-storefront'"
+                    ></mat-icon>
+                    <h3 class="min-w-0 flex-auto font-semibold">
+                        {{ t('restaurantOnboarding.items.business') }}
+                    </h3>
+                    <button
+                        class="ff-review__edit"
+                        mat-button
+                        type="button"
+                        data-testid="review-edit-business"
+                        (click)="openSection.emit('business')"
+                    >
+                        {{ t('restaurantOnboarding.review.edit') }}
+                    </button>
+                </header>
+                <dl class="ff-review__rows">
+                    @for (row of businessRows(); track row.labelKey) {
+                        <div class="ff-review__row">
+                            <dt>{{ t(row.labelKey) }}</dt>
+                            <dd [class.ff-review__empty]="!row.value">
+                                {{
+                                    row.value ||
+                                        t(
+                                            'restaurantOnboarding.review.notProvided'
+                                        )
+                                }}
+                            </dd>
+                        </div>
+                    }
+                </dl>
+            </section>
+
+            <!-- Business licence -->
+            <section class="ff-review__card">
+                <header class="ff-review__card-head">
+                    <mat-icon
+                        class="ff-review__card-icon icon-size-5"
+                        [svgIcon]="'heroicons_outline:document-check'"
+                    ></mat-icon>
+                    <h3 class="min-w-0 flex-auto font-semibold">
+                        {{ t('restaurantOnboarding.items.license') }}
+                    </h3>
+                    <button
+                        class="ff-review__edit"
+                        mat-button
+                        type="button"
+                        data-testid="review-edit-license"
+                        (click)="openSection.emit('license')"
+                    >
+                        {{ t('restaurantOnboarding.review.edit') }}
+                    </button>
+                </header>
+                @if (licenseUrl(); as url) {
+                    <div class="ff-review__license">
+                        <img
+                            class="ff-review__license-thumb"
+                            [src]="url"
+                            alt=""
+                        />
+                        <div class="min-w-0">
+                            <div class="font-medium">
+                                {{
+                                    t(
+                                        'restaurantOnboarding.review.licenseUploaded'
+                                    )
+                                }}
+                            </div>
+                            <a
+                                class="text-sm font-medium text-primary"
+                                [href]="url"
+                                target="_blank"
+                                rel="noopener"
+                                >{{
+                                    t('restaurantProfile.profile.licenseView')
+                                }}</a
+                            >
+                        </div>
+                    </div>
+                } @else {
+                    <p class="ff-review__empty text-sm">
+                        {{ t('restaurantOnboarding.review.notProvided') }}
+                    </p>
+                }
+            </section>
+
+            <!-- Tax & invoicing (optional) -->
+            <section class="ff-review__card">
+                <header class="ff-review__card-head">
+                    <mat-icon
+                        class="ff-review__card-icon icon-size-5"
+                        [svgIcon]="'heroicons_outline:document-text'"
+                    ></mat-icon>
+                    <h3 class="min-w-0 flex-auto font-semibold">
+                        {{ t('restaurantOnboarding.items.tax') }}
+                        <span class="ff-review__optional">{{
+                            t('restaurantOnboarding.steps.optional')
+                        }}</span>
+                    </h3>
+                    <button
+                        class="ff-review__edit"
+                        mat-button
+                        type="button"
+                        data-testid="review-edit-tax"
+                        (click)="openSection.emit('tax')"
+                    >
+                        {{ t('restaurantOnboarding.review.edit') }}
+                    </button>
+                </header>
+                @if (hasTax()) {
+                    <dl class="ff-review__rows">
+                        @for (row of taxRows(); track row.labelKey) {
+                            <div class="ff-review__row">
+                                <dt>{{ t(row.labelKey) }}</dt>
+                                <dd [class.ff-review__empty]="!row.value">
+                                    {{
+                                        row.value ||
+                                            t(
+                                                'restaurantOnboarding.review.notProvided'
+                                            )
+                                    }}
+                                </dd>
+                            </div>
+                        }
+                    </dl>
+                } @else {
+                    <p class="ff-review__empty text-sm">
+                        {{ t('restaurantOnboarding.review.taxEmpty') }}
+                    </p>
+                }
+            </section>
+
+            <!-- Delivery addresses -->
+            <section class="ff-review__card">
+                <header class="ff-review__card-head">
+                    <mat-icon
+                        class="ff-review__card-icon icon-size-5"
+                        [svgIcon]="'heroicons_outline:map-pin'"
+                    ></mat-icon>
+                    <h3 class="min-w-0 flex-auto font-semibold">
+                        {{ t('restaurantOnboarding.items.address') }}
+                    </h3>
+                    <button
+                        class="ff-review__edit"
+                        mat-button
+                        type="button"
+                        data-testid="review-edit-address"
+                        (click)="openSection.emit('address')"
+                    >
+                        {{ t('restaurantOnboarding.review.edit') }}
+                    </button>
+                </header>
+                @if (addresses().length > 0) {
+                    <ul class="ff-review__addresses">
+                        @for (address of addresses(); track address.id) {
+                            <li class="ff-review__address">
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <span class="font-medium">{{
+                                        address.addressLine
+                                    }}</span>
+                                    @if (address.isDefault) {
+                                        <span class="ff-review__badge">{{
+                                            t(
+                                                'restaurantProfile.deliveryAddresses.default'
+                                            )
+                                        }}</span>
+                                    }
+                                </div>
+                                @if (address.recipientName || address.phone) {
+                                    <div class="text-secondary mt-0.5 text-sm">
+                                        {{ address.recipientName }}
+                                        @if (
+                                            address.recipientName &&
+                                            address.phone
+                                        ) {
+                                            <span aria-hidden="true">·</span>
+                                        }
+                                        {{ address.phone }}
+                                    </div>
+                                }
+                            </li>
+                        }
+                    </ul>
+                } @else {
+                    <p class="ff-review__empty text-sm">
+                        {{ t('restaurantOnboarding.review.notProvided') }}
+                    </p>
+                }
+            </section>
+        </div>
 
         <!--
           What happens next. There is no submit endpoint, so this explains that

@@ -314,17 +314,26 @@ describe('OnboardingComponent', () => {
         });
     });
 
-    describe('openItem', () => {
+    describe('openSection', () => {
         it('opens the business step for the licence, which shares that form', () => {
             component.stepIndex.set(3);
-            component.openItem('license');
+            component.openSection('license');
             expect(component.stepIndex()).toBe(0);
         });
 
         it('opens the address step for the address item', () => {
             component.stepIndex.set(3);
-            component.openItem('address');
+            component.openSection('address');
             expect(component.stepIndex()).toBe(2);
+        });
+
+        // The tax step has no required item, so it is reachable only as a
+        // review section — without this mapping its summary card could not be
+        // edited from the review step.
+        it('opens the optional tax step for the tax section', () => {
+            component.stepIndex.set(3);
+            component.openSection('tax');
+            expect(component.stepIndex()).toBe(1);
         });
     });
 });
