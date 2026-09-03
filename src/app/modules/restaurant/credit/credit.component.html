@@ -84,8 +84,14 @@
                     {{ t('restaurantCredit.statements.title') }}
                 </h2>
 
+                <!--
+                  The month and the button are one act, so they sit on one
+                  line at one height. The labels are gone with them: "Tháng 8"
+                  and "2026" say what they are, and the sentence under the row
+                  says what pressing this does.
+                -->
                 <form
-                    class="flex flex-wrap items-center gap-2"
+                    class="ff-credit__generate"
                     [formGroup]="generateForm"
                     (ngSubmit)="generateStatement()"
                 >
@@ -93,10 +99,12 @@
                         class="ff-credit__period"
                         subscriptSizing="dynamic"
                     >
-                        <mat-label>{{
-                            t('restaurantCredit.statements.month')
-                        }}</mat-label>
-                        <mat-select formControlName="month">
+                        <mat-select
+                            formControlName="month"
+                            [attr.aria-label]="
+                                t('restaurantCredit.statements.month')
+                            "
+                        >
                             @for (month of monthOptions; track month) {
                                 <mat-option [value]="month">{{
                                     t('restaurantCredit.statements.monthName', {
@@ -107,13 +115,15 @@
                         </mat-select>
                     </mat-form-field>
                     <mat-form-field
-                        class="ff-credit__period"
+                        class="ff-credit__period ff-credit__period--year"
                         subscriptSizing="dynamic"
                     >
-                        <mat-label>{{
-                            t('restaurantCredit.statements.year')
-                        }}</mat-label>
-                        <mat-select formControlName="year">
+                        <mat-select
+                            formControlName="year"
+                            [attr.aria-label]="
+                                t('restaurantCredit.statements.year')
+                            "
+                        >
                             @for (year of yearOptions; track year) {
                                 <mat-option [value]="year">{{
                                     year

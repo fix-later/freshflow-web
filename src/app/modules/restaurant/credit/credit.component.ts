@@ -57,6 +57,7 @@ const YEARS = [
 @Component({
     selector: 'restaurant-credit',
     templateUrl: './credit.component.html',
+    styleUrl: './credit.component.scss',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,

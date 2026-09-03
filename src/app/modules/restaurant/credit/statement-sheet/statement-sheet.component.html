@@ -131,7 +131,7 @@
                                             : 'admin.restaurants.transactions.type'
                                 }}</span>
                                 <span class="ff-stmt__col-note text-secondary">
-                                    {{ text(line.note || line.reference) }}
+                                    {{ lineNote(line) }}
                                 </span>
                                 <span class="text-right font-medium">{{
                                     money(line.amount)

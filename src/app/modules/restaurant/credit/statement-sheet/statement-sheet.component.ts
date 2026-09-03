@@ -17,6 +17,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
+import { translateCreditNote } from 'app/core/i18n/credit-note';
 import { RestaurantProfileService } from 'app/modules/restaurant/restaurant-profile.service';
 import { RestaurantCreditService } from '../restaurant-credit.service';
 import {
@@ -93,8 +94,21 @@ export class StatementSheetComponent {
             .finally(() => this.loading.set(false));
     }
 
+    /**
+     * The month's movements, oldest first.
+     *
+     * The backend hands them back in no particular order, and a statement whose
+     * rows jump between the 4th and the 20th cannot be checked against
+     * anything — least of all its own running balance, which only makes sense
+     * read downwards.
+     */
     lines(statement: CreditStatement | null): CreditStatementLine[] {
-        return Array.isArray(statement?.lines) ? statement.lines : [];
+        const lines = Array.isArray(statement?.lines) ? statement.lines : [];
+        return [...lines].sort(
+            (left, right) =>
+                Date.parse(String(left.occurredAt ?? '')) -
+                Date.parse(String(right.occurredAt ?? ''))
+        );
     }
 
     money(value: number | null | undefined): string {
@@ -127,6 +141,22 @@ export class StatementSheetComponent {
     text(value: unknown): string {
         const text = String(value ?? '').trim();
         return text === '' ? '—' : text;
+    }
+
+    /**
+     * What a movement was, in the reader's own language.
+     *
+     * The backend writes some of these itself — "Order confirmed", "Order
+     * cancelled" — and they reached this column in English, in the middle of an
+     * otherwise Vietnamese statement. The ledger on the credit page already
+     * goes through this; the statement had been reading the raw note.
+     */
+    lineNote(line: CreditStatementLine): string {
+        const note = translateCreditNote(
+            String(line.note ?? line.reference ?? ''),
+            (key, params) => this._transloco.translate(key, params)
+        );
+        return note.trim() === '' ? '—' : note;
     }
 
     downloadPdf(): void {
