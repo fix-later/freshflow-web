@@ -1,15 +1,38 @@
+<!--
+  Auth brand panel — a poster, not a page.
+
+  Laid out the way the produce-brand banners in `specs/references` are: one
+  centred stack (mark, name, line, promise) on a deep ground, with the organic
+  shapes pushed to the corners and cropped by the edge. It used to hang its
+  text on the left at mid-height with the top half empty and one washed leaf
+  sprawled behind the words — a big surface doing very little, and doing it
+  behind the reading.
+-->
 <div
-    class="relative flex h-full min-h-full w-full flex-1 flex-col overflow-hidden bg-[#083B4B] p-10 lg:p-12"
+    class="relative flex h-full min-h-full w-full flex-1 flex-col overflow-hidden bg-[#083B4B] px-8 py-10 lg:px-12 lg:py-12"
     *transloco="let t"
 >
+    <!--
+      Corner arcs. Mint (accent), never primary: navy on this ground is
+      invisible (TOKENS.md). Solid shapes rather than blurred washes, so they
+      read as a composition instead of a smudge.
+    -->
+    <div
+        class="pointer-events-none absolute -left-28 -top-32 h-80 w-80 rounded-full bg-accent/10"
+        aria-hidden="true"
+    ></div>
+    <div
+        class="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-accent/[0.07]"
+        aria-hidden="true"
+    ></div>
+
     <!-- Dot grid, top-right -->
     <!-- prettier-ignore -->
-    <!-- Mint (accent), not primary: navy on the dark brand panel is invisible -->
     <svg
-        class="absolute right-8 top-8 text-accent/60"
-        viewBox="0 0 220 152"
-        width="160"
-        height="110"
+        class="pointer-events-none absolute right-8 top-8 text-accent/50"
+        viewBox="0 0 160 100"
+        width="120"
+        height="76"
         fill="none"
         aria-hidden="true"
     >
@@ -31,59 +54,61 @@
                 ></rect>
             </pattern>
         </defs>
-        <rect width="220" height="152" fill="url(#auth-brand-dots)"></rect>
+        <rect width="160" height="100" fill="url(#auth-brand-dots)"></rect>
     </svg>
 
-    <!-- Soft brand wash -->
-    <div
-        class="pointer-events-none absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-[#0A5A6E] opacity-50 blur-3xl"
-        aria-hidden="true"
-    ></div>
-    <div
-        class="pointer-events-none absolute bottom-20 right-10 h-40 w-40 rounded-full bg-accent opacity-10 blur-2xl"
-        aria-hidden="true"
-    ></div>
-
-    <!-- Decorative brand leaves -->
+    <!--
+      Produce motif along the bottom edge, cropped by it — the reference band
+      of leaves and fruit under the message, rather than one leaf behind it.
+    -->
     <img
-        class="pointer-events-none absolute -right-16 bottom-10 w-80 rotate-12 opacity-25"
+        class="pointer-events-none absolute -bottom-28 -left-20 w-64 -rotate-12 opacity-[0.14]"
         src="images/splashscreen/leaf.svg"
         alt=""
+        aria-hidden="true"
     />
     <img
-        class="pointer-events-none absolute -bottom-24 right-36 w-72 -rotate-45 opacity-10"
+        class="pointer-events-none absolute -bottom-32 -right-16 w-80 rotate-[24deg] opacity-[0.10]"
         src="images/splashscreen/leaf.svg"
         alt=""
+        aria-hidden="true"
     />
 
-    <!-- Logo -->
-    <img
-        class="relative z-10 w-36"
-        src="images/logo/logo-primary-dark.svg"
-        alt="FreshFlow logo"
-    />
+    <!-- The message, centred and stacked: mark, name, what it is, what it does -->
+    <div
+        class="relative z-10 flex flex-1 flex-col items-center justify-center text-center"
+    >
+        <img
+            class="w-44 lg:w-52"
+            src="images/logo/logo-primary-dark.svg"
+            alt="FreshFlow logo"
+        />
 
-    <!-- Title block -->
-    <div class="relative z-10 my-auto py-12">
-        <h1
-            class="text-5xl font-extrabold leading-none tracking-tight text-white lg:text-6xl"
-        >
-            FreshFlow
-        </h1>
-        <div
-            class="mt-2 text-2xl font-bold leading-tight text-accent lg:text-3xl"
+        <!--
+          The tagline carries the panel, and the mark above it carries the
+          name. There used to be an `<h1>FreshFlow</h1>` between the two: it
+          said the wordmark's own word a second time, and it was a second `h1`
+          on a page whose heading is the form beside it.
+        -->
+        <p
+            class="mt-10 text-4xl font-extrabold leading-tight tracking-tight text-accent lg:text-5xl"
         >
             {{ t('auth.panel.tagline') }}
-        </div>
-        <p
-            class="mt-6 max-w-md text-base leading-relaxed text-gray-300 lg:text-lg"
-        >
+        </p>
+
+        <!-- A rule the width of a word, the way the reference separates its
+             headline from the line beneath it. -->
+        <span
+            class="mt-8 block h-px w-16 bg-accent/40"
+            aria-hidden="true"
+        ></span>
+
+        <p class="mt-8 max-w-sm text-base leading-relaxed text-gray-300">
             {{ t('auth.panel.description') }}
         </p>
     </div>
 
-    <!-- Copyright -->
-    <div class="relative z-10 text-sm text-gray-400">
+    <div class="relative z-10 text-center text-sm text-gray-400">
         {{ t('auth.panel.copyright', { year: year }) }}
     </div>
 </div>

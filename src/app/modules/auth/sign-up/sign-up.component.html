@@ -502,7 +502,10 @@
                             rel="noopener noreferrer"
                             >{{ t('auth.signUp.terms') }}</a
                         >
-                        <span>{{ t('auth.signUp.and') }}</span>
+                        <!-- `ml-1` on the word too: the links carry the gap on
+                             their left, so without it "Điều khoản" ran
+                             straight into "và". -->
+                        <span class="ml-1">{{ t('auth.signUp.and') }}</span>
                         <a
                             class="ff-signup__link ml-1 underline"
                             href="files/FreshFlow_Chinh_sach_bao_mat.pdf"
