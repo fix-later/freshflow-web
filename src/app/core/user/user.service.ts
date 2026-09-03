@@ -36,7 +36,9 @@ function toUser(data: ProfileMeData): User {
 
 @Injectable({ providedIn: 'root' })
 export class UserService {
-    private _user: ReplaySubject<User> = new ReplaySubject<User>(1);
+    private _user: ReplaySubject<User | null> = new ReplaySubject<User | null>(
+        1
+    );
     private _current: User | null = null;
 
     // -----------------------------------------------------------------------------------------------------
@@ -48,7 +50,14 @@ export class UserService {
         this._user.next(value);
     }
 
-    get user$(): Observable<User> {
+    /**
+     * The signed-in user, or `null` once the session ends.
+     *
+     * Nullable because signing out is not a reload: whatever holds the previous
+     * user's data — the cart, the assistant transcript — learns the session is
+     * over from this stream. See {@link clear}.
+     */
+    get user$(): Observable<User | null> {
         return this._user.asObservable();
     }
 
@@ -60,6 +69,12 @@ export class UserService {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
+
+    /** Forget the signed-in user and tell every listener the session ended. */
+    clear(): void {
+        this._current = null;
+        this._user.next(null);
+    }
 
     /** Merge a partial update into the current user (e.g. approval status). */
     patch(partial: Partial<User>): void {

@@ -83,7 +83,12 @@ function build(options: {
     session?: MarketSessionWindow | null;
     /** Makes the session lookup fail, the way an outage would. */
     sessionThrows?: boolean;
-}): { service: DraftOrderService; sessionCalls: [string, string][] } {
+}): {
+    service: DraftOrderService;
+    sessionCalls: [string, string][];
+    /** The session stream, so a test can sign in and out. */
+    user: ReplaySubject<unknown>;
+} {
     const user = new ReplaySubject<unknown>(1);
     const sessionCalls: [string, string][] = [];
     const marketId =
@@ -140,7 +145,7 @@ function build(options: {
         ],
     });
 
-    return { service: TestBed.inject(DraftOrderService), sessionCalls };
+    return { service: TestBed.inject(DraftOrderService), sessionCalls, user };
 }
 
 describe('DraftOrderService — the cart is this session’s draft', () => {
@@ -288,6 +293,22 @@ describe('DraftOrderService — the cart is this session’s draft', () => {
 
         await service.restore();
 
+        expect(service.orderId()).toBeNull();
+    });
+
+    // Signing out is not a reload: without this the next person at this browser
+    // opens the cart and finds the last one's order in it.
+    it('empties the cart when the session ends', async () => {
+        const { service, user } = build({
+            drafts: [listRow('order-current', SAME_DAY)],
+        });
+        user.next({ id: 'u-1', role: 'restaurant' });
+        await service.restore();
+        expect(service.lines().length).toBe(1);
+
+        user.next(null);
+
+        expect(service.lines()).toEqual([]);
         expect(service.orderId()).toBeNull();
     });
 });

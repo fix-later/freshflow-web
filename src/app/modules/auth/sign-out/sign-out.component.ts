@@ -6,7 +6,7 @@ import {
     OnInit,
     ViewEncapsulation,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, finalize, takeUntil, takeWhile, tap, timer } from 'rxjs';
 
@@ -29,10 +29,7 @@ export class AuthSignOutComponent implements OnInit, OnDestroy {
     /**
      * Constructor
      */
-    constructor(
-        private _authService: AuthService,
-        private _router: Router
-    ) {}
+    constructor(private _authService: AuthService) {}
 
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
@@ -45,11 +42,18 @@ export class AuthSignOutComponent implements OnInit, OnDestroy {
         // Sign out
         this._authService.signOut().subscribe();
 
-        // Redirect after the countdown
+        // Redirect after the countdown.
+        //
+        // A document load, not a router navigation: clearing storage and
+        // emitting a null user covers what listens for the session ending, but
+        // every root service that cached something for the last account — the
+        // restaurant profile, its addresses, the order lists — would otherwise
+        // still be holding it when the next person signs in from this tab.
+        // Starting the app again is the one way to be sure nothing carries over.
         timer(1000, 1000)
             .pipe(
                 finalize(() => {
-                    this._router.navigate(['sign-in']);
+                    window.location.assign('/sign-in');
                 }),
                 takeWhile(() => this.countdown > 0),
                 takeUntil(this._unsubscribeAll),

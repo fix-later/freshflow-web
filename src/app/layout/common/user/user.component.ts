@@ -49,7 +49,8 @@ export class UserComponent implements OnInit, OnDestroy {
     /* eslint-enable @typescript-eslint/naming-convention */
 
     @Input() showAvatar: boolean = true;
-    user: User;
+    /** `null` once the session ends — the menu already reads it optionally. */
+    user: User | null = null;
 
     private readonly _creditService = inject(RestaurantCreditService);
     private readonly _transloco = inject(TranslocoService);
@@ -133,7 +134,7 @@ export class UserComponent implements OnInit, OnDestroy {
         // Subscribe to user changes
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((user: User) => {
+            .subscribe((user: User | null) => {
                 this.user = user;
 
                 // Mark for check

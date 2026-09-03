@@ -9,13 +9,13 @@
         (menuOpened)="onMenuOpened()"
     >
         <span class="relative inline-flex">
-            @if (showAvatar && user.avatar) {
+            @if (showAvatar && user?.avatar) {
                 <img
                     class="h-7 w-7 rounded-full object-cover"
-                    [src]="user.avatar"
+                    [src]="user?.avatar"
                 />
             }
-            @if (!showAvatar || !user.avatar) {
+            @if (!showAvatar || !user?.avatar) {
                 <mat-icon
                     class="icon-size-6"
                     [svgIcon]="'heroicons_outline:user-circle'"
@@ -41,11 +41,11 @@
     <ng-container *transloco="let t">
         <div class="flex items-center gap-3 px-4 py-3">
             <span class="relative inline-flex shrink-0">
-                @if (user.avatar) {
+                @if (user?.avatar) {
                     <img
                         class="h-9 w-9 rounded-full object-cover"
-                        [src]="user.avatar"
-                        [alt]="user.email"
+                        [src]="user?.avatar"
+                        [alt]="user?.email"
                     />
                 } @else {
                     <mat-icon
@@ -66,7 +66,7 @@
                     {{ t('user.signedInAs') }}
                 </div>
                 <div class="text-default truncate text-sm font-medium">
-                    {{ user.email }}
+                    {{ user?.email }}
                 </div>
             </div>
         </div>

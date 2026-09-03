@@ -1,5 +1,6 @@
 import { inject, Injectable } from '@angular/core';
 import { AuthUtils } from 'app/core/auth/auth.utils';
+import { clearSessionData } from 'app/core/auth/session-storage';
 import { UserService } from 'app/core/user/user.service';
 import {
     ApprovalStatus,
@@ -186,24 +187,38 @@ export class AuthService {
         } catch {
             // Best-effort revoke; sign out locally regardless.
         }
-        clearTokens();
-        this._authenticated = false;
+        this._endSession();
         return true;
+    }
+
+    /**
+     * Drops everything this browser holds about the session.
+     *
+     * Signing out is an in-app navigation, not a reload, so nothing else finds
+     * out on its own: the cart, the assistant transcript and the chosen chợ
+     * would all still be sitting there for whoever signs in next. Emitting a
+     * null user is what tells the app the session is over; the storage sweep is
+     * what stops it surviving a refresh.
+     */
+    private _endSession(): void {
+        clearTokens();
+        clearSessionData();
+        this._userService.clear();
+        this._authenticated = false;
     }
 
     /** Refresh (if expired), then load the user profile; false on any failure. */
     private async _restore(expired: boolean): Promise<boolean> {
         try {
             if (expired && !(await this._refresh())) {
-                clearTokens();
+                this._endSession();
                 return false;
             }
             await this._loadUser();
             this._authenticated = true;
             return true;
         } catch {
-            clearTokens();
-            this._authenticated = false;
+            this._endSession();
             return false;
         }
     }
