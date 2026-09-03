@@ -1,0 +1,141 @@
+/*
+ * The assistant's greeting bubble.
+ *
+ * Sits directly above the launcher and shares its offsets, so the corner keeps
+ * one column of chrome: the bubble never covers the launcher, the storefront's
+ * bottom bar, or the scroll-to-top control that claims the corner first. On a
+ * phone it is the width of the screen's gutters, not a fixed card, so the
+ * question stays readable at 390px.
+ */
+.ff-assistant-nudge {
+    position: fixed;
+    right: 1rem;
+    /* Launcher: 3.5rem tall at bottom 1.5rem (4.5rem on a phone, above the
+       fixed bottom bar). Clear it plus a gap. */
+    bottom: 5.75rem;
+    z-index: 89; /* Under the launcher: it must never cover the way in. */
+    display: flex;
+    width: calc(100vw - 2rem);
+    max-width: 19rem;
+    flex-direction: column;
+    overflow: hidden;
+    border-radius: 1.125rem;
+    border: 1px solid var(--fuse-border);
+    box-shadow: 0 12px 32px rgb(0 0 0 / 0.18);
+    @apply bg-card;
+
+    /* The tail, pointing down at the launcher it belongs to. */
+    &::after {
+        content: '';
+        position: absolute;
+        right: 1.5rem;
+        bottom: -0.4rem;
+        height: 0.8rem;
+        width: 0.8rem;
+        transform: rotate(45deg);
+        border-right: 1px solid var(--fuse-border);
+        border-bottom: 1px solid var(--fuse-border);
+        @apply bg-card;
+    }
+
+    @media (max-width: 959.98px) {
+        bottom: 8.75rem;
+    }
+
+    @media (min-width: 768px) {
+        right: 1.5rem;
+    }
+
+    /* Follows the launcher up when the scroll-to-top control shares the corner. */
+    &--raised {
+        bottom: 12.75rem;
+
+        @media (min-width: 960px) {
+            bottom: 9.75rem;
+        }
+    }
+}
+
+.ff-assistant-nudge__close {
+    position: absolute;
+    right: 0.5rem;
+    top: 0.375rem;
+    z-index: 1;
+    display: flex;
+    height: 1.75rem;
+    width: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    font-size: 1.125rem;
+    line-height: 1;
+    @apply text-hint;
+
+    &:hover,
+    &:focus-visible {
+        @apply text-default bg-hover;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 1px;
+    }
+}
+
+/* The question itself is the primary target: pressing it opens the chat. */
+.ff-assistant-nudge__body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.875rem 2.5rem 0.75rem 1rem;
+    text-align: left;
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: -2px;
+    }
+}
+
+.ff-assistant-nudge__title {
+    font-size: theme('fontSize.lg');
+    font-weight: 700;
+    line-height: 1.35;
+    @apply text-default;
+}
+
+.ff-assistant-nudge__lead {
+    font-size: theme('fontSize.sm');
+    line-height: 1.4;
+    @apply text-secondary;
+}
+
+.ff-assistant-nudge__starters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-top: 1px solid var(--fuse-border);
+    padding: 0.75rem 1rem;
+}
+
+.ff-assistant-nudge__starter {
+    border-radius: 9999px;
+    border: 1px solid var(--fuse-border);
+    padding: 0.3125rem 0.75rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 600;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+    @apply text-secondary;
+
+    &:hover,
+    &:focus-visible {
+        @apply border-primary bg-primary-50 text-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 1px;
+    }
+}

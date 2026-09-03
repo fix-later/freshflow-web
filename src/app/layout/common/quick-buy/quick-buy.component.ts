@@ -15,14 +15,19 @@ import {
     signal,
     viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
 import { activeLang } from 'app/core/i18n/active-lang';
 import { MarkdownToHtmlPipe } from 'app/core/pipes/markdown-to-html.pipe';
+import { UserService } from 'app/core/user/user.service';
+import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.service';
+import { OrdersService } from 'app/modules/orders/orders.service';
 import {
     ASSISTANT_MESSAGE_MAX_LENGTH,
     AssistantPendingConfirmation,
@@ -34,6 +39,21 @@ interface QuickBuyMessage {
     text: string;
     /** Set on the message that reported a failure, so it can offer a retry. */
     failed?: boolean;
+}
+
+/**
+ * The draft order a conversation has assembled, read off the order itself.
+ *
+ * The assistant reports only an id (`draftOrderId`); the contents are read from
+ * `GET /orders/{id}` so the card states what the platform holds rather than
+ * what the model said it holds.
+ */
+interface AssistantDraft {
+    id: string;
+    itemCount: number;
+    total: number | null;
+    /** The order could not be read back — the card says so and offers nothing. */
+    unreadable: boolean;
 }
 
 /** How close to the bottom still counts as "following along", in pixels. */
@@ -161,6 +181,10 @@ export class QuickBuyComponent {
     private readonly _viewContainer = inject(ViewContainerRef);
     private readonly _destroyRef = inject(DestroyRef);
     private readonly _clipboard = inject(Clipboard);
+    private readonly _orders = inject(OrdersService);
+    private readonly _draftOrder = inject(DraftOrderService);
+    private readonly _router = inject(Router);
+    private readonly _userService = inject(UserService);
 
     private readonly _lang = activeLang();
 
@@ -187,7 +211,16 @@ export class QuickBuyComponent {
     readonly opened = this._assistant.opened;
     readonly sending = signal(false);
     readonly query = signal('');
-    readonly messages = signal<QuickBuyMessage[]>([]);
+    /**
+     * The conversation, seeded from whatever survived the last page load.
+     *
+     * The server keeps the conversation itself for half an hour; this is the
+     * transcript the buyer was looking at, so a reload comes back to the same
+     * screen rather than an empty one.
+     */
+    readonly messages = signal<QuickBuyMessage[]>(
+        this._assistant.restoredMessages().map((message) => ({ ...message }))
+    );
 
     /** Index of the reply whose copy button just fired, for the "Copied" tick. */
     readonly copiedIndex = signal<number | null>(null);
@@ -205,6 +238,18 @@ export class QuickBuyComponent {
     /** The order awaiting an explicit press of the confirm button. */
     readonly pending = signal<AssistantPendingConfirmation | null>(null);
 
+    /**
+     * The draft the conversation has built so far, as the *order* reports it.
+     *
+     * Every figure here comes from reading the order back, never from the
+     * reply: the reply is model prose, and a card that quoted it could tell the
+     * buyer a total the order does not hold.
+     */
+    readonly draft = signal<AssistantDraft | null>(null);
+
+    /** True while the draft is being adopted and checkout is being opened. */
+    readonly openingCheckout = signal(false);
+
     /** Last thing the user typed — what {@link retry} re-sends. */
     private _lastUserMessage = '';
 
@@ -214,6 +259,13 @@ export class QuickBuyComponent {
      * retrying, confirming — where landing on the newest content is the point.
      */
     private _pinNext = true;
+
+    /**
+     * A draft the restored conversation had built, waiting to be read back the
+     * first time the panel is opened.
+     */
+    private _restoredDraftId: string | null =
+        this._assistant.restoredDraftOrderId();
 
     /** Transcript length at the last scroll decision, to spot a new arrival. */
     private _lastCount = 0;
@@ -261,6 +313,32 @@ export class QuickBuyComponent {
     readonly expanded = signal(false);
 
     constructor() {
+        // The transcript is written down as it grows, so a reload comes back to
+        // it. Only what was said and what it built — the composer's half-typed
+        // line is not a message and is not kept.
+        effect(() => {
+            const messages = this.messages();
+            const draft = this.draft();
+            this._assistant.persist(
+                messages.map(({ role, text, failed }) => ({
+                    role,
+                    text,
+                    failed,
+                })),
+                draft && !draft.unreadable ? draft.id : null
+            );
+        });
+
+        // A conversation belongs to the account that had it. Signing out is not
+        // a reload: the next person at this browser must not find it waiting.
+        this._userService.user$
+            .pipe(takeUntilDestroyed(this._destroyRef))
+            .subscribe((user) => {
+                if (user?.role !== 'restaurant') {
+                    this._assistant.forget();
+                }
+            });
+
         const dockQuery = window.matchMedia?.('(min-width: 640px)');
         if (dockQuery) {
             this.docked.set(dockQuery.matches);
@@ -285,6 +363,23 @@ export class QuickBuyComponent {
                 this._pinNext = true;
                 this._attach();
                 setTimeout(() => this._composer()?.nativeElement.focus());
+                // A greeting starter arrives as a phrase the buyer already
+                // pressed. It is asked here, through `_ask`, so it travels the
+                // same path a typed message does — nothing enters the
+                // conversation by a private door.
+                // A conversation restored from the last page may have left a
+                // draft behind. Read it back on open, not on load: a buyer who
+                // never opens the panel should not pay for the request, and the
+                // card is only ever seen in here.
+                const restoredDraft = this._restoredDraftId;
+                if (restoredDraft) {
+                    this._restoredDraftId = null;
+                    void this._trackDraft(restoredDraft);
+                }
+                const starter = this._assistant.takeStarter();
+                if (starter) {
+                    this._ask(starter);
+                }
             } else {
                 this._detach();
             }
@@ -405,6 +500,7 @@ export class QuickBuyComponent {
     startOver(): void {
         this._assistant.reset();
         this.pending.set(null);
+        this.draft.set(null);
         this.messages.set([]);
         this.query.set('');
         this._lastUserMessage = '';
@@ -486,6 +582,43 @@ export class QuickBuyComponent {
      * the server injects that exact address, and sending a different one would
      * either be refused or quietly deliver somewhere the receipt never showed.
      */
+    /**
+     * Takes the draft the assistant built to checkout.
+     *
+     * Adopts it as the cart first, because checkout renders the cart: the draft
+     * is an ordinary draft order for this restaurant, so the shortest honest
+     * path is to point the cart at it — the same `adopt` checkout itself calls
+     * when a date change forces a new draft — rather than teach checkout a
+     * second source.
+     *
+     * `adopt` reports nothing back, so the read is verified the way the cart
+     * itself records it: `_reload` drops the order id when the order cannot be
+     * read, so an id that did not stick means the draft is gone. Better to say
+     * so here than to open a checkout for an order that is not there.
+     *
+     * This navigates. It never confirms: the two-phase gate is untouched, and
+     * `confirmOrderId` is still set by exactly one button.
+     */
+    async openDraftCheckout(): Promise<void> {
+        const draft = this.draft();
+        if (!draft || draft.unreadable || this.openingCheckout()) {
+            return;
+        }
+        this.openingCheckout.set(true);
+        try {
+            this._draftOrder.adopt(draft.id);
+            await this._draftOrder.settled();
+            if (this._draftOrder.orderId() !== draft.id) {
+                this.draft.set({ ...draft, unreadable: true });
+                return;
+            }
+            this.close();
+            await this._router.navigate(['/checkout']);
+        } finally {
+            this.openingCheckout.set(false);
+        }
+    }
+
     confirmOrder(): void {
         const pending = this.pending();
         if (!pending || this.sending()) {
@@ -602,6 +735,7 @@ export class QuickBuyComponent {
                       }
             );
             this.pending.set(answer.pendingConfirmation);
+            await this._trackDraft(answer.draftOrderId);
         } catch (err) {
             // A confirmation that failed puts its card back, so the user can
             // press confirm again — the button stays the only path to
@@ -620,6 +754,55 @@ export class QuickBuyComponent {
             });
         } finally {
             this.sending.set(false);
+        }
+    }
+
+    /**
+     * Follows the draft the conversation is building.
+     *
+     * Re-read on every turn that names one, because a later turn adds lines to
+     * the same order — the card has to move with it rather than freeze at what
+     * the first turn happened to contain (FR-011). A turn that names no draft
+     * leaves the card alone: the assistant simply had nothing to say about it,
+     * which is not the same as the draft having gone away.
+     */
+    private async _trackDraft(draftOrderId: string | null): Promise<void> {
+        if (!draftOrderId) {
+            return;
+        }
+        try {
+            const order = await this._orders.getOrder(draftOrderId);
+            const itemCount = order?.itemCount ?? order?.items?.length ?? 0;
+            if (!order || itemCount <= 0) {
+                // An order with no lines is not something to pay for; an order
+                // that will not load is not something to send anyone to.
+                this.draft.set(
+                    order
+                        ? null
+                        : {
+                              id: draftOrderId,
+                              itemCount: 0,
+                              total: null,
+                              unreadable: true,
+                          }
+                );
+                return;
+            }
+            this.draft.set({
+                id: draftOrderId,
+                itemCount,
+                total: order.totalAmount ?? null,
+                unreadable: false,
+            });
+        } catch {
+            // The turn itself succeeded — only the read of its draft failed, so
+            // the conversation stands and the card says what it cannot do.
+            this.draft.set({
+                id: draftOrderId,
+                itemCount: 0,
+                total: null,
+                unreadable: true,
+            });
         }
     }
 

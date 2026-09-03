@@ -1048,3 +1048,72 @@ quick-buy {
         opacity: 1;
     }
 }
+
+/*
+ * The draft the conversation has assembled: one row — mark, what it holds, and
+ * the way to pay for it.
+ *
+ * Quieter than the confirmation receipt above it on purpose. That card is a
+ * decision (place this order); this one is a hand-off (go and look at it), and
+ * the two must not read as the same weight of commitment. It also never shows
+ * while a confirmation is up, so they are never side by side.
+ */
+.ff-qb-draft {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.75rem 0.875rem;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+    @apply bg-card;
+
+    &__icon {
+        flex: none;
+        @apply text-primary;
+    }
+
+    &__body {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    &__title {
+        margin: 0;
+        font-size: theme('fontSize.base');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__summary,
+    &__lead {
+        margin: 0.125rem 0 0;
+        font-size: theme('fontSize.sm');
+        @apply text-secondary;
+    }
+
+    /* A monospace space is a digit wide; the total should read as one figure. */
+    &__summary {
+        font-variant-numeric: tabular-nums;
+    }
+
+    &__action {
+        flex: none;
+    }
+
+    /* Narrow box: the action drops under the sentence rather than squeezing it. */
+    @media (max-width: 27.5rem) {
+        flex-wrap: wrap;
+
+        &__action {
+            width: 100%;
+            justify-content: center;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-qb-draft {
+        animation: none;
+    }
+}

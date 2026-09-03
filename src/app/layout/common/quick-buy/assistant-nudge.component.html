@@ -1,0 +1,54 @@
+<ng-container *transloco="let t">
+    @if (visible()) {
+        <!--
+          An offer, not a dialog: nothing here traps focus or blocks the page.
+          `aria-live="polite"` so a screen reader is told it arrived without
+          being interrupted mid-sentence.
+        -->
+        <div
+            class="ff-assistant-nudge print:hidden"
+            [class.ff-assistant-nudge--raised]="raised()"
+            data-testid="assistant-nudge"
+            role="status"
+            aria-live="polite"
+        >
+            <button
+                type="button"
+                class="ff-assistant-nudge__close"
+                [attr.aria-label]="t('assistant.nudge.dismiss')"
+                [matTooltip]="t('assistant.nudge.dismiss')"
+                (click)="dismiss()"
+            >
+                <span aria-hidden="true">&times;</span>
+            </button>
+
+            <!-- The whole bubble opens the chat; the starters below ask their
+                 own question instead. -->
+            <button
+                type="button"
+                class="ff-assistant-nudge__body"
+                data-testid="assistant-nudge-open"
+                (click)="open()"
+            >
+                <span class="ff-assistant-nudge__title">
+                    {{ t('assistant.nudge.title', { market: market() }) }}
+                </span>
+                <span class="ff-assistant-nudge__lead">
+                    {{ t('assistant.nudge.lead') }}
+                </span>
+            </button>
+
+            <div class="ff-assistant-nudge__starters">
+                @for (key of starterKeys; track key) {
+                    <button
+                        type="button"
+                        class="ff-assistant-nudge__starter"
+                        (click)="start(key)"
+                    >
+                        {{ t(key) }}
+                    </button>
+                }
+            </div>
+        </div>
+    }
+</ng-container>

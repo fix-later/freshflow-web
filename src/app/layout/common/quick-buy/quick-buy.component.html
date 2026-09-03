@@ -449,6 +449,71 @@
                             </div>
                         </div>
                     }
+
+                    <!--
+                      The order the conversation has built so far.
+
+                      Only while nothing is awaiting confirmation: that card is
+                      the more advanced state, and offering two ways to finish
+                      one order at once is how a buyer ends up placing it twice.
+                      This one never confirms — it hands the draft to the cart
+                      and opens checkout, where the buyer decides.
+                    -->
+                    @if (draft(); as draft) {
+                        @if (!pending()) {
+                            <div
+                                class="ff-qb-draft"
+                                data-testid="assistant-draft-card"
+                            >
+                                <mat-icon
+                                    class="ff-qb-draft__icon icon-size-5"
+                                    [svgIcon]="
+                                        'heroicons_outline:shopping-cart'
+                                    "
+                                ></mat-icon>
+                                <div class="ff-qb-draft__body">
+                                    <p class="ff-qb-draft__title">
+                                        {{ t('assistant.draft.title') }}
+                                    </p>
+                                    @if (draft.unreadable) {
+                                        <p class="ff-qb-draft__lead">
+                                            {{
+                                                t('assistant.draft.unreadable')
+                                            }}
+                                        </p>
+                                    } @else {
+                                        <p class="ff-qb-draft__summary">
+                                            {{
+                                                t('assistant.draft.summary', {
+                                                    count: draft.itemCount,
+                                                    total: money(draft.total),
+                                                })
+                                            }}
+                                        </p>
+                                    }
+                                </div>
+                                @if (!draft.unreadable) {
+                                    <button
+                                        class="ff-qb-btn-filled ff-qb-draft__action"
+                                        type="button"
+                                        data-testid="assistant-draft-checkout"
+                                        [disabled]="openingCheckout()"
+                                        (click)="openDraftCheckout()"
+                                    >
+                                        @if (openingCheckout()) {
+                                            <span
+                                                class="ff-qb-btn-spinner"
+                                                aria-hidden="true"
+                                            ></span>
+                                        }
+                                        <span>{{
+                                            t('assistant.draft.checkout')
+                                        }}</span>
+                                    </button>
+                                }
+                            </div>
+                        }
+                    }
                 </div>
             </div>
 

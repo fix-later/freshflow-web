@@ -1,4 +1,8 @@
 <ng-container *transloco="let t">
+    <!-- The greeting rides with the launcher: same corner, same lift, and it
+         decides for itself whether it may show (see AssistantNudgeComponent). -->
+    <assistant-nudge [raised]="raised()"></assistant-nudge>
+
     @if (available() && !opened()) {
         <button
             class="ff-assistant-fab print:hidden"

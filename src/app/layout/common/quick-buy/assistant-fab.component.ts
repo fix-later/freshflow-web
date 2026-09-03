@@ -9,6 +9,7 @@ import {
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@jsverse/transloco';
 import { PermissionsService } from 'app/core/auth/permissions/permissions.service';
+import { AssistantNudgeComponent } from './assistant-nudge.component';
 import { AssistantService } from './assistant.service';
 
 /**
@@ -30,7 +31,7 @@ import { AssistantService } from './assistant.service';
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
-    imports: [MatTooltipModule, TranslocoModule],
+    imports: [AssistantNudgeComponent, MatTooltipModule, TranslocoModule],
 })
 export class AssistantFabComponent {
     private readonly _assistant = inject(AssistantService);
@@ -49,6 +50,8 @@ export class AssistantFabComponent {
     readonly opened = this._assistant.opened;
 
     open(): void {
-        this._assistant.opened.set(true);
+        // Through the service, so opening the chat also spends the greeting —
+        // the offer has been answered whichever control answered it.
+        this._assistant.openWith();
     }
 }

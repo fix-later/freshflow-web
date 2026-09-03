@@ -1,7 +1,7 @@
 <!-- SPECKIT START -->
 For additional context about technologies to be used, project structure,
 shell commands, and other important information, read the current plan:
-`specs/004-storefront-landing/plan.md`
+`specs/007-assistant-proactive-order/plan.md`
 <!-- SPECKIT END -->
 
 # FreshFlow Web — Agent Guide
