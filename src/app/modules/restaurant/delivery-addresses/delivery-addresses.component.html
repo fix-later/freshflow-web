@@ -200,6 +200,34 @@
                 </header>
 
                 <div class="ff-addr__panel-body flex flex-col gap-4">
+                    <!--
+                      Setup asked for the restaurant's address and contact
+                      person a step earlier. Offered here rather than copied:
+                      the first delivery address is usually the restaurant, and
+                      a branch is exactly the case where assuming would be
+                      wrong. It seeds the place search; the map point is still
+                      the restaurant's to confirm.
+                    -->
+                    @if (canUseRestaurantDetails()) {
+                        <button
+                            class="ff-addr__fill"
+                            type="button"
+                            data-testid="address-use-restaurant"
+                            (click)="useRestaurantDetails()"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                [svgIcon]="
+                                    'heroicons_outline:building-storefront'
+                                "
+                            ></mat-icon>
+                            <span>{{
+                                t(
+                                    'restaurantProfile.deliveryAddresses.useRestaurant'
+                                )
+                            }}</span>
+                        </button>
+                    }
                     <app-location-picker
                         [latControl]="form.controls.latitude"
                         [lngControl]="form.controls.longitude"

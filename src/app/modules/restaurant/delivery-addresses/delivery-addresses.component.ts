@@ -1,11 +1,13 @@
 import {
     ChangeDetectionStrategy,
     Component,
+    computed,
     inject,
     OnInit,
     signal,
     ViewEncapsulation,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -35,6 +37,7 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
+import { UserService } from 'app/core/user/user.service';
 import { DeliveryAddressRequest } from 'contract';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 import { DeliveryAddressView } from '../restaurant-profile.types';
@@ -69,6 +72,7 @@ export class DeliveryAddressesComponent implements OnInit {
     private readonly _service = inject(RestaurantProfileService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _user = inject(UserService);
 
     readonly addresses = this._service.deliveryAddresses;
 
@@ -136,6 +140,59 @@ export class DeliveryAddressesComponent implements OnInit {
         } finally {
             this.loading.set(false);
         }
+    }
+
+    /** The form as a signal, so the offer steps aside once anything is typed. */
+    private readonly _formValue = toSignal(this.form.valueChanges, {
+        initialValue: this.form.value,
+    });
+
+    /**
+     * The restaurant's own details, offered as a starting point for its first
+     * delivery address.
+     *
+     * Setup asks for the restaurant's address and contact person a step earlier,
+     * and for most restaurants the first place they take deliveries is the
+     * restaurant. Offered, never assumed: a chain's second branch is exactly the
+     * case where quietly copying would be wrong, and the map point still has to
+     * be picked either way — this fills the search box, it does not invent
+     * coordinates.
+     */
+    readonly restaurantDetails = computed(() => {
+        const profile = this._service.profile();
+        return {
+            addressLine: profile?.address?.trim() || '',
+            recipientName: profile?.contactPerson?.trim() || '',
+            phone: this._user.current?.phone?.trim() || '',
+        };
+    });
+
+    /** Worth offering only on an untouched form with something to put in it. */
+    readonly canUseRestaurantDetails = computed(() => {
+        const details = this.restaurantDetails();
+        return (
+            !!(details.addressLine || details.recipientName || details.phone) &&
+            !this._formValue()?.addressLine?.trim() &&
+            !this._formValue()?.recipientName?.trim() &&
+            !this._formValue()?.phone?.trim()
+        );
+    });
+
+    /** Fills the form from the restaurant's own details. */
+    useRestaurantDetails(): void {
+        const details = this.restaurantDetails();
+        if (details.addressLine) {
+            // Seeds the place search too — the picker is bound to this control,
+            // so the map is one confirmation away rather than a fresh search.
+            this.form.controls.addressLine.setValue(details.addressLine);
+        }
+        if (details.recipientName) {
+            this.form.controls.recipientName.setValue(details.recipientName);
+        }
+        if (details.phone) {
+            this.form.controls.phone.setValue(details.phone);
+        }
+        this.form.markAsDirty();
     }
 
     openAdd(): void {

@@ -144,6 +144,32 @@
                     }
                 </mat-form-field>
 
+                <!--
+                  Setup already asked for the restaurant's address. The two are
+                  not the same field — a company can be billed somewhere it does
+                  not trade — so this offers the answer rather than assuming it,
+                  and steps aside as soon as anything is typed here.
+                -->
+                @if (canUseBusinessAddress()) {
+                    <button
+                        class="ff-tax__fill"
+                        type="button"
+                        data-testid="tax-use-business-address"
+                        (click)="useBusinessAddress()"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_outline:arrow-down-on-square'"
+                        ></mat-icon>
+                        <span>{{
+                            t('restaurantProfile.taxProfile.useBusinessAddress')
+                        }}</span>
+                        <span class="ff-tax__fill-value">{{
+                            businessAddress()
+                        }}</span>
+                    </button>
+                }
+
                 <mat-form-field class="w-full" subscriptSizing="dynamic">
                     <mat-label>{{
                         t('restaurantProfile.taxProfile.email')
@@ -161,6 +187,28 @@
                         }}</mat-error>
                     }
                 </mat-form-field>
+
+                <!-- The account already has an email; invoices may go
+                     elsewhere, so it is offered, not assumed. -->
+                @if (canUseAccountEmail()) {
+                    <button
+                        class="ff-tax__fill"
+                        type="button"
+                        data-testid="tax-use-account-email"
+                        (click)="useAccountEmail()"
+                    >
+                        <mat-icon
+                            class="icon-size-4"
+                            [svgIcon]="'heroicons_outline:arrow-down-on-square'"
+                        ></mat-icon>
+                        <span>{{
+                            t('restaurantProfile.taxProfile.useAccountEmail')
+                        }}</span>
+                        <span class="ff-tax__fill-value">{{
+                            accountEmail()
+                        }}</span>
+                    </button>
+                }
             </div>
         </section>
 

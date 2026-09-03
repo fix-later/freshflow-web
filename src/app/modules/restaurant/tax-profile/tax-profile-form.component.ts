@@ -2,12 +2,14 @@ import {
     booleanAttribute,
     ChangeDetectionStrategy,
     Component,
+    computed,
     inject,
     input,
     OnInit,
     signal,
     ViewEncapsulation,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -34,6 +36,7 @@ import {
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
 import { fetchTaxInfo, taxCodeDigitCount } from 'app/core/auth/tax-lookup';
+import { UserService } from 'app/core/user/user.service';
 import { UpdateTaxProfileRequest } from 'contract';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 
@@ -66,6 +69,7 @@ export class TaxProfileFormComponent implements OnInit {
     private readonly _service = inject(RestaurantProfileService);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
+    private readonly _user = inject(UserService);
 
     /**
      * Hides this form's own save button. The onboarding wizard drives the
@@ -89,6 +93,7 @@ export class TaxProfileFormComponent implements OnInit {
     readonly taxLookupLoading = signal(false);
     readonly taxVerified = signal(false);
     readonly taxLookupError = signal<string | null>(null);
+
     /**
      * Guards against a race where the user keeps editing the MST after a lookup
      * request is already in flight — without this a slow/stale response could
@@ -128,6 +133,66 @@ export class TaxProfileFormComponent implements OnInit {
             trimmedMaxLengthValidator(TAX_EMAIL_MAX_LENGTH),
         ]),
     });
+
+    /**
+     * The restaurant's own address, offered as a fill for the invoice address.
+     *
+     * They are different things — a company can be billed somewhere it does not
+     * trade — but for most restaurants they are the same place, and setup asked
+     * for it twice. Offered as a fill rather than copied silently: which address
+     * an invoice carries is the restaurant's to state, not ours to assume.
+     */
+    readonly businessAddress = computed(
+        () => this._service.profile()?.address?.trim() || ''
+    );
+
+    /** The account's own email, offered as a fill for the invoice email. */
+    readonly accountEmail = computed(
+        () => this._user.current?.email?.trim() || ''
+    );
+
+    /**
+     * The two fields as signals, so the offers below disappear the moment the
+     * restaurant types something of their own. A form control's `value` is not
+     * reactive on its own.
+     */
+    private readonly _addressValue = toSignal(
+        this.form.controls.address.valueChanges,
+        { initialValue: this.form.controls.address.value }
+    );
+    private readonly _emailValue = toSignal(
+        this.form.controls.email.valueChanges,
+        { initialValue: this.form.controls.email.value }
+    );
+
+    /** Only worth offering while the field is empty and there is something to put in it. */
+    readonly canUseBusinessAddress = computed(
+        () => !!this.businessAddress() && !this._addressValue()?.trim()
+    );
+
+    readonly canUseAccountEmail = computed(
+        () => !!this.accountEmail() && !this._emailValue()?.trim()
+    );
+
+    /** Fills the invoice address from the restaurant's own address. */
+    useBusinessAddress(): void {
+        const address = this.businessAddress();
+        if (!address) {
+            return;
+        }
+        this.form.controls.address.setValue(address);
+        this.form.controls.address.markAsDirty();
+    }
+
+    /** Fills the invoice email from the account's own email. */
+    useAccountEmail(): void {
+        const email = this.accountEmail();
+        if (!email) {
+            return;
+        }
+        this.form.controls.email.setValue(email);
+        this.form.controls.email.markAsDirty();
+    }
 
     async ngOnInit(): Promise<void> {
         await this.reload();

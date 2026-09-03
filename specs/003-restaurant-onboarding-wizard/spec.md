@@ -388,3 +388,41 @@ server-side read would make a UI feature hostage to backend work.
 the progress count covers only the three items the platform can verify. If the platform later
 exposes a way to read the saved tax details, this item should be promoted to an ordinary
 verifiable item under FR-020 and folded into the count.
+
+---
+
+## Addendum — 2026-09-03: setup stops asking twice
+
+The original scope said the wizard "arranges and explains" the existing forms
+and that "any change to what they collect is out of scope" (Assumptions). That
+held for the arrangement, and it left one thing unaddressed: running the four
+steps back to back makes plain how much a restaurant types twice.
+
+**What was being asked twice.** Sign-up already takes the restaurant's name,
+phone, email and tax code. Step 1 takes an address and a contact person. Step 2
+then asks for an invoice address and an invoice email, and step 3 for a delivery
+address, a recipient and a phone. For most restaurants those are the same
+place and the same person, typed three times.
+
+**What changed.** Nothing was removed and nothing is copied silently — the
+fields are legally distinct, and a company can be billed where it does not trade
+just as a chain's second branch takes delivery where it is not registered. Each
+of the three now offers what setup already knows, as a one-tap fill that names
+the value and steps aside as soon as anything is typed:
+
+- **FR-A1**: The invoice address MUST offer the restaurant's own address.
+- **FR-A2**: The invoice email MUST offer the account's own email.
+- **FR-A3**: The delivery-address form MUST offer the restaurant's address,
+    contact person and account phone.
+- **FR-A4**: An offer MUST NOT appear when the field already holds something,
+    and MUST NOT fill a value the platform does not hold.
+- **FR-A5**: Filling a delivery address MUST NOT invent map coordinates. The
+    fill seeds the place search; the point on the map stays the restaurant's to
+    confirm.
+
+**Also corrected.** Step 1's hint promised "khung giờ nhận hàng" — a
+receiving-window field the business profile stopped collecting when every
+delivery moved to one fixed early-morning window. The hint now names the
+licence, which is what that step actually asks for beyond the identity fields.
+
+---

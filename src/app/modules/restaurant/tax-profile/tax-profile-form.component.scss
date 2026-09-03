@@ -64,3 +64,54 @@
 .ff-tax__actions {
     border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
 }
+
+/*
+ * "Use what setup already knows" — a quiet offer under a field, not a control
+ * competing with it.
+ *
+ * Setup asks for an address and an email a step earlier, and most restaurants
+ * bill to the same place from the same mailbox. The offer says what it would
+ * fill in, so pressing it is never a surprise, and it disappears the moment the
+ * restaurant types something of their own.
+ */
+.ff-tax__fill {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.375rem;
+    align-self: flex-start;
+    max-width: 100%;
+    margin: -0.25rem 0 0.5rem;
+    border-radius: 9999px;
+    border: 1px dashed var(--fuse-border);
+    padding: 0.3125rem 0.75rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 600;
+    text-align: left;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease,
+        color 150ms ease;
+    @apply text-secondary;
+
+    &:hover,
+    &:focus-visible {
+        border-style: solid;
+        @apply border-primary bg-primary-50 text-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 2px;
+    }
+}
+
+/* What it would fill in, so the offer is legible before it is taken. */
+.ff-tax__fill-value {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 400;
+    @apply text-hint;
+}
