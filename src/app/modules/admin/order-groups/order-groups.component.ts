@@ -328,6 +328,32 @@ function exactResetConfirmation(
                 }
             }
 
+            /*
+             * The optimisation criterion sits beside the button that acts on
+             * it, so it is that button's height. Material sizes an outlined
+             * field for a floating label; with no label to float, the default
+             * left the select standing taller than the button and half a label
+             * out of line with it.
+             */
+            .ff-route__criteria .mat-mdc-text-field-wrapper {
+                height: 2.5rem;
+            }
+
+            .ff-route__criteria .mat-mdc-form-field-infix {
+                min-height: 2.5rem;
+                padding-top: 0.5rem;
+                padding-bottom: 0.5rem;
+            }
+
+            .ff-route__criteria .mat-mdc-form-field-subscript-wrapper {
+                display: none;
+            }
+
+            .ff-route__criteria .mat-mdc-select-value {
+                font-size: theme('fontSize.sm');
+                font-weight: 600;
+            }
+
             .planning-day-card {
                 min-width: 10.5rem;
                 transition:

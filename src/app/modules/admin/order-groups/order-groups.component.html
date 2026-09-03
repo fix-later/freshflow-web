@@ -3278,16 +3278,16 @@
                                         !planningControlsInEmptyState()
                                     ) {
                                         <mat-form-field
-                                            class="w-48"
+                                            class="ff-route__criteria w-48"
                                             subscriptSizing="dynamic"
                                         >
-                                            <mat-label>{{
-                                                t(
-                                                    'admin.orderGroups.marketSessions.routing.criteria'
-                                                )
-                                            }}</mat-label>
                                             <mat-select
                                                 [formControl]="routeCriteria"
+                                                [attr.aria-label]="
+                                                    t(
+                                                        'admin.orderGroups.marketSessions.routing.criteria'
+                                                    )
+                                                "
                                             >
                                                 @for (
                                                     criterion of routeCriteriaOptions;
@@ -4524,26 +4524,27 @@
                                                 tracking.session
                                             )
                                         ) {
-                                            <!-- Bottom-aligned: the field
-                                                 carries a floating label, so
-                                                 centring put the button half a
-                                                 label above the box it sits
-                                                 beside. -->
+                                            <!-- One line, one height: the
+                                                 criterion and the button are
+                                                 a single act, and the line
+                                                 above already says to pick one
+                                                 — so the field carries no
+                                                 stacked label of its own. -->
                                             <div
-                                                class="mt-6 flex flex-wrap items-end justify-center gap-3"
+                                                class="mt-6 flex flex-wrap items-center justify-center gap-3"
                                             >
                                                 <mat-form-field
-                                                    class="w-56"
+                                                    class="ff-route__criteria w-56"
                                                     subscriptSizing="dynamic"
                                                 >
-                                                    <mat-label>{{
-                                                        t(
-                                                            'admin.orderGroups.marketSessions.routing.criteria'
-                                                        )
-                                                    }}</mat-label>
                                                     <mat-select
                                                         [formControl]="
                                                             routeCriteria
+                                                        "
+                                                        [attr.aria-label]="
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.routing.criteria'
+                                                            )
                                                         "
                                                     >
                                                         @for (
