@@ -176,31 +176,6 @@ export class OrdersService {
         await ordersApi.apiV1OrdersOrderIdReceiptPatchRaw({ orderId });
     }
 
-    /**
-     * Reports a post-delivery problem. `orderItemId` scopes the report to one
-     * line (omit for a whole-order issue); `affectedQuantity` is how much of
-     * that line was wrong.
-     */
-    async reportIssue(
-        orderId: string,
-        issue: {
-            issueType: string;
-            description: string;
-            orderItemId?: string | null;
-            affectedQuantity?: number | null;
-        }
-    ): Promise<void> {
-        await ordersApi.apiV1OrdersOrderIdIssuesPostRaw({
-            orderId,
-            reportOrderIssueRequest: {
-                issueType: issue.issueType,
-                description: issue.description,
-                orderItemId: issue.orderItemId || null,
-                affectedQuantity: issue.affectedQuantity ?? undefined,
-            },
-        });
-    }
-
     private _stringList(
         data: Record<string, unknown>,
         keys: string[]

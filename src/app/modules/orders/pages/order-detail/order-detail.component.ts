@@ -9,7 +9,6 @@ import {
     signal,
     ViewEncapsulation,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
     FormBuilder,
     FormGroup,
@@ -51,16 +50,12 @@ import { OrdersService } from '../../orders.service';
 import {
     canCancelOrder,
     normalizeOrderStatus,
-    ORDER_ISSUE_TYPES,
     OrderRow,
     orderStatusPillClass,
 } from '../../orders.types';
 import {
-    affectedQuantityValidator,
     claimAmountValidator,
-    maxAffectedQuantityValidator,
     maxClaimAmountValidator,
-    ORDER_ISSUE_DESCRIPTION_MAX_LENGTH,
     ORDER_TEXT_MAX_LENGTH,
     orderQuantityValidator,
     packingMultipleValidator,
@@ -153,40 +148,15 @@ export class OrderDetailComponent implements OnInit {
         return typeof size === 'number' && size > 0 ? size : null;
     }
 
-    readonly issueTypes = ORDER_ISSUE_TYPES;
-    readonly issueOpen = signal(false);
-    readonly issueError = signal<string | null>(null);
-    readonly issueForm = this._fb.group({
-        issueType: this._fb.nonNullable.control<string>(ORDER_ISSUE_TYPES[0], {
-            validators: [Validators.required],
-        }),
-        orderItemId: this._fb.nonNullable.control(''),
-        affectedQuantity: this._fb.control<number | null>(null, {
-            // The handler rejects `<= 0`, and — once a line is named — anything
-            // above what was ordered. The second rule is checkable here because
-            // the order is already on screen, so "you only ordered 3" is said
-            // at the field instead of coming back as a 422.
-            validators: [
-                Validators.required,
-                affectedQuantityValidator,
-                maxAffectedQuantityValidator(() => this.selectedLineQuantity()),
-            ],
-        }),
-        description: this._fb.nonNullable.control('', {
-            // `OrderIssue.MaxDescriptionLength` is 1000 — this field is the one
-            // order text that is *not* capped at 500.
-            validators: [
-                Validators.required,
-                trimmedMaxLengthValidator(ORDER_ISSUE_DESCRIPTION_MAX_LENGTH),
-            ],
-        }),
-    });
-
     /**
-     * Filing a claim (UC-ORD-21) — money back on an order that arrived short or
-     * damaged, decided later by admin/ops against the restaurant's credit.
-     * Separate from an issue report: an issue is a record, a claim is a request
-     * for a refund, and only the claim needs an amount.
+     * Filing a claim (UC-ORD-21) — money back on an order that arrived short
+     * or damaged, decided later by admin/ops against the restaurant's credit.
+     *
+     * The restaurant's only way to raise a problem with an order. Reporting an
+     * incident is somebody else's job — the market agent, hub staff and driver
+     * each report from their own console — so a second buyer-facing form that
+     * recorded a complaint without asking for anything back was one form too
+     * many on this page.
      */
     readonly claimOpen = signal(false);
     readonly claimError = signal<string | null>(null);
@@ -221,8 +191,7 @@ export class OrderDetailComponent implements OnInit {
     /**
      * A claim may be filed once the goods are with the buyer or at the hub
      * (`FileClaimCommandHandler`: `AtHub or Delivered`, else
-     * `CLAIM_ORDER_NOT_CLAIMABLE`). Wider than the issue report, which is
-     * delivered-only.
+     * `CLAIM_ORDER_NOT_CLAIMABLE`).
      */
     canFileClaim(): boolean {
         const status = normalizeOrderStatus(this.order()?.status);
@@ -339,15 +308,6 @@ export class OrderDetailComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        // Switching the line the issue is about changes the ceiling on
-        // `affectedQuantity`, so the already-typed number is re-judged against
-        // the new line instead of keeping a verdict from the previous one.
-        this.issueForm.controls.orderItemId.valueChanges
-            .pipe(takeUntilDestroyed(this._destroyRef))
-            .subscribe(() =>
-                this.issueForm.controls.affectedQuantity.updateValueAndValidity()
-            );
-
         const orderId = this._route.snapshot.paramMap.get('orderId') ?? '';
         if (!orderId) {
             this.notFound.set(true);
@@ -393,9 +353,9 @@ export class OrderDetailComponent implements OnInit {
     }
 
     /**
-     * Receipt confirmation and issue reporting both open once the goods have
-     * arrived. A delivery that failed leaves the order in `delivering`
-     * (role-flows §7.4), so `delivered` is the only state that qualifies.
+     * Receipt confirmation opens once the goods have arrived. A delivery that
+     * failed leaves the order in `delivering` (role-flows §7.4), so
+     * `delivered` is the only state that qualifies.
      */
     private _isDelivered(): boolean {
         return normalizeOrderStatus(this.order()?.status) === 'delivered';
@@ -403,10 +363,6 @@ export class OrderDetailComponent implements OnInit {
 
     canConfirmReceipt(): boolean {
         return this._isDelivered() && !this.receiptConfirmed();
-    }
-
-    canReportIssue(): boolean {
-        return this._isDelivered();
     }
 
     /** True once the restaurant has acknowledged receipt of this order. */
@@ -432,99 +388,6 @@ export class OrderDetailComponent implements OnInit {
             })
             .catch((err) => void this._reportAction(err))
             .finally(() => this.acting.set(false));
-    }
-
-    openIssue(): void {
-        this.issueOpen.set(true);
-        this.issueError.set(null);
-    }
-
-    closeIssue(): void {
-        this.issueOpen.set(false);
-        this.issueForm.reset({
-            issueType: ORDER_ISSUE_TYPES[0],
-            orderItemId: '',
-            affectedQuantity: null,
-            description: '',
-        });
-    }
-
-    submitIssue(): void {
-        const order = this.order();
-        if (!order?.id || this.acting()) {
-            return;
-        }
-        if (this.issueForm.invalid) {
-            this.issueForm.markAllAsTouched();
-            return;
-        }
-        const value = this.issueForm.getRawValue();
-        this.acting.set(true);
-        this.issueError.set(null);
-        this._ordersService
-            .reportIssue(order.id, {
-                issueType: value.issueType,
-                description: value.description.trim(),
-                orderItemId: value.orderItemId || null,
-                affectedQuantity: value.affectedQuantity,
-            })
-            .then(() => {
-                this._notify('orders.detail.issueSuccess');
-                this.closeIssue();
-                this._fetch(order.id!, true);
-            })
-            .catch(async (err) => {
-                const translate = (key: string): string =>
-                    this._transloco.translate(key);
-                const { handled } = await applyApiErrorToForm(
-                    this.issueForm,
-                    err,
-                    translate
-                );
-                this.issueError.set(
-                    handled
-                        ? translate('errors.api.validation')
-                        : await describeApiError(
-                              err,
-                              translate,
-                              'orders.detail.actionError'
-                          )
-                );
-            })
-            .finally(() => this.acting.set(false));
-    }
-
-    /** Line options for the issue form — an issue may name one order line. */
-    issueLines(): { id: string; label: string; quantity: number | null }[] {
-        const items = this.order()?.items;
-        if (!Array.isArray(items)) {
-            return [];
-        }
-        return items
-            .map((item) => ({
-                id: String(item.orderItemId ?? ''),
-                label: String(
-                    item.productNameSnapshot ?? item.orderItemId ?? ''
-                ),
-                quantity:
-                    typeof item.quantity === 'number' ? item.quantity : null,
-            }))
-            .filter((line) => !!line.id);
-    }
-
-    /**
-     * How much of the selected line was ordered — the ceiling the handler puts
-     * on `affectedQuantity`. `null` when the report covers the whole order (no
-     * line named), which the handler leaves unbounded.
-     */
-    selectedLineQuantity(): number | null {
-        const id = this.issueForm?.controls.orderItemId.value;
-        if (!id) {
-            return null;
-        }
-        return (
-            this.issueLines().find((line) => line.id === id)?.quantity ?? null
-        );
     }
 
     openCancel(): void {

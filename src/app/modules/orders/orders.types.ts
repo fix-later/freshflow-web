@@ -176,20 +176,6 @@ export interface OrderConfirmPreview {
 }
 
 /**
- * Issue kinds accepted by `POST /orders/{orderId}/issues`. Sent as-is; the
- * matching labels live under `orders.detail.issueType.*` in the i18n files.
- */
-export const ORDER_ISSUE_TYPES = [
-    'missing',
-    'damaged',
-    'wrong_item',
-    'quality',
-    'other',
-] as const;
-
-export type OrderIssueType = (typeof ORDER_ISSUE_TYPES)[number];
-
-/**
  * Order lifecycle statuses **as the API spells them**
  * (`OrderDtoMapper.ToApiStatus`), in the order an order moves through them.
  *

@@ -73,16 +73,6 @@
                             }}</span>
                         </button>
                     }
-                    @if (canReportIssue()) {
-                        <button
-                            mat-stroked-button
-                            type="button"
-                            [disabled]="acting()"
-                            (click)="openIssue()"
-                        >
-                            {{ t('orders.detail.reportIssue') }}
-                        </button>
-                    }
                     @if (canFileClaim()) {
                         <button
                             mat-stroked-button
@@ -166,7 +156,7 @@
                             [disabled]="acting()"
                             (click)="closeCancel()"
                         >
-                            {{ t('orders.detail.issueCancel') }}
+                            {{ t('orders.detail.formCancel') }}
                         </button>
                         <button
                             mat-flat-button
@@ -190,112 +180,6 @@
                     ></mat-icon>
                     <span>{{ t('orders.detail.receiptConfirmed') }}</span>
                 </div>
-            }
-
-            @if (issueOpen()) {
-                <form
-                    class="flex flex-col gap-4 rounded-xl border p-4"
-                    [formGroup]="issueForm"
-                    (ngSubmit)="submitIssue()"
-                >
-                    <div class="text-lg font-semibold">
-                        {{ t('orders.detail.issueTitle') }}
-                    </div>
-
-                    <div class="flex flex-col gap-4 sm:flex-row">
-                        <mat-form-field
-                            class="flex-1"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{
-                                t('orders.detail.issueTypeLabel')
-                            }}</mat-label>
-                            <mat-select formControlName="issueType">
-                                @for (type of issueTypes; track type) {
-                                    <mat-option [value]="type">{{
-                                        t('orders.detail.issueType.' + type)
-                                    }}</mat-option>
-                                }
-                            </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field
-                            class="flex-1"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{
-                                t('orders.detail.issueLine')
-                            }}</mat-label>
-                            <mat-select formControlName="orderItemId">
-                                <mat-option value="">{{
-                                    t('orders.detail.issueWholeOrder')
-                                }}</mat-option>
-                                @for (line of issueLines(); track line.id) {
-                                    <mat-option [value]="line.id">{{
-                                        line.label
-                                    }}</mat-option>
-                                }
-                            </mat-select>
-                        </mat-form-field>
-
-                        <mat-form-field
-                            class="sm:w-40"
-                            subscriptSizing="dynamic"
-                        >
-                            <mat-label>{{
-                                t('orders.detail.issueQuantity')
-                            }}</mat-label>
-                            <input
-                                matInput
-                                type="number"
-                                min="0"
-                                formControlName="affectedQuantity"
-                            />
-                        </mat-form-field>
-                    </div>
-
-                    <mat-form-field subscriptSizing="dynamic">
-                        <mat-label>{{
-                            t('orders.detail.issueDescription')
-                        }}</mat-label>
-                        <textarea
-                            matInput
-                            rows="3"
-                            maxlength="1000"
-                            formControlName="description"
-                        ></textarea>
-                        @if (
-                            issueForm.controls.description.touched &&
-                            issueForm.controls.description.hasError('required')
-                        ) {
-                            <mat-error>{{
-                                t('orders.detail.issueDescriptionRequired')
-                            }}</mat-error>
-                        }
-                    </mat-form-field>
-
-                    @if (issueError(); as error) {
-                        <div class="text-sm text-red-600">{{ error }}</div>
-                    }
-
-                    <div class="flex justify-end gap-3">
-                        <button
-                            mat-stroked-button
-                            type="button"
-                            (click)="closeIssue()"
-                        >
-                            {{ t('orders.detail.issueCancel') }}
-                        </button>
-                        <button
-                            mat-flat-button
-                            color="primary"
-                            type="submit"
-                            [disabled]="acting()"
-                        >
-                            {{ t('orders.detail.issueSubmit') }}
-                        </button>
-                    </div>
-                </form>
             }
 
             <!--
@@ -446,7 +330,7 @@
                             [disabled]="claimProofUploading()"
                             (click)="closeClaim()"
                         >
-                            {{ t('orders.detail.issueCancel') }}
+                            {{ t('orders.detail.formCancel') }}
                         </button>
                         <button
                             mat-flat-button
@@ -568,7 +452,7 @@
                                         type="button"
                                         (click)="cancelEditItem()"
                                         [matTooltip]="
-                                            t('orders.detail.issueCancel')
+                                            t('orders.detail.formCancel')
                                         "
                                     >
                                         <mat-icon
