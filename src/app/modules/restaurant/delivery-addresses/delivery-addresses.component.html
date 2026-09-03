@@ -127,13 +127,30 @@
                         </div>
 
                         <div class="mt-auto flex min-w-0 flex-col gap-1.5">
-                            @if (address.isDefault) {
-                                <span class="ff-addr__badge self-start">{{
-                                    t(
-                                        'restaurantProfile.deliveryAddresses.default'
-                                    )
-                                }}</span>
-                            }
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                @if (address.isDefault) {
+                                    <span class="ff-addr__badge">{{
+                                        t(
+                                            'restaurantProfile.deliveryAddresses.default'
+                                        )
+                                    }}</span>
+                                }
+                                <!--
+                                  Saved before the map point was required. It
+                                  still delivers, but nothing can price the
+                                  distance to it — so say so where it is fixed.
+                                -->
+                                @if (!hasPin(address)) {
+                                    <span
+                                        class="ff-addr__badge ff-addr__badge--warn"
+                                        >{{
+                                            t(
+                                                'restaurantProfile.deliveryAddresses.missingPin'
+                                            )
+                                        }}</span
+                                    >
+                                }
+                            </div>
                             <p class="text-sm font-semibold leading-snug">
                                 {{ address.addressLine }}
                             </p>
@@ -233,9 +250,34 @@
                         [lngControl]="form.controls.longitude"
                         [queryControl]="form.controls.addressLine"
                         searchLabelKey="restaurantProfile.deliveryAddresses.addressLine"
-                        [showManualCoords]="false"
+                        [showManualCoords]="!coordsPickable"
                         mapHeightClass="h-48"
                     ></app-location-picker>
+                    <!--
+                      Typing the street sets no coordinates — only picking a
+                      suggestion or the map does. Delivery is priced from this
+                      point, so the address is not finished until it exists;
+                      said up front, and as an error once a save was attempted.
+                    -->
+                    @if (missingPin() && coordsPickable) {
+                        <p
+                            class="ff-addr__pin"
+                            [class.ff-addr__pin--error]="
+                                form.controls.latitude.touched
+                            "
+                            data-testid="address-pin-required"
+                        >
+                            <mat-icon
+                                class="shrink-0 icon-size-4"
+                                [svgIcon]="'heroicons_outline:map-pin'"
+                            ></mat-icon>
+                            <span>{{
+                                t(
+                                    'restaurantProfile.deliveryAddresses.pinRequired'
+                                )
+                            }}</span>
+                        </p>
+                    }
                     @if (form.controls.addressLine.touched) {
                         @if (
                             serverMessage(form.controls.addressLine);
@@ -269,11 +311,18 @@
                             </div>
                         }
                     }
-                    @if (errorKey(form.controls.latitude); as key) {
-                        <div class="text-sm text-red-600">{{ t(key) }}</div>
-                    }
-                    @if (errorKey(form.controls.longitude); as key) {
-                        <div class="text-sm text-red-600">{{ t(key) }}</div>
+                    <!--
+                      Range errors only. A missing point is not "this field is
+                      required" — there is no field to fill, and the line above
+                      already says what to do about it.
+                    -->
+                    @if (!missingPin()) {
+                        @if (errorKey(form.controls.latitude); as key) {
+                            <div class="text-sm text-red-600">{{ t(key) }}</div>
+                        }
+                        @if (errorKey(form.controls.longitude); as key) {
+                            <div class="text-sm text-red-600">{{ t(key) }}</div>
+                        }
                     }
 
                     <div

@@ -72,6 +72,11 @@ export class GoongMapService {
         return !!environment.goongMapsKey;
     }
 
+    /** True when place search can resolve an address to coordinates. */
+    get placesEnabled(): boolean {
+        return !!environment.goongPlacesKey;
+    }
+
     /** Loads the SDK once and returns the `goongjs` global. */
     loadSdk(): Promise<GoongJs> {
         if (this._sdk) {

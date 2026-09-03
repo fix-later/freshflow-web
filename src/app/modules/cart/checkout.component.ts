@@ -215,6 +215,21 @@ export class CheckoutComponent implements OnInit {
     );
 
     /**
+     * The address exists but carries no map point.
+     *
+     * Delivery is priced by distance from that point, so such an address quotes
+     * 0₫ — which reads as free delivery rather than as "we could not work this
+     * out". Addresses saved before the pin was required are exactly this case,
+     * so checkout names it and sends the buyer to the one form that fixes it.
+     */
+    readonly addressMissingPin = computed(() => {
+        const address = this._restaurantProfile.defaultDeliveryAddress();
+        return (
+            !!address && (address.latitude == null || address.longitude == null)
+        );
+    });
+
+    /**
      * The address the order ships to. `POST /orders/{id}/confirm` requires it,
      * and it is what the delivery fee is priced from.
      */

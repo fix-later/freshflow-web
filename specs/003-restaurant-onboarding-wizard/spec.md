@@ -456,3 +456,30 @@ FR-014 is unchanged and still binding: this step posts nothing and must never
 present a control implying the account was submitted for approval.
 
 ---
+
+## Addendum — 2026-09-03: a delivery address without a map point
+
+**What was wrong.** The address step accepted an address as text. Coordinates
+were optional, and nothing in the form sets them from typing — only choosing a
+place-search suggestion, clicking the map or dragging the pin does. So the
+ordinary path through setup produced an address with no point on the map.
+
+Delivery is priced by distance from that point. An address without one is
+quoted at 0₫, which checkout renders as "Miễn phí" — a newly approved
+restaurant sees free delivery where the platform simply could not work the fee
+out, and the driver has no destination to route to.
+
+- **FR-A10**: Saving a delivery address MUST require a point on the map. The
+    form states the requirement while it is being filled, not only when a save
+    is refused.
+- **FR-A11**: Where a build cannot collect a point at all — no map key and no
+    place-search key — the requirement MUST be lifted and manual latitude and
+    longitude entry offered instead. Refusing to save what the app gives no way
+    to enter would lock a restaurant out of its own address book.
+- **FR-A12**: An address stored without a point (saved before FR-A10) MUST be
+    marked as such wherever it is shown — the address book, the review step, and
+    checkout — with checkout saying plainly that the delivery fee could not be
+    worked out rather than showing it as free.
+
+This does not change what the platform sends: `latitude`/`longitude` were always
+part of the address contract and the backend still accepts them as optional.

@@ -12,6 +12,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { TranslocoModule } from '@jsverse/transloco';
 import { UserService } from 'app/core/user/user.service';
 import { RestaurantProfileService } from '../restaurant-profile.service';
+import { DeliveryAddressView } from '../restaurant-profile.types';
 import { SetupCompletionService } from '../setup/setup-completion.service';
 import { RequiredSetupItemId } from '../setup/setup.types';
 
@@ -74,6 +75,16 @@ export class ReviewStepComponent {
     readonly states = this._completion.states;
 
     readonly addresses = this._profile.deliveryAddresses;
+
+    /**
+     * Whether an address carries a map point. Delivery is priced by distance
+     * from it, so an address without one quotes 0₫ at checkout — worth saying
+     * here, where the restaurant is checking its answers and one tap from the
+     * form that fixes it.
+     */
+    hasPin(address: DeliveryAddressView): boolean {
+        return address.latitude != null && address.longitude != null;
+    }
 
     /**
      * The account's real standing, so the closing copy matches it rather than

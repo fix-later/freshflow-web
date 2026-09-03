@@ -231,6 +231,18 @@
                                             )
                                         }}</span>
                                     }
+                                    <!-- No map point: delivery cannot be
+                                         priced from this address. -->
+                                    @if (!hasPin(address)) {
+                                        <span
+                                            class="ff-review__badge ff-review__badge--warn"
+                                            >{{
+                                                t(
+                                                    'restaurantProfile.deliveryAddresses.missingPin'
+                                                )
+                                            }}</span
+                                        >
+                                    }
                                 </div>
                                 @if (address.recipientName || address.phone) {
                                     <div class="text-secondary mt-0.5 text-sm">

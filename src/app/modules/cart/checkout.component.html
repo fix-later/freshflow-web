@@ -107,6 +107,24 @@
                                 <p>{{ t('checkout.shipping.noAddress') }}</p>
                             }
                         </div>
+                        <!-- Without a map point the fee quotes 0₫, which reads
+                             as free delivery. Name it where it is fixable. -->
+                        @if (addressMissingPin()) {
+                            <p
+                                class="checkout-shipping__address-warn"
+                                data-testid="checkout-address-missing-pin"
+                            >
+                                <mat-icon
+                                    class="shrink-0 icon-size-4"
+                                    [svgIcon]="
+                                        'heroicons_outline:exclamation-triangle'
+                                    "
+                                ></mat-icon>
+                                <span>{{
+                                    t('checkout.shipping.missingPin')
+                                }}</span>
+                            </p>
+                        }
                     </div>
 
                     <div class="checkout-shipping__schedule">

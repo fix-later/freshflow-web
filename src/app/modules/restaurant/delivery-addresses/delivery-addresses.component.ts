@@ -8,7 +8,12 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+    FormBuilder,
+    ReactiveFormsModule,
+    ValidatorFn,
+    Validators,
+} from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -36,6 +41,7 @@ import {
     RECIPIENT_NAME_MAX_LENGTH,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { GoongMapService } from 'app/core/maps/goong-map.service';
 import { LocationPickerComponent } from 'app/core/maps/location-picker.component';
 import { UserService } from 'app/core/user/user.service';
 import { DeliveryAddressRequest } from 'contract';
@@ -73,6 +79,7 @@ export class DeliveryAddressesComponent implements OnInit {
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
     private readonly _user = inject(UserService);
+    private readonly _goong = inject(GoongMapService);
 
     readonly addresses = this._service.deliveryAddresses;
 
@@ -92,6 +99,20 @@ export class DeliveryAddressesComponent implements OnInit {
     readonly formOpen = signal(false);
     /** `null` while adding; the address id while editing an existing one. */
     readonly editingId = signal<string | null>(null);
+
+    /**
+     * Whether this build can actually produce a point: the map needs a Maptiles
+     * key, place search a Places key. With neither, the picker falls back to
+     * manual latitude/longitude inputs — and a point stops being required,
+     * because refusing to save what the app gives no way to enter would lock a
+     * restaurant out of its own address book.
+     */
+    readonly coordsPickable =
+        this._goong.mapsEnabled || this._goong.placesEnabled;
+
+    private _coordValidators(range: ValidatorFn): ValidatorFn[] {
+        return this.coordsPickable ? [Validators.required, range] : [range];
+    }
 
     // Mirrors `AddDeliveryAddressCommandValidator` /
     // `UpdateDeliveryAddressCommandValidator` (identical rule sets): the
@@ -113,10 +134,33 @@ export class DeliveryAddressesComponent implements OnInit {
             phoneNumberValidator,
             trimmedMaxLengthValidator(PHONE_MAX_LENGTH),
         ]),
-        latitude: this._fb.control<number | null>(null, [latitudeValidator]),
-        longitude: this._fb.control<number | null>(null, [longitudeValidator]),
+        // Required here even though the backend accepts an address without
+        // them: delivery is priced by distance from this point, so an address
+        // saved as text alone answers a 0₫ fee at checkout and no route for the
+        // driver. Typing the street never sets these — only picking a search
+        // result, clicking the map or dragging the pin does — so without this
+        // rule the usual path is a coordinate-less address.
+        latitude: this._fb.control<number | null>(
+            null,
+            this._coordValidators(latitudeValidator)
+        ),
+        longitude: this._fb.control<number | null>(
+            null,
+            this._coordValidators(longitudeValidator)
+        ),
         isDefault: this._fb.control(false, { nonNullable: true }),
     });
+
+    /** True while the address has no map point — the save blocker to explain. */
+    readonly missingPin = computed(() => {
+        const value = this._formValue();
+        return value?.latitude == null || value?.longitude == null;
+    });
+
+    /** A saved address the platform cannot price or route to. */
+    hasPin(address: DeliveryAddressView): boolean {
+        return address.latitude != null && address.longitude != null;
+    }
 
     async ngOnInit(): Promise<void> {
         await this.reload();
