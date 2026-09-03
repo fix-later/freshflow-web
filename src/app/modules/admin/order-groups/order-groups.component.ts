@@ -56,6 +56,7 @@ import {
     AdminUserRow,
 } from '../admin.types';
 import { CatalogAdminService } from '../catalog/catalog-admin.service';
+import { SessionFailedDelivery } from '../incidents/incidents.types';
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import {
     LoadingManifest,
@@ -110,6 +111,16 @@ const KNOWN_SKIP_REASONS = new Set([
  * {@link AdminService.getSettledOrder}, so revisiting the board costs none.
  */
 const HISTORY_ORDER_READ_CHUNK = 6;
+
+/**
+ * Where "Tuyến giao hàng" sits in the tracking dialog's tab strip.
+ *
+ * Named rather than written as a literal in three places: the tab order is a
+ * reading order (what happened, then where it is going, then what went wrong),
+ * and the last time it changed the deep link from the session card opened the
+ * wrong panel because the number lived in the template.
+ */
+const ROUTING_TAB_INDEX = 3;
 
 const VIETNAM_ZONE = 'Asia/Ho_Chi_Minh';
 const UNASSIGNED_AGENT_ID = '00000000-0000-0000-0000-000000000000';
@@ -321,11 +332,23 @@ function exactResetConfirmation(
                 transition:
                     border-color 160ms ease,
                     background-color 160ms ease,
+                    box-shadow 160ms ease,
                     transform 160ms ease;
             }
 
             .planning-day-card:hover {
                 transform: translateY(-1px);
+            }
+
+            /* The lift is decoration; the row still has to be usable without it. */
+            @media (prefers-reduced-motion: reduce) {
+                .planning-day-card {
+                    transition: none;
+                }
+
+                .planning-day-card:hover {
+                    transform: none;
+                }
             }
 
             .history-groups-grid {
@@ -411,6 +434,17 @@ export class OrderGroupsComponent implements OnInit {
     readonly marketSessionTrackingPageIndex = signal(0);
     readonly marketSessionTrackingPageSize = signal(20);
     readonly marketSessionTrackingTabIndex = signal(0);
+
+    /**
+     * Bumped by the dialog's one refresh button.
+     *
+     * The panels that fetch for themselves (hoạt động, báo cáo) cache what they
+     * read by session, so they need to be told that a reload was asked for —
+     * this counter is that word. Each tab used to carry its own refresh, which
+     * put three buttons on a dialog that already had one in its header, and
+     * none of them refreshed the panel beside it.
+     */
+    readonly marketSessionReloadToken = signal(0);
     readonly expandedTrackingOrderIds = signal<ReadonlySet<string>>(new Set());
     readonly marketSessionInbound = signal<CrudRow | null>(null);
     readonly marketSessionInboundLoading = signal(false);
@@ -916,6 +950,7 @@ export class OrderGroupsComponent implements OnInit {
     refreshMarketSessionTracking(): void {
         const session = this.trackedMarketSession();
         if (!session || this.marketSessionTrackingLoading()) return;
+        this.marketSessionReloadToken.update((token) => token + 1);
         this.marketSessionTrackingLoading.set(true);
         this.marketSessionTrackingError.set(false);
         this._admin
@@ -947,7 +982,7 @@ export class OrderGroupsComponent implements OnInit {
 
     selectMarketSessionTrackingTab(index: number): void {
         this.marketSessionTrackingTabIndex.set(index);
-        if (index === 2) this.loadMarketSessionRoutes();
+        if (index === ROUTING_TAB_INDEX) this.loadMarketSessionRoutes();
     }
 
     marketSessionBatchItem(
@@ -1679,12 +1714,30 @@ export class OrderGroupsComponent implements OnInit {
     marketSessionStatusClass(session: AdminMarketSession): string {
         switch (session.status) {
             case 'open':
-                return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200';
+                return 'bg-green-100 text-green-800 dark:bg-green-500 dark:text-green-50';
             case 'closed':
-                return 'border-gray-200 bg-gray-100 text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200';
+                return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-50';
             default:
-                return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200';
+                return 'bg-amber-100 text-amber-800 dark:bg-amber-500 dark:text-amber-50';
         }
+    }
+
+    /**
+     * How far the session has come, as a percentage for the card's footer bar:
+     * nháp → đang nhận đơn → đã gom → đã đóng.
+     *
+     * Read off the two fields that actually record it (`status`,
+     * `batchingCompletedAt`) rather than kept as a step counter of its own, so
+     * the bar cannot disagree with the pills above it.
+     */
+    marketSessionProgress(session: AdminMarketSession): number {
+        if (session.status === 'closed') {
+            return 100;
+        }
+        if (this.marketSessionBatchingStatus(session) === 'completed') {
+            return 75;
+        }
+        return session.status === 'open' ? 50 : 15;
     }
 
     marketSessionBatchingStatus(
@@ -1702,11 +1755,11 @@ export class OrderGroupsComponent implements OnInit {
     marketSessionBatchingClass(session: AdminMarketSession): string {
         switch (this.marketSessionBatchingStatus(session)) {
             case 'completed':
-                return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-200';
+                return 'bg-blue-100 text-blue-800 dark:bg-blue-500 dark:text-blue-50';
             case 'pending':
-                return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200';
+                return 'bg-amber-100 text-amber-800 dark:bg-amber-500 dark:text-amber-50';
             default:
-                return 'border-gray-200 bg-gray-50 text-gray-600 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300';
+                return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-100';
         }
     }
 
@@ -1804,6 +1857,73 @@ export class OrderGroupsComponent implements OnInit {
                 this._routeStatus(route)
             )
         );
+    }
+
+    /**
+     * The session's failed stops, for the reports tab.
+     *
+     * A driver reporting one is the third kind of report a session collects —
+     * beside the agents' purchase exceptions and the hub's receiving
+     * discrepancies — and the only one with no list endpoint of its own. It is
+     * assembled here because the dialog already walks the day's routes and
+     * their deliveries when it opens; the reports tab turns each stop into a
+     * row by reading the order it cancelled.
+     */
+    readonly marketSessionFailedDeliveries = computed<SessionFailedDelivery[]>(
+        () =>
+            this.marketSessionRoutes().flatMap((view, routeIndex) => {
+                const crew = this.routeCrew(view.route);
+                const routeLabel = this._transloco.translate(
+                    'admin.orderGroups.marketSessions.routing.routeNumber',
+                    { number: routeIndex + 1 }
+                );
+                return view.deliveries
+                    .filter(
+                        (delivery) =>
+                            delivery.status.trim().toLowerCase() === 'failed'
+                    )
+                    .map((delivery) => ({
+                        deliveryId: delivery.deliveryId,
+                        orderId: delivery.orderId,
+                        routeLabel,
+                        driverName: crew?.driverName ?? null,
+                        at: delivery.actualArrival ?? null,
+                        proofUrl: delivery.proofUrl ?? null,
+                    }));
+            })
+    );
+
+    /**
+     * Whether the "create a plan" controls belong to the empty state rather
+     * than to the toolbar above it.
+     *
+     * They live wherever the pane is actually asking for the action: with no
+     * routes and no proposal on screen the whole tab is one empty state, and a
+     * toolbar button above an empty box asks the question twice. Once there is
+     * something to re-plan, they go back to the toolbar.
+     */
+    planningControlsInEmptyState(): boolean {
+        return (
+            this.showMarketSessionRoutePlanningControls() &&
+            !this.marketSessionRoutesLoading() &&
+            this.marketSessionRoutes().length === 0 &&
+            !this.marketSessionRoutePlan()
+        );
+    }
+
+    /**
+     * What stands between this session and a delivery plan, as an i18n key —
+     * `null` when nothing does and the action is simply waiting to be taken.
+     *
+     * Only one thing ever does: routing runs off batched orders, so a session
+     * the system has not gathered into a lô yet has nothing to route. Said
+     * plainly in the empty state, because a disabled button with no reason
+     * reads as a broken screen.
+     */
+    marketSessionRoutingBlocker(session: AdminMarketSession): string | null {
+        return this.marketSessionBatchingStatus(session) === 'completed'
+            ? null
+            : 'admin.orderGroups.marketSessions.routing.needsBatching';
     }
 
     /**

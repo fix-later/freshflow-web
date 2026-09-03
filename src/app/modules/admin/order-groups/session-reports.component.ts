@@ -28,7 +28,11 @@ import {
     incidentTypeLabel,
 } from '../incidents/incident-labels';
 import { IncidentsService } from '../incidents/incidents.service';
-import { AdminIncident, IncidentSource } from '../incidents/incidents.types';
+import {
+    AdminIncident,
+    IncidentSource,
+    SessionFailedDelivery,
+} from '../incidents/incidents.types';
 
 type SourceFilter = IncidentSource | '';
 type StatusFilter = 'open' | 'acknowledged' | 'reported' | '';
@@ -83,11 +87,26 @@ export class SessionReportsComponent {
     readonly hubId = input<string | null>(null);
 
     /**
+     * Stops the drivers could not deliver, as the dialog's route walk already
+     * found them. Passed in rather than fetched: the reasons live on the
+     * cancelled orders, so this tab reads one order per failed stop and nothing
+     * at all on a session where every stop landed.
+     */
+    readonly failedDeliveries = input<readonly SessionFailedDelivery[]>([]);
+
+    /**
      * Whether the tab is the one on screen. The hub's discrepancy list is a
      * cursor-paged read the other three tabs have no use for, so nothing is
      * fetched until someone actually opens this one.
      */
     readonly active = input(false);
+
+    /**
+     * Bumped by the dialog's refresh button. Part of {@link _key}, so asking
+     * for a reload invalidates what this panel has cached and it re-reads the
+     * next time it is on screen — one button in the header serving every tab.
+     */
+    readonly reloadToken = input(0);
 
     readonly loading = signal(false);
     readonly loadError = signal<string | null>(null);
@@ -143,6 +162,7 @@ export class SessionReportsComponent {
             procurement: rows.filter((row) => row.source === 'procurement')
                 .length,
             hub: rows.filter((row) => row.source === 'hub').length,
+            delivery: rows.filter((row) => row.source === 'delivery').length,
             open: rows.filter((row) => row.status === 'open').length,
         };
     });
@@ -251,54 +271,62 @@ export class SessionReportsComponent {
     }
 
     private _key(): string {
-        return `${this.batch()?.id ?? ''}|${this.hubId() ?? ''}`;
+        return [
+            this.batch()?.id ?? '',
+            this.hubId() ?? '',
+            // The failed stops are part of the question: a driver reporting one
+            // while the dialog is open changes what this tab should list, and
+            // the routes behind it are reloaded on their own tab.
+            this.failedDeliveries()
+                .map((delivery) => delivery.deliveryId)
+                .join(','),
+            String(this.reloadToken()),
+        ].join('|');
     }
 
     /**
-     * Reads both streams independently: a hub that will not answer must not
-     * hide the agents' exceptions, which came from a different endpoint and are
-     * already in hand. Only a double failure is an error; one is a warning over
-     * the rows that did arrive.
+     * Reads the three streams independently: a hub that will not answer must
+     * not hide the agents' exceptions, which came from a different endpoint and
+     * are already in hand. Only a total failure is an error; anything less is a
+     * warning over the rows that did arrive.
      */
     private async _load(): Promise<void> {
         const key = this._key();
         const batch = this.batch();
         const hubId = this.hubId();
+        const deliveries = this.failedDeliveries();
         this.loading.set(true);
         this.loadError.set(null);
         this.partial.set(false);
         try {
-            const [procurement, hub] = await Promise.allSettled([
+            const settled = await Promise.allSettled([
                 this._incidents.listSessionProcurementIncidents(batch),
                 this._incidents.listSessionHubIncidents(batch, hubId),
+                this._incidents.listSessionDeliveryIncidents(deliveries),
             ]);
             // The dialog may have moved to another session while this was out.
             if (key !== this._key()) {
                 return;
             }
-            const rows = [
-                ...(procurement.status === 'fulfilled'
-                    ? procurement.value
-                    : []),
-                ...(hub.status === 'fulfilled' ? hub.value : []),
-            ];
+            const rows = settled.flatMap((result) =>
+                result.status === 'fulfilled' ? result.value : []
+            );
             this.reports.set(rows.sort(byReportedAtDesc));
-            if (
-                procurement.status === 'rejected' &&
-                hub.status === 'rejected'
-            ) {
+
+            const failures = settled.filter(
+                (result): result is PromiseRejectedResult =>
+                    result.status === 'rejected'
+            );
+            if (failures.length === settled.length) {
                 this.loadError.set(
                     await describeApiError(
-                        procurement.reason,
+                        failures[0].reason,
                         (translationKey) => this._t(translationKey),
                         'admin.orderGroups.marketSessions.reports.loadError'
                     )
                 );
                 this._loadedKey = null;
-            } else if (
-                procurement.status === 'rejected' ||
-                hub.status === 'rejected'
-            ) {
+            } else if (failures.length) {
                 this.partial.set(true);
             }
         } finally {

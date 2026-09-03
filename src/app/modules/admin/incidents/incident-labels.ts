@@ -13,11 +13,11 @@ import { AdminIncident } from './incidents.types';
 /**
  * The kind, in the reader's language.
  *
- * The two sources spell their kinds in different vocabularies —
+ * The sources spell their kinds in different vocabularies —
  * `ProcurementExceptionType` in PascalCase, `HubDiscrepancy.Condition*` in
- * SCREAMING_CASE — so the source decides which table is consulted. A token with
- * no entry shows as itself: a new backend kind reads as a raw word, never as a
- * missing label.
+ * SCREAMING_CASE, and a driver's stop has exactly one kind — so the source
+ * decides which table is consulted. A token with no entry shows as itself: a
+ * new backend kind reads as a raw word, never as a missing label.
  */
 export function incidentTypeLabel(
     incident: AdminIncident,
@@ -30,7 +30,9 @@ export function incidentTypeLabel(
     const key =
         incident.source === 'procurement'
             ? `admin.orderGroups.exceptionType.${token}`
-            : `admin.incidents.condition.${token.toLowerCase()}`;
+            : incident.source === 'delivery'
+              ? `admin.incidents.delivery.${token}`
+              : `admin.incidents.condition.${token.toLowerCase()}`;
     const label = translate(key);
     return label === key ? token : label;
 }
@@ -54,19 +56,25 @@ export function incidentStatusPillClass(incident: AdminIncident): string {
 }
 
 /**
- * Who reported it. The hub DTO carries no reporter id at all, so a hub row
- * names the role rather than inventing a person.
+ * Who reported it. The hub DTO carries no reporter id at all, and a delivery
+ * whose route the roster cannot name has none either, so both fall back to the
+ * role rather than inventing a person.
  */
 export function incidentReporterLabel(
     incident: AdminIncident,
     translate: (key: string) => string
 ): string {
-    return (
-        incident.reporterName ||
-        (incident.source === 'hub'
-            ? translate('admin.incidents.reporter.hubStaff')
-            : '—')
-    );
+    if (incident.reporterName) {
+        return incident.reporterName;
+    }
+    switch (incident.source) {
+        case 'hub':
+            return translate('admin.incidents.reporter.hubStaff');
+        case 'delivery':
+            return translate('admin.incidents.reporter.driver');
+        default:
+            return '—';
+    }
 }
 
 /**

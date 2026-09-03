@@ -84,6 +84,13 @@ export class SessionActivityComponent {
     /** Nothing is read until the tab is the one on screen. */
     readonly active = input(false);
 
+    /**
+     * Bumped by the dialog's refresh button. Part of {@link _key}, so asking
+     * for a reload invalidates what this panel has cached and it re-reads the
+     * next time it is on screen — one button in the header serving every tab.
+     */
+    readonly reloadToken = input(0);
+
     readonly loading = signal(false);
     readonly loadError = signal<string | null>(null);
     /** At least one of the four hub reads did not answer. */
@@ -194,15 +201,34 @@ export class SessionActivityComponent {
         return label === key ? action.kind : label;
     }
 
-    /** Indigo for the chợ, cyan for the hub — the same pairing the reports use. */
-    actorDotClass(action: SessionAction): string {
+    /**
+     * The timeline marker's colours — indigo for the chợ, cyan for the hub, the
+     * same pairing the reports use.
+     *
+     * People's acts are ringed and the session's own milestones are filled: the
+     * milestones are the spine the rest hangs off, so they read as the darker
+     * marks even though there are only ever three of them.
+     */
+    actorMarkerClass(action: SessionAction): string {
         switch (action.actor) {
             case 'market_agent':
-                return 'bg-indigo-500';
+                return 'bg-card text-indigo-600 ring-indigo-200 dark:bg-default dark:text-indigo-300 dark:ring-indigo-800';
             case 'hub_staff':
-                return 'bg-cyan-500';
+                return 'bg-card text-cyan-600 ring-cyan-200 dark:bg-default dark:text-cyan-300 dark:ring-cyan-800';
             default:
-                return 'bg-gray-400';
+                return 'bg-gray-700 text-white ring-transparent dark:bg-gray-600';
+        }
+    }
+
+    /** What the marker shows: who did it, not what was done. */
+    actorIcon(action: SessionAction): string {
+        switch (action.actor) {
+            case 'market_agent':
+                return 'heroicons_solid:shopping-bag';
+            case 'hub_staff':
+                return 'heroicons_solid:cube';
+            default:
+                return 'heroicons_solid:flag';
         }
     }
 
@@ -333,6 +359,7 @@ export class SessionActivityComponent {
             this.batch()?.id ?? '',
             this.hubId() ?? '',
             this.serviceDate() ?? '',
+            String(this.reloadToken()),
         ].join('|');
     }
 

@@ -324,8 +324,17 @@
                                 </button>
                             </div>
 
+                            <!--
+                              The day strip scrolls, so it runs the full width
+                              of the header rather than stopping at its
+                              padding: a card half in view at the edge is what
+                              says there are more days. `py-2` is the room the
+                              cards' own hover lift and focus ring need — with
+                              only the old `pb-1` the scroller clipped both,
+                              and a selected card lost its top corners.
+                            -->
                             <div
-                                class="mt-5 flex gap-3 overflow-x-auto pb-1"
+                                class="-mx-5 mt-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 py-2 md:-mx-6 md:scroll-px-6 md:px-6"
                                 role="tablist"
                                 [attr.aria-label]="
                                     t(
@@ -337,12 +346,21 @@
                                     <button
                                         type="button"
                                         role="tab"
-                                        class="planning-day-card flex-none rounded-2xl border px-4 py-3 text-left outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                                        class="planning-day-card flex-none snap-start rounded-2xl border px-4 py-3 text-left shadow-sm outline-none hover:border-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                                         [class.border-primary]="
                                             day.iso === selectedPlanningIso()
                                         "
                                         [class.bg-primary-50]="
                                             day.iso === selectedPlanningIso()
+                                        "
+                                        [class.ring-1]="
+                                            day.iso === selectedPlanningIso()
+                                        "
+                                        [class.ring-primary]="
+                                            day.iso === selectedPlanningIso()
+                                        "
+                                        [class.bg-card]="
+                                            day.iso !== selectedPlanningIso()
                                         "
                                         [attr.aria-selected]="
                                             day.iso === selectedPlanningIso()
@@ -446,127 +464,72 @@
                                         session of selectedMarketSessions();
                                         track session.id
                                     ) {
+                                        <!--
+                                          Session card, laid out the way the
+                                          Fuse academy course card is: a tinted
+                                          state pill and a readiness mark on
+                                          top, the chợ and its cut-off as the
+                                          heading, a short rule, then the
+                                          facts as icon rows — and the actions
+                                          on their own footer band under a
+                                          progress bar for where the session
+                                          has got to. The old card put its
+                                          numbers in a grey box and its
+                                          actions in the body, so every card
+                                          read as one undivided block of text.
+                                        -->
                                         <article
-                                            class="rounded-2xl border p-4 md:p-5"
+                                            class="bg-card flex flex-col overflow-hidden rounded-2xl shadow"
                                             [attr.data-testid]="
                                                 'market-session-' + session.id
                                             "
                                         >
-                                            <div
-                                                class="flex flex-col justify-between gap-3 sm:flex-row sm:items-start"
-                                            >
-                                                <div class="min-w-0">
-                                                    <h3
-                                                        class="truncate text-lg font-bold"
-                                                    >
-                                                        {{
-                                                            marketSessionName(
-                                                                session
-                                                            )
-                                                        }}
-                                                    </h3>
-                                                    <p
-                                                        class="text-secondary mt-1 text-sm"
-                                                    >
-                                                        {{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.closesAt',
-                                                                {
-                                                                    value: formatSessionCloseTime(
-                                                                        session.closesAt
-                                                                    ),
-                                                                }
-                                                            )
-                                                        }}
-                                                    </p>
-                                                </div>
+                                            <div class="flex flex-col p-6">
                                                 <div
-                                                    class="flex flex-wrap items-center justify-end gap-2"
+                                                    class="flex items-start justify-between gap-3"
                                                 >
-                                                    <span
-                                                        class="w-fit rounded-full border px-3 py-1 text-xs font-bold"
-                                                        [class]="
-                                                            marketSessionStatusClass(
-                                                                session
-                                                            )
-                                                        "
+                                                    <div
+                                                        class="flex flex-wrap items-center gap-2"
                                                     >
-                                                        {{
-                                                            marketSessionStatusLabel(
-                                                                session
-                                                            )
-                                                        }}
-                                                    </span>
-                                                    <span
-                                                        class="w-fit rounded-full border px-3 py-1 text-xs font-bold"
-                                                        [class]="
-                                                            marketSessionBatchingClass(
-                                                                session
-                                                            )
-                                                        "
-                                                    >
-                                                        {{
-                                                            marketSessionBatchingLabel(
-                                                                session
-                                                            )
-                                                        }}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            <div
-                                                class="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-gray-50 p-3 text-sm dark:bg-gray-950 sm:grid-cols-3"
-                                            >
-                                                <div>
-                                                    <span
-                                                        class="text-secondary block text-xs"
-                                                        >{{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.agentCount'
-                                                            )
-                                                        }}</span
-                                                    >
-                                                    <strong>{{
-                                                        session.eligibleAgentCount
-                                                    }}</strong>
-                                                </div>
-                                                <div>
-                                                    <span
-                                                        class="text-secondary block text-xs"
-                                                        >{{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.vehicleCount'
-                                                            )
-                                                        }}</span
-                                                    >
-                                                    <strong>{{
-                                                        session.availableVehicleCount
-                                                    }}</strong>
-                                                </div>
-                                                <div>
-                                                    <span
-                                                        class="text-secondary block text-xs"
-                                                        >{{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.capacity'
-                                                            )
-                                                        }}</span
-                                                    >
-                                                    <strong
-                                                        >{{
-                                                            session.hubVehicleCapacityKg
-                                                        }}
-                                                        kg</strong
-                                                    >
-                                                </div>
-                                            </div>
-
-                                            <div class="mt-4">
-                                                <div
-                                                    class="flex items-center gap-2 text-sm font-semibold"
-                                                >
+                                                        <span
+                                                            class="rounded-full px-3 py-0.5 text-sm font-semibold"
+                                                            [class]="
+                                                                marketSessionStatusClass(
+                                                                    session
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                marketSessionStatusLabel(
+                                                                    session
+                                                                )
+                                                            }}
+                                                        </span>
+                                                        <span
+                                                            class="rounded-full px-3 py-0.5 text-sm font-semibold"
+                                                            [class]="
+                                                                marketSessionBatchingClass(
+                                                                    session
+                                                                )
+                                                            "
+                                                        >
+                                                            {{
+                                                                marketSessionBatchingLabel(
+                                                                    session
+                                                                )
+                                                            }}
+                                                        </span>
+                                                    </div>
+                                                    <!--
+                                                      Readiness as a mark, not
+                                                      a sentence: it is the one
+                                                      thing to check at a
+                                                      glance, and the reasons
+                                                      are spelled out below
+                                                      when there are any.
+                                                    -->
                                                     <mat-icon
-                                                        class="icon-size-5"
+                                                        class="shrink-0 icon-size-5"
                                                         [class.text-emerald-600]="
                                                             session.readiness ===
                                                             'ready'
@@ -575,63 +538,186 @@
                                                             session.readiness !==
                                                             'ready'
                                                         "
+                                                        [matTooltip]="
+                                                            marketSessionReadinessLabel(
+                                                                session
+                                                            )
+                                                        "
                                                         [svgIcon]="
                                                             session.readiness ===
                                                             'ready'
-                                                                ? 'heroicons_outline:check-circle'
-                                                                : 'heroicons_outline:exclamation-triangle'
+                                                                ? 'heroicons_solid:check-badge'
+                                                                : 'heroicons_solid:exclamation-triangle'
                                                         "
                                                     ></mat-icon>
+                                                </div>
+
+                                                <h3
+                                                    class="mt-4 truncate text-lg font-medium"
+                                                >
                                                     {{
-                                                        marketSessionReadinessLabel(
+                                                        marketSessionName(
                                                             session
                                                         )
                                                     }}
+                                                </h3>
+                                                <p
+                                                    class="text-secondary mt-0.5"
+                                                >
+                                                    {{
+                                                        t(
+                                                            'admin.orderGroups.marketSessions.closesAt',
+                                                            {
+                                                                value: formatSessionCloseTime(
+                                                                    session.closesAt
+                                                                ),
+                                                            }
+                                                        )
+                                                    }}
+                                                </p>
+
+                                                <div
+                                                    class="my-6 h-1 w-12 border-t-2"
+                                                ></div>
+
+                                                <div
+                                                    class="text-secondary flex items-center text-md leading-5"
+                                                >
+                                                    <mat-icon
+                                                        class="text-hint icon-size-5"
+                                                        svgIcon="heroicons_solid:user-group"
+                                                    ></mat-icon>
+                                                    <div class="ml-1.5">
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.agentCount'
+                                                            )
+                                                        }}:
+                                                        <span
+                                                            class="text-default font-medium tabular-nums"
+                                                            >{{
+                                                                session.eligibleAgentCount
+                                                            }}</span
+                                                        >
+                                                    </div>
                                                 </div>
+                                                <div
+                                                    class="text-secondary mt-2 flex items-center text-md leading-5"
+                                                >
+                                                    <mat-icon
+                                                        class="text-hint icon-size-5"
+                                                        svgIcon="heroicons_solid:truck"
+                                                    ></mat-icon>
+                                                    <div class="ml-1.5">
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.vehicleCount'
+                                                            )
+                                                        }}:
+                                                        <span
+                                                            class="text-default font-medium tabular-nums"
+                                                            >{{
+                                                                session.availableVehicleCount
+                                                            }}</span
+                                                        >
+                                                    </div>
+                                                </div>
+                                                <div
+                                                    class="text-secondary mt-2 flex items-center text-md leading-5"
+                                                >
+                                                    <mat-icon
+                                                        class="text-hint icon-size-5"
+                                                        svgIcon="heroicons_solid:scale"
+                                                    ></mat-icon>
+                                                    <div class="ml-1.5">
+                                                        {{
+                                                            t(
+                                                                'admin.orderGroups.marketSessions.capacity'
+                                                            )
+                                                        }}:
+                                                        <span
+                                                            class="text-default font-medium tabular-nums"
+                                                            >{{
+                                                                session.hubVehicleCapacityKg
+                                                            }}
+                                                            kg</span
+                                                        >
+                                                    </div>
+                                                </div>
+
                                                 @if (session.warnings.length) {
                                                     <ul
-                                                        class="text-secondary mt-2 space-y-1 pl-7 text-sm"
+                                                        class="mt-2 space-y-1 text-md"
                                                     >
                                                         @for (
                                                             warning of session.warnings;
                                                             track warning
                                                         ) {
-                                                            <li>
-                                                                •
-                                                                {{
-                                                                    marketSessionWarningLabel(
-                                                                        warning
-                                                                    )
-                                                                }}
+                                                            <li
+                                                                class="flex items-start text-amber-700 dark:text-amber-300"
+                                                            >
+                                                                <mat-icon
+                                                                    class="mt-0.5 shrink-0 text-current icon-size-5"
+                                                                    svgIcon="heroicons_solid:exclamation-circle"
+                                                                ></mat-icon>
+                                                                <span
+                                                                    class="ml-1.5 leading-5"
+                                                                    >{{
+                                                                        marketSessionWarningLabel(
+                                                                            warning
+                                                                        )
+                                                                    }}</span
+                                                                >
                                                             </li>
                                                         }
                                                     </ul>
                                                 }
                                             </div>
 
+                                            <!--
+                                              Footer: how far the session has
+                                              got, then what can be done to it.
+                                              The bar reads draft → open →
+                                              gom → đóng, which is the order
+                                              the buttons below it appear in.
+                                            -->
                                             <div
-                                                class="mt-5 flex flex-wrap items-center justify-between gap-3 border-t pt-4"
+                                                class="mt-auto flex w-full flex-col"
                                             >
-                                                <span
-                                                    class="text-secondary text-xs"
-                                                >
-                                                    @if (!session.hubId) {
-                                                        {{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.noHub'
-                                                            )
-                                                        }}
-                                                    } @else {
-                                                        {{
-                                                            t(
-                                                                'admin.orderGroups.marketSessions.serverAuthoritative'
-                                                            )
-                                                        }}
-                                                    }
-                                                </span>
+                                                <mat-progress-bar
+                                                    class="h-0.5"
+                                                    mode="determinate"
+                                                    [value]="
+                                                        marketSessionProgress(
+                                                            session
+                                                        )
+                                                    "
+                                                    [matTooltip]="
+                                                        marketSessionStatusLabel(
+                                                            session
+                                                        )
+                                                    "
+                                                ></mat-progress-bar>
                                                 <div
-                                                    class="flex flex-wrap items-center gap-2"
+                                                    class="flex flex-wrap items-center justify-end gap-x-3 gap-y-2 bg-gray-50 px-6 py-4 dark:bg-transparent"
                                                 >
+                                                    <span
+                                                        class="text-secondary mr-auto text-xs"
+                                                    >
+                                                        @if (!session.hubId) {
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.noHub'
+                                                                )
+                                                            }}
+                                                        } @else {
+                                                            {{
+                                                                t(
+                                                                    'admin.orderGroups.marketSessions.serverAuthoritative'
+                                                                )
+                                                            }}
+                                                        }
+                                                    </span>
                                                     @if (
                                                         canOpenMarketSessions() &&
                                                         session.status !==
@@ -788,7 +874,7 @@
                                                                 openMarketSessionTracking(
                                                                     session,
                                                                     marketSessionTrackingDialog,
-                                                                    2
+                                                                    3
                                                                 )
                                                             "
                                                         >
@@ -1875,6 +1961,12 @@
                                                 )
                                             }}
                                         } @else if (tracking.batch; as batch) {
+                                            <!-- `statusLabel`, not the raw
+                                                 field: the batch status is a
+                                                 backend token ("Completed")
+                                                 and the list beside this
+                                                 dialog has always shown it
+                                                 translated. -->
                                             {{
                                                 t(
                                                     'admin.orderGroups.marketSessions.tracking.batchingCreated',
@@ -1884,7 +1976,9 @@
                                                             shortOrderId(
                                                                 batch.id
                                                             ),
-                                                        status: batch.status,
+                                                        status: statusLabel(
+                                                            batch.status
+                                                        ),
                                                     }
                                                 )
                                             }}
@@ -3116,6 +3210,24 @@
                             }
                         </div>
                     </mat-tab>
+                    <!--
+                      The other half of the same question: not what went wrong,
+                      but what was done — and by whom.
+                    -->
+                    <mat-tab
+                        [label]="
+                            t('admin.orderGroups.marketSessions.activity.tab')
+                        "
+                    >
+                        <admin-session-activity
+                            [batch]="marketSessionAssignmentBatch()"
+                            [hubId]="tracking.session.hubId ?? null"
+                            [marketId]="tracking.session.marketId ?? null"
+                            [serviceDate]="tracking.session.serviceDate ?? null"
+                            [reloadToken]="marketSessionReloadToken()"
+                            [active]="marketSessionTrackingTabIndex() === 2"
+                        ></admin-session-activity>
+                    </mat-tab>
                     <mat-tab
                         [label]="
                             t('admin.orderGroups.marketSessions.routing.tab')
@@ -3159,8 +3271,11 @@
                                     }
                                 </div>
                                 <div class="flex flex-wrap items-end gap-2">
+                                    <!-- Not while the empty state below is
+                                         asking for the same thing. -->
                                     @if (
-                                        showMarketSessionRoutePlanningControls()
+                                        showMarketSessionRoutePlanningControls() &&
+                                        !planningControlsInEmptyState()
                                     ) {
                                         <mat-form-field
                                             class="w-48"
@@ -3228,23 +3343,10 @@
                                             }}</span>
                                         </button>
                                     }
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="
-                                            marketSessionRoutesLoading()
-                                        "
-                                        (click)="loadMarketSessionRoutes()"
-                                    >
-                                        <mat-icon
-                                            svgIcon="heroicons_outline:arrow-path"
-                                        ></mat-icon>
-                                        <span class="ml-2">{{
-                                            t(
-                                                'admin.orderGroups.marketSessions.routing.refresh'
-                                            )
-                                        }}</span>
-                                    </button>
+                                    <!-- No refresh of its own: the dialog's
+                                         header carries one button that reloads
+                                         whatever tab is open, so every panel
+                                         does not repeat it. -->
                                 </div>
                             </div>
 
@@ -4347,27 +4449,159 @@
                                     }
                                 </div>
                             } @else {
+                                <!--
+                                  Nothing planned yet. The pane is empty, so
+                                  this is where the work starts: the criterion
+                                  and the create button sit here rather than in
+                                  the toolbar above an empty box — and when the
+                                  session has not been gathered into a lô yet,
+                                  that is said outright instead of leaving a
+                                  disabled button to be puzzled over.
+                                -->
                                 <div
-                                    class="rounded-2xl border border-dashed p-8 text-center"
+                                    class="flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center"
                                 >
-                                    <mat-icon
-                                        class="text-hint icon-size-10"
-                                        svgIcon="heroicons_outline:map"
-                                    ></mat-icon>
-                                    <h3 class="mt-3 font-bold">
+                                    <div
+                                        class="flex h-20 w-20 items-center justify-center rounded-full bg-primary-50 text-primary dark:bg-primary-500/10"
+                                    >
+                                        <mat-icon
+                                            class="text-current icon-size-10"
+                                            svgIcon="heroicons_outline:map"
+                                        ></mat-icon>
+                                    </div>
+                                    <h3
+                                        class="mt-6 text-2xl font-semibold tracking-tight"
+                                    >
                                         {{
                                             t(
                                                 'admin.orderGroups.marketSessions.routing.noRoutes'
                                             )
                                         }}
                                     </h3>
-                                    <p class="text-secondary mt-1 text-sm">
-                                        {{
-                                            t(
-                                                'admin.orderGroups.marketSessions.routing.noRoutesHint'
+
+                                    @if (
+                                        marketSessionRoutingBlocker(
+                                            tracking.session
+                                        );
+                                        as blocker
+                                    ) {
+                                        <p
+                                            class="text-secondary mt-2 max-w-md leading-relaxed"
+                                        >
+                                            {{ t(blocker) }}
+                                        </p>
+                                        <!-- Amber rather than the card's own
+                                             batching tint: here the same state
+                                             is what is standing in the way,
+                                             not just a status being listed. -->
+                                        <span
+                                            class="mt-6 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-800 dark:bg-amber-500 dark:text-amber-50"
+                                        >
+                                            <mat-icon
+                                                class="text-current icon-size-4"
+                                                svgIcon="heroicons_solid:exclamation-triangle"
+                                            ></mat-icon>
+                                            {{
+                                                marketSessionBatchingLabel(
+                                                    tracking.session
+                                                )
+                                            }}
+                                        </span>
+                                    } @else {
+                                        <p
+                                            class="text-secondary mt-2 max-w-md leading-relaxed"
+                                        >
+                                            {{
+                                                t(
+                                                    'admin.orderGroups.marketSessions.routing.noRoutesHint'
+                                                )
+                                            }}
+                                        </p>
+
+                                        @if (
+                                            planningControlsInEmptyState() &&
+                                            canPlanMarketSessionRoutes(
+                                                tracking.session
                                             )
-                                        }}
-                                    </p>
+                                        ) {
+                                            <!-- Bottom-aligned: the field
+                                                 carries a floating label, so
+                                                 centring put the button half a
+                                                 label above the box it sits
+                                                 beside. -->
+                                            <div
+                                                class="mt-6 flex flex-wrap items-end justify-center gap-3"
+                                            >
+                                                <mat-form-field
+                                                    class="w-56"
+                                                    subscriptSizing="dynamic"
+                                                >
+                                                    <mat-label>{{
+                                                        t(
+                                                            'admin.orderGroups.marketSessions.routing.criteria'
+                                                        )
+                                                    }}</mat-label>
+                                                    <mat-select
+                                                        [formControl]="
+                                                            routeCriteria
+                                                        "
+                                                    >
+                                                        @for (
+                                                            criterion of routeCriteriaOptions;
+                                                            track criterion
+                                                        ) {
+                                                            <mat-option
+                                                                [value]="
+                                                                    criterion
+                                                                "
+                                                            >
+                                                                {{
+                                                                    t(
+                                                                        'admin.routes.criteria.' +
+                                                                            criterion
+                                                                    )
+                                                                }}
+                                                            </mat-option>
+                                                        }
+                                                    </mat-select>
+                                                </mat-form-field>
+                                                <button
+                                                    mat-flat-button
+                                                    color="primary"
+                                                    type="button"
+                                                    data-testid="market-session-plan-routes-empty"
+                                                    [disabled]="
+                                                        routingSessionId() !==
+                                                        null
+                                                    "
+                                                    (click)="
+                                                        planMarketSessionRoutes(
+                                                            tracking.session
+                                                        )
+                                                    "
+                                                >
+                                                    @if (
+                                                        routingSessionId() ===
+                                                        tracking.session.id
+                                                    ) {
+                                                        <mat-icon
+                                                            class="animate-spin"
+                                                            svgIcon="heroicons_outline:arrow-path"
+                                                        ></mat-icon>
+                                                    } @else {
+                                                        <mat-icon
+                                                            svgIcon="heroicons_outline:map"
+                                                        ></mat-icon>
+                                                    }
+                                                    <span class="ml-2">{{
+                                                        t(
+                                                            'admin.orderGroups.marketSessions.routing.create'
+                                                        )
+                                                    }}</span>
+                                                </button>
+                                            </div>
+                                        }
+                                    }
                                 </div>
                             }
                         </div>
@@ -4385,25 +4619,10 @@
                         <admin-session-reports
                             [batch]="marketSessionAssignmentBatch()"
                             [hubId]="tracking.session.hubId ?? null"
-                            [active]="marketSessionTrackingTabIndex() === 3"
-                        ></admin-session-reports>
-                    </mat-tab>
-                    <!--
-                      The other half of the same question: not what went wrong,
-                      but what was done — and by whom.
-                    -->
-                    <mat-tab
-                        [label]="
-                            t('admin.orderGroups.marketSessions.activity.tab')
-                        "
-                    >
-                        <admin-session-activity
-                            [batch]="marketSessionAssignmentBatch()"
-                            [hubId]="tracking.session.hubId ?? null"
-                            [marketId]="tracking.session.marketId ?? null"
-                            [serviceDate]="tracking.session.serviceDate ?? null"
+                            [failedDeliveries]="marketSessionFailedDeliveries()"
+                            [reloadToken]="marketSessionReloadToken()"
                             [active]="marketSessionTrackingTabIndex() === 4"
-                        ></admin-session-activity>
+                        ></admin-session-reports>
                     </mat-tab>
                 </mat-tab-group>
             }

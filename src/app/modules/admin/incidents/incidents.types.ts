@@ -9,12 +9,35 @@
  *  - restaurants on a delivered order (`POST /orders/{orderId}/issues`)
  *  - drivers on a delivery (`POST /driver/deliveries/{deliveryId}/issues`)
  *
- * Only the first two have a read endpoint. `OrderIssue` is persisted through an
- * add-only repository (`IOrderIssueRepository` exposes `AddAsync` and nothing
- * else) and the driver's issues are the same, so neither can be listed here
- * until the backend grows a query for them.
+ * The first two have a read endpoint of their own. The driver's `issues` do
+ * not — `IDeliveryIssueRepository` is add-only, as `IOrderIssueRepository` is —
+ * but a driver's *failed delivery* is readable by another road: reporting one
+ * (`PATCH /driver/deliveries/{id}/status` with `failureReason`) marks the stop
+ * `failed` and cancels the order with that same reason as its
+ * `cancellationReason` (`DeliveryFailedIntegrationEventHandler`). The stop says
+ * which order failed and when; the order says why. Restaurants' order issues
+ * remain unreadable until the backend grows a query for them.
  */
-export type IncidentSource = 'procurement' | 'hub';
+export type IncidentSource = 'procurement' | 'hub' | 'delivery';
+
+/**
+ * One failed stop on a session's routes, as the session dialog already has it.
+ *
+ * Passed in rather than fetched: the dialog walks the day's routes and their
+ * deliveries when it opens, so the reports tab adds one order read per failed
+ * stop — and nothing at all when every stop landed.
+ */
+export interface SessionFailedDelivery {
+    deliveryId: string;
+    orderId: string;
+    /** "Tuyến 2" — where the stop sat, for the "nơi xảy ra" column. */
+    routeLabel: string | null;
+    /** Who was driving it, from the hub's roster; the DTO carries only an id. */
+    driverName: string | null;
+    /** When the driver marked it failed — the stop's actual arrival. */
+    at: string | null;
+    proofUrl: string | null;
+}
 
 /**
  * Hub discrepancies carry a lifecycle — open until an admin signs them off,

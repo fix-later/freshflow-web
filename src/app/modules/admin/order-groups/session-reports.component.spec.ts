@@ -46,6 +46,7 @@ interface Harness {
     incidents: {
         listSessionProcurementIncidents: jasmine.Spy;
         listSessionHubIncidents: jasmine.Spy;
+        listSessionDeliveryIncidents: jasmine.Spy;
         acknowledge: jasmine.Spy;
     };
 }
@@ -53,6 +54,7 @@ interface Harness {
 function createHarness(rows: {
     procurement?: Promise<AdminIncident[]>;
     hub?: Promise<AdminIncident[]>;
+    delivery?: Promise<AdminIncident[]>;
 }): Harness {
     const incidents = {
         listSessionProcurementIncidents: jasmine
@@ -61,6 +63,9 @@ function createHarness(rows: {
         listSessionHubIncidents: jasmine
             .createSpy()
             .and.callFake(() => rows.hub ?? Promise.resolve([])),
+        listSessionDeliveryIncidents: jasmine
+            .createSpy()
+            .and.callFake(() => rows.delivery ?? Promise.resolve([])),
         acknowledge: jasmine.createSpy().and.resolveTo(undefined),
     };
     TestBed.resetTestingModule();
@@ -140,6 +145,7 @@ describe('SessionReportsComponent', () => {
             total: 2,
             procurement: 1,
             hub: 1,
+            delivery: 0,
             open: 1,
         });
         expect(component.loadError()).toBeNull();
@@ -248,5 +254,58 @@ describe('SessionReportsComponent', () => {
             null
         );
         expect(component.reports()).toEqual([]);
+    });
+
+    it(`lists a driver's failed stop beside the chợ and hub reports`, async () => {
+        const { component, fixture, incidents } = createHarness({
+            procurement: Promise.resolve([
+                incident({
+                    id: 'exception-1',
+                    reportedAt: '2026-08-17T01:00:00Z',
+                }),
+            ]),
+            delivery: Promise.resolve([
+                incident({
+                    id: 'delivery:stop-1',
+                    source: 'delivery',
+                    type: 'DeliveryFailed',
+                    quantity: null,
+                    note: 'Nhà hàng đóng cửa',
+                    reporterName: 'Trần Văn E',
+                    reportedAt: '2026-08-17T03:00:00Z',
+                }),
+            ]),
+        });
+        const failed = [
+            {
+                deliveryId: 'stop-1',
+                orderId: 'order-1',
+                routeLabel: 'Tuyến 1',
+                driverName: 'Trần Văn E',
+                at: '2026-08-17T03:00:00Z',
+                proofUrl: null,
+            },
+        ];
+        fixture.componentRef.setInput('batch', { id: 'batch-1' });
+        fixture.componentRef.setInput('hubId', 'hub-1');
+        fixture.componentRef.setInput('failedDeliveries', failed);
+        fixture.componentRef.setInput('active', true);
+        fixture.detectChanges();
+        await flush();
+
+        expect(incidents.listSessionDeliveryIncidents).toHaveBeenCalledWith(
+            failed
+        );
+        // Newest first, so the stop leads the chợ exception before it.
+        expect(component.reports().map((row) => row.id)).toEqual([
+            'delivery:stop-1',
+            'exception-1',
+        ]);
+        expect(component.summary().delivery).toBe(1);
+
+        component.setSource('delivery');
+        expect(component.filtered().map((row) => row.id)).toEqual([
+            'delivery:stop-1',
+        ]);
     });
 });

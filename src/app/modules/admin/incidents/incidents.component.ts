@@ -65,9 +65,18 @@ interface TypeTile {
 const DAY_MS = 86_400_000;
 /** How many hot spots the "điểm nóng" chart names before it stops being a list. */
 const HOTSPOT_LIMIT = 8;
+/**
+ * One colour per stream, shared with the per-session tab so a chợ report is
+ * the same indigo on both screens. `delivery` never appears in this board's
+ * own data — a failed stop is only readable per session, through that
+ * session's routes (see `IncidentsService.listSessionDeliveryIncidents`) — but
+ * the map is total over the union, so it is coloured here rather than left to
+ * a lookup that could return `undefined` if the board ever reads them.
+ */
 const SOURCE_COLORS: Record<IncidentSource, string> = {
     procurement: '#818CF8',
     hub: '#22D3EE',
+    delivery: '#F59E0B',
 };
 
 /**

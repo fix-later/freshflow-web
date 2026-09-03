@@ -9,7 +9,11 @@ import {
 import { LogisticsAdminService } from '../logistics/logistics-admin.service';
 import { CrudRow } from '../shared/resource-crud.types';
 import { byReportedAtDesc } from './incident-labels';
-import { AdminIncident, IncidentStatus } from './incidents.types';
+import {
+    AdminIncident,
+    IncidentStatus,
+    SessionFailedDelivery,
+} from './incidents.types';
 
 const BATCH_PAGE_SIZE = 100;
 const MAX_BATCH_PAGES = 100;
@@ -26,6 +30,14 @@ function numberOrNull(value: unknown): number | null {
     }
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : null;
+}
+
+/**
+ * An order id as something readable — the same eight characters the routing
+ * tab prints. A whole GUID in a report line says nothing and fills the row.
+ */
+function shortId(value: string | null): string | null {
+    return value ? '#' + value.slice(0, 8).toUpperCase() : null;
 }
 
 function rowsOf(row: Record<string, unknown>, key: string): CrudRow[] {
@@ -151,16 +163,86 @@ export class IncidentsService {
         );
     }
 
-    /** Both streams of one session, newest first. */
+    /**
+     * The drivers' failed deliveries on one phiên chợ.
+     *
+     * A driver reports a delivery it could not make with
+     * `PATCH /driver/deliveries/{id}/status` (`status: failed`, plus a
+     * `failureReason`). The reason is not on any delivery read — `GetRouteDeliveries`
+     * answers `DriverDeliveryDto`, which omits it — but the same act cancels the
+     * order and stores the reason as its `cancellationReason`, so the stop names
+     * the order and the order carries the words. One order read per failed stop,
+     * and none when every stop landed.
+     *
+     * These are records, never open work: the platform has already cancelled the
+     * order and refunded the restaurant by the time an admin reads this.
+     */
+    async listSessionDeliveryIncidents(
+        deliveries: readonly SessionFailedDelivery[]
+    ): Promise<AdminIncident[]> {
+        if (!deliveries.length) {
+            return [];
+        }
+        const orderIds = [...new Set(deliveries.map((row) => row.orderId))];
+        const orders = await mapWithLimit(
+            orderIds,
+            READ_CONCURRENCY,
+            (orderId) => this._order(orderId),
+            null
+        );
+        const orderById = new Map(
+            orderIds.map((id, index) => [id, orders[index]])
+        );
+
+        return deliveries.map<AdminIncident>((delivery) => {
+            const order = orderById.get(delivery.orderId) ?? null;
+            const context = [
+                stringOrNull(order?.restaurantName),
+                stringOrNull(order?.status),
+            ]
+                .filter((value): value is string => !!value)
+                .join(' · ');
+            return {
+                id: `delivery:${delivery.deliveryId}`,
+                source: 'delivery',
+                // One kind, because the API has one: a stop either lands or it
+                // does not. What differs between two of these is the reason,
+                // which is the note.
+                type: 'DeliveryFailed',
+                quantity: null,
+                note:
+                    stringOrNull(order?.cancellationReason) ||
+                    stringOrNull(order?.notes),
+                proofImageUrl: delivery.proofUrl,
+                reportedAt:
+                    delivery.at || stringOrNull(order?.cancelledAt) || null,
+                reportedBy: null,
+                reporterName: delivery.driverName,
+                place: delivery.routeLabel,
+                subject: shortId(delivery.orderId),
+                context: context || null,
+                status: null,
+                hubId: null,
+                acknowledgedBy: null,
+                acknowledgedAt: null,
+                updatedAt: stringOrNull(order?.cancelledAt),
+                link: null,
+            };
+        });
+    }
+
+    /** Every stream of one session, newest first. */
     async listSessionIncidents(
         batch: AdminOrderGroupRow | null,
-        hubId: string | null
+        hubId: string | null,
+        deliveries: readonly SessionFailedDelivery[] = []
     ): Promise<AdminIncident[]> {
-        const [procurement, hub] = await Promise.all([
+        const [procurement, hub, delivery] = await Promise.all([
             this.listSessionProcurementIncidents(batch),
             this.listSessionHubIncidents(batch, hubId),
+            this.listSessionDeliveryIncidents(deliveries),
         ]);
-        return [...procurement, ...hub].sort(byReportedAtDesc);
+        return [...procurement, ...hub, ...delivery].sort(byReportedAtDesc);
     }
 
     private _toProcurementIncidents(
