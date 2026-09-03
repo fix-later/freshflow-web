@@ -135,90 +135,127 @@
             </header>
 
             <div class="ff-biz__card-body">
+                <!--
+                  The scan is the control. Drop a file on it, click it to
+                  browse, and once there is one the actions live on the image
+                  itself — view, replace, remove — instead of a row of buttons
+                  beside a thumbnail that did nothing but sit there. Same
+                  idiom as Admin ▸ Products, so an image tile behaves the same
+                  wherever it appears.
+                -->
                 <div
-                    class="ff-biz__license flex flex-col gap-4 sm:flex-row sm:items-center"
+                    class="ff-biz__license"
+                    [class.ff-biz__license--dragging]="licenseDragOver()"
+                    (dragover)="onLicenseDragOver($event)"
+                    (dragleave)="onLicenseDragLeave()"
+                    (drop)="onLicenseDropped($event)"
                 >
                     @if (
                         form.controls.businessLicenseUrl.value;
                         as licenseUrl
                     ) {
-                        <a
-                            class="ff-biz__license-preview shrink-0"
-                            [href]="licenseUrl"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <img
-                                [src]="licenseUrl"
-                                [alt]="
-                                    t(
-                                        'restaurantProfile.profile.businessLicense'
+                        <img
+                            class="ff-biz__license-img"
+                            [src]="licenseUrl"
+                            [alt]="
+                                t('restaurantProfile.profile.businessLicense')
+                            "
+                        />
+
+                        <!--
+                          A bar, not a hover overlay: hover never happens on a
+                          touch screen, and these three are the only way to
+                          change the scan.
+                        -->
+                        <div class="ff-biz__license-bar">
+                            <button
+                                type="button"
+                                class="ff-biz__license-action"
+                                [attr.aria-label]="
+                                    t('restaurantProfile.profile.licenseView')
+                                "
+                                [matTooltip]="
+                                    t('restaurantProfile.profile.licenseView')
+                                "
+                                (click)="
+                                    openLicensePreview(
+                                        licensePreviewDialog,
+                                        licenseUrl
                                     )
                                 "
-                            />
-                        </a>
-                    } @else {
-                        <div
-                            class="ff-biz__license-empty flex shrink-0 flex-col items-center justify-center gap-2"
-                            aria-hidden="true"
-                        >
-                            <mat-icon
-                                class="text-hint icon-size-8"
-                                [svgIcon]="'heroicons_outline:photo'"
-                            ></mat-icon>
-                        </div>
-                    }
-
-                    <div class="flex min-w-0 flex-1 flex-col gap-2">
-                        <div class="flex flex-wrap items-center gap-2">
+                            >
+                                <mat-icon
+                                    svgIcon="heroicons_outline:magnifying-glass-plus"
+                                ></mat-icon>
+                            </button>
                             <button
-                                mat-stroked-button
                                 type="button"
-                                color="primary"
+                                class="ff-biz__license-action"
                                 [disabled]="uploading() || loading()"
+                                [attr.aria-label]="
+                                    t('restaurantProfile.profile.licenseChange')
+                                "
+                                [matTooltip]="
+                                    t('restaurantProfile.profile.licenseChange')
+                                "
                                 (click)="licenseInput.click()"
                             >
-                                @if (uploading()) {
-                                    <mat-icon
-                                        class="animate-spin icon-size-5"
-                                        [svgIcon]="
-                                            'heroicons_outline:arrow-path'
-                                        "
-                                    ></mat-icon>
-                                } @else {
-                                    <mat-icon
-                                        class="icon-size-5"
-                                        [svgIcon]="
-                                            'heroicons_outline:cloud-arrow-up'
-                                        "
-                                    ></mat-icon>
-                                }
-                                <span class="ml-2">{{
-                                    form.controls.businessLicenseUrl.value
-                                        ? t(
-                                              'restaurantProfile.profile.licenseChange'
-                                          )
+                                <mat-icon
+                                    [class.animate-spin]="uploading()"
+                                    [svgIcon]="
+                                        uploading()
+                                            ? 'heroicons_outline:arrow-path'
+                                            : 'heroicons_outline:arrow-path-rounded-square'
+                                    "
+                                ></mat-icon>
+                            </button>
+                            <button
+                                type="button"
+                                class="ff-biz__license-action ff-biz__license-action--danger"
+                                [disabled]="uploading()"
+                                [attr.aria-label]="
+                                    t('restaurantProfile.profile.licenseRemove')
+                                "
+                                [matTooltip]="
+                                    t('restaurantProfile.profile.licenseRemove')
+                                "
+                                (click)="clearLicense()"
+                            >
+                                <mat-icon
+                                    svgIcon="heroicons_outline:trash"
+                                ></mat-icon>
+                            </button>
+                        </div>
+                    } @else {
+                        <button
+                            type="button"
+                            class="ff-biz__license-drop"
+                            [disabled]="uploading() || loading()"
+                            (click)="licenseInput.click()"
+                        >
+                            <mat-icon
+                                class="icon-size-10"
+                                [class.animate-spin]="uploading()"
+                                [svgIcon]="
+                                    uploading()
+                                        ? 'heroicons_outline:arrow-path'
+                                        : 'heroicons_outline:cloud-arrow-up'
+                                "
+                            ></mat-icon>
+                            <span class="mt-2 text-sm font-semibold">
+                                {{
+                                    uploading()
+                                        ? t('admin.crud.image.uploading')
                                         : t(
                                               'restaurantProfile.profile.licenseUpload'
                                           )
-                                }}</span>
-                            </button>
-                            @if (form.controls.businessLicenseUrl.value) {
-                                <button
-                                    mat-button
-                                    type="button"
-                                    [disabled]="uploading()"
-                                    (click)="clearLicense()"
-                                >
-                                    {{
-                                        t(
-                                            'restaurantProfile.profile.licenseRemove'
-                                        )
-                                    }}
-                                </button>
-                            }
-                        </div>
-                    </div>
+                                }}
+                            </span>
+                            <span class="text-hint mt-1 text-xs">
+                                {{ t('restaurantProfile.profile.licenseDrop') }}
+                            </span>
+                        </button>
+                    }
                 </div>
                 <input
                     #licenseInput
@@ -252,3 +289,17 @@
         }
     </form>
 </ng-container>
+
+<!--
+  Full-size scan, click anywhere to close. Kept in this component rather than
+  opening the URL in a new tab: the licence belongs to a form the restaurant
+  is still filling in, and a new tab leaves it behind.
+-->
+<ng-template #licensePreviewDialog>
+    <img
+        matDialogClose
+        class="block max-h-[90vh] max-w-[92vw] cursor-zoom-out object-contain"
+        [src]="previewLicenseUrl()"
+        alt=""
+    />
+</ng-template>

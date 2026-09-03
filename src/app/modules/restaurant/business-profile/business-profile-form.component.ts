@@ -6,15 +6,18 @@ import {
     input,
     OnInit,
     signal,
+    TemplateRef,
     ViewEncapsulation,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import {
     isImageFile,
@@ -68,9 +71,11 @@ import { RestaurantProfileService } from '../restaurant-profile.service';
         MatFormFieldModule,
         MatInputModule,
         MatButtonModule,
+        MatDialogModule,
         MatIconModule,
         MatProgressBarModule,
         MatSnackBarModule,
+        MatTooltipModule,
         TranslocoModule,
         ApprovalBannerComponent,
     ],
@@ -79,6 +84,7 @@ export class BusinessProfileFormComponent implements OnInit {
     private readonly _fb = inject(FormBuilder);
     private readonly _service = inject(RestaurantProfileService);
     private readonly _snackBar = inject(MatSnackBar);
+    private readonly _dialog = inject(MatDialog);
     private readonly _transloco = inject(TranslocoService);
 
     readonly loading = signal(false);
@@ -90,6 +96,10 @@ export class BusinessProfileFormComponent implements OnInit {
     readonly hideActions = input(false, { transform: booleanAttribute });
     readonly saving = signal(false);
     readonly uploading = signal(false);
+    /** A scan is being dragged over the tile — the drop target says so. */
+    readonly licenseDragOver = signal(false);
+    /** What the full-size preview dialog is showing. */
+    readonly previewLicenseUrl = signal('');
     /** Localized reason the read failed — drives the retryable error state. */
     readonly loadError = signal<string | null>(null);
     /** Localized reason a write failed when it wasn't a per-field rejection. */
@@ -185,6 +195,44 @@ export class BusinessProfileFormComponent implements OnInit {
         const input = event.target as HTMLInputElement;
         const file = input.files?.[0];
         input.value = '';
+        await this._uploadLicense(file);
+    }
+
+    /** Dropping a scan on the tile is the same act as picking one. */
+    onLicenseDragOver(event: DragEvent): void {
+        event.preventDefault();
+        this.licenseDragOver.set(true);
+    }
+
+    onLicenseDragLeave(): void {
+        this.licenseDragOver.set(false);
+    }
+
+    async onLicenseDropped(event: DragEvent): Promise<void> {
+        event.preventDefault();
+        this.licenseDragOver.set(false);
+        await this._uploadLicense(event.dataTransfer?.files?.[0]);
+    }
+
+    /**
+     * Opens the scan full size in a click-to-close dialog — the same preview
+     * Admin ▸ Products uses. It used to open in a new browser tab, which took
+     * the buyer out of a form they had not saved yet.
+     */
+    openLicensePreview(template: TemplateRef<unknown>, url: string): void {
+        if (!url) {
+            return;
+        }
+        this.previewLicenseUrl.set(url);
+        this._dialog.open(template, {
+            maxWidth: '95vw',
+            maxHeight: '95vh',
+            autoFocus: false,
+            panelClass: 'image-preview-dialog',
+        });
+    }
+
+    private async _uploadLicense(file: File | null | undefined): Promise<void> {
         if (!file || this.uploading()) {
             return;
         }
