@@ -16,19 +16,20 @@ market-zones {
 
 .ff-zones {
     display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.5rem 1rem;
 
-    @media (min-width: 480px) {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    @screen sm {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
     @screen md {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     @screen lg {
         grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 2rem 1.5rem;
     }
 }
 
@@ -37,67 +38,72 @@ market-zones {
     display: flex;
 }
 
+/*
+ * One stall: a round portrait with its name and count beneath. No card
+ * frame — the circle is the tile, so the row reads as stalls to walk past
+ * rather than as five more boxes on a page already made of them.
+ */
 .ff-zone {
-    position: relative;
     display: flex;
-    width: 100%;
     height: 100%;
-    min-height: 9.5rem;
+    width: 100%;
     flex-direction: column;
-    justify-content: flex-start;
-    overflow: hidden;
-    border-radius: 1.25rem;
-    padding: 1.125rem 1rem;
+    align-items: center;
+    gap: 0.75rem;
+    text-align: center;
     text-decoration: none;
-    transition:
-        transform 150ms ease,
-        box-shadow 200ms ease,
-        border-color 150ms ease;
-    @apply bg-card border border-transparent shadow-sm;
 
     &:hover,
     &:focus-visible {
-        transform: translateY(-2px);
-        @apply border-primary/20 shadow-md;
+        .ff-zone__art {
+            @apply border-primary shadow-md;
+        }
+
+        .ff-zone__art img {
+            transform: scale(1.06);
+        }
 
         .ff-zone__name {
             text-decoration: underline;
             text-underline-offset: 0.25rem;
         }
-
-        .ff-zone__count {
-            @apply border-primary text-primary;
-        }
-
-        .ff-zone__art img {
-            transform: scale(1.08);
-        }
     }
 }
 
-.ff-zone__copy {
+.ff-zone__art {
     position: relative;
-    z-index: 2;
     display: flex;
-    min-width: 0;
+    aspect-ratio: 1 / 1;
     width: 100%;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-    padding-bottom: 2.25rem; /* Reserve clearance so text never collides with art thumbnail */
-}
-
-.ff-zone__count {
+    max-width: 9.5rem;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
     border-radius: 9999px;
+    /*
+     * A ring rather than a hard edge: category artwork is shot on white, so a
+     * heavy border would read as a second circle around the produce.
+     */
     border: 1px solid var(--fuse-border);
-    padding: 0.15rem 0.625rem;
-    font-size: 0.75rem;
-    font-weight: 500;
-    white-space: nowrap;
     transition:
         border-color 150ms ease,
-        color 150ms ease;
-    @apply text-secondary bg-card;
+        box-shadow 200ms ease;
+    @apply bg-card shadow-sm;
+
+    img {
+        height: 100%;
+        width: 100%;
+        object-fit: cover;
+        transition: transform 250ms ease;
+    }
+}
+
+/* Stand-in for an aisle with no picture — its own initial, nothing guessed. */
+.ff-zone__initial {
+    font-size: 2.25rem;
+    font-weight: 700;
+    line-height: 1;
+    @apply text-primary/40;
 }
 
 .ff-zone__name {
@@ -111,40 +117,29 @@ market-zones {
     @screen sm {
         font-size: 1rem;
     }
-
-    @screen xl {
-        font-size: 1.0625rem;
-    }
 }
 
-.ff-zone__art {
-    pointer-events: none;
-    position: absolute;
-    right: 0.625rem;
-    bottom: 0.625rem;
-    display: flex;
-    align-items: flex-end;
-    justify-content: flex-end;
-    height: 4.25rem;
-    width: 4.25rem;
-    z-index: 1;
-
-    img {
-        max-height: 100%;
-        max-width: 100%;
-        object-fit: contain;
-        object-position: right bottom;
-        transition: transform 200ms ease;
-    }
+/*
+ * Pinned to the bottom of its cell so the counts line up across the row even
+ * when one stall's name wraps to two lines — otherwise the neighbour's count
+ * floats a line higher and the row reads as ragged rather than as a shelf.
+ */
+.ff-zone__count {
+    margin-top: auto;
+    font-size: theme('fontSize.sm');
+    font-weight: 500;
+    white-space: nowrap;
+    @apply text-secondary;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .ff-zone {
+    .ff-zone__art,
+    .ff-zone__art img {
         transition: none;
+    }
 
-        &:hover,
-        &:focus-visible {
-            transform: none;
-        }
+    .ff-zone:hover .ff-zone__art img,
+    .ff-zone:focus-visible .ff-zone__art img {
+        transform: none;
     }
 }

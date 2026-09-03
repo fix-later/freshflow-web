@@ -15,6 +15,13 @@
         </div>
 
         @if (zones().length) {
+            <!--
+              One round portrait per stall with its name and count under it —
+              the aisle board reads as a row of stalls a buyer walks past,
+              which is what the section says it is. The circle is the whole
+              tile: no card frame, so the artwork carries the row and the
+              patterned section ground stays visible between stalls.
+            -->
             <ul class="ff-zones">
                 @for (zone of zones(); track zone.id) {
                     <li class="ff-zones__cell">
@@ -24,29 +31,41 @@
                             routerLink="/catalog"
                             [queryParams]="{ category: zone.id }"
                         >
-                            <div class="ff-zone__copy">
-                                <span class="ff-zone__count">{{
-                                    t('home.zones.itemCount', {
-                                        count: zone.itemCount,
-                                    })
-                                }}</span>
-                                <span class="ff-zone__name">{{
-                                    t('home.zones.stall', {
-                                        name: zoneLabel(zone),
-                                    })
-                                }}</span>
-                            </div>
-
-                            @if (zone.imageUrl) {
-                                <div class="ff-zone__art">
+                            <span class="ff-zone__art">
+                                @if (zone.imageUrl) {
                                     <img
                                         [src]="zone.imageUrl"
                                         alt=""
                                         loading="lazy"
                                         decoding="async"
                                     />
-                                </div>
-                            }
+                                } @else {
+                                    <!--
+                                      No picture, and none invented: the
+                                      initial comes from the aisle's own name.
+                                      An emoji table used to guess a picture
+                                      from that name and got it wrong on
+                                      anything it had not been taught.
+                                    -->
+                                    <span
+                                        class="ff-zone__initial"
+                                        aria-hidden="true"
+                                    >
+                                        {{ zoneInitial(zone) }}
+                                    </span>
+                                }
+                            </span>
+
+                            <span class="ff-zone__name">{{
+                                t('home.zones.stall', {
+                                    name: zoneLabel(zone),
+                                })
+                            }}</span>
+                            <span class="ff-zone__count">{{
+                                t('home.zones.itemCount', {
+                                    count: zone.itemCount,
+                                })
+                            }}</span>
                         </a>
                     </li>
                 }
