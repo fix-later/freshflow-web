@@ -70,11 +70,25 @@
         transparent
     );
 
-    /* A round tile has no room for a bar across it — the actions sit under it. */
+    /*
+     * A round tile is a profile picture: the whole face is one hover target,
+     * so the scrim covers the circle (not just a strip along the bottom) and
+     * the actions sit dead center on it — the usual avatar-hover pattern.
+     * Hidden until hovered/focused rather than always on like the rectangular
+     * bar above, since a circle this small has no room to spare for a
+     * permanent scrim without hiding the picture it is showing.
+     */
     .ff-tile--circle & {
-        padding: 0.25rem;
-        gap: 0.25rem;
-        background: rgb(0 0 0 / 0.45);
+        inset: 0;
+        padding: 0;
+        background: rgb(0 0 0 / 0.55);
+        opacity: 0;
+        transition: opacity 150ms ease;
+    }
+
+    .ff-tile--circle:hover &,
+    .ff-tile--circle:focus-within & {
+        opacity: 1;
     }
 }
 
