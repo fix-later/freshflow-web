@@ -2450,6 +2450,7 @@
     "orders.detail.beforeVat": "(trước thuế)",
     "orders.detail.afterVat": "(sau thuế)",
     "orders.detail.title": "Chi tiết đơn hàng",
+    "orders.detail.actions": "Thao tác với đơn hàng",
     "orders.empty": "Bạn chưa có đơn hàng nào.",
     "orders.emptyHint": "Vào danh mục để đặt đơn đầu tiên.",
     "orders.emptyFiltered": "Chưa có đơn nào ở trạng thái \"{{status}}\".",

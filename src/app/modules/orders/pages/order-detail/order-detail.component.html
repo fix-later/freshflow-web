@@ -15,17 +15,13 @@
          there is an order to act on. -->
     @if (order()) {
         <div accountShellActions class="flex flex-wrap items-center gap-2">
-            <button
-                mat-stroked-button
-                type="button"
-                [disabled]="acting()"
-                (click)="reorder()"
-            >
-                {{ t('orders.detail.reorder') }}
-            </button>
-            <button mat-stroked-button type="button" (click)="goToRecurring()">
-                {{ t('orders.detail.makeRecurring') }}
-            </button>
+            <!--
+              Confirming receipt is the one thing this page ever asks the buyer
+              to do, and only for a short while after the goods arrive — so it
+              stays a button. Reordering, scheduling, claiming and cancelling
+              are things a buyer comes looking for; they live in the menu beside
+              the rail toggle rather than lining four controls across the title.
+            -->
             @if (canConfirmReceipt()) {
                 <button
                     mat-flat-button
@@ -43,27 +39,69 @@
                     }}</span>
                 </button>
             }
-            @if (canFileClaim()) {
+
+            <button
+                mat-icon-button
+                type="button"
+                data-testid="order-actions"
+                [attr.aria-label]="t('orders.detail.actions')"
+                [matMenuTriggerFor]="orderActions"
+            >
+                <mat-icon
+                    [svgIcon]="'heroicons_outline:ellipsis-vertical'"
+                ></mat-icon>
+            </button>
+
+            <mat-menu #orderActions="matMenu">
                 <button
-                    mat-stroked-button
+                    mat-menu-item
                     type="button"
                     [disabled]="acting()"
-                    (click)="openClaim()"
+                    (click)="reorder()"
                 >
-                    {{ t('claims.file') }}
+                    <mat-icon
+                        [svgIcon]="
+                            'heroicons_outline:arrow-path-rounded-square'
+                        "
+                    ></mat-icon>
+                    <span>{{ t('orders.detail.reorder') }}</span>
                 </button>
-            }
-            @if (canCancel()) {
-                <button
-                    mat-stroked-button
-                    color="warn"
-                    type="button"
-                    [disabled]="acting()"
-                    (click)="openCancel()"
-                >
-                    {{ t('orders.detail.cancel') }}
+                <button mat-menu-item type="button" (click)="goToRecurring()">
+                    <mat-icon
+                        [svgIcon]="'heroicons_outline:calendar-days'"
+                    ></mat-icon>
+                    <span>{{ t('orders.detail.makeRecurring') }}</span>
                 </button>
-            }
+                @if (canFileClaim()) {
+                    <button
+                        mat-menu-item
+                        type="button"
+                        [disabled]="acting()"
+                        (click)="openClaim()"
+                    >
+                        <mat-icon
+                            [svgIcon]="
+                                'heroicons_outline:chat-bubble-left-right'
+                            "
+                        ></mat-icon>
+                        <span>{{ t('claims.file') }}</span>
+                    </button>
+                }
+                @if (canCancel()) {
+                    <button
+                        class="ff-order__menu-danger"
+                        mat-menu-item
+                        type="button"
+                        [disabled]="acting()"
+                        (click)="openCancel()"
+                    >
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:x-circle'"
+                        ></mat-icon>
+                        <span>{{ t('orders.detail.cancel') }}</span>
+                    </button>
+                }
+            </mat-menu>
         </div>
     }
 

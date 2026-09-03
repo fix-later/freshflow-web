@@ -252,14 +252,14 @@
     }
 }
 
-/* Empty on most pages, so it must take no room until something is projected. */
+/*
+ * The page's own controls and the rail toggle, as one cluster on the title's
+ * line. Tight gap between them on purpose: an overflow menu standing apart
+ * from the toggle reads as two unrelated icons.
+ */
 .account-shell__actions {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
-
-    &:empty {
-        display: none;
-    }
+    gap: 0.375rem;
 }

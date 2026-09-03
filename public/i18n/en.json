@@ -2450,6 +2450,7 @@
     "orders.detail.beforeVat": "(before VAT)",
     "orders.detail.afterVat": "(after VAT)",
     "orders.detail.title": "Order detail",
+    "orders.detail.actions": "Order actions",
     "orders.empty": "You haven't placed any orders yet.",
     "orders.emptyHint": "Browse the catalog to place your first order.",
     "orders.emptyFiltered": "No orders are {{status}} right now.",

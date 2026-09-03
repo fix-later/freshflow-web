@@ -386,3 +386,12 @@
         opacity: 0.75;
     }
 }
+
+/* Cancelling is in the menu with the rest, but it is not like the rest. */
+.ff-order__menu-danger:not(:disabled) {
+    color: var(--fuse-warn, #dc2626);
+
+    .mat-icon {
+        color: inherit;
+    }
+}

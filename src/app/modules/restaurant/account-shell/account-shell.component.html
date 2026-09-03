@@ -53,23 +53,29 @@
                 </div>
 
                 <!--
-                  A page's own actions, on the title's line. Projected rather
-                  than declared here: which controls an account page offers is
-                  the page's business, but where they sit is the shell's.
+                  A page's own actions, on the title's line, next to the rail
+                  toggle. Projected rather than declared here: which controls an
+                  account page offers is the page's business, but where they sit
+                  is the shell's — and an overflow menu beside the toggle should
+                  read as one cluster of controls, not two.
                 -->
-                <div class="account-shell__actions">
+                <div class="account-shell__actions order-first sm:order-none">
                     <ng-content select="[accountShellActions]"></ng-content>
-                </div>
 
-                <button
-                    class="account-shell__menu-btn order-first -ml-2 sm:order-none sm:ml-0"
-                    mat-icon-button
-                    type="button"
-                    [attr.aria-label]="t('restaurantProfile.sidebar.toggle')"
-                    (click)="toggleDrawer()"
-                >
-                    <mat-icon [svgIcon]="'heroicons_outline:bars-3'"></mat-icon>
-                </button>
+                    <button
+                        class="account-shell__menu-btn -ml-2 sm:ml-0"
+                        mat-icon-button
+                        type="button"
+                        [attr.aria-label]="
+                            t('restaurantProfile.sidebar.toggle')
+                        "
+                        (click)="toggleDrawer()"
+                    >
+                        <mat-icon
+                            [svgIcon]="'heroicons_outline:bars-3'"
+                        ></mat-icon>
+                    </button>
+                </div>
             </div>
 
             <div class="flex w-full min-w-0 flex-auto flex-col bg-white">
