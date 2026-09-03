@@ -92,11 +92,13 @@ ff-product-card {
     }
 
     &__badge {
+        display: inline-flex;
+        align-items: center;
         border-radius: 9999px;
         padding: 0.1875rem 0.625rem;
         font-size: theme('fontSize.xs');
         font-weight: 600;
-        line-height: 1.25;
+        line-height: 1;
         letter-spacing: 0.02em;
         @apply bg-primary text-on-primary;
 
