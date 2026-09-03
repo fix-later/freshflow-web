@@ -253,8 +253,14 @@ export class QuickBuyComponent {
      * server injects into a confirmation — the model never chooses the address
      * (`AssistantChatRequest`: "never accepted from the LLM"), so picking one
      * here is the only way the buyer can say it in a conversation.
+     *
+     * Seeded from what survived the last page: restoring the address list
+     * without the pick a buyer already made would put its check mark back
+     * empty, silently asking them to choose again.
      */
-    readonly selectedAddressId = signal<string | null>(null);
+    readonly selectedAddressId = signal<string | null>(
+        this._assistant.restoredSelectedAddressId()
+    );
 
     /** The order awaiting an explicit press of the confirm button. */
     readonly pending = signal<AssistantPendingConfirmation | null>(null);
@@ -335,18 +341,22 @@ export class QuickBuyComponent {
 
     constructor() {
         // The transcript is written down as it grows, so a reload comes back to
-        // it. Only what was said and what it built — the composer's half-typed
+        // it — the credit and address cards included, since they are the
+        // answer, not decoration on top of it. Only the composer's half-typed
         // line is not a message and is not kept.
         effect(() => {
             const messages = this.messages();
             const draft = this.draft();
             this._assistant.persist(
-                messages.map(({ role, text, failed }) => ({
+                messages.map(({ role, text, failed, credit, addresses }) => ({
                     role,
                     text,
                     failed,
+                    credit,
+                    addresses,
                 })),
-                draft && !draft.unreadable ? draft.id : null
+                draft && !draft.unreadable ? draft.id : null,
+                this.selectedAddressId()
             );
         });
 

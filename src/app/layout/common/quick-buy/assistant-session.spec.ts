@@ -57,6 +57,54 @@ describe('AssistantService — surviving a reload', () => {
         expect(second.restoredDraftOrderId()).toBe('draft-1');
     });
 
+    /**
+     * The credit card and the address list are the answer, not decoration on
+     * top of it — the backend hands both straight to the client and never to
+     * the model, so this transcript is the only place they exist at all. A
+     * reload that put back the words but not the figures would be putting
+     * back half an answer.
+     */
+    it('restores the credit and addresses a turn answered with', () => {
+        const first = createService();
+        first.persist(
+            [
+                { role: 'user', text: 'công nợ của tôi' },
+                {
+                    role: 'assistant',
+                    text: 'Công nợ của bạn đang hiển thị bên dưới.',
+                    credit: {
+                        creditLimit: 100_000_000,
+                        outstandingBalance: 0,
+                        availableCredit: 100_000_000,
+                        updatedAt: '2026-09-03T10:56:06Z',
+                    },
+                },
+                {
+                    role: 'assistant',
+                    text: 'Đây là địa chỉ giao hàng đã lưu.',
+                    addresses: [
+                        {
+                            id: 'a-1',
+                            addressLine: 'Hiệp Bình Chánh, Thủ Đức',
+                            recipientName: 'HoanAnh',
+                            phone: '0798364281',
+                            isDefault: true,
+                        },
+                    ],
+                },
+            ],
+            null,
+            'a-1'
+        );
+
+        const second = createService();
+        const [, creditMessage, addressMessage] = second.restoredMessages();
+
+        expect(creditMessage.credit?.availableCredit).toBe(100_000_000);
+        expect(addressMessage.addresses?.[0].id).toBe('a-1');
+        expect(second.restoredSelectedAddressId()).toBe('a-1');
+    });
+
     it('forgets once the server would have — same 30-minute clock', () => {
         const first = createService();
         first.persist([{ role: 'user', text: 'chào' }], null);

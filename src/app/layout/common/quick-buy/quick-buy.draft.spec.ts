@@ -92,6 +92,7 @@ describe('QuickBuyComponent — draft order card', () => {
                 'takeStarter',
                 'restoredMessages',
                 'restoredDraftOrderId',
+                'restoredSelectedAddressId',
                 'persist',
                 'forget',
             ],
@@ -101,6 +102,7 @@ describe('QuickBuyComponent — draft order card', () => {
         // A fresh browser: nothing was stored by a previous page.
         assistant.restoredMessages.and.returnValue([]);
         assistant.restoredDraftOrderId.and.returnValue(null);
+        assistant.restoredSelectedAddressId.and.returnValue(null);
         orders = jasmine.createSpyObj<OrdersService>('OrdersService', [
             'getOrder',
         ]);

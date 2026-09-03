@@ -303,15 +303,22 @@ quick-buy {
     /* Nothing sits in a failure's corner either. */
     &--failed {
         padding-bottom: 0.625rem;
-    }
-
-    &--failed {
         @apply border-warn bg-red-50 text-warn;
     }
 
     &__icon {
         margin-top: 0.1875rem;
         flex: none;
+    }
+
+    /*
+     * The bubble itself is a row (the failure icon sits beside its text), so
+     * the text and whatever it carries need a block-level wrapper of their own
+     * to stack normally rather than laying out as more flex items in that row.
+     */
+    &__content {
+        min-width: 0;
+        flex: 1 1 auto;
     }
 
     /* The user's own turn and any failure notice stay plain text, so
@@ -1142,20 +1149,19 @@ quick-buy {
 }
 
 /*
- * The credit the answer carried. Same card idiom as the draft: the assistant
- * says the figures are on screen because the backend hands them here and never
- * to the model, so this is the screen it means.
+ * The credit the answer carried — a section of the same bubble the answer
+ * arrived in, not a second card stacked under it. Ask about credit, then ask
+ * something else, and two independently-bordered white boxes in a row read as
+ * two separate replies; a divider inside one bubble reads as one.
  */
 .ff-qb-balance {
-    border-radius: 1rem;
-    border: 1px solid var(--fuse-border);
-    padding: 0.75rem 0.875rem;
-    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
-    @apply bg-card;
+    margin-top: 0.625rem;
+    border-top: 1px solid var(--fuse-border);
+    padding-top: 0.625rem;
 
     &__title {
         margin: 0 0 0.5rem;
-        font-size: theme('fontSize.base');
+        font-size: theme('fontSize.sm');
         font-weight: 700;
         @apply text-default;
     }
@@ -1212,23 +1218,22 @@ quick-buy {
 }
 
 /*
- * The addresses the answer listed, pickable. The model is never allowed to
- * choose one — the server injects whatever the client sends — so this list is
- * the buyer's only way to say where the order goes.
+ * The addresses the answer listed, pickable — the same section idiom as
+ * `.ff-qb-balance` above. The model is never allowed to choose one — the
+ * server injects whatever the client sends — so this list is the buyer's
+ * only way to say where the order goes.
  */
 .ff-qb-addresses {
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
-    border-radius: 1rem;
-    border: 1px solid var(--fuse-border);
-    padding: 0.75rem 0.875rem;
-    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
-    @apply bg-card;
+    margin-top: 0.625rem;
+    border-top: 1px solid var(--fuse-border);
+    padding-top: 0.625rem;
 
     &__title {
         margin: 0;
-        font-size: theme('fontSize.base');
+        font-size: theme('fontSize.sm');
         font-weight: 700;
         @apply text-default;
     }
@@ -1297,12 +1302,5 @@ quick-buy {
         .ff-qb-address__mark {
             @apply text-primary;
         }
-    }
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .ff-qb-balance,
-    .ff-qb-addresses {
-        animation: none;
     }
 }

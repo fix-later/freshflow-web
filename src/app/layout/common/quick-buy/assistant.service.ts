@@ -20,11 +20,21 @@ const STORAGE_KEY = 'freshflow.assistant.session';
  */
 const SESSION_TTL_MS = 30 * 60 * 1000;
 
-/** One rendered turn, as the panel drew it. */
+/**
+ * One rendered turn, as the panel drew it.
+ *
+ * `credit`/`addresses` ride along so a reload puts back what a turn
+ * answered, not just what it said: the backend hands both straight to the
+ * client and never to the model, so the panel is the only place they exist at
+ * all — losing them on reload would be losing the answer, not just its
+ * formatting.
+ */
 export interface AssistantStoredMessage {
     role: 'user' | 'assistant';
     text: string;
     failed?: boolean;
+    credit?: AssistantCreditSummary | null;
+    addresses?: AssistantDeliveryAddress[] | null;
 }
 
 /** What survives a reload: the handle, what was said, and what it built. */
@@ -32,6 +42,12 @@ interface StoredSession {
     sessionId: string;
     messages: AssistantStoredMessage[];
     draftOrderId: string | null;
+    /**
+     * The address the buyer had picked, if any — restored alongside the
+     * address list itself so a reload does not put the list back with its
+     * check mark quietly gone.
+     */
+    selectedAddressId: string | null;
     /** When it was last written — compared against {@link SESSION_TTL_MS}. */
     at: number;
 }
@@ -164,6 +180,11 @@ export class AssistantService {
         return this._restored?.draftOrderId ?? null;
     }
 
+    /** The delivery address the restored conversation had picked, if any. */
+    restoredSelectedAddressId(): string | null {
+        return this._restored?.selectedAddressId ?? null;
+    }
+
     /**
      * Writes the conversation down so a reload can pick it up.
      *
@@ -175,7 +196,8 @@ export class AssistantService {
      */
     persist(
         messages: readonly AssistantStoredMessage[],
-        draftOrderId: string | null
+        draftOrderId: string | null,
+        selectedAddressId: string | null = null
     ): void {
         try {
             if (!messages.length) {
@@ -186,6 +208,7 @@ export class AssistantService {
                 sessionId: this._sessionId,
                 messages: [...messages],
                 draftOrderId,
+                selectedAddressId,
                 at: Date.now(),
             };
             sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
@@ -380,6 +403,10 @@ function restoreSession(): StoredSession | null {
             draftOrderId:
                 typeof parsed.draftOrderId === 'string'
                     ? parsed.draftOrderId
+                    : null,
+            selectedAddressId:
+                typeof parsed.selectedAddressId === 'string'
+                    ? parsed.selectedAddressId
                     : null,
             at: parsed.at,
         };

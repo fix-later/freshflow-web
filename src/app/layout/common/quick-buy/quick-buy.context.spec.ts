@@ -122,6 +122,7 @@ describe('QuickBuyComponent — what the answer carries', () => {
                 'takeStarter',
                 'restoredMessages',
                 'restoredDraftOrderId',
+                'restoredSelectedAddressId',
                 'persist',
                 'forget',
             ],
@@ -130,6 +131,7 @@ describe('QuickBuyComponent — what the answer carries', () => {
         assistant.takeStarter.and.returnValue(null);
         assistant.restoredMessages.and.returnValue([]);
         assistant.restoredDraftOrderId.and.returnValue(null);
+        assistant.restoredSelectedAddressId.and.returnValue(null);
         assistant.chat.and.resolveTo(reply());
     });
 
