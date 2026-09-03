@@ -1117,3 +1117,169 @@ quick-buy {
         animation: none;
     }
 }
+
+/*
+ * The credit the answer carried. Same card idiom as the draft: the assistant
+ * says the figures are on screen because the backend hands them here and never
+ * to the model, so this is the screen it means.
+ */
+.ff-qb-balance {
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.75rem 0.875rem;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+    @apply bg-card;
+
+    &__title {
+        margin: 0 0 0.5rem;
+        font-size: theme('fontSize.base');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__rows {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+
+    /*
+     * The panel is a phone-width column even on a desktop, so the label gets
+     * whatever room is left and the figure never breaks: "100.000.000 đ" split
+     * across two lines is not a number anyone can read at a glance.
+     */
+    &__row {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        font-size: theme('fontSize.sm');
+        @apply text-secondary;
+
+        span {
+            min-width: 0;
+        }
+
+        strong {
+            flex: none;
+            white-space: nowrap;
+            font-variant-numeric: tabular-nums;
+            @apply text-default;
+        }
+    }
+
+    /* What is left to spend is the answer to the question that was asked. */
+    &__row--available {
+        margin-top: 0.25rem;
+        border-top: 1px solid var(--fuse-border);
+        padding-top: 0.375rem;
+
+        strong {
+            font-size: theme('fontSize.base');
+            font-weight: 700;
+            @apply text-primary;
+        }
+    }
+
+    &__at {
+        margin: 0.5rem 0 0;
+        font-size: theme('fontSize.xs');
+        @apply text-hint;
+    }
+}
+
+/*
+ * The addresses the answer listed, pickable. The model is never allowed to
+ * choose one — the server injects whatever the client sends — so this list is
+ * the buyer's only way to say where the order goes.
+ */
+.ff-qb-addresses {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+    border-radius: 1rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.75rem 0.875rem;
+    animation: ff-qb-message-in 200ms $ff-qb-ease-decelerate both;
+    @apply bg-card;
+
+    &__title {
+        margin: 0;
+        font-size: theme('fontSize.base');
+        font-weight: 700;
+        @apply text-default;
+    }
+
+    &__hint {
+        margin: 0.125rem 0 0;
+        font-size: theme('fontSize.xs');
+        @apply text-hint;
+    }
+}
+
+.ff-qb-address {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--fuse-border);
+    padding: 0.5rem 0.625rem;
+    text-align: left;
+    transition:
+        border-color 150ms ease,
+        background-color 150ms ease;
+
+    &__mark {
+        margin-top: 0.125rem;
+        flex: none;
+        @apply text-hint;
+    }
+
+    &__body {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.125rem;
+    }
+
+    &__line {
+        font-size: theme('fontSize.sm');
+        font-weight: 600;
+        overflow-wrap: anywhere;
+        @apply text-default;
+    }
+
+    &__who {
+        font-size: theme('fontSize.xs');
+        @apply text-secondary;
+    }
+
+    &__badge {
+        margin-inline-start: 0.375rem;
+        border-radius: 9999px;
+        padding: 0.0625rem 0.375rem;
+        font-size: theme('fontSize.xs');
+        font-weight: 700;
+        @apply bg-primary-50 text-primary;
+    }
+
+    &:hover,
+    &:focus-visible {
+        @apply border-primary;
+    }
+
+    &--picked {
+        @apply border-primary bg-primary-50;
+
+        .ff-qb-address__mark {
+            @apply text-primary;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ff-qb-balance,
+    .ff-qb-addresses {
+        animation: none;
+    }
+}

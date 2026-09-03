@@ -23,6 +23,8 @@ function reply(patch: Partial<AssistantReply> = {}): AssistantReply {
         sessionId: 's-1',
         pendingConfirmation: null,
         draftOrderId: null,
+        creditSummary: null,
+        deliveryAddresses: null,
         ...patch,
     };
 }

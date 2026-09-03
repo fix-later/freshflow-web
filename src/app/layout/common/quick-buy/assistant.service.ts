@@ -50,12 +50,40 @@ export interface AssistantPendingConfirmation {
     previewJson?: string | null;
 }
 
+/**
+ * The restaurant's credit standing, as the answer reports it.
+ *
+ * Returned straight to the client and deliberately never shown to the model
+ * (`CreditSummary`: "returned directly to the client and never sent to the
+ * LLM"), which is why the assistant's reply says the figures are on screen
+ * rather than reciting them: the numbers are this panel's to render.
+ */
+export interface AssistantCreditSummary {
+    creditLimit: number | null;
+    outstandingBalance: number | null;
+    availableCredit: number | null;
+    updatedAt: string | null;
+}
+
+/** One of the restaurant's saved delivery addresses, as the answer lists it. */
+export interface AssistantDeliveryAddress {
+    id: string;
+    addressLine: string;
+    recipientName: string | null;
+    phone: string | null;
+    isDefault: boolean;
+}
+
 /** One turn's answer (`AssistantChatResponse`). */
 export interface AssistantReply {
     reply: string;
     sessionId: string;
     pendingConfirmation: AssistantPendingConfirmation | null;
     draftOrderId: string | null;
+    /** Present on the turns that looked the credit up; `null` otherwise. */
+    creditSummary: AssistantCreditSummary | null;
+    /** Present on the turns that listed addresses; `null` otherwise. */
+    deliveryAddresses: AssistantDeliveryAddress[] | null;
 }
 
 /**
@@ -268,8 +296,50 @@ export class AssistantService {
                   }
                 : null,
             draftOrderId: (data?.['draftOrderId'] as string | null) ?? null,
+            creditSummary: readCredit(data?.['creditSummary']),
+            deliveryAddresses: readAddresses(data?.['deliveryAddresses']),
         };
     }
+}
+
+/** A number the API sends as a decimal, or `null` when it sends nothing. */
+function readNumber(value: unknown): number | null {
+    const parsed = typeof value === 'string' ? Number(value) : value;
+    return typeof parsed === 'number' && Number.isFinite(parsed)
+        ? parsed
+        : null;
+}
+
+function readCredit(value: unknown): AssistantCreditSummary | null {
+    if (!value || typeof value !== 'object') {
+        return null;
+    }
+    const row = value as Record<string, unknown>;
+    return {
+        creditLimit: readNumber(row['creditLimit']),
+        outstandingBalance: readNumber(row['outstandingBalance']),
+        availableCredit: readNumber(row['availableCredit']),
+        updatedAt: (row['updatedAt'] as string | null) ?? null,
+    };
+}
+
+function readAddresses(value: unknown): AssistantDeliveryAddress[] | null {
+    if (!Array.isArray(value)) {
+        return null;
+    }
+    return value
+        .filter(
+            (row): row is Record<string, unknown> =>
+                !!row && typeof row === 'object'
+        )
+        .map((row) => ({
+            id: String(row['id'] ?? ''),
+            addressLine: String(row['addressLine'] ?? '').trim(),
+            recipientName: (row['recipientName'] as string | null) ?? null,
+            phone: (row['phone'] as string | null) ?? null,
+            isDefault: row['isDefault'] === true,
+        }))
+        .filter((address) => !!address.id && !!address.addressLine);
 }
 
 /**

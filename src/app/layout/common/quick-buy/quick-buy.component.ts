@@ -30,6 +30,8 @@ import { DraftOrderService } from 'app/layout/common/draft-order/draft-order.ser
 import { OrdersService } from 'app/modules/orders/orders.service';
 import {
     ASSISTANT_MESSAGE_MAX_LENGTH,
+    AssistantCreditSummary,
+    AssistantDeliveryAddress,
     AssistantPendingConfirmation,
     AssistantService,
 } from './assistant.service';
@@ -234,6 +236,29 @@ export class QuickBuyComponent {
      * raises the pill that offers to take them there.
      */
     readonly unreadBelow = signal(false);
+
+    /**
+     * The restaurant's credit standing, when a turn looked it up.
+     *
+     * The backend hands these figures to the client and deliberately withholds
+     * them from the model, so the assistant answers "the figures are on screen"
+     * — and until now nothing put them there. Kept until a later turn replaces
+     * them: a balance stated once stays true for the rest of the conversation.
+     */
+    readonly credit = signal<AssistantCreditSummary | null>(null);
+
+    /** The restaurant's delivery addresses, when a turn listed them. */
+    readonly addresses = signal<AssistantDeliveryAddress[]>([]);
+
+    /**
+     * Where the buyer says this order should go.
+     *
+     * Sent as `deliveryAddressId` on every later turn, which is what the
+     * server injects into a confirmation — the model never chooses the address
+     * (`AssistantChatRequest`: "never accepted from the LLM"), so picking one
+     * here is the only way the buyer can say it in a conversation.
+     */
+    readonly selectedAddressId = signal<string | null>(null);
 
     /** The order awaiting an explicit press of the confirm button. */
     readonly pending = signal<AssistantPendingConfirmation | null>(null);
@@ -669,6 +694,13 @@ export class QuickBuyComponent {
 
     // ── Formatting ───────────────────────────────────────────────────────
 
+    /** Picks the address this order should go to, or un-picks it. */
+    selectAddress(address: AssistantDeliveryAddress): void {
+        this.selectedAddressId.update((current) =>
+            current === address.id ? null : address.id
+        );
+    }
+
     money(value: number | null): string {
         if (value === null) {
             return '—';
@@ -716,7 +748,12 @@ export class QuickBuyComponent {
         try {
             const answer = await this._assistant.chat(text, {
                 confirmOrderId: options?.confirmOrderId,
-                deliveryAddressId: options?.deliveryAddressId,
+                // A confirmation echoes its own address; every other turn
+                // carries whichever one the buyer picked from the list.
+                deliveryAddressId:
+                    options?.deliveryAddressId ??
+                    this.selectedAddressId() ??
+                    undefined,
             });
             // An empty reply renders as an empty bubble, which reads as a bug in
             // this panel rather than a turn that produced nothing. Name it, and
@@ -735,6 +772,24 @@ export class QuickBuyComponent {
                       }
             );
             this.pending.set(answer.pendingConfirmation);
+            if (answer.creditSummary) {
+                this.credit.set(answer.creditSummary);
+            }
+            if (answer.deliveryAddresses) {
+                this.addresses.set(answer.deliveryAddresses);
+                // A list of one, or one marked default, answers the question
+                // the list was asked — pre-selecting it saves a tap without
+                // deciding anything the buyer did not.
+                this.selectedAddressId.update(
+                    (current) =>
+                        current ??
+                        answer.deliveryAddresses!.find((a) => a.isDefault)
+                            ?.id ??
+                        (answer.deliveryAddresses!.length === 1
+                            ? answer.deliveryAddresses![0].id
+                            : null)
+                );
+            }
             await this._trackDraft(answer.draftOrderId);
         } catch (err) {
             // A confirmation that failed puts its card back, so the user can
