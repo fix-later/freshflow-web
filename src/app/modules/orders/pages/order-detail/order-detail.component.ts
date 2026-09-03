@@ -27,6 +27,7 @@ import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { isImageFile } from 'app/core/api/cloudinary-upload';
 import { describeApiError } from 'app/core/api/error-codes';
 
+import { MatDialog } from '@angular/material/dialog';
 import {
     applyApiErrorToForm,
     clearServerErrors,
@@ -42,6 +43,9 @@ import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
+import { openInvoiceSheet } from 'app/modules/restaurant/invoices/invoice-sheet/open-invoice-sheet';
+import { RestaurantInvoicesService } from 'app/modules/restaurant/invoices/restaurant-invoices.service';
+import { InvoiceRow } from 'app/modules/restaurant/invoices/restaurant-invoices.types';
 import { ImageUploadTileComponent } from 'app/shared/image-upload-tile/image-upload-tile.component';
 import {
     CLAIM_ELIGIBLE_ORDER_STATUSES,
@@ -52,6 +56,7 @@ import { OrdersService } from '../../orders.service';
 import {
     canCancelOrder,
     normalizeOrderStatus,
+    OrderItem,
     OrderRow,
     orderStatusPillClass,
 } from '../../orders.types';
@@ -89,6 +94,11 @@ import {
 })
 export class OrderDetailComponent implements OnInit {
     private readonly _ordersService = inject(OrdersService);
+    private readonly _invoices = inject(RestaurantInvoicesService);
+    private readonly _dialog = inject(MatDialog);
+
+    /** The VAT invoice issued for this order, once one is found. */
+    readonly invoice = signal<InvoiceRow | null>(null);
     private readonly _route = inject(ActivatedRoute);
     private readonly _router = inject(Router);
     private readonly _snackBar = inject(MatSnackBar);
@@ -367,13 +377,29 @@ export class OrderDetailComponent implements OnInit {
         return this._isDelivered() && !this.receiptConfirmed();
     }
 
-    /** True once the restaurant has acknowledged receipt of this order. */
+    /**
+     * True once the restaurant has acknowledged receipt of this order.
+     *
+     * The field is `confirmedReceiptAt` (`OrderDto.ConfirmedReceiptAt`). This
+     * read `receiptConfirmedAt` — the same two words the other way round, which
+     * no response has ever carried — so the button stayed on offer after the
+     * receipt was confirmed and pressing it again answered with the server's
+     * refusal.
+     */
     receiptConfirmed(): boolean {
         const order = this.order();
         return (
-            !!order?.['receiptConfirmedAt'] ||
+            !!order?.['confirmedReceiptAt'] ||
             order?.['receiptConfirmed'] === true
         );
+    }
+
+    /** Opens this order's VAT invoice, the same sheet the history list opens. */
+    openInvoice(): void {
+        const invoice = this.invoice();
+        if (invoice) {
+            openInvoiceSheet(this._dialog, invoice.id, invoice);
+        }
     }
 
     confirmReceipt(): void {
@@ -645,6 +671,42 @@ export class OrderDetailComponent implements OnInit {
             }));
     }
 
+    /**
+     * What the line was priced in — the packing the market sells this product
+     * by, since a "quantity" of 25 means 25 kg on one product and 25 cases on
+     * another.
+     */
+    itemPacking(item: OrderItem): string | null {
+        const code = String(item.packingCode ?? '').trim();
+        const weight = this._num(item.packingWeightKg);
+        if (code && weight) {
+            return `${code} · ${weight} kg`;
+        }
+        return code || (weight ? `${weight} kg` : null);
+    }
+
+    /** The VAT rate this line was charged at, as the order recorded it. */
+    itemVatRate(item: OrderItem): string {
+        const percent = this._num(item.vatRatePercent);
+        return percent === null ? '—' : `${percent}%`;
+    }
+
+    /**
+     * The line after tax.
+     *
+     * `subtotal` + `vatAmount`, both snapshotted onto the line by the order —
+     * this is the one place the page adds two of its own figures, and only
+     * because the API publishes no third one. When the line carries no VAT
+     * amount the subtotal *is* the line, rather than a total invented at 0%.
+     */
+    itemTotalAfterVat(item: OrderItem): number | null {
+        const subtotal = this._num(item.subtotal);
+        if (subtotal === null) {
+            return null;
+        }
+        return subtotal + (this._num(item.vatAmount) ?? 0);
+    }
+
     private _num(value: unknown): number | null {
         return typeof value === 'number' && Number.isFinite(value)
             ? value
@@ -691,6 +753,25 @@ export class OrderDetailComponent implements OnInit {
         return `${value.toLocaleString(this._transloco.getActiveLang())} ₫`;
     }
 
+    /**
+     * This order's invoice, when the platform has issued one.
+     *
+     * `GET /invoices` takes no order filter, so the restaurant's recent
+     * invoices are searched for this order. Not finding one means "not in that
+     * window" as much as "none exists", which is why nothing is said when the
+     * search comes back empty — an absent button, not a claim.
+     */
+    private async _findInvoice(orderId: string): Promise<void> {
+        try {
+            const found = await this._invoices.invoicesByOrder([orderId]);
+            this.invoice.set(found.get(orderId) ?? null);
+        } catch {
+            // The order is the page; a missing invoice button is not worth an
+            // error over it.
+            this.invoice.set(null);
+        }
+    }
+
     private _fetch(orderId: string, keepVisible = false): void {
         if (!keepVisible) {
             this.loading.set(true);
@@ -700,6 +781,7 @@ export class OrderDetailComponent implements OnInit {
             .then((order) => {
                 if (order) {
                     this.order.set(order);
+                    void this._findInvoice(orderId);
                 } else if (!keepVisible) {
                     this.notFound.set(true);
                 }

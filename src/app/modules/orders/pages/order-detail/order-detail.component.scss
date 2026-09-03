@@ -154,3 +154,235 @@
     color: inherit;
     opacity: 0.75;
 }
+
+/*
+ * The invoice, at the foot of the money it documents. A full-width row rather
+ * than a fifth button in the header: it is a document to open, not another
+ * action to take on the order.
+ */
+.ff-order__invoice {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    margin-top: auto;
+    padding-top: 1rem;
+    font-size: theme('fontSize.sm');
+    transition: color 150ms ease;
+    @apply text-secondary;
+
+    &:hover,
+    &:focus-visible {
+        @apply text-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary);
+        outline-offset: 2px;
+        border-radius: 0.5rem;
+    }
+}
+
+/*
+ * The order as a document — after the B2B order-detail reference: an identity
+ * strip, then who/when beside what it cost.
+ */
+.ff-order__doc {
+    overflow: hidden;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-order__doc-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    padding: 0.875rem 1.25rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));
+}
+
+.ff-order__doc-id {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: theme('fontSize.sm');
+    @apply text-secondary;
+
+    strong {
+        @apply text-default font-mono font-semibold;
+    }
+}
+
+.ff-order__doc-body {
+    display: grid;
+    gap: 0 2.5rem;
+    grid-template-columns: 1fr;
+    padding: 1rem 1.25rem;
+
+    @screen md {
+        grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
+    }
+}
+
+/* The money column keeps its own rule so the two halves read apart. */
+.ff-order__money {
+    @screen md {
+        border-inline-start: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+        padding-inline-start: 2.5rem;
+    }
+}
+
+.ff-order__doc-invoice {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    border-top: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    padding: 0.875rem 1.25rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));
+}
+
+.ff-order__aside {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+
+    @screen md {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+/* ── The lines ─────────────────────────────────────────────────────────── */
+
+.ff-order__lines {
+    overflow: hidden;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-order__lines-head {
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    padding: 0.875rem 1.25rem;
+
+    h2 {
+        font-size: theme('fontSize.sm');
+        font-weight: 700;
+    }
+}
+
+/*
+ * Name takes the room; the five figures line up on their own right edges so a
+ * column reads down. Narrow screens stack the figures under the product and
+ * label each one from its own header, which is the only way six columns fit a
+ * phone without shrinking past reading.
+ */
+.ff-order__line {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.25rem 1rem;
+    padding: 0.75rem 1.25rem;
+    font-size: theme('fontSize.sm');
+
+    & + & {
+        border-top: 1px solid var(--fuse-border, rgb(0 0 0 / 0.06));
+    }
+
+    @screen md {
+        grid-template-columns: minmax(0, 1fr) 7.5rem 7rem 8rem 4.5rem 8.5rem;
+        align-items: center;
+    }
+}
+
+.ff-order__line--head {
+    display: none;
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    font-size: theme('fontSize.xs');
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    @apply text-secondary;
+
+    @screen md {
+        display: grid;
+    }
+}
+
+.ff-order__col-name {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.ff-order__thumb {
+    height: 2.75rem;
+    width: 2.75rem;
+    flex: none;
+    border-radius: 0.5rem;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    object-fit: cover;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
+}
+
+.ff-order__thumb--empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Each figure names itself while the row is stacked, and drops the label once
+   the header row above can do that job. */
+.ff-order__figure {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-family: theme('fontFamily.mono');
+
+    &::before {
+        content: attr(data-label);
+        font-family: theme('fontFamily.sans');
+        font-size: theme('fontSize.xs');
+        @apply text-secondary;
+    }
+
+    @screen md {
+        justify-content: flex-end;
+
+        &::before {
+            display: none;
+        }
+    }
+}
+
+/*
+ * A column head is a name and a qualifier: "Thành tiền" is what the figure is,
+ * "(trước thuế)" is which of the two it is. Setting them at one size made
+ * every head read as a four-word sentence.
+ */
+.ff-order__col-head {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    line-height: 1.25;
+
+    small {
+        font-size: 0.625rem;
+        font-weight: 600;
+        letter-spacing: 0;
+        text-transform: none;
+        opacity: 0.75;
+    }
+}

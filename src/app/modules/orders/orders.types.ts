@@ -7,6 +7,13 @@ export interface OrderItem {
     unitPrice?: number | null;
     subtotal?: number | null;
     actualQuantity?: number | null;
+    actualUnitPrice?: number | null;
+    /** Product photo snapshotted onto the line (`OrderItemDto.ImageUrl`). */
+    imageUrl?: string | null;
+    /** VAT as the order priced it — the rate applied and the money it added. */
+    vatRateCode?: string | null;
+    vatRatePercent?: number | null;
+    vatAmount?: number | null;
     /** Packing code snapshotted onto the line (`OrderItemDto.PackingCode`). */
     packingCode?: string | null;
     /**

@@ -6,10 +6,67 @@
   this page keeps only what is about the order itself.
 -->
 <account-shell
-    [titleKey]="'restaurantProfile.tabs.orders'"
+    [titleKey]="'orders.detail.title'"
     [backLink]="'/orders'"
     *transloco="let t"
 >
+    <!-- On the title's line, projected into the shell: what can be done with
+         this order belongs beside its name, not on a row of its own. Only once
+         there is an order to act on. -->
+    @if (order()) {
+        <div accountShellActions class="flex flex-wrap items-center gap-2">
+            <button
+                mat-stroked-button
+                type="button"
+                [disabled]="acting()"
+                (click)="reorder()"
+            >
+                {{ t('orders.detail.reorder') }}
+            </button>
+            <button mat-stroked-button type="button" (click)="goToRecurring()">
+                {{ t('orders.detail.makeRecurring') }}
+            </button>
+            @if (canConfirmReceipt()) {
+                <button
+                    mat-flat-button
+                    color="primary"
+                    type="button"
+                    [disabled]="acting()"
+                    (click)="confirmReceipt()"
+                >
+                    <mat-icon
+                        class="icon-size-5"
+                        [svgIcon]="'heroicons_outline:check-circle'"
+                    ></mat-icon>
+                    <span class="ml-2">{{
+                        t('orders.detail.confirmReceipt')
+                    }}</span>
+                </button>
+            }
+            @if (canFileClaim()) {
+                <button
+                    mat-stroked-button
+                    type="button"
+                    [disabled]="acting()"
+                    (click)="openClaim()"
+                >
+                    {{ t('claims.file') }}
+                </button>
+            }
+            @if (canCancel()) {
+                <button
+                    mat-stroked-button
+                    color="warn"
+                    type="button"
+                    [disabled]="acting()"
+                    (click)="openCancel()"
+                >
+                    {{ t('orders.detail.cancel') }}
+                </button>
+            }
+        </div>
+    }
+
     @if (notFound()) {
         <div
             class="p-8 text-center text-2xl font-semibold tracking-tight sm:p-16"
@@ -31,72 +88,6 @@
     } @else if (order(); as order) {
         <!-- No page gutters: the shell's content slot already pads. -->
         <div class="flex flex-col gap-6">
-            <div class="flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <h1 class="text-2xl font-semibold tracking-tight">
-                        {{ order.id?.slice(0, 8) }}
-                    </h1>
-                    <span [class]="statusPillClass(order.status)">
-                        {{ t(statusKey(order.status)) }}
-                    </span>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        [disabled]="acting()"
-                        (click)="reorder()"
-                    >
-                        {{ t('orders.detail.reorder') }}
-                    </button>
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        (click)="goToRecurring()"
-                    >
-                        {{ t('orders.detail.makeRecurring') }}
-                    </button>
-                    @if (canConfirmReceipt()) {
-                        <button
-                            mat-flat-button
-                            color="primary"
-                            type="button"
-                            [disabled]="acting()"
-                            (click)="confirmReceipt()"
-                        >
-                            <mat-icon
-                                class="icon-size-5"
-                                [svgIcon]="'heroicons_outline:check-circle'"
-                            ></mat-icon>
-                            <span class="ml-2">{{
-                                t('orders.detail.confirmReceipt')
-                            }}</span>
-                        </button>
-                    }
-                    @if (canFileClaim()) {
-                        <button
-                            mat-stroked-button
-                            type="button"
-                            [disabled]="acting()"
-                            (click)="openClaim()"
-                        >
-                            {{ t('claims.file') }}
-                        </button>
-                    }
-                    @if (canCancel()) {
-                        <button
-                            mat-stroked-button
-                            color="warn"
-                            type="button"
-                            [disabled]="acting()"
-                            (click)="openCancel()"
-                        >
-                            {{ t('orders.detail.cancel') }}
-                        </button>
-                    }
-                </div>
-            </div>
-
             @if (actionError(); as message) {
                 <div
                     class="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
@@ -306,54 +297,45 @@
             }
 
             <!--
-              What the order was, beside what it cost. The page used to show one
-              figure — the grand total — so a buyer could not tell goods from VAT
-              from the trip, and the address it went to, the distance the fee was
-              priced on and the photo of the drop were nowhere at all. Every
-              value here is a field of the order; nothing is computed here,
+              The order as a document, after the B2B order-detail reference:
+              who and when on the left, what it cost on the right, and the
+              invoice on a strip of its own between them and the lines.
+
+              Every figure is a field of the order — nothing is computed here,
               because a total the buyer works out and a total the server charges
               must never be able to disagree.
             -->
-            <div class="ff-order__panels">
-                <section class="ff-order__panel">
-                    <h2 class="ff-order__panel-title">
-                        {{ t('orders.detail.paymentSummary') }}
-                    </h2>
-                    <dl class="ff-order__rows">
-                        @for (line of moneyLines(order); track line.labelKey) {
-                            <div class="ff-order__row">
-                                <dt>{{ t(line.labelKey) }}</dt>
-                                <dd class="font-mono">{{ line.value }}</dd>
-                            </div>
-                        }
-                        <div class="ff-order__row ff-order__row--total">
-                            <dt>{{ t('orders.detail.totalAmount') }}</dt>
-                            <dd class="font-mono">
-                                {{ formatAmount(order.totalAmount) }}
-                            </dd>
-                        </div>
-                    </dl>
-                    @if (order.paymentStatus) {
-                        <p class="text-secondary mt-3 text-sm">
-                            {{ t('orders.detail.paymentStatus') }}:
-                            <span class="text-default font-medium">{{
-                                order.paymentStatus
-                                    | apiLabel: 'orders.paymentStatus'
-                            }}</span>
-                        </p>
-                    }
-                </section>
+            <section class="ff-order__doc">
+                <header class="ff-order__doc-head">
+                    <span class="ff-order__doc-id">
+                        {{ t('orders.detail.orderNumber') }}:
+                        <strong>{{ order.id }}</strong>
+                    </span>
+                    <span [class]="statusPillClass(order.status)">
+                        {{ t(statusKey(order.status)) }}
+                    </span>
+                </header>
 
-                <section class="ff-order__panel">
-                    <h2 class="ff-order__panel-title">
-                        {{ t('orders.detail.deliveryTitle') }}
-                    </h2>
+                <div class="ff-order__doc-body">
                     <dl class="ff-order__rows">
                         <div class="ff-order__row">
                             <dt>{{ t('orders.detail.scheduledFor') }}</dt>
                             <dd>
                                 {{ formatScheduledFor(order.scheduledFor) }}
                             </dd>
+                        </div>
+                        <div class="ff-order__row">
+                            <dt>{{ t('orders.detail.paymentStatus') }}</dt>
+                            <dd>
+                                {{
+                                    order.paymentStatus
+                                        | apiLabel: 'orders.paymentStatus'
+                                }}
+                            </dd>
+                        </div>
+                        <div class="ff-order__row">
+                            <dt>{{ t('orders.detail.createdAt') }}</dt>
+                            <dd>{{ formatDate(order.createdAt) }}</dd>
                         </div>
                         @if (deliveryAddress(order); as address) {
                             <div class="ff-order__row ff-order__row--stack">
@@ -400,24 +382,62 @@
                         }
                     </dl>
 
-                    <!-- The driver's photo of the drop: where the goods were
-                         left, and proof they arrived. -->
-                    @if (proofUrl(order); as proof) {
-                        <a
-                            class="ff-order__proof"
-                            [href]="proof"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            <img
-                                [src]="proof"
-                                [alt]="t('orders.detail.deliveryProof')"
-                            />
-                            <span>{{ t('orders.detail.deliveryProof') }}</span>
-                        </a>
-                    }
-                </section>
+                    <dl class="ff-order__rows ff-order__money">
+                        @for (line of moneyLines(order); track line.labelKey) {
+                            <div class="ff-order__row">
+                                <dt>{{ t(line.labelKey) }}</dt>
+                                <dd class="font-mono">{{ line.value }}</dd>
+                            </div>
+                        }
+                        <div class="ff-order__row ff-order__row--total">
+                            <dt>{{ t('orders.detail.totalAfterVat') }}</dt>
+                            <dd class="font-mono">
+                                {{ formatAmount(order.totalAmount) }}
+                            </dd>
+                        </div>
+                    </dl>
+                </div>
 
+                <!-- The VAT invoice for this order, where the money it
+                     documents is. -->
+                @if (invoice(); as invoice) {
+                    <div class="ff-order__doc-invoice">
+                        <div class="min-w-0">
+                            <span class="block font-semibold">
+                                {{ t('orders.detail.invoice') }}:
+                                <span class="font-mono">{{
+                                    invoice.number || invoice.id.slice(0, 8)
+                                }}</span>
+                            </span>
+                            <span class="text-secondary block text-sm">
+                                {{ t('restaurantInvoices.sheet.issuedAt') }}:
+                                {{ formatDate(invoice.issuedAt) }}
+                                &middot;
+                                {{ t('orders.detail.totalAfterVat') }}:
+                                {{ formatAmount(invoice.total) }}
+                            </span>
+                        </div>
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            data-testid="order-detail-invoice"
+                            (click)="openInvoice()"
+                        >
+                            <mat-icon
+                                class="icon-size-5"
+                                svgIcon="heroicons_outline:receipt-percent"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('orders.detail.invoiceView')
+                            }}</span>
+                        </button>
+                    </div>
+                }
+            </section>
+
+            <!-- What arrived, and when each step happened. Kept out of the
+                 document above: it is the delivery's story, not the bill. -->
+            <div class="ff-order__aside">
                 <section class="ff-order__panel">
                     <h2 class="ff-order__panel-title">
                         {{ t('orders.detail.timeline') }}
@@ -447,144 +467,254 @@
                         </div>
                     }
                 </section>
+
+                @if (proofUrl(order); as proof) {
+                    <section class="ff-order__panel">
+                        <h2 class="ff-order__panel-title">
+                            {{ t('orders.detail.deliveryProof') }}
+                        </h2>
+                        <a
+                            class="ff-order__proof"
+                            [href]="proof"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                [src]="proof"
+                                [alt]="t('orders.detail.deliveryProof')"
+                            />
+                            <span>{{ t('imageTile.view') }}</span>
+                        </a>
+                    </section>
+                }
             </div>
 
-            <div class="overflow-hidden rounded-xl border">
-                <div
-                    class="text-secondary bg-hover grid grid-cols-4 gap-4 border-b px-4 py-2 text-xs font-semibold uppercase tracking-wide"
-                >
-                    <span>{{ t('orders.detail.item') }}</span>
-                    <span>{{ t('orders.detail.quantity') }}</span>
-                    <span>{{ t('orders.detail.unitPrice') }}</span>
-                    <span>{{ t('orders.detail.subtotal') }}</span>
+            <section class="ff-order__lines">
+                <header class="ff-order__lines-head">
+                    <h2>
+                        {{ t('orders.detail.item') }}
+                        <span class="text-hint"
+                            >({{ order.items?.length ?? 0 }})</span
+                        >
+                    </h2>
+                </header>
+
+                <div class="ff-order__line ff-order__line--head">
+                    <span class="ff-order__col-name">{{
+                        t('orders.detail.item')
+                    }}</span>
+                    <span class="ff-order__col-head">
+                        <span>{{ t('orders.detail.unitPrice') }}</span>
+                        <small>{{ t('orders.detail.beforeVat') }}</small>
+                    </span>
+                    <span class="ff-order__col-head">
+                        <span>{{ t('orders.detail.quantity') }}</span>
+                    </span>
+                    <span class="ff-order__col-head">
+                        <span>{{ t('orders.detail.subtotal') }}</span>
+                        <small>{{ t('orders.detail.beforeVat') }}</small>
+                    </span>
+                    <span class="ff-order__col-head">
+                        <span>{{ t('orders.detail.vatRate') }}</span>
+                    </span>
+                    <span class="ff-order__col-head">
+                        <span>{{ t('orders.detail.subtotal') }}</span>
+                        <small>{{ t('orders.detail.afterVat') }}</small>
+                    </span>
                 </div>
+
                 @for (item of order.items; track item.orderItemId) {
-                    <div
-                        class="grid grid-cols-4 gap-4 border-b px-4 py-3 text-sm last:border-b-0"
-                    >
-                        <span>{{ item.productNameSnapshot }}</span>
-                        <!-- Quantity is editable only while the order is a
-                             draft; the backend refuses the write after that. -->
-                        @if (
-                            canEditItems() &&
-                            editingItemId() === item.orderItemId
-                        ) {
-                            <form
-                                class="flex flex-col gap-1"
-                                [formGroup]="quantityForm"
-                                (ngSubmit)="
-                                    saveItemQuantity(item.orderItemId ?? '')
-                                "
-                            >
-                                <div class="flex items-center gap-1">
-                                    <input
-                                        class="w-20 rounded border px-2 py-1"
-                                        type="number"
-                                        [attr.min]="editingItemPackSize() || 1"
-                                        [attr.step]="editingItemPackSize() || 1"
-                                        formControlName="quantity"
-                                        [attr.aria-label]="
-                                            t('orders.detail.quantity')
-                                        "
-                                    />
-                                    <button
-                                        mat-icon-button
-                                        type="submit"
-                                        [disabled]="acting()"
-                                        [matTooltip]="
-                                            t('orders.detail.itemSave')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:check"
-                                        ></mat-icon>
-                                    </button>
-                                    <button
-                                        mat-icon-button
-                                        type="button"
-                                        (click)="cancelEditItem()"
-                                        [matTooltip]="
-                                            t('orders.detail.formCancel')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="text-hint icon-size-5"
-                                            svgIcon="heroicons_outline:x-mark"
-                                        ></mat-icon>
-                                    </button>
-                                </div>
-                                @if (
-                                    quantityForm.controls.quantity.touched &&
-                                        errorKey(
-                                            quantityForm.controls.quantity
-                                        );
-                                    as key
-                                ) {
-                                    <span class="text-xs text-warn">{{
-                                        t(key, {
-                                            size: quantityForm.controls.quantity
-                                                .errors?.['packingMultiple']
-                                                ?.size,
-                                        })
+                    <div class="ff-order__line">
+                        <div class="ff-order__col-name">
+                            <!-- The photo the line was placed against, not
+                                 today's picture of the product. -->
+                            @if (item.imageUrl) {
+                                <img
+                                    class="ff-order__thumb"
+                                    [src]="item.imageUrl"
+                                    [alt]="item.productNameSnapshot ?? ''"
+                                />
+                            } @else {
+                                <span
+                                    class="ff-order__thumb ff-order__thumb--empty"
+                                >
+                                    <mat-icon
+                                        class="text-hint icon-size-5"
+                                        svgIcon="heroicons_outline:photo"
+                                    ></mat-icon>
+                                </span>
+                            }
+                            <span class="min-w-0">
+                                <span class="block font-medium">{{
+                                    item.productNameSnapshot
+                                }}</span>
+                                @if (itemPacking(item); as packing) {
+                                    <span class="text-hint block text-xs">{{
+                                        packing
                                     }}</span>
                                 }
-                            </form>
-                        } @else {
-                            <span class="flex items-center gap-1">
-                                {{ item.quantity }}
-                                @if (canEditItems()) {
-                                    <button
-                                        mat-icon-button
-                                        type="button"
-                                        [disabled]="acting()"
-                                        (click)="
-                                            startEditItem(
-                                                item.orderItemId ?? '',
-                                                item.quantity
-                                            )
-                                        "
-                                        [matTooltip]="
-                                            t('orders.detail.itemEdit')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="text-hint icon-size-4"
-                                            svgIcon="heroicons_outline:pencil-square"
-                                        ></mat-icon>
-                                    </button>
-                                    <button
-                                        mat-icon-button
-                                        type="button"
-                                        [disabled]="acting()"
-                                        (click)="
-                                            removeItem(item.orderItemId ?? '')
-                                        "
-                                        [matTooltip]="
-                                            t('orders.detail.itemRemove')
-                                        "
-                                    >
-                                        <mat-icon
-                                            class="text-hint icon-size-4"
-                                            svgIcon="heroicons_outline:trash"
-                                        ></mat-icon>
-                                    </button>
-                                }
                             </span>
-                        }
-                        <span class="font-mono">{{
-                            formatAmount(item.unitPrice)
-                        }}</span>
-                        <span class="font-mono">{{
-                            formatAmount(item.subtotal)
-                        }}</span>
+                        </div>
+
+                        <span
+                            class="ff-order__figure"
+                            [attr.data-label]="
+                                t('orders.detail.unitPriceBeforeVat')
+                            "
+                            >{{ formatAmount(item.unitPrice) }}</span
+                        >
+
+                        <!-- Quantity is editable only while the order is a
+                             draft; the backend refuses the write after that. -->
+                        <span
+                            class="ff-order__figure"
+                            [attr.data-label]="t('orders.detail.quantity')"
+                        >
+                            @if (
+                                canEditItems() &&
+                                editingItemId() === item.orderItemId
+                            ) {
+                                <form
+                                    class="flex flex-col items-end gap-1"
+                                    [formGroup]="quantityForm"
+                                    (ngSubmit)="
+                                        saveItemQuantity(item.orderItemId ?? '')
+                                    "
+                                >
+                                    <span class="flex items-center gap-1">
+                                        <input
+                                            class="w-20 rounded border px-2 py-1"
+                                            type="number"
+                                            [attr.min]="
+                                                editingItemPackSize() || 1
+                                            "
+                                            [attr.step]="
+                                                editingItemPackSize() || 1
+                                            "
+                                            formControlName="quantity"
+                                            [attr.aria-label]="
+                                                t('orders.detail.quantity')
+                                            "
+                                        />
+                                        <button
+                                            mat-icon-button
+                                            type="submit"
+                                            [disabled]="acting()"
+                                            [matTooltip]="
+                                                t('orders.detail.itemSave')
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="icon-size-5"
+                                                svgIcon="heroicons_outline:check"
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
+                                            type="button"
+                                            (click)="cancelEditItem()"
+                                            [matTooltip]="
+                                                t('orders.detail.formCancel')
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="text-hint icon-size-5"
+                                                svgIcon="heroicons_outline:x-mark"
+                                            ></mat-icon>
+                                        </button>
+                                    </span>
+                                    @if (
+                                        quantityForm.controls.quantity
+                                            .touched &&
+                                            errorKey(
+                                                quantityForm.controls.quantity
+                                            );
+                                        as key
+                                    ) {
+                                        <span class="text-xs text-warn">{{
+                                            t(key, {
+                                                size: quantityForm.controls
+                                                    .quantity.errors?.[
+                                                    'packingMultiple'
+                                                ]?.size,
+                                            })
+                                        }}</span>
+                                    }
+                                </form>
+                            } @else {
+                                <span
+                                    class="inline-flex items-center justify-end gap-1"
+                                >
+                                    {{ item.quantity }}
+                                    @if (canEditItems()) {
+                                        <button
+                                            mat-icon-button
+                                            type="button"
+                                            [disabled]="acting()"
+                                            (click)="
+                                                startEditItem(
+                                                    item.orderItemId ?? '',
+                                                    item.quantity
+                                                )
+                                            "
+                                            [matTooltip]="
+                                                t('orders.detail.itemEdit')
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="text-hint icon-size-4"
+                                                svgIcon="heroicons_outline:pencil-square"
+                                            ></mat-icon>
+                                        </button>
+                                        <button
+                                            mat-icon-button
+                                            type="button"
+                                            [disabled]="acting()"
+                                            (click)="
+                                                removeItem(
+                                                    item.orderItemId ?? ''
+                                                )
+                                            "
+                                            [matTooltip]="
+                                                t('orders.detail.itemRemove')
+                                            "
+                                        >
+                                            <mat-icon
+                                                class="text-hint icon-size-4"
+                                                svgIcon="heroicons_outline:trash"
+                                            ></mat-icon>
+                                        </button>
+                                    }
+                                </span>
+                            }
+                        </span>
+
+                        <span
+                            class="ff-order__figure"
+                            [attr.data-label]="
+                                t('orders.detail.subtotalBeforeVat')
+                            "
+                            >{{ formatAmount(item.subtotal) }}</span
+                        >
+                        <span
+                            class="ff-order__figure text-secondary"
+                            [attr.data-label]="t('orders.detail.vatRate')"
+                            >{{ itemVatRate(item) }}</span
+                        >
+                        <span
+                            class="ff-order__figure font-semibold"
+                            [attr.data-label]="
+                                t('orders.detail.subtotalAfterVat')
+                            "
+                            >{{ formatAmount(itemTotalAfterVat(item)) }}</span
+                        >
                     </div>
                 } @empty {
                     <div class="text-secondary px-4 py-6 text-center text-sm">
                         {{ t('orders.detail.noItems') }}
                     </div>
                 }
-            </div>
+            </section>
         </div>
     }
 </account-shell>

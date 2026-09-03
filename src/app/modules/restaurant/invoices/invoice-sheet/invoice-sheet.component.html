@@ -187,7 +187,16 @@
                             <span class="ff-invoice__label">{{
                                 t('restaurantInvoices.sheet.provider')
                             }}</span>
-                            <div>{{ text(invoice.providerName) }}</div>
+                            <!-- A provider's brand name is its name and passes
+                                 through; "stub" is not a brand, it is this
+                                 platform's own sandbox saying so. -->
+                            <div>
+                                {{
+                                    invoice.providerName
+                                        | apiLabel
+                                            : 'restaurantInvoices.provider'
+                                }}
+                            </div>
                         </div>
                         <div>
                             <span class="ff-invoice__label">{{

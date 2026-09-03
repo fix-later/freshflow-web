@@ -16,7 +16,7 @@
         >
             <!-- Page header -->
             <div
-                class="relative flex flex-col gap-2 pb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-4"
+                class="relative flex flex-col gap-2 pb-6 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
                 *transloco="let t"
             >
                 <div class="min-w-0">
@@ -50,6 +50,15 @@
                             {{ t(subtitle) }}
                         </p>
                     }
+                </div>
+
+                <!--
+                  A page's own actions, on the title's line. Projected rather
+                  than declared here: which controls an account page offers is
+                  the page's business, but where they sit is the shell's.
+                -->
+                <div class="account-shell__actions">
+                    <ng-content select="[accountShellActions]"></ng-content>
                 </div>
 
                 <button

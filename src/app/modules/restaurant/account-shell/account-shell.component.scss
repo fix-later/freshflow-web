@@ -251,3 +251,15 @@
         transition: none;
     }
 }
+
+/* Empty on most pages, so it must take no room until something is projected. */
+.account-shell__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+
+    &:empty {
+        display: none;
+    }
+}
