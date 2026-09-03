@@ -334,7 +334,7 @@
                   the number is honestly labelled as partial rather than passed
                   off as a total.
                 -->
-                <p class="text-secondary text-xs">
+                <p class="text-secondary text-sm">
                     @if (listingComplete()) {
                         {{ t('catalog.resultCount', { count: resultCount() }) }}
                     } @else {
@@ -360,8 +360,10 @@
                     </button>
                 }
 
+                <!-- Label and control share one size: at `text-xs` the label
+                     read half the size of the value beside it. -->
                 <div class="ff-catalog__sort ml-auto">
-                    <span class="text-secondary text-xs">{{
+                    <span class="text-secondary text-sm">{{
                         t('catalog.sort.label')
                     }}</span>
                     <mat-form-field
