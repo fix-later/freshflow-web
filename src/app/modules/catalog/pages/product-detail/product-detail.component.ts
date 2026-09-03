@@ -477,7 +477,7 @@ export class ProductDetailComponent implements OnInit {
             stockUnit: unit || undefined,
             packWeightKg: product.packWeightKg,
             favorite: this.isFavorite(product),
-            link: product.productId,
+            link: ['/catalog', product.productId],
         };
     }
 }
