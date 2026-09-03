@@ -34,57 +34,22 @@
                 {{ t('accountInfo.avatarHint') }}
             </p>
 
-            <div class="mt-4 flex flex-wrap items-center gap-4">
-                @if (avatarUrl(); as avatar) {
-                    <img
-                        [src]="avatar"
-                        class="h-16 w-16 shrink-0 rounded-full object-cover ring-1 ring-black/5"
-                        [alt]="email()"
-                    />
-                } @else {
-                    <mat-icon
-                        class="text-hint shrink-0 icon-size-16"
-                        svgIcon="heroicons_outline:user-circle"
-                    ></mat-icon>
-                }
-
-                <div class="flex flex-wrap items-center gap-1">
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        [disabled]="uploading()"
-                        (click)="avatarInput.click()"
-                    >
-                        @if (uploading()) {
-                            <mat-icon
-                                class="animate-spin icon-size-5"
-                                svgIcon="heroicons_outline:arrow-path"
-                            ></mat-icon>
-                        }
-                        <span>{{
-                            avatarUrl()
-                                ? t('accountInfo.avatarChange')
-                                : t('accountInfo.avatarUpload')
-                        }}</span>
-                    </button>
-                    @if (avatarUrl()) {
-                        <button
-                            mat-button
-                            type="button"
-                            [disabled]="uploading()"
-                            (click)="removeAvatar()"
-                        >
-                            {{ t('accountInfo.avatarRemove') }}
-                        </button>
-                    }
-                </div>
-                <input
-                    #avatarInput
-                    class="hidden"
-                    type="file"
-                    accept="image/*"
-                    (change)="onAvatarPicked($event)"
-                />
+            <!-- The picture is the control: drop or click it to change, and
+                 the two actions live on it rather than beside it. -->
+            <div class="mt-4">
+                <image-upload-tile
+                    class="block"
+                    sizeClass="h-28 w-28"
+                    circle
+                    [url]="avatarUrl()"
+                    [uploading]="uploading()"
+                    uploadLabelKey="accountInfo.avatarUpload"
+                    changeLabelKey="accountInfo.avatarChange"
+                    removeLabelKey="accountInfo.avatarRemove"
+                    altKey="accountInfo.avatarTitle"
+                    (picked)="uploadAvatar($event)"
+                    (cleared)="removeAvatar()"
+                ></image-upload-tile>
             </div>
         </section>
 

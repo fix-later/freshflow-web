@@ -33,6 +33,7 @@ import {
 } from 'app/core/api/validators';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import { ImageUploadTileComponent } from 'app/shared/image-upload-tile/image-upload-tile.component';
 import { profileApi } from 'contract';
 import { firstValueFrom } from 'rxjs';
 
@@ -52,6 +53,7 @@ import { firstValueFrom } from 'rxjs';
     changeDetection: ChangeDetectionStrategy.OnPush,
     templateUrl: './account-info.component.html',
     imports: [
+        ImageUploadTileComponent,
         ReactiveFormsModule,
         MatFormFieldModule,
         MatInputModule,
@@ -137,11 +139,8 @@ export class AccountInfoComponent implements OnInit {
      * profile straight away — an avatar the user can see but hasn't saved is a
      * trap, and `PUT /profile/me` is the same call `save()` makes anyway.
      */
-    async onAvatarPicked(event: Event): Promise<void> {
-        const input = event.target as HTMLInputElement;
-        const file = input.files?.[0];
-        input.value = '';
-        if (!file || this.uploading()) {
+    async uploadAvatar(file: File): Promise<void> {
+        if (this.uploading()) {
             return;
         }
         // Cloudinary's image endpoint rejects a non-image; say so immediately

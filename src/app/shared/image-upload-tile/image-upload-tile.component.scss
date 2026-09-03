@@ -1,0 +1,163 @@
+/*
+ * One picture and its actions, in one tile. Lifted out of the business-licence
+ * upload so the licence, the avatar and a claim's photo all behave the same —
+ * click or drop to add, then view, replace and remove from the image itself.
+ */
+.ff-tile {
+    position: relative;
+    display: flex;
+    overflow: hidden;
+    align-items: center;
+    justify-content: center;
+    border: 2px dashed var(--fuse-border, rgb(0 0 0 / 0.18));
+    border-radius: 1rem;
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.03));
+    transition:
+        border-color 160ms ease,
+        background-color 160ms ease;
+
+    &--dragging {
+        border-color: var(--fuse-primary, #22c55e);
+        @apply bg-primary-50;
+    }
+
+    /* An avatar is round, and small enough that only the ring reads as a tile. */
+    &--circle {
+        border-radius: 9999px;
+        border-width: 1px;
+    }
+
+    /*
+     * With a picture in it the tile is a picture, not an invitation. The mount
+     * stays a light neutral rather than black: a licence is a portrait document
+     * in a landscape tile, so most of what shows either side of it is the
+     * mount, and a black surround made the card read as a video player.
+     */
+    &:has(.ff-tile__img) {
+        border-style: solid;
+        background: var(--fuse-bg-default, rgb(0 0 0 / 0.04));
+    }
+}
+
+.ff-tile__img {
+    height: 100%;
+    width: 100%;
+    object-fit: contain;
+
+    .ff-tile--circle & {
+        object-fit: cover;
+    }
+}
+
+/*
+ * Actions sit on the image. A translucent bar rather than a hover overlay:
+ * hover never fires on a touch screen, and these three are the only way to
+ * view, replace or remove the picture.
+ */
+.ff-tile__bar {
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem;
+    background: linear-gradient(
+        to top,
+        rgb(0 0 0 / 0.55),
+        rgb(0 0 0 / 0.2) 60%,
+        transparent
+    );
+
+    /* A round tile has no room for a bar across it — the actions sit under it. */
+    .ff-tile--circle & {
+        padding: 0.25rem;
+        gap: 0.25rem;
+        background: rgb(0 0 0 / 0.45);
+    }
+}
+
+/*
+ * Round action, white on the scrim. Deliberately not `mat-mini-fab`: the M3
+ * tonal fab paints a pale container that all but disappears over a scan of a
+ * white document, which is exactly what these sit on.
+ */
+.ff-tile__action {
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.92);
+    color: rgb(31 41 55);
+    transition:
+        background-color 150ms ease,
+        color 150ms ease,
+        transform 150ms ease;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+        transform: scale(1.06);
+        @apply bg-primary text-on-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid #fff;
+        outline-offset: 2px;
+    }
+
+    &--danger:hover:not(:disabled),
+    &--danger:focus-visible {
+        background: var(--fuse-warn, #dc2626);
+        color: #fff;
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .ff-tile--circle & {
+        height: 1.75rem;
+        width: 1.75rem;
+
+        .mat-icon {
+            @apply icon-size-4;
+        }
+    }
+}
+
+/* The empty tile is one control: click to browse, drop to upload. */
+.ff-tile__drop {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 0 1rem;
+    text-align: center;
+    color: var(--fuse-text-secondary, rgb(0 0 0 / 0.6));
+    transition: color 160ms ease;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+        @apply text-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary, #22c55e);
+        outline-offset: -4px;
+    }
+
+    &:disabled {
+        cursor: progress;
+    }
+
+    .ff-tile--circle & {
+        padding: 0;
+    }
+}

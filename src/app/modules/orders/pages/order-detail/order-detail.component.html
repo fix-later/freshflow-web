@@ -252,71 +252,32 @@
                         }
                     </mat-form-field>
 
+                    <!--
+                      The photo is the evidence, so it is the control: drop or
+                      click the tile to attach one, then view, replace or remove
+                      it from the picture itself.
+                    -->
                     <div class="flex flex-col gap-2">
                         <div class="text-sm font-medium">
                             {{ t('claims.proof') }}
                         </div>
-                        @if (claimProofImageUrl(); as proofUrl) {
-                            <div
-                                class="flex flex-wrap items-center gap-3 rounded-lg border p-3"
-                            >
-                                <a
-                                    [href]="proofUrl"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    <img
-                                        class="h-20 w-20 rounded-lg object-cover"
-                                        [src]="proofUrl"
-                                        [alt]="t('claims.proofAlt')"
-                                    />
-                                </a>
-                                <button
-                                    mat-stroked-button
-                                    type="button"
-                                    [disabled]="acting()"
-                                    (click)="claimProofInput.click()"
-                                >
-                                    {{ t('claims.proofChange') }}
-                                </button>
-                                <button
-                                    mat-button
-                                    type="button"
-                                    [disabled]="acting()"
-                                    (click)="clearClaimProof()"
-                                >
-                                    {{ t('claims.proofRemove') }}
-                                </button>
-                            </div>
-                        } @else {
-                            <button
-                                class="self-start"
-                                mat-stroked-button
-                                type="button"
-                                [disabled]="acting() || claimProofUploading()"
-                                (click)="claimProofInput.click()"
-                            >
-                                <mat-icon
-                                    class="icon-size-5"
-                                    svgIcon="heroicons_outline:photo"
-                                ></mat-icon>
-                                {{
-                                    claimProofUploading()
-                                        ? t('claims.proofUploading')
-                                        : t('claims.proofUpload')
-                                }}
-                            </button>
-                        }
+                        <image-upload-tile
+                            class="block max-w-sm"
+                            sizeClass="h-44 w-full"
+                            [url]="claimProofImageUrl()"
+                            [uploading]="claimProofUploading()"
+                            [disabled]="acting()"
+                            uploadLabelKey="claims.proofUpload"
+                            dropHintKey="claims.proofDrop"
+                            changeLabelKey="claims.proofChange"
+                            removeLabelKey="claims.proofRemove"
+                            altKey="claims.proofAlt"
+                            (picked)="uploadClaimProof($event)"
+                            (cleared)="clearClaimProof()"
+                        ></image-upload-tile>
                         <span class="text-secondary text-xs">{{
                             t('claims.proofHint')
                         }}</span>
-                        <input
-                            #claimProofInput
-                            class="hidden"
-                            type="file"
-                            accept="image/*"
-                            (change)="onClaimProofPicked($event)"
-                        />
                     </div>
 
                     @if (claimError(); as error) {

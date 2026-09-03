@@ -1,0 +1,112 @@
+<ng-container *transloco="let t">
+    <div
+        [class]="'ff-tile ' + sizeClass()"
+        [class.ff-tile--circle]="circle()"
+        [class.ff-tile--dragging]="dragOver()"
+        (dragover)="onDragOver($event)"
+        (dragleave)="onDragLeave()"
+        (drop)="onDrop($event)"
+    >
+        @if (url(); as image) {
+            <img class="ff-tile__img" [src]="image" [alt]="t(altKey())" />
+
+            <!--
+              A bar, not a hover overlay: hover never happens on a touch screen,
+              and these three are the only way to change the picture.
+            -->
+            <div class="ff-tile__bar">
+                <!-- A round tile is an avatar at thumbnail size: there is
+                     nothing a full-size view would reveal, and three actions
+                     across 100px is a row of targets too small to hit. -->
+                @if (!circle()) {
+                    <button
+                        type="button"
+                        class="ff-tile__action"
+                        [attr.aria-label]="t(viewLabelKey())"
+                        [matTooltip]="t(viewLabelKey())"
+                        (click)="openPreview(previewDialog)"
+                    >
+                        <mat-icon
+                            svgIcon="heroicons_outline:magnifying-glass-plus"
+                        ></mat-icon>
+                    </button>
+                }
+                <button
+                    type="button"
+                    class="ff-tile__action"
+                    [disabled]="locked"
+                    [attr.aria-label]="t(changeLabelKey())"
+                    [matTooltip]="t(changeLabelKey())"
+                    (click)="fileInput.click()"
+                >
+                    <mat-icon
+                        [class.animate-spin]="uploading()"
+                        [svgIcon]="
+                            uploading()
+                                ? 'heroicons_outline:arrow-path'
+                                : 'heroicons_outline:arrow-path-rounded-square'
+                        "
+                    ></mat-icon>
+                </button>
+                <button
+                    type="button"
+                    class="ff-tile__action ff-tile__action--danger"
+                    [disabled]="locked"
+                    [attr.aria-label]="t(removeLabelKey())"
+                    [matTooltip]="t(removeLabelKey())"
+                    (click)="remove()"
+                >
+                    <mat-icon svgIcon="heroicons_outline:trash"></mat-icon>
+                </button>
+            </div>
+        } @else {
+            <button
+                type="button"
+                class="ff-tile__drop"
+                [disabled]="locked"
+                (click)="fileInput.click()"
+            >
+                <mat-icon
+                    [class.icon-size-10]="!circle()"
+                    [class.icon-size-6]="circle()"
+                    [class.animate-spin]="uploading()"
+                    [svgIcon]="
+                        uploading()
+                            ? 'heroicons_outline:arrow-path'
+                            : 'heroicons_outline:cloud-arrow-up'
+                    "
+                ></mat-icon>
+                @if (!circle()) {
+                    <span class="mt-2 text-sm font-semibold">
+                        {{
+                            uploading()
+                                ? t('imageTile.uploading')
+                                : t(uploadLabelKey())
+                        }}
+                    </span>
+                    <span class="text-hint mt-1 text-xs">
+                        {{ t(dropHintKey()) }}
+                    </span>
+                }
+            </button>
+        }
+    </div>
+
+    <input
+        #fileInput
+        class="hidden"
+        type="file"
+        accept="image/*"
+        (change)="onPicked($event)"
+    />
+</ng-container>
+
+<!-- Full size, click anywhere to close. -->
+<ng-template #previewDialog let-data>
+    <img
+        matDialogClose
+        class="block max-h-[85vh] max-w-full cursor-zoom-out object-contain"
+        [src]="data.url"
+        [alt]="''"
+    />
+</ng-template>

@@ -41,6 +41,7 @@ import {
 import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
+import { ImageUploadTileComponent } from 'app/shared/image-upload-tile/image-upload-tile.component';
 import {
     CLAIM_ELIGIBLE_ORDER_STATUSES,
     CLAIM_PROOF_IMAGE_URL_MAX_LENGTH,
@@ -70,6 +71,7 @@ import {
     host: { class: 'flex w-full min-w-0 flex-auto flex-col' },
     imports: [
         AccountShellComponent,
+        ImageUploadTileComponent,
         MatButtonModule,
         MatFormFieldModule,
         MatIconModule,
@@ -220,12 +222,9 @@ export class OrderDetailComponent implements OnInit {
     }
 
     /** Uploads the selected evidence image while keeping the claim as a draft. */
-    async onClaimProofPicked(event: Event): Promise<void> {
-        const input = event.target as HTMLInputElement;
-        const file = input.files?.[0];
-        input.value = '';
+    async uploadClaimProof(file: File): Promise<void> {
         const orderId = this.order()?.id;
-        if (!file || !orderId || this.claimProofUploading()) {
+        if (!orderId || this.claimProofUploading()) {
             return;
         }
         if (!isImageFile(file)) {
