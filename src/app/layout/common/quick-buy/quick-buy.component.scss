@@ -281,13 +281,14 @@ quick-buy {
  * same in light and dark, and for anyone who cannot separate the two hues.
  */
 .ff-qb-bubble {
+    position: relative;
     display: flex;
     max-width: 85%;
     align-items: flex-start;
     gap: 0.5rem;
     border-radius: 1rem 1rem 1rem 0.25rem;
     border: 1px solid var(--fuse-border);
-    padding: 0.625rem 0.875rem;
+    padding: 0.625rem 0.875rem 1.5rem;
     font-size: theme('fontSize.base');
     line-height: 1.55;
     @apply text-default bg-card;
@@ -295,7 +296,13 @@ quick-buy {
     &--user {
         border-color: transparent;
         border-radius: 1rem 1rem 0.25rem 1rem;
+        padding-bottom: 0.625rem;
         @apply bg-primary text-on-primary;
+    }
+
+    /* Nothing sits in a failure's corner either. */
+    &--failed {
+        padding-bottom: 0.625rem;
     }
 
     &--failed {
@@ -494,22 +501,35 @@ quick-buy {
  * read-through is not lined with buttons. Touch has no hover to reveal it
  * with, so there it is simply always visible.
  */
+/*
+ * In the bubble's corner, and out of the flow: hung under the bubble it
+ * reserved a 22px strip beneath every reply — an empty gap in the thread even
+ * though nothing was painted there, and a ghost of the label whenever a
+ * transition caught it mid-fade.
+ *
+ * `visibility`, not opacity alone: an invisible control that still takes
+ * pointer events is a trap for anyone tabbing or tapping near it.
+ */
 .ff-qb-copy {
+    position: absolute;
+    inset-block-end: 0.25rem;
+    inset-inline-end: 0.25rem;
     display: inline-flex;
+    height: 1.5rem;
+    width: 1.5rem;
     align-items: center;
-    gap: 0.25rem;
+    justify-content: center;
     border-radius: 9999px;
-    padding: 0.125rem 0.5rem;
-    font-size: theme('fontSize.sm');
-    font-weight: 600;
+    visibility: hidden;
     opacity: 0;
     transition:
         opacity 150ms ease,
         color 150ms ease;
-    @apply text-secondary;
+    @apply text-secondary bg-card;
 
     .ff-qb-row:hover &,
     .ff-qb-row:focus-within & {
+        visibility: visible;
         opacity: 1;
     }
 
@@ -517,15 +537,18 @@ quick-buy {
         @apply text-default bg-hover;
     }
 
-    /* Confirmation is the label and the tick, not a colour alone. */
+    /* Confirmation is the tick, held visible so it is seen at all. */
     &--done {
+        visibility: visible;
         opacity: 1;
         @apply text-primary;
     }
 }
 
+/* No hover to reveal it with, so it simply stays. */
 @media (hover: none) {
     .ff-qb-copy {
+        visibility: visible;
         opacity: 1;
     }
 }

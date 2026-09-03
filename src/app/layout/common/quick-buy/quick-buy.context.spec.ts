@@ -45,6 +45,11 @@ function flush(): Promise<void> {
  * The answer carries two things the model is deliberately never shown — the
  * restaurant's credit and its delivery addresses — so the assistant's reply
  * says they are "on screen". They only are if this panel renders them.
+ *
+ * Both are attached to the *message* that carried them, not to a signal
+ * floating at the top of the panel: an answer belongs under the question that
+ * asked it, so a credit card pinned above the whole thread would drift below
+ * later questions and read out of order.
  */
 describe('QuickBuyComponent — what the answer carries', () => {
     let assistant: jasmine.SpyObj<AssistantService>;
@@ -103,6 +108,12 @@ describe('QuickBuyComponent — what the answer carries', () => {
         component.send();
     }
 
+    /** The last message in the thread — the one a fresh answer just wrote. */
+    function lastMessage(component: QuickBuyComponent) {
+        const messages = component.messages();
+        return messages[messages.length - 1];
+    }
+
     beforeEach(() => {
         assistant = jasmine.createSpyObj<AssistantService>(
             'AssistantService',
@@ -122,7 +133,7 @@ describe('QuickBuyComponent — what the answer carries', () => {
         assistant.chat.and.resolveTo(reply());
     });
 
-    it('shows the credit the answer carried', async () => {
+    it('attaches the credit the answer carried to that turn', async () => {
         assistant.chat.and.resolveTo(
             reply({
                 creditSummary: {
@@ -138,12 +149,12 @@ describe('QuickBuyComponent — what the answer carries', () => {
         ask(component, 'còn bao nhiêu công nợ');
         await flush();
 
-        expect(component.credit()?.availableCredit).toBe(96_020_200);
+        expect(lastMessage(component).credit?.availableCredit).toBe(96_020_200);
     });
 
-    // A balance stated once stays true for the rest of the conversation; a
-    // later turn that says nothing about credit must not blank the card.
-    it('keeps the credit a later turn does not mention', async () => {
+    // A balance answered once stays on the turn that answered it — a later
+    // turn that says nothing about credit must not erase or replace it.
+    it('leaves an earlier turn credit card where it was said', async () => {
         const component = createComponent();
         assistant.chat.and.resolveTo(
             reply({
@@ -157,12 +168,15 @@ describe('QuickBuyComponent — what the answer carries', () => {
         );
         ask(component, 'công nợ');
         await flush();
+        const creditMessageIndex = component.messages().length - 1;
 
         assistant.chat.and.resolveTo(reply());
         ask(component, 'cảm ơn');
         await flush();
 
-        expect(component.credit()).not.toBeNull();
+        expect(component.messages()[creditMessageIndex].credit).not.toBeNull();
+        // The later turn's own message carries no credit of its own.
+        expect(lastMessage(component).credit).toBeFalsy();
     });
 
     it('picks the default address so the order has somewhere to go', async () => {
@@ -179,7 +193,7 @@ describe('QuickBuyComponent — what the answer carries', () => {
         ask(component, 'giao tới đâu');
         await flush();
 
-        expect(component.addresses().length).toBe(2);
+        expect(lastMessage(component).addresses?.length).toBe(2);
         expect(component.selectedAddressId()).toBe('addr-2');
     });
 
@@ -211,7 +225,7 @@ describe('QuickBuyComponent — what the answer carries', () => {
         await flush();
         expect(component.selectedAddressId()).toBe('addr-1');
 
-        component.selectAddress(component.addresses()[0]);
+        component.selectAddress(lastMessage(component).addresses![0]);
 
         expect(component.selectedAddressId()).toBeNull();
     });

@@ -192,7 +192,201 @@
                                         {{ message.text }}
                                     </p>
                                 }
+
+                                <!--
+                                  A reply is often a shopping list the buyer
+                                  wants somewhere else. Copies the markdown the
+                                  model sent, not the rendered HTML — and lives
+                                  in the bubble's own corner, because hanging it
+                                  under the bubble reserved an empty strip below
+                                  every reply whether or not anyone hovered.
+                                -->
+                                @if (
+                                    message.role === 'assistant' &&
+                                    !message.failed
+                                ) {
+                                    <button
+                                        class="ff-qb-copy"
+                                        type="button"
+                                        [class.ff-qb-copy--done]="
+                                            copiedIndex() === $index
+                                        "
+                                        [attr.aria-label]="
+                                            copiedIndex() === $index
+                                                ? t('assistant.copied')
+                                                : t('assistant.copy')
+                                        "
+                                        [matTooltip]="
+                                            copiedIndex() === $index
+                                                ? t('assistant.copied')
+                                                : t('assistant.copy')
+                                        "
+                                        (click)="
+                                            copyReply($index, message.text)
+                                        "
+                                    >
+                                        <mat-icon
+                                            class="icon-size-4"
+                                            [svgIcon]="
+                                                copiedIndex() === $index
+                                                    ? 'heroicons_outline:check'
+                                                    : 'heroicons_outline:clipboard-document'
+                                            "
+                                        ></mat-icon>
+                                    </button>
+                                }
                             </div>
+
+                            <!--
+                          The credit the answer carried. The backend hands these
+                          figures to the client and never to the model — which is
+                          why the reply says they are on screen — so this is where
+                          they have to be.
+                        -->
+                            @if (message.credit; as credit) {
+                                <div
+                                    class="ff-qb-balance"
+                                    data-testid="assistant-credit-card"
+                                >
+                                    <p class="ff-qb-balance__title">
+                                        {{ t('assistant.credit.title') }}
+                                    </p>
+                                    <div class="ff-qb-balance__rows">
+                                        <div class="ff-qb-balance__row">
+                                            <span>{{
+                                                t('assistant.credit.limit')
+                                            }}</span>
+                                            <strong>{{
+                                                money(credit.creditLimit)
+                                            }}</strong>
+                                        </div>
+                                        <div class="ff-qb-balance__row">
+                                            <span>{{
+                                                t(
+                                                    'assistant.credit.outstanding'
+                                                )
+                                            }}</span>
+                                            <strong>{{
+                                                money(credit.outstandingBalance)
+                                            }}</strong>
+                                        </div>
+                                        <div
+                                            class="ff-qb-balance__row ff-qb-balance__row--available"
+                                        >
+                                            <span>{{
+                                                t('assistant.credit.available')
+                                            }}</span>
+                                            <strong>{{
+                                                money(credit.availableCredit)
+                                            }}</strong>
+                                        </div>
+                                    </div>
+                                    @if (credit.updatedAt) {
+                                        <p class="ff-qb-balance__at">
+                                            {{
+                                                t(
+                                                    'assistant.credit.updatedAt',
+                                                    {
+                                                        at: dateTime(
+                                                            credit.updatedAt
+                                                        ),
+                                                    }
+                                                )
+                                            }}
+                                        </p>
+                                    }
+                                </div>
+                            }
+
+                            <!--
+                          The addresses the answer listed. Pickable because the
+                          model is never allowed to choose one: the server injects
+                          whatever the client sends, so this list is the buyer's
+                          only way to say where the order goes.
+                        -->
+                            @if (message.addresses?.length) {
+                                <div
+                                    class="ff-qb-addresses"
+                                    data-testid="assistant-address-list"
+                                >
+                                    <p class="ff-qb-addresses__title">
+                                        {{ t('assistant.addresses.title') }}
+                                    </p>
+                                    @for (
+                                        address of message.addresses ?? [];
+                                        track address.id
+                                    ) {
+                                        <button
+                                            class="ff-qb-address"
+                                            type="button"
+                                            [class.ff-qb-address--picked]="
+                                                selectedAddressId() ===
+                                                address.id
+                                            "
+                                            [attr.aria-pressed]="
+                                                selectedAddressId() ===
+                                                address.id
+                                            "
+                                            (click)="selectAddress(address)"
+                                        >
+                                            <mat-icon
+                                                class="ff-qb-address__mark icon-size-4"
+                                                [svgIcon]="
+                                                    selectedAddressId() ===
+                                                    address.id
+                                                        ? 'heroicons_solid:check-circle'
+                                                        : 'heroicons_outline:map-pin'
+                                                "
+                                            ></mat-icon>
+                                            <span class="ff-qb-address__body">
+                                                <span
+                                                    class="ff-qb-address__line"
+                                                >
+                                                    {{ address.addressLine }}
+                                                    @if (address.isDefault) {
+                                                        <span
+                                                            class="ff-qb-address__badge"
+                                                            >{{
+                                                                t(
+                                                                    'restaurantProfile.deliveryAddresses.default'
+                                                                )
+                                                            }}</span
+                                                        >
+                                                    }
+                                                </span>
+                                                @if (
+                                                    address.recipientName ||
+                                                    address.phone
+                                                ) {
+                                                    <span
+                                                        class="ff-qb-address__who"
+                                                    >
+                                                        {{
+                                                            address.recipientName
+                                                        }}
+                                                        @if (
+                                                            address.recipientName &&
+                                                            address.phone
+                                                        ) {
+                                                            &middot;
+                                                        }
+                                                        {{ address.phone }}
+                                                    </span>
+                                                }
+                                            </span>
+                                        </button>
+                                    }
+                                    <p class="ff-qb-addresses__hint">
+                                        {{
+                                            selectedAddressId()
+                                                ? t(
+                                                      'assistant.addresses.picked'
+                                                  )
+                                                : t('assistant.addresses.hint')
+                                        }}
+                                    </p>
+                                </div>
+                            }
 
                             @if (message.failed && !sending()) {
                                 <button
@@ -207,43 +401,6 @@
                                         "
                                     ></mat-icon>
                                     <span>{{ t('assistant.retry') }}</span>
-                                </button>
-                            }
-
-                            <!--
-                              A reply is often a shopping list the buyer wants
-                              somewhere else. Copies the markdown the model
-                              sent, not the rendered HTML.
-                            -->
-                            @if (
-                                message.role === 'assistant' && !message.failed
-                            ) {
-                                <button
-                                    class="ff-qb-copy"
-                                    type="button"
-                                    [class.ff-qb-copy--done]="
-                                        copiedIndex() === $index
-                                    "
-                                    [attr.aria-label]="
-                                        copiedIndex() === $index
-                                            ? t('assistant.copied')
-                                            : t('assistant.copy')
-                                    "
-                                    (click)="copyReply($index, message.text)"
-                                >
-                                    <mat-icon
-                                        class="icon-size-4"
-                                        [svgIcon]="
-                                            copiedIndex() === $index
-                                                ? 'heroicons_outline:check'
-                                                : 'heroicons_outline:clipboard-document'
-                                        "
-                                    ></mat-icon>
-                                    <span>{{
-                                        copiedIndex() === $index
-                                            ? t('assistant.copied')
-                                            : t('assistant.copy')
-                                    }}</span>
                                 </button>
                             }
                         </div>
@@ -459,136 +616,6 @@
                       This one never confirms — it hands the draft to the cart
                       and opens checkout, where the buyer decides.
                     -->
-                    <!--
-                      The credit the answer carried. The backend hands these
-                      figures to the client and never to the model — which is
-                      why the reply says they are on screen — so this is where
-                      they have to be.
-                    -->
-                    @if (credit(); as credit) {
-                        <div
-                            class="ff-qb-balance"
-                            data-testid="assistant-credit-card"
-                        >
-                            <p class="ff-qb-balance__title">
-                                {{ t('assistant.credit.title') }}
-                            </p>
-                            <div class="ff-qb-balance__rows">
-                                <div class="ff-qb-balance__row">
-                                    <span>{{
-                                        t('assistant.credit.limit')
-                                    }}</span>
-                                    <strong>{{
-                                        money(credit.creditLimit)
-                                    }}</strong>
-                                </div>
-                                <div class="ff-qb-balance__row">
-                                    <span>{{
-                                        t('assistant.credit.outstanding')
-                                    }}</span>
-                                    <strong>{{
-                                        money(credit.outstandingBalance)
-                                    }}</strong>
-                                </div>
-                                <div
-                                    class="ff-qb-balance__row ff-qb-balance__row--available"
-                                >
-                                    <span>{{
-                                        t('assistant.credit.available')
-                                    }}</span>
-                                    <strong>{{
-                                        money(credit.availableCredit)
-                                    }}</strong>
-                                </div>
-                            </div>
-                            @if (credit.updatedAt) {
-                                <p class="ff-qb-balance__at">
-                                    {{
-                                        t('assistant.credit.updatedAt', {
-                                            at: dateTime(credit.updatedAt),
-                                        })
-                                    }}
-                                </p>
-                            }
-                        </div>
-                    }
-
-                    <!--
-                      The addresses the answer listed. Pickable because the
-                      model is never allowed to choose one: the server injects
-                      whatever the client sends, so this list is the buyer's
-                      only way to say where the order goes.
-                    -->
-                    @if (addresses().length) {
-                        <div
-                            class="ff-qb-addresses"
-                            data-testid="assistant-address-list"
-                        >
-                            <p class="ff-qb-addresses__title">
-                                {{ t('assistant.addresses.title') }}
-                            </p>
-                            @for (address of addresses(); track address.id) {
-                                <button
-                                    class="ff-qb-address"
-                                    type="button"
-                                    [class.ff-qb-address--picked]="
-                                        selectedAddressId() === address.id
-                                    "
-                                    [attr.aria-pressed]="
-                                        selectedAddressId() === address.id
-                                    "
-                                    (click)="selectAddress(address)"
-                                >
-                                    <mat-icon
-                                        class="ff-qb-address__mark icon-size-4"
-                                        [svgIcon]="
-                                            selectedAddressId() === address.id
-                                                ? 'heroicons_solid:check-circle'
-                                                : 'heroicons_outline:map-pin'
-                                        "
-                                    ></mat-icon>
-                                    <span class="ff-qb-address__body">
-                                        <span class="ff-qb-address__line">
-                                            {{ address.addressLine }}
-                                            @if (address.isDefault) {
-                                                <span
-                                                    class="ff-qb-address__badge"
-                                                    >{{
-                                                        t(
-                                                            'restaurantProfile.deliveryAddresses.default'
-                                                        )
-                                                    }}</span
-                                                >
-                                            }
-                                        </span>
-                                        @if (
-                                            address.recipientName ||
-                                            address.phone
-                                        ) {
-                                            <span class="ff-qb-address__who">
-                                                {{ address.recipientName }}
-                                                @if (
-                                                    address.recipientName &&
-                                                    address.phone
-                                                ) {
-                                                    &middot;
-                                                }
-                                                {{ address.phone }}
-                                            </span>
-                                        }
-                                    </span>
-                                </button>
-                            }
-                            <p class="ff-qb-addresses__hint">
-                                {{
-                                    selectedAddressId()
-                                        ? t('assistant.addresses.picked')
-                                        : t('assistant.addresses.hint')
-                                }}
-                            </p>
-                        </div>
-                    }
-
                     @if (draft(); as draft) {
                         @if (!pending()) {
                             <div

@@ -41,6 +41,15 @@ interface QuickBuyMessage {
     text: string;
     /** Set on the message that reported a failure, so it can offer a retry. */
     failed?: boolean;
+    /**
+     * What the answer carried besides words.
+     *
+     * Attached to the turn rather than pinned to the panel: an answer belongs
+     * under the question that asked it, and a credit card that floated to the
+     * foot of the thread ended up below a later question and its reply.
+     */
+    credit?: AssistantCreditSummary | null;
+    addresses?: AssistantDeliveryAddress[] | null;
 }
 
 /**
@@ -236,19 +245,6 @@ export class QuickBuyComponent {
      * raises the pill that offers to take them there.
      */
     readonly unreadBelow = signal(false);
-
-    /**
-     * The restaurant's credit standing, when a turn looked it up.
-     *
-     * The backend hands these figures to the client and deliberately withholds
-     * them from the model, so the assistant answers "the figures are on screen"
-     * — and until now nothing put them there. Kept until a later turn replaces
-     * them: a balance stated once stays true for the rest of the conversation.
-     */
-    readonly credit = signal<AssistantCreditSummary | null>(null);
-
-    /** The restaurant's delivery addresses, when a turn listed them. */
-    readonly addresses = signal<AssistantDeliveryAddress[]>([]);
 
     /**
      * Where the buyer says this order should go.
@@ -762,7 +758,12 @@ export class QuickBuyComponent {
             const reply = answer.reply.trim();
             this._push(
                 reply
-                    ? { role: 'assistant', text: reply }
+                    ? {
+                          role: 'assistant',
+                          text: reply,
+                          credit: answer.creditSummary,
+                          addresses: answer.deliveryAddresses,
+                      }
                     : {
                           role: 'assistant',
                           failed: true,
@@ -772,22 +773,16 @@ export class QuickBuyComponent {
                       }
             );
             this.pending.set(answer.pendingConfirmation);
-            if (answer.creditSummary) {
-                this.credit.set(answer.creditSummary);
-            }
-            if (answer.deliveryAddresses) {
-                this.addresses.set(answer.deliveryAddresses);
+            if (answer.deliveryAddresses?.length) {
                 // A list of one, or one marked default, answers the question
                 // the list was asked — pre-selecting it saves a tap without
                 // deciding anything the buyer did not.
+                const addresses = answer.deliveryAddresses;
                 this.selectedAddressId.update(
                     (current) =>
                         current ??
-                        answer.deliveryAddresses!.find((a) => a.isDefault)
-                            ?.id ??
-                        (answer.deliveryAddresses!.length === 1
-                            ? answer.deliveryAddresses![0].id
-                            : null)
+                        addresses.find((address) => address.isDefault)?.id ??
+                        (addresses.length === 1 ? addresses[0].id : null)
                 );
             }
             await this._trackDraft(answer.draftOrderId);
