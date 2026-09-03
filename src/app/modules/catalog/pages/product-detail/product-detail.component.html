@@ -1,47 +1,105 @@
 <div class="ff-page flex flex-col" *transloco="let t">
     @if (product(); as product) {
-        <!-- Header: breadcrumb + title -->
-        <div>
-            <!--
-              Starts at the catalog, not at the home page. Home is not a step on
-              the way here — a shopper reaches a product from the board, from
-              search or from a link — so leading with it padded every trail with
-              a hop nobody took, and pushed the one useful link (back to the
-              board) into the middle.
-            -->
-            <nav
-                class="text-hint flex items-center gap-1 text-sm"
-                aria-label="Breadcrumb"
+        <!-- One step back, wherever that was. The trail below says where the
+             page sits; this says how to undo the click that opened it. -->
+        <button
+            mat-button
+            type="button"
+            class="text-secondary -ml-3 self-start"
+            (click)="goBack()"
+        >
+            <mat-icon
+                class="icon-size-5"
+                svgIcon="heroicons_mini:arrow-left"
+            ></mat-icon>
+            <span class="ml-1">{{ t('catalog.detail.back') }}</span>
+        </button>
+
+        <!--
+          Starts at the catalog, not at the home page. Home is not a step on
+          the way here — a shopper reaches a product from the board, from
+          search or from a link — so leading with it padded every trail with
+          a hop nobody took, and pushed the one useful link (back to the
+          board) into the middle. The aisle sits between the two, because it
+          is the one step a shopper actually wants to walk back to.
+        -->
+        <nav
+            class="text-secondary mt-2 flex flex-wrap items-center gap-1 text-sm"
+            aria-label="Breadcrumb"
+        >
+            <a
+                routerLink="/catalog"
+                class="font-medium text-primary hover:underline"
             >
-                <a
-                    routerLink="/catalog"
-                    class="font-medium text-primary hover:underline"
-                >
-                    {{ t('catalog.breadcrumb.catalog') }}
-                </a>
+                {{ t('catalog.breadcrumb.catalog') }}
+            </a>
+            @if (
+                categoryName(product.categoryId) || product.categoryLabel;
+                as category
+            ) {
                 <mat-icon
                     class="text-hint icon-size-4"
                     svgIcon="heroicons_mini:chevron-right"
                 ></mat-icon>
-                <span>{{ isVi() ? product.name : product.nameEn }}</span>
-            </nav>
-            <h1 class="mt-1 text-3xl font-semibold tracking-tight">
-                {{ isVi() ? product.name : product.nameEn }}
-            </h1>
-        </div>
+                <a
+                    routerLink="/catalog"
+                    [queryParams]="{ category: product.categoryId }"
+                    class="font-medium text-primary hover:underline"
+                >
+                    {{ category }}
+                </a>
+            }
+            <mat-icon
+                class="text-hint icon-size-4"
+                svgIcon="heroicons_mini:chevron-right"
+            ></mat-icon>
+            <span class="min-w-0 truncate">{{
+                isVi() ? product.name : product.nameEn
+            }}</span>
+        </nav>
 
-        <div class="flex flex-col gap-8 px-6 py-6 md:flex-row md:px-8">
-            <!-- Image gallery -->
-            <div class="md:w-1/2">
-                <img
-                    [src]="mainImage()"
-                    [alt]="isVi() ? product.name : product.nameEn"
-                    class="aspect-square w-full rounded-lg bg-gray-100 object-cover"
-                />
+        <!--
+          Gallery left, offer right — the reference layout for a trade detail
+          page (`specs/references/CATALOG_REFERENCES.md`: Faire/IKEA).
+          The long copy hangs under the gallery and the attribute table under
+          the offer, so neither column runs out of content long before the
+          other and leaves a column of white down one side.
+        -->
+        <div
+            class="mt-6 grid grid-cols-1 items-start gap-8 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] xl:gap-12"
+        >
+            <!--
+              Image gallery. No badge over the photo: on a grid tile the
+              corner ribbon is the only place a pinned listing can say so,
+              but here the chip row beside the title already says it, and the
+              same claim twice on one screen reads as two.
+            -->
+            <div class="flex min-w-0 flex-col gap-4">
+                <div
+                    class="bg-card relative flex aspect-square items-center justify-center overflow-hidden rounded-2xl border"
+                    [style.background]="
+                        mainImage() ? null : fallbackVisual().thumbTint
+                    "
+                >
+                    @if (mainImage(); as image) {
+                        <img
+                            [src]="image"
+                            [alt]="isVi() ? product.name : product.nameEn"
+                            class="h-full w-full object-contain p-6 md:p-10"
+                        />
+                    } @else {
+                        <!-- A guest gets no photos at all (`GET /products`
+                             needs a role); the category stand-in keeps that
+                             from reading as a broken page. -->
+                        <span class="text-9xl" aria-hidden="true">
+                            {{ fallbackVisual().emoji }}
+                        </span>
+                    }
+                </div>
 
                 <!-- Thumbnail rail -->
                 @if (galleryImages().length > 1) {
-                    <div class="mt-4 flex gap-3">
+                    <div class="flex flex-wrap gap-3">
                         @for (
                             image of galleryImages();
                             track image;
@@ -49,23 +107,22 @@
                         ) {
                             <button
                                 type="button"
-                                class="h-16 w-16 overflow-hidden rounded-md border-2 transition-colors"
+                                class="bg-card h-20 w-20 overflow-hidden rounded-xl border-2 p-1 transition-colors hover:border-primary"
                                 [class.border-primary]="selectedIndex() === i"
-                                [class.border-transparent]="
-                                    selectedIndex() !== i
+                                [attr.aria-current]="
+                                    selectedIndex() === i ? 'true' : null
+                                "
+                                [attr.aria-label]="
+                                    t('catalog.detail.viewImage', {
+                                        index: i + 1,
+                                    })
                                 "
                                 (click)="selectImage(i)"
                             >
                                 <img
                                     [src]="image"
-                                    [alt]="
-                                        (isVi()
-                                            ? product.name
-                                            : product.nameEn) +
-                                        ' ' +
-                                        (i + 1)
-                                    "
-                                    class="h-full w-full object-cover"
+                                    alt=""
+                                    class="h-full w-full object-contain"
                                 />
                             </button>
                         }
@@ -73,74 +130,60 @@
                 }
             </div>
 
-            <!-- Details -->
-            <div class="flex flex-1 flex-col gap-4 md:w-1/2">
-                <div class="flex items-start justify-between gap-4">
-                    <span
-                        class="text-hint text-sm font-medium uppercase tracking-wider"
-                    >
-                        {{
-                            categoryName(product.categoryId) ||
-                                product.categoryLabel
-                        }}
-                    </span>
-                    <button
-                        mat-stroked-button
-                        type="button"
-                        [matTooltip]="
-                            isFavorite(product)
-                                ? t('favorites.remove')
-                                : t('favorites.add')
-                        "
-                        (click)="toggleFavorite(product)"
-                    >
-                        <!-- Brand pink, the same token the tile's heart uses —
-                             not a raw `red-500` (TOKENS.md). -->
-                        <mat-icon
-                            class="icon-size-5"
-                            [class.text-sale-700]="isFavorite(product)"
-                            [svgIcon]="
-                                isFavorite(product)
-                                    ? 'heroicons_solid:heart'
-                                    : 'heroicons_outline:heart'
-                            "
-                        ></mat-icon>
-                        <span>{{
-                            isFavorite(product)
-                                ? t('favorites.remove')
-                                : t('favorites.add')
-                        }}</span>
-                    </button>
-                </div>
+            <!-- The offer: what it is, what it costs, how much to order -->
+            <div class="flex min-w-0 flex-col gap-5">
+                <div class="flex flex-col gap-3">
+                    @if (
+                        categoryName(product.categoryId) ||
+                            product.categoryLabel;
+                        as category
+                    ) {
+                        <span
+                            class="text-hint text-sm font-semibold uppercase tracking-wider"
+                        >
+                            {{ category }}
+                        </span>
+                    }
 
-                <!--
-                  The market's labels. A pinning tag leads as a filled chip —
-                  pinning is the one meaning the platform defines — and the
-                  rest follow as the seller's own vocabulary.
-                -->
-                @if (product.tags.length) {
-                    <ul class="flex flex-wrap gap-2">
-                        @for (tag of product.tags; track tag.id || tag.name) {
-                            <!-- A pinning tag keeps the accent chip: that one
-                                 carries platform meaning, so it outranks the
-                                 name-derived colour the rest get. -->
-                            <li
-                                class="px-2.5 py-1 text-sm"
-                                [class]="
-                                    tag.pinsToTop
-                                        ? 'rounded-full bg-accent font-semibold text-on-accent'
-                                        : tagClass(tag.name)
-                                "
-                            >
-                                {{
-                                    tag.pinsToTop
-                                        ? t('productCard.featured')
-                                        : tag.name
-                                }}
-                            </li>
-                        }
-                    </ul>
-                }
+                    <h1
+                        class="text-3xl font-semibold tracking-tight lg:text-4xl"
+                    >
+                        {{ isVi() ? product.name : product.nameEn }}
+                    </h1>
+
+                    <!--
+                      The market's labels. A pinning tag leads as a filled chip
+                      — pinning is the one meaning the platform defines — and
+                      the rest follow as the seller's own vocabulary.
+                    -->
+                    @if (product.tags.length) {
+                        <ul class="flex flex-wrap gap-2">
+                            @for (
+                                tag of product.tags;
+                                track tag.id || tag.name
+                            ) {
+                                <!-- A pinning tag keeps the accent chip: that
+                                     one carries platform meaning, so it
+                                     outranks the name-derived colour the rest
+                                     get. -->
+                                <li
+                                    class="px-2.5 py-1 text-sm"
+                                    [class]="
+                                        tag.pinsToTop
+                                            ? 'rounded-full bg-accent font-semibold text-on-accent'
+                                            : tagClass(tag.name)
+                                    "
+                                >
+                                    {{
+                                        tag.pinsToTop
+                                            ? t('productCard.featured')
+                                            : tag.name
+                                    }}
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
 
                 <!--
                   Headline: the price with what it is quoted per, how much can
@@ -148,11 +191,11 @@
                   board those three belong together — a price without its unit
                   or its age is not an offer a buyer can act on.
                 -->
-                <div class="rounded-xl border p-4">
+                <div class="bg-card rounded-2xl border p-5 shadow-sm md:p-6">
                     <span class="text-secondary text-sm">
                         {{ t('catalog.price') }}
                     </span>
-                    <p class="mt-1 flex items-baseline gap-1.5">
+                    <p class="mt-1 flex flex-wrap items-baseline gap-1.5">
                         <span
                             class="font-mono text-4xl font-bold tabular-nums text-primary"
                         >
@@ -172,21 +215,35 @@
                             product.quantity !== null && isOutOfStock(product)
                         ) {
                             <span
-                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                                class="inline-flex items-center gap-1.5 rounded-full bg-warn-50 px-2.5 py-1 text-sm font-semibold text-warn-700 dark:bg-warn-500/10"
                             >
                                 {{ t('productCard.outOfStock') }}
                             </span>
                         } @else if (hasNoPackingCode(product)) {
                             <span
-                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                                class="inline-flex items-center gap-1.5 rounded-full bg-warn-50 px-2.5 py-1 text-sm font-semibold text-warn-700 dark:bg-warn-500/10"
                             >
                                 {{ t('productCard.packMissing') }}
                             </span>
                         } @else if (hasInsufficientStock(product)) {
                             <span
-                                class="inline-flex items-center gap-1.5 rounded-full bg-gray-700 px-2.5 py-1 text-sm font-semibold text-white"
+                                class="inline-flex items-center gap-1.5 rounded-full bg-warn-50 px-2.5 py-1 text-sm font-semibold text-warn-700 dark:bg-warn-500/10"
                             >
                                 {{ t('productCard.insufficientStock') }}
+                            </span>
+                        } @else if (availableNote(); as available) {
+                            <span
+                                class="inline-flex items-center gap-1.5 rounded-full bg-primary-50 px-2.5 py-1 text-sm font-semibold text-primary-700 dark:bg-primary-500/10"
+                            >
+                                <mat-icon
+                                    class="text-current icon-size-4"
+                                    svgIcon="heroicons_mini:check-circle"
+                                ></mat-icon>
+                                {{
+                                    t('catalog.detail.available', {
+                                        quantity: available,
+                                    })
+                                }}
                             </span>
                         }
 
@@ -203,72 +260,280 @@
                         }
                     </div>
 
-                    <button
-                        mat-flat-button
-                        class="mt-4 w-full"
-                        color="primary"
-                        type="button"
-                        [disabled]="!canOrder(product)"
-                        (click)="addToDraftOrder(product)"
-                    >
-                        <mat-icon
-                            svgIcon="heroicons_outline:shopping-cart"
-                        ></mat-icon>
-                        <span class="ml-2">{{
-                            t('productCard.addToCart')
-                        }}</span>
-                    </button>
-                </div>
+                    <!--
+                      Ordering moves by the whole case, so the stepper counts
+                      cases and the cart is handed `cases × kg per case`. A
+                      buyer who wants four cases presses `+` three times
+                      instead of pressing "add to cart" four times and hoping
+                      the lines merge.
+                    -->
+                    @if (canOrder(product)) {
+                        <div class="mt-5 border-t pt-5">
+                            <div
+                                class="flex flex-wrap items-center justify-between gap-3"
+                            >
+                                <div class="flex flex-col">
+                                    <span class="text-sm font-medium">
+                                        {{ t('catalog.detail.quantity') }}
+                                    </span>
+                                    <span class="text-hint text-sm">
+                                        {{
+                                            t('productCard.packWeight', {
+                                                weight: packSize(),
+                                            })
+                                        }}
+                                    </span>
+                                </div>
 
-                <!--
-                  Spec table. Every row comes from the listing payload; rows the
-                  listing does not carry are absent rather than blank (see
-                  `facts` in the component).
-                -->
-                @if (facts().length) {
-                    <dl class="grid grid-cols-2 gap-x-6 gap-y-4">
-                        @for (fact of facts(); track fact.labelKey) {
-                            <div>
-                                <dt class="text-secondary text-sm">
-                                    {{ t(fact.labelKey) }}
-                                </dt>
-                                <dd class="mt-0.5 font-medium">
-                                    {{ fact.value }}
-                                </dd>
+                                <div
+                                    class="flex items-center gap-1 rounded-full border p-1"
+                                >
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        class="icon-size-5"
+                                        [disabled]="!canDecrease()"
+                                        [matTooltip]="
+                                            t('catalog.detail.decrease')
+                                        "
+                                        [attr.aria-label]="
+                                            t('catalog.detail.decrease')
+                                        "
+                                        (click)="decrease()"
+                                    >
+                                        <mat-icon
+                                            svgIcon="heroicons_mini:minus"
+                                        ></mat-icon>
+                                    </button>
+                                    <span
+                                        class="min-w-10 text-center font-mono text-lg font-semibold tabular-nums"
+                                        aria-live="polite"
+                                    >
+                                        {{ cases() }}
+                                    </span>
+                                    <button
+                                        mat-icon-button
+                                        type="button"
+                                        class="icon-size-5"
+                                        [disabled]="!canIncrease()"
+                                        [matTooltip]="
+                                            canIncrease()
+                                                ? t('catalog.detail.increase')
+                                                : t('catalog.detail.maxCases')
+                                        "
+                                        [attr.aria-label]="
+                                            t('catalog.detail.increase')
+                                        "
+                                        (click)="increase()"
+                                    >
+                                        <mat-icon
+                                            svgIcon="heroicons_mini:plus"
+                                        ></mat-icon>
+                                    </button>
+                                </div>
                             </div>
-                        }
-                    </dl>
-                }
 
-                <!-- Description (collapsible) -->
-                <div class="mt-2 border-t border-gray-200 pt-4">
-                    <button
-                        type="button"
-                        class="flex w-full items-center justify-between text-left"
-                        [attr.aria-expanded]="descriptionExpanded()"
-                        (click)="toggleDescription()"
-                    >
-                        <h2 class="text-sm font-semibold">
-                            {{ t('catalog.description') }}
-                        </h2>
-                        <mat-icon
-                            class="text-hint transition-transform icon-size-5"
-                            [class.rotate-180]="descriptionExpanded()"
-                            svgIcon="heroicons_mini:chevron-down"
-                        ></mat-icon>
-                    </button>
-                    @if (descriptionExpanded()) {
-                        <p class="text-secondary mt-2 leading-relaxed">
-                            {{
-                                isVi()
-                                    ? product.description
-                                    : product.descriptionEn
-                            }}
-                        </p>
+                            <div
+                                class="mt-4 flex items-baseline justify-between gap-3"
+                            >
+                                <span class="text-secondary text-sm">
+                                    {{ t('catalog.detail.subtotal') }}
+                                    <span class="text-hint"
+                                        >({{ quantityLabel() }})</span
+                                    >
+                                </span>
+                                <span
+                                    class="font-mono text-2xl font-bold tabular-nums"
+                                >
+                                    {{ formatPrice(subtotal()) }}
+                                </span>
+                            </div>
+                        </div>
                     }
+
+                    <div class="mt-5 flex items-stretch gap-3">
+                        <button
+                            mat-flat-button
+                            class="h-12 flex-auto"
+                            color="primary"
+                            type="button"
+                            [disabled]="!canOrder(product)"
+                            (click)="addToDraftOrder(product)"
+                        >
+                            <mat-icon
+                                svgIcon="heroicons_outline:shopping-cart"
+                            ></mat-icon>
+                            <span class="ml-2">{{
+                                t('productCard.addToCart')
+                            }}</span>
+                        </button>
+
+                        <button
+                            mat-stroked-button
+                            type="button"
+                            class="h-12 min-w-12 px-0"
+                            [matTooltip]="
+                                isFavorite(product)
+                                    ? t('favorites.remove')
+                                    : t('favorites.add')
+                            "
+                            [attr.aria-label]="
+                                isFavorite(product)
+                                    ? t('favorites.remove')
+                                    : t('favorites.add')
+                            "
+                            (click)="toggleFavorite(product)"
+                        >
+                            <!-- Brand pink, the same token the tile's heart
+                                 uses — not a raw `red-500` (TOKENS.md). -->
+                            <mat-icon
+                                class="icon-size-5"
+                                [class.text-sale-700]="isFavorite(product)"
+                                [svgIcon]="
+                                    isFavorite(product)
+                                        ? 'heroicons_solid:heart'
+                                        : 'heroicons_outline:heart'
+                                "
+                            ></mat-icon>
+                        </button>
+                    </div>
+
+                    <!--
+                      What the platform can actually vouch for about this
+                      listing: which chợ it comes from, how it is packed, and
+                      when the market last restated it. No claim here that the
+                      data does not carry.
+                    -->
+                    <div
+                        class="text-secondary mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t pt-4 text-sm"
+                    >
+                        @if (product.marketSource) {
+                            <span class="inline-flex items-center gap-1.5">
+                                <mat-icon
+                                    class="text-hint icon-size-4"
+                                    svgIcon="heroicons_outline:building-storefront"
+                                ></mat-icon>
+                                {{ product.marketSource }}
+                            </span>
+                        }
+                        @if (!hasNoPackingCode(product)) {
+                            <span class="inline-flex items-center gap-1.5">
+                                <mat-icon
+                                    class="text-hint icon-size-4"
+                                    svgIcon="heroicons_outline:archive-box"
+                                ></mat-icon>
+                                {{
+                                    t('productCard.packWeight', {
+                                        weight: packSize(),
+                                    })
+                                }}
+                            </span>
+                        }
+                        @if (product.minimumOrderQuantity > 1) {
+                            <span class="inline-flex items-center gap-1.5">
+                                <mat-icon
+                                    class="text-hint icon-size-4"
+                                    svgIcon="heroicons_outline:scale"
+                                ></mat-icon>
+                                {{ t('catalog.detail.minimumOrder') }}:
+                                {{ product.minimumOrderQuantity }}
+                                {{ unitShort() }}
+                            </span>
+                        }
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!--
+          What is known about the product, in tabs (COMPONENTS.md keeps a
+          detail surface at one route level and gives it a `mat-tab-group`).
+
+          Only the description has data behind it. Nutrition and reviews are
+          named and disabled with a "coming soon" chip rather than filled in:
+          neither figure exists anywhere in the API, and inventing a nutrition
+          panel or a star average would be inventing the product.
+        -->
+        <section class="bg-card mt-10 overflow-hidden rounded-2xl border">
+            <mat-tab-group animationDuration="200ms">
+                <mat-tab>
+                    <ng-template mat-tab-label>
+                        {{ t('catalog.description') }}
+                    </ng-template>
+                    <div class="p-5 md:p-6">
+                        @if (
+                            isVi()
+                                ? product.description
+                                : product.descriptionEn;
+                            as description
+                        ) {
+                            <p class="text-secondary max-w-4xl leading-relaxed">
+                                {{ description }}
+                            </p>
+                        } @else {
+                            <p class="text-hint">
+                                {{ t('catalog.detail.noDescription') }}
+                            </p>
+                        }
+                    </div>
+                </mat-tab>
+
+                <mat-tab [disabled]="true">
+                    <ng-template mat-tab-label>
+                        {{ t('catalog.detail.nutrition') }}
+                        <span
+                            class="text-hint bg-default ml-2 hidden rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide sm:inline-block"
+                        >
+                            {{ t('common.comingSoon') }}
+                        </span>
+                    </ng-template>
+                </mat-tab>
+
+                <mat-tab [disabled]="true">
+                    <ng-template mat-tab-label>
+                        {{ t('catalog.detail.reviews') }}
+                        <span
+                            class="text-hint bg-default ml-2 hidden rounded-full px-2 py-0.5 text-xs font-semibold uppercase tracking-wide sm:inline-block"
+                        >
+                            {{ t('common.comingSoon') }}
+                        </span>
+                    </ng-template>
+                </mat-tab>
+            </mat-tab-group>
+        </section>
+
+        <!--
+          The rest of the aisle at this chợ. Costs no request — the detail
+          route already resolves out of the market's cached listing, so this
+          is a filter over rows the page has in hand.
+        -->
+        @if (relatedCards().length) {
+            <section class="mt-12">
+                <div class="flex flex-wrap items-end justify-between gap-4">
+                    <h2 class="text-2xl font-semibold tracking-tight">
+                        {{ t('catalog.detail.related') }}
+                    </h2>
+                    <a
+                        class="text-sm font-medium text-primary hover:underline"
+                        routerLink="/catalog"
+                        [queryParams]="{ category: product.categoryId }"
+                    >
+                        {{ t('catalog.detail.relatedAll') }}
+                    </a>
+                </div>
+                <div
+                    class="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"
+                >
+                    @for (card of relatedCards(); track card.id) {
+                        <ff-product-card
+                            [product]="card"
+                            (favoriteToggled)="onRelatedFavoriteToggled($event)"
+                            (addedToCart)="onRelatedAddToCart($event)"
+                        ></ff-product-card>
+                    }
+                </div>
+            </section>
+        }
     } @else {
         <!--
           Nothing resolved. A link to a product this market does not carry used
