@@ -12,16 +12,42 @@ export interface RestaurantCreditBalance {
     [key: string]: unknown;
 }
 
-/** A monthly credit statement row (`GET .../credit/statements`). Untyped in the spec. */
+/** One movement inside a statement (`CreditStatementLineDto`). */
+export interface CreditStatementLine {
+    transactionId?: string;
+    type?: string;
+    amount?: number;
+    balanceAfter?: number;
+    occurredAt?: string;
+    note?: string | null;
+    reference?: string | null;
+    orderId?: string | null;
+    paymentMethod?: string | null;
+    [key: string]: unknown;
+}
+
+/**
+ * A monthly credit statement (`GET .../credit/statements`, and the detail).
+ *
+ * The period is a **date range**, not a year/month pair: the backend closes a
+ * statement over `periodStart`…`periodEnd` in Asia/Ho_Chi_Minh. Reading it as
+ * `month/year` printed an empty "/" on every row.
+ */
 export interface CreditStatement {
     id: string;
-    year?: number;
-    month?: number;
+    restaurantId?: string;
+    periodStart?: string;
+    periodEnd?: string;
     openingBalance?: number;
     closingBalance?: number;
     totalCharges?: number;
-    totalPayments?: number;
+    /** Payments the restaurant made against its debt. */
+    totalSettlements?: number;
+    totalRefunds?: number;
     generatedAt?: string;
+    dueDate?: string;
+    /** Only the detail carries these; the list answers the summary. */
+    lines?: CreditStatementLine[];
     [key: string]: unknown;
 }
 

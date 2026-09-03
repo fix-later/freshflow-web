@@ -1,0 +1,231 @@
+<ng-container *transloco="let t">
+    @if (loading() && !statement()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    <div class="ff-stmt">
+        @if (loadError(); as message) {
+            <p
+                class="m-6 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                role="alert"
+            >
+                {{ message }}
+            </p>
+        }
+
+        @if (statement(); as statement) {
+            <div class="ff-stmt__sheet">
+                <!-- Who it is from, who it is for, and what it covers. -->
+                <header class="ff-stmt__head">
+                    <div class="ff-stmt__parties">
+                        <div class="ff-stmt__party">
+                            <img
+                                class="h-8 w-auto object-contain"
+                                src="images/logo/logo-primary.svg"
+                                alt="FreshFlow"
+                            />
+                            <div class="ff-stmt__party-body">
+                                <div class="font-semibold">
+                                    {{
+                                        t('restaurantInvoices.sheet.issuerName')
+                                    }}
+                                </div>
+                                <div>
+                                    {{
+                                        t(
+                                            'restaurantInvoices.sheet.issuerAddress'
+                                        )
+                                    }}
+                                </div>
+                                <div>
+                                    {{
+                                        t(
+                                            'restaurantInvoices.sheet.issuerContact'
+                                        )
+                                    }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ff-stmt__party">
+                            <span class="ff-stmt__party-label">{{
+                                t('restaurantCredit.statements.billTo')
+                            }}</span>
+                            <div class="ff-stmt__party-body">
+                                <div class="font-semibold">
+                                    {{ text(restaurant()?.name) }}
+                                </div>
+                                <div>{{ text(restaurant()?.address) }}</div>
+                                @if (restaurant()?.taxCode) {
+                                    <div>
+                                        {{
+                                            t(
+                                                'restaurantInvoices.sheet.buyerTaxCode'
+                                            )
+                                        }}: {{ restaurant()?.taxCode }}
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="ff-stmt__meta">
+                        <span class="ff-stmt__title">{{
+                            t('restaurantCredit.statements.sheetTitle')
+                        }}</span>
+                        <span class="ff-stmt__period">{{
+                            period(statement)
+                        }}</span>
+
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.generatedAt')
+                        }}</span>
+                        <span class="font-medium">{{
+                            date(statement.generatedAt)
+                        }}</span>
+
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.dueDate')
+                        }}</span>
+                        <span class="font-medium">{{
+                            date(statement.dueDate)
+                        }}</span>
+
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.closingBalance')
+                        }}</span>
+                        <span class="text-lg font-bold">{{
+                            money(statement.closingBalance)
+                        }}</span>
+                    </div>
+                </header>
+
+                <!-- Every movement of the month, in the order it happened. -->
+                @if (lines(statement).length) {
+                    <section class="ff-stmt__lines">
+                        <div class="ff-stmt__row ff-stmt__row--head">
+                            <span>{{
+                                t('restaurantCredit.statements.when')
+                            }}</span>
+                            <span>{{
+                                t('admin.restaurants.transactions.type')
+                            }}</span>
+                            <span class="ff-stmt__col-note">{{
+                                t('restaurantCredit.statements.note')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantCredit.statements.amount')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantCredit.transactions.balanceAfter')
+                            }}</span>
+                        </div>
+                        @for (line of lines(statement); track $index) {
+                            <div class="ff-stmt__row">
+                                <span class="text-secondary text-sm">{{
+                                    date(line.occurredAt, true)
+                                }}</span>
+                                <span class="font-medium">{{
+                                    line.type
+                                        | apiLabel
+                                            : 'admin.restaurants.transactions.type'
+                                }}</span>
+                                <span class="ff-stmt__col-note text-secondary">
+                                    {{ text(line.note || line.reference) }}
+                                </span>
+                                <span class="text-right font-medium">{{
+                                    money(line.amount)
+                                }}</span>
+                                <span class="text-secondary text-right">{{
+                                    money(line.balanceAfter)
+                                }}</span>
+                            </div>
+                        }
+                    </section>
+                } @else {
+                    <p class="ff-stmt__empty">
+                        {{ t('restaurantCredit.statements.noLines') }}
+                    </p>
+                }
+
+                <!-- Opening balance, what the month added and took off, closing. -->
+                <section class="ff-stmt__totals">
+                    <div class="ff-stmt__total-row">
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.openingBalance')
+                        }}</span>
+                        <span>{{ money(statement.openingBalance) }}</span>
+                    </div>
+                    <div class="ff-stmt__total-row">
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.charges')
+                        }}</span>
+                        <span>+ {{ money(statement.totalCharges) }}</span>
+                    </div>
+                    <div class="ff-stmt__total-row">
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.payments')
+                        }}</span>
+                        <span>− {{ money(statement.totalSettlements) }}</span>
+                    </div>
+                    <div class="ff-stmt__total-row">
+                        <span class="ff-stmt__label">{{
+                            t('restaurantCredit.statements.refunds')
+                        }}</span>
+                        <span>− {{ money(statement.totalRefunds) }}</span>
+                    </div>
+                    <div class="ff-stmt__total-row ff-stmt__total-row--grand">
+                        <span>{{
+                            t('restaurantCredit.statements.closingBalance')
+                        }}</span>
+                        <span>{{ money(statement.closingBalance) }}</span>
+                    </div>
+                </section>
+
+                <p class="ff-stmt__note">
+                    {{
+                        t('restaurantCredit.statements.footNote', {
+                            due: date(statement.dueDate),
+                        })
+                    }}
+                </p>
+            </div>
+        }
+
+        @if (downloadError(); as message) {
+            <p
+                class="mx-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                role="alert"
+            >
+                {{ message }}
+            </p>
+        }
+
+        <div class="ff-stmt__actions">
+            <button mat-stroked-button type="button" matDialogClose>
+                {{ t('common.close') }}
+            </button>
+            <span class="flex-auto"></span>
+            <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="downloading() || !statement()"
+                (click)="downloadPdf()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [class.animate-spin]="downloading()"
+                    [svgIcon]="
+                        downloading()
+                            ? 'heroicons_outline:arrow-path'
+                            : 'heroicons_outline:arrow-down-tray'
+                    "
+                ></mat-icon>
+                <span class="ml-2">{{
+                    t('restaurantCredit.statements.download')
+                }}</span>
+            </button>
+        </div>
+    </div>
+</ng-container>

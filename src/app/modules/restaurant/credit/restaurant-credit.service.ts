@@ -19,8 +19,12 @@ import {
  * transaction ledger. `RestaurantCreditApi` requires an explicit
  * `restaurantId` (no "me" variant), resolved from
  * `GET /restaurants/me/profile` — **not** from the signed-in user's id, which
- * is a different id and answers 404 here. Read-only: generating a statement is
- * an admin-only action (ROLE_MATRIX M6 Credit).
+ * is a different id and answers 404 here.
+ *
+ * Mostly reads, with one write: closing a billing month into a statement is
+ * open to the restaurant that owns it, not only to an admin — this file used
+ * to say otherwise, and the credit page had no way to ask for last month's
+ * statement because of it.
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantCreditService {
@@ -70,6 +74,35 @@ export class RestaurantCreditService {
             'statementId'
         );
         return { statements, nextCursor: extractNextCursor(body) };
+    }
+
+    /**
+     * Closes the statement for one billing month and returns it
+     * (`POST .../credit/statements/generate`).
+     *
+     * Open to the restaurant itself, not only to an admin
+     * (`GenerateStatementAsync`: "Admin or the owning restaurant"), and
+     * idempotent — asking again for a month that already has one hands back the
+     * same immutable statement rather than a second copy.
+     */
+    async generateStatement(
+        year: number,
+        month: number
+    ): Promise<CreditStatement | null> {
+        const restaurantId = await this._restaurantId();
+        const res =
+            await restaurantCreditApi.apiV1RestaurantsRestaurantIdCreditStatementsGeneratePostRaw(
+                { restaurantId, generateStatementRequest: { year, month } }
+            );
+        const data = unwrapData<Record<string, unknown>>(
+            await parseJson(res.raw)
+        );
+        return data
+            ? withId<CreditStatement>(
+                  [data as CreditStatement],
+                  'statementId'
+              )[0]
+            : null;
     }
 
     /**

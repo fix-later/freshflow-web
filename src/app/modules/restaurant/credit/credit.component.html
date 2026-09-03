@@ -72,117 +72,124 @@
             </p>
         </div>
 
-        <!-- Statements -->
+        <!--
+          Statements. The restaurant closes its own billing month — the
+          endpoint has always allowed it ("Admin or the owning restaurant"),
+          and until now the page only listed what an admin had generated, so a
+          restaurant that needed last month's statement had to ask for it.
+        -->
         <section class="flex flex-col gap-3">
-            <h2 class="text-xl font-semibold">
-                {{ t('restaurantCredit.statements.title') }}
-            </h2>
+            <div class="flex flex-wrap items-end justify-between gap-3">
+                <h2 class="text-xl font-semibold">
+                    {{ t('restaurantCredit.statements.title') }}
+                </h2>
+
+                <form
+                    class="flex flex-wrap items-center gap-2"
+                    [formGroup]="generateForm"
+                    (ngSubmit)="generateStatement()"
+                >
+                    <mat-form-field
+                        class="ff-credit__period"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('restaurantCredit.statements.month')
+                        }}</mat-label>
+                        <mat-select formControlName="month">
+                            @for (month of monthOptions; track month) {
+                                <mat-option [value]="month">{{
+                                    t('restaurantCredit.statements.monthName', {
+                                        month: month,
+                                    })
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <mat-form-field
+                        class="ff-credit__period"
+                        subscriptSizing="dynamic"
+                    >
+                        <mat-label>{{
+                            t('restaurantCredit.statements.year')
+                        }}</mat-label>
+                        <mat-select formControlName="year">
+                            @for (year of yearOptions; track year) {
+                                <mat-option [value]="year">{{
+                                    year
+                                }}</mat-option>
+                            }
+                        </mat-select>
+                    </mat-form-field>
+                    <button
+                        mat-flat-button
+                        color="primary"
+                        type="submit"
+                        data-testid="credit-generate-statement"
+                        [disabled]="generating()"
+                    >
+                        @if (generating()) {
+                            <mat-icon
+                                class="animate-spin icon-size-5"
+                                svgIcon="heroicons_outline:arrow-path"
+                            ></mat-icon>
+                        }
+                        <span>{{
+                            t('restaurantCredit.statements.generate')
+                        }}</span>
+                    </button>
+                </form>
+            </div>
+
+            <p class="text-secondary text-sm">
+                {{ t('restaurantCredit.statements.generateHint') }}
+            </p>
+
+            @if (generateError(); as message) {
+                <p
+                    class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                    role="alert"
+                >
+                    {{ message }}
+                </p>
+            }
+
             @if (statements().length) {
                 <div
                     class="flex flex-col divide-y overflow-hidden rounded-xl border"
                 >
                     @for (statement of statements(); track statement.id) {
-                        <div class="flex flex-col">
-                            <div
-                                class="flex items-center justify-between gap-4 p-4"
-                            >
-                                <div class="flex flex-col gap-0.5">
-                                    <span class="font-medium">
-                                        {{ statement.month }}/{{
-                                            statement.year
-                                        }}
-                                    </span>
-                                    <span class="text-secondary text-sm">
-                                        {{
-                                            t(
-                                                'restaurantCredit.statements.closingBalance'
-                                            )
-                                        }}:
-                                        {{
-                                            formatAmount(
-                                                statement.closingBalance
-                                            )
-                                        }}
-                                    </span>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button
-                                        mat-button
-                                        type="button"
-                                        (click)="toggleStatement(statement)"
-                                    >
-                                        {{
-                                            expandedStatementId() ===
-                                            statement.id
-                                                ? t(
-                                                      'restaurantCredit.statements.hideDetail'
-                                                  )
-                                                : t(
-                                                      'restaurantCredit.statements.viewDetail'
-                                                  )
-                                        }}
-                                    </button>
-                                    <button
-                                        mat-stroked-button
-                                        type="button"
-                                        [disabled]="
-                                            downloadingId() === statement.id
-                                        "
-                                        (click)="downloadStatement(statement)"
-                                    >
-                                        <mat-icon
-                                            class="icon-size-5"
-                                            svgIcon="heroicons_outline:arrow-down-tray"
-                                        ></mat-icon>
-                                        <span>{{
-                                            t(
-                                                'restaurantCredit.statements.download'
-                                            )
-                                        }}</span>
-                                    </button>
-                                </div>
+                        <button
+                            type="button"
+                            class="ff-credit__statement flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-4 text-left"
+                            [attr.data-testid]="'statement-' + statement.id"
+                            (click)="openStatement(statement)"
+                        >
+                            <div class="flex min-w-0 flex-col gap-0.5">
+                                <span class="font-medium">
+                                    {{ statementPeriod(statement) }}
+                                </span>
+                                <span class="text-secondary text-sm">
+                                    {{
+                                        t(
+                                            'restaurantCredit.statements.closingBalance'
+                                        )
+                                    }}:
+                                    {{ formatAmount(statement.closingBalance) }}
+                                </span>
                             </div>
-
-                            @if (expandedStatementId() === statement.id) {
-                                <div class="bg-hover px-4 pb-4">
-                                    @if (loadingStatement()) {
-                                        <p class="text-secondary text-sm">
-                                            {{ t('restaurantCredit.loading') }}
-                                        </p>
-                                    } @else if (statementEntries().length) {
-                                        <div
-                                            class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
-                                        >
-                                            @for (
-                                                entry of statementEntries();
-                                                track entry.label
-                                            ) {
-                                                <div
-                                                    class="flex justify-between gap-4 border-b py-1.5 text-sm"
-                                                >
-                                                    <span
-                                                        class="text-secondary"
-                                                        >{{ entry.label }}</span
-                                                    >
-                                                    <span
-                                                        class="text-right font-medium"
-                                                        >{{ entry.value }}</span
-                                                    >
-                                                </div>
-                                            }
-                                        </div>
-                                    } @else {
-                                        <p class="text-secondary text-sm">
-                                            {{
-                                                t(
-                                                    'restaurantCredit.statements.detailUnavailable'
-                                                )
-                                            }}
-                                        </p>
-                                    }
-                                </div>
-                            }
-                        </div>
+                            <span
+                                class="flex items-center gap-1 text-sm font-medium text-primary"
+                            >
+                                {{
+                                    t('restaurantCredit.statements.viewDetail')
+                                }}
+                                <mat-icon
+                                    class="icon-size-4"
+                                    svgIcon="heroicons_outline:chevron-right"
+                                ></mat-icon>
+                            </span>
+                        </button>
                     }
                 </div>
                 @if (hasMoreStatements()) {

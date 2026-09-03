@@ -6,9 +6,13 @@ import {
     inject,
     signal,
 } from '@angular/core';
+import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
@@ -22,6 +26,24 @@ import {
     CreditTransaction,
     RestaurantCreditBalance,
 } from './restaurant-credit.types';
+import { openStatementSheet } from './statement-sheet/statement-sheet.component';
+
+const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+/** A statement closes a month that has ended, so the default is the last one. */
+const PREVIOUS_MONTH = ((): { year: number; month: number } => {
+    const now = new Date();
+    const month = now.getMonth(); // 0-based: last month's 1-based number.
+    return month === 0
+        ? { year: now.getFullYear() - 1, month: 12 }
+        : { year: now.getFullYear(), month };
+})();
+
+const YEARS = [
+    PREVIOUS_MONTH.year,
+    PREVIOUS_MONTH.year - 1,
+    PREVIOUS_MONTH.year - 2,
+];
 
 /**
  * "Công nợ" — the signed-in restaurant's own credit balance and ledger.
@@ -41,6 +63,9 @@ import {
     imports: [
         ApiLabelPipe,
         MatButtonModule,
+        MatFormFieldModule,
+        MatSelectModule,
+        ReactiveFormsModule,
         MatIconModule,
         MatProgressBarModule,
         MatSnackBarModule,
@@ -50,6 +75,8 @@ import {
 })
 export class CreditComponent implements OnInit {
     private readonly _service = inject(RestaurantCreditService);
+    private readonly _dialog = inject(MatDialog);
+    private readonly _fb = inject(FormBuilder);
     private readonly _snackBar = inject(MatSnackBar);
     private readonly _transloco = inject(TranslocoService);
 
@@ -61,20 +88,85 @@ export class CreditComponent implements OnInit {
     readonly loadError = signal<string | null>(null);
     /** Localized reason the last paging/detail/download call failed. */
     readonly actionError = signal<string | null>(null);
-    readonly downloadingId = signal<string | null>(null);
 
     private _transactionsCursor: string | undefined;
     private _statementsCursor: string | undefined;
     readonly hasMoreTransactions = signal(false);
     readonly hasMoreStatements = signal(false);
 
-    /** Statement whose breakdown is expanded, and its fetched detail. */
-    readonly expandedStatementId = signal<string | null>(null);
-    readonly statementDetail = signal<CreditStatement | null>(null);
-    readonly loadingStatement = signal(false);
+    /** The month a new statement would be asked for; last month by default. */
+    readonly generateForm = this._fb.nonNullable.group({
+        month: [PREVIOUS_MONTH.month],
+        year: [PREVIOUS_MONTH.year],
+    });
+    readonly generating = signal(false);
+    readonly generateError = signal<string | null>(null);
+
+    readonly monthOptions = MONTHS;
+    /** This year and the two before it — nothing older is billed here. */
+    readonly yearOptions = YEARS;
 
     ngOnInit(): void {
         void this.reload();
+    }
+
+    /**
+     * Closes one billing month into a statement and opens it.
+     *
+     * The endpoint has always been open to the restaurant that owns the
+     * account ("Admin or the owning restaurant"), but the page only ever listed
+     * what somebody else had generated — so a restaurant that needed last
+     * month's statement had to ask for it. Idempotent on the server: pressing
+     * this twice for the same month opens the statement that already exists
+     * rather than making a second one.
+     */
+    async generateStatement(): Promise<void> {
+        if (this.generating()) {
+            return;
+        }
+        const { month, year } = this.generateForm.getRawValue();
+        this.generating.set(true);
+        this.generateError.set(null);
+        try {
+            const statement = await this._service.generateStatement(
+                year,
+                month
+            );
+            await this.reload();
+            if (statement) {
+                openStatementSheet(this._dialog, statement.id, statement);
+            }
+        } catch (err) {
+            this.generateError.set(
+                await this._describe(
+                    err,
+                    'restaurantCredit.statements.generateError'
+                )
+            );
+        } finally {
+            this.generating.set(false);
+        }
+    }
+
+    /** Opens one statement as the document it is. */
+    openStatement(statement: CreditStatement): void {
+        openStatementSheet(this._dialog, statement.id, statement);
+    }
+
+    /**
+     * The period the statement closed, e.g. "01/08/2026 — 31/08/2026".
+     *
+     * Read from `periodStart`/`periodEnd`, which is what the backend sends.
+     * This row used to print `month`/`year` — fields no statement has ever
+     * carried — so every row read as a bare "/".
+     */
+    statementPeriod(statement: CreditStatement): string {
+        const start = this.formatDay(statement.periodStart);
+        const end = this.formatDay(statement.periodEnd);
+        if (start === '—' && end === '—') {
+            return this.formatDay(statement.generatedAt);
+        }
+        return start === end ? start : `${start} — ${end}`;
     }
 
     /** (Re)loads balance + both ledgers; also the retry action on failure. */
@@ -107,98 +199,6 @@ export class CreditComponent implements OnInit {
                 );
             })
             .finally(() => this.loading.set(false));
-    }
-
-    /**
-     * Expands (or collapses) a statement's breakdown. The list rows carry only
-     * summary figures, so the detail is fetched on first open and replaced on
-     * each switch — one statement is expanded at a time.
-     */
-    toggleStatement(statement: CreditStatement): void {
-        if (this.expandedStatementId() === statement.id) {
-            this.expandedStatementId.set(null);
-            this.statementDetail.set(null);
-            return;
-        }
-        this.expandedStatementId.set(statement.id);
-        this.statementDetail.set(null);
-        this.loadingStatement.set(true);
-        this._service
-            .getStatement(statement.id)
-            .then((detail) => {
-                // Ignore a response for a statement the user already left.
-                if (this.expandedStatementId() === statement.id) {
-                    this.statementDetail.set(detail);
-                }
-            })
-            .catch(async (err) => {
-                this.statementDetail.set(null);
-                this.actionError.set(
-                    await this._describe(
-                        err,
-                        'restaurantCredit.statements.detailUnavailable'
-                    )
-                );
-            })
-            .finally(() => this.loadingStatement.set(false));
-    }
-
-    /**
-     * The expanded statement, as the named figures a month is settled on.
-     *
-     * This used to print **every** scalar the endpoint returned, under labels
-     * derived from the JSON field names — so a Vietnamese restaurant read
-     * "Total charges", "Generated at" and its own `restaurantId` in English,
-     * and any field the backend added appeared unannounced. The admin statement
-     * says these six things; so does this.
-     */
-    statementEntries(): { label: string; value: string }[] {
-        const detail = this.statementDetail();
-        if (!detail) {
-            return [];
-        }
-        const money = (value: unknown): string | null =>
-            typeof value === 'number' ? this.formatAmount(value) : null;
-        const rows: { label: string; value: string | null }[] = [
-            {
-                label: 'restaurantCredit.statements.openingBalance',
-                value: money(detail.openingBalance),
-            },
-            {
-                label: 'restaurantCredit.statements.charges',
-                value: money(detail.totalCharges),
-            },
-            {
-                label: 'restaurantCredit.statements.payments',
-                value: money(detail.totalPayments),
-            },
-            {
-                label: 'restaurantCredit.statements.refunds',
-                value: money(detail['totalRefunds']),
-            },
-            {
-                label: 'restaurantCredit.statements.closingBalance',
-                value: money(detail.closingBalance),
-            },
-            {
-                label: 'restaurantCredit.statements.dueDate',
-                value:
-                    typeof detail['dueDate'] === 'string'
-                        ? this.formatDay(detail['dueDate'])
-                        : null,
-            },
-        ];
-        // A figure the statement does not carry is dropped rather than shown as
-        // a dash: an absent refund line is not a refund of nothing.
-        return rows
-            .filter(
-                (row): row is { label: string; value: string } =>
-                    row.value !== null
-            )
-            .map((row) => ({
-                label: this._transloco.translate(row.label),
-                value: row.value,
-            }));
     }
 
     readonly creditTypePillClass = creditTypePillClass;
@@ -259,30 +259,6 @@ export class CreditComponent implements OnInit {
                     await this._describe(err, 'restaurantCredit.loadError')
                 );
             });
-    }
-
-    downloadStatement(statement: CreditStatement): void {
-        this.actionError.set(null);
-        this.downloadingId.set(statement.id);
-        this._service
-            .downloadStatementPdf(statement.id)
-            .then((blob) => {
-                const url = URL.createObjectURL(blob);
-                const anchor = document.createElement('a');
-                anchor.href = url;
-                anchor.download = `statement-${statement.year ?? ''}-${statement.month ?? ''}.pdf`;
-                anchor.click();
-                URL.revokeObjectURL(url);
-            })
-            .catch(async (err) => {
-                const message = await this._describe(
-                    err,
-                    'restaurantCredit.downloadError'
-                );
-                this.actionError.set(message);
-                this._snackBar.open(message, undefined, { duration: 6000 });
-            })
-            .finally(() => this.downloadingId.set(null));
     }
 
     /** Localizes any API rejection: field detail → code → status → network. */
