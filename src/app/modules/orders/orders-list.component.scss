@@ -54,27 +54,74 @@
     background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));
 }
 
-.ff-orders__list {
+/*
+ * One card per order. The head band carries the identity (mark, code, delivery
+ * window, status) and the body the money — the two things a buyer scans a
+ * history for, in that order.
+ */
+.ff-orders__card {
     border-color: var(--fuse-border, rgb(0 0 0 / 0.1));
+    color: inherit;
     background: #fff;
+    transition:
+        border-color 150ms ease,
+        box-shadow 200ms ease;
 
     .dark & {
         background: transparent;
     }
-}
-
-.ff-orders__row {
-    border-color: var(--fuse-border, rgb(0 0 0 / 0.08));
-    color: inherit;
-    background: transparent;
 
     &:hover,
     &:focus-visible {
-        background: var(--fuse-hover, rgb(0 0 0 / 0.03));
+        border-color: var(--fuse-primary, #16a34a);
+        box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.25);
     }
 
     &:focus-visible {
         outline: 2px solid var(--fuse-primary, #16a34a);
-        outline-offset: -2px;
+        outline-offset: 2px;
     }
+}
+
+/* Tinted band, so the card reads as a document with a header rather than as
+   two paragraphs sharing a border. */
+.ff-orders__card-head {
+    border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));
+}
+
+/* The delivery-note mark: a quiet brand square, the same idiom the reference
+   uses to make a row of orders scannable by eye. */
+.ff-orders__doc {
+    display: flex;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.75rem;
+    @apply bg-primary-50 text-primary;
+
+    .dark & {
+        @apply bg-primary-500/10;
+    }
+}
+
+.ff-orders__code {
+    @apply text-primary;
+}
+
+/*
+ * A monospace space is as wide as a digit, so "3.206.820 ₫" printed with a gap
+ * wide enough to read as two things. Pulled back to about a proportional
+ * space; the digits keep their fixed advance, so totals still line up down the
+ * column of cards.
+ */
+.ff-orders__total {
+    white-space: nowrap;
+    word-spacing: -0.2em;
+}
+
+.ff-orders__reason {
+    color: var(--fuse-text-secondary, rgb(0 0 0 / 0.6));
 }
