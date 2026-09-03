@@ -1,4 +1,5 @@
 import { computed, inject, Injectable, Signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { UserService } from 'app/core/user/user.service';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 import {
@@ -37,6 +38,24 @@ export class SetupCompletionService {
 
     /** In-flight/settled first load, so `load()` is idempotent. */
     private _loaded: Promise<void> | null = null;
+
+    /** Whose load this cache stands for. */
+    private _loadedUserId: string | null = null;
+
+    constructor() {
+        // The states below are derived from the profile service, which now
+        // empties itself when the account changes; this only has to forget that
+        // a load already happened, or the new account's checklist would read as
+        // "already loaded, nothing to fetch" and stay blank.
+        this._userService.user$.pipe(takeUntilDestroyed()).subscribe((user) => {
+            const id = user?.id ?? null;
+            if (id === this._loadedUserId) {
+                return;
+            }
+            this._loadedUserId = id;
+            this.invalidate();
+        });
+    }
 
     /** State of each verifiable required item, derived from saved data. */
     readonly states: Signal<SetupItemStates> = computed(() => {

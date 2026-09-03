@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import { ReplaySubject } from 'rxjs';
 import { RestaurantProfileService } from '../restaurant-profile.service';
 import {
     DeliveryAddressView,
@@ -32,11 +33,13 @@ function address(
 
 describe('SetupCompletionService', () => {
     let service: SetupCompletionService;
+    let user: ReplaySubject<User | null>;
     let profile: ReturnType<typeof signal<RestaurantProfileView | null>>;
     let addresses: ReturnType<typeof signal<DeliveryAddressView[]>>;
     let currentUser: User | null;
 
     beforeEach(() => {
+        user = new ReplaySubject<User | null>(1);
         profile = signal<RestaurantProfileView | null>(null);
         addresses = signal<DeliveryAddressView[]>([]);
         currentUser = { id: 'r-1', email: 'a@b.c', role: 'restaurant' };
@@ -58,6 +61,9 @@ describe('SetupCompletionService', () => {
                 {
                     provide: UserService,
                     useValue: {
+                        // The service watches this stream so a new account does
+                        // not inherit the previous one's cached load.
+                        user$: user.asObservable(),
                         get current(): User | null {
                             return currentUser;
                         },

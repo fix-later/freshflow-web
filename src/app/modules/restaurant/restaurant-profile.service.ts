@@ -1,5 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { inject, Injectable, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { extractList } from 'app/core/api/envelope';
+import { UserService } from 'app/core/user/user.service';
 import {
     DeliveryAddressRequest,
     restaurantProfileApi,
@@ -31,8 +33,36 @@ function unwrap<T>(body: unknown): T | undefined {
  */
 @Injectable({ providedIn: 'root' })
 export class RestaurantProfileService {
+    private readonly _userService = inject(UserService);
+
     private readonly _profile = signal<RestaurantProfileView | null>(null);
     private readonly _deliveryAddresses = signal<DeliveryAddressView[]>([]);
+
+    /** Whose profile the cache currently holds. */
+    private _cachedUserId: string | null = null;
+
+    constructor() {
+        // This cache belongs to an account, and it holds the id every
+        // `{restaurantId}` endpoint is called with. Left standing across a
+        // sign-in it points the new account's credit, order history and
+        // scheduled orders at the previous restaurant — which the backend
+        // rightly refuses (403 "credit is not accessible"), so both simply
+        // vanish. The cache follows the session, not the tab.
+        this._userService.user$.pipe(takeUntilDestroyed()).subscribe((user) => {
+            const id = user?.id ?? null;
+            if (id === this._cachedUserId) {
+                return;
+            }
+            this._cachedUserId = id;
+            this.reset();
+        });
+    }
+
+    /** Forget everything read for the previous account. */
+    reset(): void {
+        this._profile.set(null);
+        this._deliveryAddresses.set([]);
+    }
 
     /** Latest loaded business profile, or `null` before the first load. */
     readonly profile = this._profile.asReadonly();

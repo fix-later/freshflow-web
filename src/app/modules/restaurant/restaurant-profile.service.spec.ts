@@ -1,4 +1,7 @@
+import { TestBed } from '@angular/core/testing';
+import { UserService } from 'app/core/user/user.service';
 import { restaurantProfileApi } from 'contract';
+import { of } from 'rxjs';
 import { RestaurantProfileService } from './restaurant-profile.service';
 
 /** Minimal `ApiResponse`-like stub whose `.raw.json()` yields `body`. */
@@ -10,7 +13,15 @@ describe('RestaurantProfileService', () => {
     let service: RestaurantProfileService;
 
     beforeEach(() => {
-        service = new RestaurantProfileService();
+        // Through the injector now: the service watches the session so its
+        // cache never outlives the account it was read for.
+        TestBed.resetTestingModule();
+        TestBed.configureTestingModule({
+            providers: [
+                { provide: UserService, useValue: { user$: of(null) } },
+            ],
+        });
+        service = TestBed.inject(RestaurantProfileService);
     });
 
     describe('loadProfile', () => {
