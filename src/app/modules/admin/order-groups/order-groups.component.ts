@@ -49,6 +49,7 @@ import {
     AdminBatchItem,
     AdminBatchMember,
     AdminMarketSession,
+    AdminMarketSessionProductSummary,
     AdminMarketSessionResources,
     AdminMarketSessionTracking,
     AdminOrderDetail,
@@ -584,14 +585,21 @@ export class OrderGroupsComponent implements OnInit {
             })
             .sort((a, b) => a.label.localeCompare(b.label, 'vi'));
     });
-    readonly marketSessionQuantityTotals = computed(() => {
-        const totals = new Map<string, number>();
-        for (const product of this.marketSessionTracking()?.products ?? []) {
-            const unit = this.trackingProductUnit(product);
-            totals.set(unit, (totals.get(unit) ?? 0) + product.totalQuantity);
-        }
-        return [...totals].map(([unit, total]) => ({ unit, total }));
-    });
+    readonly marketSessionQuantityTotals = computed(() =>
+        this._quantityTotals(this.marketSessionTracking()?.products)
+    );
+
+    /**
+     * The same per-unit totals for the session the close dialog is asking
+     * about.
+     *
+     * A single figure across every product is not a quantity anyone can act on:
+     * kilos of rau, thùng of nước and bó of hành summed together mean nothing,
+     * and "0" reads as "nothing to lose" whatever the session actually holds.
+     */
+    readonly closingSessionQuantityTotals = computed(() =>
+        this._quantityTotals(this.closingMarketSessionTracking()?.products)
+    );
 
     private readonly _localToday = DateTime.now()
         .setZone(VIETNAM_ZONE)
@@ -2682,6 +2690,18 @@ export class OrderGroupsComponent implements OnInit {
             currency: 'VND',
             maximumFractionDigits: 0,
         }).format(Number(value ?? 0));
+    }
+
+    /** Totals per unit of measure — quantities only add up within a unit. */
+    private _quantityTotals(
+        products: AdminMarketSessionProductSummary[] | undefined
+    ): { unit: string; total: number }[] {
+        const totals = new Map<string, number>();
+        for (const product of products ?? []) {
+            const unit = this.trackingProductUnit(product);
+            totals.set(unit, (totals.get(unit) ?? 0) + product.totalQuantity);
+        }
+        return [...totals].map(([unit, total]) => ({ unit, total }));
     }
 
     trackingProductUnit(product: TrackingCatalogFields): string {

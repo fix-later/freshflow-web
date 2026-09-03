@@ -5272,8 +5272,16 @@
                     </ul>
                 </div>
 
+                <!--
+                  What closing locks in. A bare "tổng số lượng hàng" was the one
+                  figure here that could not be acted on: quantities only add up
+                  within a unit, so kilos, thùng and bó summed together said
+                  nothing about the size of the session. What decides whether to
+                  close now is how many orders and how much money are committed,
+                  how many products have to be bought, and how much of each unit.
+                -->
                 @if (closingMarketSessionTracking(); as tracking) {
-                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
                         <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-950">
                             <span class="text-secondary text-xs">{{
                                 t(
@@ -5283,6 +5291,27 @@
                             <strong class="mt-1 block text-lg">{{
                                 tracking.summary.activeOrders
                             }}</strong>
+                            @if (tracking.summary.cancelledOrders > 0) {
+                                <span class="text-hint block text-xs">{{
+                                    t(
+                                        'admin.orderGroups.marketSessions.close.cancelledNote',
+                                        {
+                                            count: tracking.summary
+                                                .cancelledOrders,
+                                        }
+                                    )
+                                }}</span>
+                            }
+                        </div>
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-950">
+                            <span class="text-secondary text-xs">{{
+                                t(
+                                    'admin.orderGroups.marketSessions.close.products'
+                                )
+                            }}</span>
+                            <strong class="mt-1 block text-lg">{{
+                                tracking.products.length
+                            }}</strong>
                         </div>
                         <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-950">
                             <span class="text-secondary text-xs">{{
@@ -5290,23 +5319,73 @@
                                     'admin.orderGroups.marketSessions.close.totalQuantity'
                                 )
                             }}</span>
-                            <strong class="mt-1 block text-lg">{{
-                                tracking.summary.totalQuantity
-                            }}</strong>
+                            <strong class="mt-1 block text-sm leading-snug">
+                                @for (
+                                    quantity of closingSessionQuantityTotals();
+                                    track quantity.unit;
+                                    let last = $last
+                                ) {
+                                    {{ quantity.total }}
+                                    {{
+                                        quantity.unit ||
+                                            t(
+                                                'admin.orderGroups.marketSessions.tracking.unknownUnit'
+                                            )
+                                    }}
+                                    @if (!last) {
+                                        ·
+                                    }
+                                } @empty {
+                                    <span class="text-hint">—</span>
+                                }
+                            </strong>
                         </div>
-                        <div
-                            class="col-span-2 rounded-xl bg-gray-50 p-3 dark:bg-gray-950 sm:col-span-1"
-                        >
+                        <div class="rounded-xl bg-gray-50 p-3 dark:bg-gray-950">
                             <span class="text-secondary text-xs">{{
                                 t(
-                                    'admin.orderGroups.marketSessions.close.scheduledCutoff'
+                                    'admin.orderGroups.marketSessions.close.merchandiseValue'
                                 )
                             }}</span>
-                            <strong class="mt-1 block text-sm">{{
-                                formatSessionCloseTime(session.closesAt)
+                            <strong class="mt-1 block text-sm leading-snug">{{
+                                trackingMoney(tracking.summary.subtotalAmount)
                             }}</strong>
                         </div>
                     </div>
+
+                    <div
+                        class="text-secondary flex flex-wrap items-center gap-x-2 gap-y-1 text-xs"
+                    >
+                        <mat-icon
+                            class="shrink-0 icon-size-4"
+                            svgIcon="heroicons_outline:clock"
+                        ></mat-icon>
+                        <span>{{
+                            t(
+                                'admin.orderGroups.marketSessions.close.scheduledCutoff'
+                            )
+                        }}</span>
+                        <strong>{{
+                            formatSessionCloseTime(session.closesAt)
+                        }}</strong>
+                    </div>
+
+                    <!-- Closing an empty session is legitimate, but it should
+                         not look like it groups anything. -->
+                    @if (tracking.summary.activeOrders === 0) {
+                        <div
+                            class="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                        >
+                            <mat-icon
+                                class="mt-0.5 shrink-0 icon-size-5"
+                                svgIcon="heroicons_outline:exclamation-triangle"
+                            ></mat-icon>
+                            <span>{{
+                                t(
+                                    'admin.orderGroups.marketSessions.close.noOrders'
+                                )
+                            }}</span>
+                        </div>
+                    }
                 } @else if (marketSessionCloseSummaryLoading()) {
                     <div class="text-secondary flex items-center gap-2 text-sm">
                         <mat-icon
