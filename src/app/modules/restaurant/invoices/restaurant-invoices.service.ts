@@ -16,6 +16,9 @@ import {
     InvoicesResult,
 } from './restaurant-invoices.types';
 
+/** How far back the order index looks before giving up (pages of 100). */
+const INVOICE_INDEX_PAGES = 3;
+
 /**
  * The signed-in restaurant's own invoices (`GET /invoices`, `GET
  * /invoices/{invoiceId}`). No `restaurantId` is sent — ownership is scoped
@@ -42,6 +45,41 @@ export class RestaurantInvoicesService {
             page: p?.page,
             pageSize: p?.pageSize,
         };
+    }
+
+    /**
+     * The invoices covering `orderIds`, keyed by order.
+     *
+     * `GET /invoices` takes no order filter, so this reads the restaurant's
+     * own invoices newest-first and indexes what it finds. Bounded on purpose:
+     * it answers "which of these orders has an invoice I can show", and a
+     * missing entry means "not in the recent window", never "no invoice
+     * exists" — nothing here tells a restaurant it has none.
+     */
+    async invoicesByOrder(
+        orderIds: readonly string[]
+    ): Promise<Map<string, InvoiceRow>> {
+        const wanted = new Set(orderIds.filter(Boolean));
+        const found = new Map<string, InvoiceRow>();
+        if (!wanted.size) {
+            return found;
+        }
+        for (let page = 1; page <= INVOICE_INDEX_PAGES; page++) {
+            const { invoices } = await this.listInvoices({
+                page,
+                pageSize: MAX_PAGE_SIZE,
+            });
+            for (const invoice of invoices) {
+                const orderId = String(invoice.orderId ?? '');
+                if (wanted.has(orderId) && !found.has(orderId)) {
+                    found.set(orderId, invoice);
+                }
+            }
+            if (found.size === wanted.size || invoices.length < MAX_PAGE_SIZE) {
+                break;
+            }
+        }
+        return found;
     }
 
     async getInvoice(invoiceId: string): Promise<InvoiceRow | null> {

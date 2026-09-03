@@ -85,6 +85,55 @@
 
 /* Tinted band, so the card reads as a document with a header rather than as
    two paragraphs sharing a border. */
+/*
+ * The card is a div now — it holds two actions, the order and its invoice, and
+ * a button cannot hold a button. Hover and focus follow whichever is used.
+ */
+.ff-orders__card:has(.ff-orders__card-open:hover),
+.ff-orders__card:has(.ff-orders__card-open:focus-visible) {
+    border-color: var(--fuse-primary, #16a34a);
+    box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.25);
+}
+
+.ff-orders__card-open:focus-visible {
+    outline: 2px solid var(--fuse-primary, #16a34a);
+    outline-offset: -2px;
+}
+
+/*
+ * The order's VAT invoice, on the order. A quiet strip under the figures
+ * rather than another button among the actions: most of the time it is a fact
+ * about the order, and only sometimes something to open.
+ */
+.ff-orders__invoice {
+    display: flex;
+    width: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    border-top: 1px dashed var(--fuse-border, rgb(0 0 0 / 0.12));
+    padding: 0.625rem 1rem;
+    font-size: theme('fontSize.xs');
+    text-align: left;
+    transition: background-color 150ms ease;
+    @apply text-secondary;
+
+    @screen sm {
+        padding-inline: 1.25rem;
+    }
+
+    &:hover,
+    &:focus-visible {
+        background: var(--fuse-bg-hover, rgb(0 0 0 / 0.03));
+        @apply text-primary;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--fuse-primary, #16a34a);
+        outline-offset: -2px;
+    }
+}
+
 .ff-orders__card-head {
     border-bottom: 1px solid var(--fuse-border, rgb(0 0 0 / 0.08));
     background: var(--fuse-bg-hover, rgb(0 0 0 / 0.02));

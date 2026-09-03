@@ -7,14 +7,15 @@ import {
     signal,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { Router } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
 import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { invoiceStatusPillClass } from 'app/shared/status-pills';
+import { openInvoiceSheet } from './invoice-sheet/open-invoice-sheet';
 import { RestaurantInvoicesService } from './restaurant-invoices.service';
 import { InvoiceRow } from './restaurant-invoices.types';
 
@@ -45,7 +46,7 @@ const PAGE_SIZE = 10;
 })
 export class InvoicesListComponent implements OnInit {
     private readonly _service = inject(RestaurantInvoicesService);
-    private readonly _router = inject(Router);
+    private readonly _dialog = inject(MatDialog);
     private readonly _transloco = inject(TranslocoService);
 
     readonly statusPillClass = invoiceStatusPillClass;
@@ -106,8 +107,13 @@ export class InvoicesListComponent implements OnInit {
         this.load();
     }
 
+    /**
+     * The invoice opens over the list. It is a document to glance at — the
+     * number, what it was for, whether the provider issued it — and a page
+     * navigation lost the place in a list that pages.
+     */
     openInvoice(row: InvoiceRow): void {
-        void this._router.navigate(['/invoices', row.id]);
+        openInvoiceSheet(this._dialog, row.id, row);
     }
 
     /** Which row has a document in flight, so only that one's button waits. */

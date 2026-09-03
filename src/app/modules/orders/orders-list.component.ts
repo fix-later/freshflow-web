@@ -10,16 +10,22 @@ import {
     ViewEncapsulation,
 } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslocoModule, TranslocoService } from '@jsverse/transloco';
 import { describeApiError } from 'app/core/api/error-codes';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
+import { openInvoiceSheet } from 'app/modules/restaurant/invoices/invoice-sheet/open-invoice-sheet';
+import { RestaurantInvoicesService } from 'app/modules/restaurant/invoices/restaurant-invoices.service';
+import { InvoiceRow } from 'app/modules/restaurant/invoices/restaurant-invoices.types';
 import {
     RestaurantScheduledOrdersService,
     SCHEDULED_PAGE_SIZE,
 } from 'app/modules/restaurant/scheduled-orders/scheduled-orders.service';
+import { invoiceStatusPillClass } from 'app/shared/status-pills';
 import {
     normalizeOrderStatus,
     ORDER_STATUS_TABS,
@@ -39,6 +45,7 @@ import {
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     imports: [
+        ApiLabelPipe,
         MatButtonModule,
         MatIconModule,
         MatProgressBarModule,
@@ -53,6 +60,12 @@ export class OrdersListComponent implements OnInit {
     private readonly _transloco = inject(TranslocoService);
     private readonly _realtime = inject(OrderRealtimeService);
     private readonly _destroyRef = inject(DestroyRef);
+    private readonly _dialog = inject(MatDialog);
+    private readonly _invoices = inject(RestaurantInvoicesService);
+
+    /** Invoices for the orders on this page, keyed by order id. */
+    readonly invoicesByOrder = signal<Map<string, InvoiceRow>>(new Map());
+    readonly invoiceStatusPillClass = invoiceStatusPillClass;
 
     readonly statusPillClass = orderStatusPillClass;
     readonly statusKey = (status: string | null | undefined): string =>
@@ -171,6 +184,7 @@ export class OrdersListComponent implements OnInit {
                 const orders = items as unknown as OrderRow[];
                 this.rows.set(orders);
                 this.totalCount.set(total ?? orders.length);
+                void this._indexInvoices(orders, token);
             })
             .catch(async (err) => {
                 if (token !== this._loadToken) {
@@ -193,6 +207,52 @@ export class OrdersListComponent implements OnInit {
                     this.loading.set(false);
                 }
             });
+    }
+
+    /**
+     * The invoice for each order on this page, when the platform has issued
+     * one.
+     *
+     * A delivered order's VAT invoice is what the restaurant's accountant asks
+     * for, and it used to live only in a list of its own where nothing said
+     * which order it belonged to. `GET /invoices` takes no order filter, so
+     * the page's own orders are matched against the recent invoices: an order
+     * with no entry simply shows no invoice, which is also what a not-yet-
+     * issued one looks like.
+     */
+    private async _indexInvoices(
+        orders: OrderRow[],
+        token: number
+    ): Promise<void> {
+        const ids = orders
+            .map((order) => String(order.id ?? ''))
+            .filter(Boolean);
+        try {
+            const found = await this._invoices.invoicesByOrder(ids);
+            if (token === this._loadToken) {
+                this.invoicesByOrder.set(found);
+            }
+        } catch {
+            // The orders are the page; a missing invoice chip is not worth an
+            // error banner over them.
+            if (token === this._loadToken) {
+                this.invoicesByOrder.set(new Map());
+            }
+        }
+    }
+
+    /** The invoice issued for `row`, or `null` when there is none to show. */
+    invoiceFor(row: OrderRow): InvoiceRow | null {
+        return this.invoicesByOrder().get(String(row.id ?? '')) ?? null;
+    }
+
+    /** Opens that invoice over the list, the same sheet the invoice list opens. */
+    openInvoice(row: OrderRow, event: Event): void {
+        event.stopPropagation();
+        const invoice = this.invoiceFor(row);
+        if (invoice) {
+            openInvoiceSheet(this._dialog, invoice.id, invoice);
+        }
     }
 
     /**

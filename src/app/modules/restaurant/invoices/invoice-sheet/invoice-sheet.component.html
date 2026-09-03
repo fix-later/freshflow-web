@@ -1,0 +1,293 @@
+<ng-container *transloco="let t">
+    @if (loading() && !invoice()) {
+        <mat-progress-bar mode="indeterminate"></mat-progress-bar>
+    }
+
+    <div class="ff-invoice">
+        @if (loadError(); as message) {
+            <p
+                class="m-6 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-900 dark:bg-red-950 dark:text-red-200"
+                role="alert"
+            >
+                {{ message }}
+            </p>
+        }
+
+        @if (invoice(); as invoice) {
+            <!-- The document. Following the compact printable invoice: the
+                 identity block reads top-left, the issuer sits on a tinted
+                 panel opposite it, then the buyer, the lines and the ladder. -->
+            <div class="ff-invoice__sheet">
+                <header class="ff-invoice__head">
+                    <div class="ff-invoice__meta">
+                        <span class="ff-invoice__title">{{
+                            t('restaurantInvoices.sheet.title')
+                        }}</span>
+                        <span class="ff-invoice__number">{{
+                            displayNumber(invoice)
+                        }}</span>
+
+                        <span class="ff-invoice__label">{{
+                            t('restaurantInvoices.sheet.status')
+                        }}</span>
+                        <span>
+                            <span [class]="statusPillClass(invoice.status)">
+                                {{
+                                    invoice.status
+                                        | apiLabel
+                                            : 'admin.finance.invoiceStatus'
+                                }}
+                            </span>
+                        </span>
+
+                        <span class="ff-invoice__label">{{
+                            t('restaurantInvoices.sheet.issuedAt')
+                        }}</span>
+                        <span class="font-medium">{{
+                            date(invoice.issuedAt)
+                        }}</span>
+
+                        <span class="ff-invoice__label">{{
+                            t('restaurantInvoices.sheet.total')
+                        }}</span>
+                        <span class="font-medium">{{
+                            money(invoice.total)
+                        }}</span>
+                    </div>
+
+                    <div class="ff-invoice__issuer">
+                        <img
+                            class="h-8 w-auto object-contain"
+                            src="images/logo/logo-primary.svg"
+                            alt="FreshFlow"
+                        />
+                        <div class="mt-3 text-sm leading-relaxed">
+                            <div class="font-semibold">
+                                {{ t('restaurantInvoices.sheet.issuerName') }}
+                            </div>
+                            <div>
+                                {{
+                                    t('restaurantInvoices.sheet.issuerAddress')
+                                }}
+                            </div>
+                            <div>
+                                {{
+                                    t('restaurantInvoices.sheet.issuerContact')
+                                }}
+                            </div>
+                        </div>
+                    </div>
+                </header>
+
+                <!-- Who the invoice is made out to. -->
+                <section class="ff-invoice__buyer">
+                    <div class="ff-invoice__label">
+                        {{ t('restaurantInvoices.sheet.buyer') }}
+                    </div>
+                    <div class="mt-1 text-lg font-semibold">
+                        {{ text(invoice.buyerLegalName) }}
+                    </div>
+                    <div class="text-secondary mt-1 text-sm leading-relaxed">
+                        <div>
+                            {{ t('restaurantInvoices.sheet.buyerTaxCode') }}:
+                            {{ text(invoice.buyerTaxCode) }}
+                        </div>
+                        <div>{{ text(invoice.buyerAddress) }}</div>
+                        <div>{{ text(invoice.buyerEmail) }}</div>
+                    </div>
+                </section>
+
+                <!-- Lines -->
+                @if (lines(invoice).length) {
+                    <section class="ff-invoice__lines">
+                        <div class="ff-invoice__row ff-invoice__row--head">
+                            <span class="ff-invoice__col-name">{{
+                                t('restaurantInvoices.sheet.product')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantInvoices.sheet.unitPrice')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantInvoices.sheet.quantity')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantInvoices.sheet.vat')
+                            }}</span>
+                            <span class="text-right">{{
+                                t('restaurantInvoices.sheet.lineTotal')
+                            }}</span>
+                        </div>
+                        @for (line of lines(invoice); track $index) {
+                            <div class="ff-invoice__row">
+                                <span class="ff-invoice__col-name">
+                                    <span class="font-medium">{{
+                                        text(line.productName)
+                                    }}</span>
+                                    @if (line.unit) {
+                                        <span class="text-secondary text-sm">
+                                            · {{ line.unit }}</span
+                                        >
+                                    }
+                                </span>
+                                <span class="text-right">{{
+                                    money(line.unitPrice)
+                                }}</span>
+                                <span class="text-right">{{
+                                    quantity(line.quantity)
+                                }}</span>
+                                <span class="text-secondary text-right"
+                                    >{{ line.vatRatePercent ?? 0 }}%</span
+                                >
+                                <span class="text-right font-medium">{{
+                                    money(line.lineTotal)
+                                }}</span>
+                            </div>
+                        }
+                    </section>
+                }
+
+                <!-- The tax ladder: what the goods cost, what the VAT adds. -->
+                <section class="ff-invoice__totals">
+                    <div class="ff-invoice__total-row">
+                        <span class="ff-invoice__label">{{
+                            t('restaurantInvoices.sheet.subTotal')
+                        }}</span>
+                        <span>{{ money(invoice.subTotal) }}</span>
+                    </div>
+                    <div class="ff-invoice__total-row">
+                        <span class="ff-invoice__label">{{
+                            t('restaurantInvoices.sheet.vatAmount')
+                        }}</span>
+                        <span>{{ money(invoice.vatAmount) }}</span>
+                    </div>
+                    <div
+                        class="ff-invoice__total-row ff-invoice__total-row--grand"
+                    >
+                        <span>{{ t('restaurantInvoices.sheet.total') }}</span>
+                        <span>{{ money(invoice.total) }}</span>
+                    </div>
+                </section>
+
+                <!--
+                  The provider's side of the document: what the tax authority
+                  knows about it. Only worth the space once there is something
+                  to show, except the reason it is not issued yet.
+                -->
+                <section class="ff-invoice__foot">
+                    <div class="ff-invoice__foot-grid">
+                        <div>
+                            <span class="ff-invoice__label">{{
+                                t('restaurantInvoices.sheet.taxAuthorityCode')
+                            }}</span>
+                            <div class="break-all">
+                                {{ text(invoice.taxAuthorityCode) }}
+                            </div>
+                        </div>
+                        <div>
+                            <span class="ff-invoice__label">{{
+                                t('restaurantInvoices.sheet.provider')
+                            }}</span>
+                            <div>{{ text(invoice.providerName) }}</div>
+                        </div>
+                        <div>
+                            <span class="ff-invoice__label">{{
+                                t('restaurantInvoices.sheet.orderId')
+                            }}</span>
+                            <div class="break-all font-mono text-sm">
+                                {{ text(invoice.orderId) }}
+                            </div>
+                        </div>
+                        @if (invoice.lookupUrl) {
+                            <div>
+                                <span class="ff-invoice__label">{{
+                                    t('restaurantInvoices.sheet.lookup')
+                                }}</span>
+                                <div>
+                                    <a
+                                        class="break-all font-medium text-primary"
+                                        [href]="invoice.lookupUrl"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        >{{
+                                            t(
+                                                'restaurantInvoices.sheet.lookupOpen'
+                                            )
+                                        }}</a
+                                    >
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    @if (invoice.isSandbox) {
+                        <p class="ff-invoice__note">
+                            {{ t('restaurantInvoices.sheet.sandbox') }}
+                        </p>
+                    }
+                    @if (invoice.errorReason) {
+                        <p class="ff-invoice__note ff-invoice__note--warn">
+                            {{ t('restaurantInvoices.sheet.notIssued') }}
+                            <span class="font-mono">{{
+                                invoice.errorReason
+                            }}</span>
+                        </p>
+                    }
+                </section>
+            </div>
+        }
+
+        @if (downloadError(); as message) {
+            <p
+                class="mx-6 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-100"
+                role="alert"
+            >
+                {{ message }}
+            </p>
+        }
+
+        <!-- The two documents, and the way out. -->
+        <div class="ff-invoice__actions">
+            <button mat-stroked-button type="button" matDialogClose>
+                {{ t('common.close') }}
+            </button>
+            <span class="flex-auto"></span>
+            <button
+                mat-stroked-button
+                type="button"
+                [disabled]="exporting() || !invoice()"
+                (click)="exportXml()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [class.animate-spin]="exporting()"
+                    [svgIcon]="
+                        exporting()
+                            ? 'heroicons_outline:arrow-path'
+                            : 'heroicons_outline:code-bracket'
+                    "
+                ></mat-icon>
+                <span class="ml-2">{{ t('restaurantInvoices.export') }}</span>
+            </button>
+            <button
+                mat-flat-button
+                color="primary"
+                type="button"
+                [disabled]="downloadingPdf() || !invoice()"
+                (click)="downloadPdf()"
+            >
+                <mat-icon
+                    class="icon-size-5"
+                    [class.animate-spin]="downloadingPdf()"
+                    [svgIcon]="
+                        downloadingPdf()
+                            ? 'heroicons_outline:arrow-path'
+                            : 'heroicons_outline:arrow-down-tray'
+                    "
+                ></mat-icon>
+                <span class="ml-2">{{
+                    t('restaurantInvoices.downloadPdf')
+                }}</span>
+            </button>
+        </div>
+    </div>
+</ng-container>

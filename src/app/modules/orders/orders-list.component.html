@@ -108,76 +108,118 @@
         -->
         <div class="ff-orders__list flex flex-col gap-3">
             @for (row of rows(); track row.id ?? row.orderId) {
-                <button
-                    type="button"
+                <div
                     class="ff-orders__card group block w-full overflow-hidden rounded-2xl border text-left"
-                    (click)="openOrder(row)"
                 >
-                    <div
-                        class="ff-orders__card-head flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
+                    <button
+                        type="button"
+                        class="ff-orders__card-open block w-full text-left"
+                        (click)="openOrder(row)"
                     >
-                        <div class="flex min-w-0 items-center gap-3">
-                            <span class="ff-orders__doc" aria-hidden="true">
+                        <div
+                            class="ff-orders__card-head flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
+                        >
+                            <div class="flex min-w-0 items-center gap-3">
+                                <span class="ff-orders__doc" aria-hidden="true">
+                                    <mat-icon
+                                        class="text-current icon-size-5"
+                                        svgIcon="heroicons_outline:document-text"
+                                    ></mat-icon>
+                                </span>
+                                <div class="min-w-0">
+                                    <span
+                                        class="ff-orders__code block font-mono text-sm font-bold"
+                                    >
+                                        #{{ shortId(row) }}
+                                    </span>
+                                    <span
+                                        class="text-secondary mt-0.5 block text-xs"
+                                    >
+                                        {{ t('orders.detail.scheduledFor') }}:
+                                        {{
+                                            formatScheduledFor(row.scheduledFor)
+                                        }}
+                                    </span>
+                                </div>
+                            </div>
+                            <span [class]="statusPillClass(row.status)">
+                                {{ t(statusKey(row.status)) }}
+                            </span>
+                        </div>
+
+                        <div
+                            class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
+                        >
+                            <span class="text-hint min-w-0 text-xs">
+                                {{ t('orders.detail.createdAt') }}:
+                                {{ formatDate(row.createdAt) }}
+                            </span>
+
+                            <span class="flex items-center gap-2">
+                                <span class="text-secondary text-sm">
+                                    {{
+                                        t('orders.itemCount', {
+                                            count: itemCount(row),
+                                        })
+                                    }}
+                                </span>
+                                <span
+                                    class="ff-orders__total font-mono text-base font-bold tabular-nums"
+                                >
+                                    {{ formatAmount(row.totalAmount) }}
+                                </span>
                                 <mat-icon
-                                    class="text-current icon-size-5"
-                                    svgIcon="heroicons_outline:document-text"
+                                    class="text-hint transition icon-size-5 group-hover:translate-x-0.5 group-hover:text-primary"
+                                    svgIcon="heroicons_outline:chevron-right"
                                 ></mat-icon>
                             </span>
-                            <div class="min-w-0">
-                                <span
-                                    class="ff-orders__code block font-mono text-sm font-bold"
-                                >
-                                    #{{ shortId(row) }}
-                                </span>
-                                <span
-                                    class="text-secondary mt-0.5 block text-xs"
-                                >
-                                    {{ t('orders.detail.scheduledFor') }}:
-                                    {{ formatScheduledFor(row.scheduledFor) }}
-                                </span>
-                            </div>
                         </div>
-                        <span [class]="statusPillClass(row.status)">
-                            {{ t(statusKey(row.status)) }}
-                        </span>
-                    </div>
 
-                    <div
-                        class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-5"
-                    >
-                        <span class="text-hint min-w-0 text-xs">
-                            {{ t('orders.detail.createdAt') }}:
-                            {{ formatDate(row.createdAt) }}
-                        </span>
+                        <!-- Why it ended, when it did not end the usual way. Real
+                         field, shown only when the backend recorded one. -->
+                        @if (row.cancellationReason) {
+                            <p
+                                class="ff-orders__reason px-4 pb-3 text-xs sm:px-5"
+                            >
+                                {{ row.cancellationReason }}
+                            </p>
+                        }
+                    </button>
 
-                        <span class="flex items-center gap-2">
-                            <span class="text-secondary text-sm">
+                    <!--
+                      The VAT invoice for this order, where the order is. It
+                      used to live only in a list of its own, which said
+                      nothing about which order it belonged to.
+                    -->
+                    @if (invoiceFor(row); as invoice) {
+                        <button
+                            type="button"
+                            class="ff-orders__invoice"
+                            [attr.data-testid]="'order-invoice-' + row.id"
+                            (click)="openInvoice(row, $event)"
+                        >
+                            <mat-icon
+                                class="icon-size-4"
+                                svgIcon="heroicons_outline:receipt-percent"
+                            ></mat-icon>
+                            <span class="font-medium">{{
+                                t('orders.list.invoice')
+                            }}</span>
+                            <span class="text-hint font-mono">{{
+                                invoice.number || invoice.id.slice(0, 8)
+                            }}</span>
+                            <span
+                                [class]="invoiceStatusPillClass(invoice.status)"
+                            >
                                 {{
-                                    t('orders.itemCount', {
-                                        count: itemCount(row),
-                                    })
+                                    invoice.status
+                                        | apiLabel
+                                            : 'admin.finance.invoiceStatus'
                                 }}
                             </span>
-                            <span
-                                class="ff-orders__total font-mono text-base font-bold tabular-nums"
-                            >
-                                {{ formatAmount(row.totalAmount) }}
-                            </span>
-                            <mat-icon
-                                class="text-hint transition icon-size-5 group-hover:translate-x-0.5 group-hover:text-primary"
-                                svgIcon="heroicons_outline:chevron-right"
-                            ></mat-icon>
-                        </span>
-                    </div>
-
-                    <!-- Why it ended, when it did not end the usual way. Real
-                         field, shown only when the backend recorded one. -->
-                    @if (row.cancellationReason) {
-                        <p class="ff-orders__reason px-4 pb-3 text-xs sm:px-5">
-                            {{ row.cancellationReason }}
-                        </p>
+                        </button>
                     }
-                </button>
+                </div>
             }
         </div>
 
