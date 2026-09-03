@@ -38,6 +38,7 @@ import {
     nonBlankValidator,
     trimmedMaxLengthValidator,
 } from 'app/core/api/validators';
+import { ApiLabelPipe } from 'app/core/i18n/api-label.pipe';
 import { OrderRealtimeService } from 'app/core/realtime/order-realtime.service';
 import { AccountShellComponent } from 'app/modules/restaurant/account-shell/account-shell.component';
 import { RestaurantClaimsService } from 'app/modules/restaurant/claims/restaurant-claims.service';
@@ -65,12 +66,14 @@ import {
 @Component({
     selector: 'order-detail',
     templateUrl: './order-detail.component.html',
+    styleUrl: './order-detail.component.scss',
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush,
     standalone: true,
     host: { class: 'flex w-full min-w-0 flex-auto flex-col' },
     imports: [
         AccountShellComponent,
+        ApiLabelPipe,
         ImageUploadTileComponent,
         MatButtonModule,
         MatFormFieldModule,
@@ -534,6 +537,118 @@ export class OrderDetailComponent implements OnInit {
                 ),
             },
         });
+    }
+
+    /**
+     * The money the server actually charged, line by line.
+     *
+     * The page showed one figure — the grand total — so a restaurant reading
+     * "27.277.750 ₫" could not tell what part of it was goods, what was VAT and
+     * what was the trip. Every one of these is on the order (`OrderDto`:
+     * `subtotalAmount`, `vatAmount`, `deliveryFee`); nothing here is worked
+     * out on the client, because a total the buyer computes and a total the
+     * server charges must never be able to disagree.
+     */
+    moneyLines(order: OrderRow): { labelKey: string; value: string }[] {
+        const rows: { labelKey: string; value: number | null }[] = [
+            {
+                labelKey: 'orders.detail.subtotalAmount',
+                value: this._num(order['subtotalAmount']),
+            },
+            {
+                labelKey: 'orders.detail.vatAmount',
+                value: this._num(order['vatAmount']),
+            },
+            {
+                labelKey: 'orders.detail.deliveryFee',
+                value: this._num(order['deliveryFee']),
+            },
+        ];
+        return rows
+            .filter(
+                (row): row is { labelKey: string; value: number } =>
+                    row.value !== null
+            )
+            .map((row) => ({
+                labelKey: row.labelKey,
+                value: this.formatAmount(row.value),
+            }));
+    }
+
+    /** The address this order was delivered to, as the order recorded it. */
+    deliveryAddress(order: OrderRow): {
+        addressLine: string;
+        recipientName: string;
+        phone: string;
+    } | null {
+        const snapshot = order['deliveryAddress'];
+        if (!snapshot || typeof snapshot !== 'object') {
+            return null;
+        }
+        const row = snapshot as Record<string, unknown>;
+        const addressLine = String(row['addressLine'] ?? '').trim();
+        return addressLine
+            ? {
+                  addressLine,
+                  recipientName: String(row['recipientName'] ?? '').trim(),
+                  phone: String(row['phone'] ?? '').trim(),
+              }
+            : null;
+    }
+
+    /**
+     * How far the delivery ran, when the order carries it — the figure the fee
+     * was priced from, so it belongs beside the fee rather than nowhere.
+     */
+    deliveryDistance(order: OrderRow): string | null {
+        const km = this._num(order['deliveryDistanceKm']);
+        const metres = this._num(order['deliveryDistanceMeters']);
+        const value = km ?? (metres !== null ? metres / 1000 : null);
+        if (value === null || value <= 0) {
+            return null;
+        }
+        return `${value.toLocaleString(this._transloco.getActiveLang(), {
+            maximumFractionDigits: 1,
+        })} km`;
+    }
+
+    /** True when the distance is an estimate rather than a routed measurement. */
+    isDistanceEstimated(order: OrderRow): boolean {
+        return order['deliveryDistanceEstimated'] === true;
+    }
+
+    /** The driver's photo of the drop, when there is one. */
+    proofUrl(order: OrderRow): string | null {
+        const url = String(order['proofUrl'] ?? '').trim();
+        return url === '' ? null : url;
+    }
+
+    /** Dated moments this order actually reached, in the order they happen. */
+    timeline(order: OrderRow): { labelKey: string; value: string }[] {
+        const rows: { labelKey: string; raw: unknown }[] = [
+            { labelKey: 'orders.detail.createdAt', raw: order.createdAt },
+            {
+                labelKey: 'orders.detail.confirmedAt',
+                raw: order['confirmedAt'],
+            },
+            {
+                labelKey: 'orders.detail.receiptConfirmedAt',
+                raw: order['confirmedReceiptAt'],
+            },
+            { labelKey: 'orders.detail.cancelledAt', raw: order.cancelledAt },
+        ];
+        return rows
+            .filter((row) => typeof row.raw === 'string' && row.raw !== '')
+            .map((row) => ({
+                labelKey: row.labelKey,
+                value: this.formatDate(String(row.raw)),
+            }));
+    }
+
+    private _num(value: unknown): number | null {
+        return typeof value === 'number' && Number.isFinite(value)
+            ? value
+            : null;
     }
 
     formatDate(value: string | null | undefined): string {

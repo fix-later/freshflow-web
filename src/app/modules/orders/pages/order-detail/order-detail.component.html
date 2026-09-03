@@ -305,57 +305,149 @@
                 </form>
             }
 
-            <div class="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-3">
-                <div class="flex flex-col gap-0.5 border-b py-1.5">
-                    <span
-                        class="text-secondary text-xs font-medium uppercase tracking-wider"
-                        >{{ t('orders.detail.createdAt') }}</span
-                    >
-                    <span class="font-medium">{{
-                        formatDate(order.createdAt)
-                    }}</span>
-                </div>
-                <div class="flex flex-col gap-0.5 border-b py-1.5">
-                    <span
-                        class="text-secondary text-xs font-medium uppercase tracking-wider"
-                        >{{ t('orders.detail.scheduledFor') }}</span
-                    >
-                    <span class="font-medium">{{
-                        formatScheduledFor(order.scheduledFor)
-                    }}</span>
-                </div>
-                <div class="flex flex-col gap-0.5 border-b py-1.5">
-                    <span
-                        class="text-secondary text-xs font-medium uppercase tracking-wider"
-                        >{{ t('orders.detail.totalAmount') }}</span
-                    >
-                    <span class="font-mono font-semibold">{{
-                        formatAmount(order.totalAmount)
-                    }}</span>
-                </div>
+            <!--
+              What the order was, beside what it cost. The page used to show one
+              figure — the grand total — so a buyer could not tell goods from VAT
+              from the trip, and the address it went to, the distance the fee was
+              priced on and the photo of the drop were nowhere at all. Every
+              value here is a field of the order; nothing is computed here,
+              because a total the buyer works out and a total the server charges
+              must never be able to disagree.
+            -->
+            <div class="ff-order__panels">
+                <section class="ff-order__panel">
+                    <h2 class="ff-order__panel-title">
+                        {{ t('orders.detail.paymentSummary') }}
+                    </h2>
+                    <dl class="ff-order__rows">
+                        @for (line of moneyLines(order); track line.labelKey) {
+                            <div class="ff-order__row">
+                                <dt>{{ t(line.labelKey) }}</dt>
+                                <dd class="font-mono">{{ line.value }}</dd>
+                            </div>
+                        }
+                        <div class="ff-order__row ff-order__row--total">
+                            <dt>{{ t('orders.detail.totalAmount') }}</dt>
+                            <dd class="font-mono">
+                                {{ formatAmount(order.totalAmount) }}
+                            </dd>
+                        </div>
+                    </dl>
+                    @if (order.paymentStatus) {
+                        <p class="text-secondary mt-3 text-sm">
+                            {{ t('orders.detail.paymentStatus') }}:
+                            <span class="text-default font-medium">{{
+                                order.paymentStatus
+                                    | apiLabel: 'orders.paymentStatus'
+                            }}</span>
+                        </p>
+                    }
+                </section>
+
+                <section class="ff-order__panel">
+                    <h2 class="ff-order__panel-title">
+                        {{ t('orders.detail.deliveryTitle') }}
+                    </h2>
+                    <dl class="ff-order__rows">
+                        <div class="ff-order__row">
+                            <dt>{{ t('orders.detail.scheduledFor') }}</dt>
+                            <dd>
+                                {{ formatScheduledFor(order.scheduledFor) }}
+                            </dd>
+                        </div>
+                        @if (deliveryAddress(order); as address) {
+                            <div class="ff-order__row ff-order__row--stack">
+                                <dt>
+                                    {{ t('orders.detail.deliveryAddress') }}
+                                </dt>
+                                <dd>
+                                    <span class="block">{{
+                                        address.addressLine
+                                    }}</span>
+                                    @if (
+                                        address.recipientName || address.phone
+                                    ) {
+                                        <span
+                                            class="text-secondary block text-sm"
+                                        >
+                                            {{ address.recipientName }}
+                                            @if (
+                                                address.recipientName &&
+                                                address.phone
+                                            ) {
+                                                &middot;
+                                            }
+                                            {{ address.phone }}
+                                        </span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                        @if (deliveryDistance(order); as distance) {
+                            <div class="ff-order__row">
+                                <dt>
+                                    {{ t('orders.detail.deliveryDistance') }}
+                                </dt>
+                                <dd>
+                                    {{ distance }}
+                                    @if (isDistanceEstimated(order)) {
+                                        <span class="text-hint text-xs">{{
+                                            t('orders.detail.distanceEstimated')
+                                        }}</span>
+                                    }
+                                </dd>
+                            </div>
+                        }
+                    </dl>
+
+                    <!-- The driver's photo of the drop: where the goods were
+                         left, and proof they arrived. -->
+                    @if (proofUrl(order); as proof) {
+                        <a
+                            class="ff-order__proof"
+                            [href]="proof"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            <img
+                                [src]="proof"
+                                [alt]="t('orders.detail.deliveryProof')"
+                            />
+                            <span>{{ t('orders.detail.deliveryProof') }}</span>
+                        </a>
+                    }
+                </section>
+
+                <section class="ff-order__panel">
+                    <h2 class="ff-order__panel-title">
+                        {{ t('orders.detail.timeline') }}
+                    </h2>
+                    <dl class="ff-order__rows">
+                        @for (step of timeline(order); track step.labelKey) {
+                            <div class="ff-order__row">
+                                <dt>{{ t(step.labelKey) }}</dt>
+                                <dd>{{ step.value }}</dd>
+                            </div>
+                        }
+                    </dl>
+                    @if (order.notes) {
+                        <div class="ff-order__note">
+                            <span class="ff-order__note-label">{{
+                                t('orders.detail.notes')
+                            }}</span>
+                            {{ order.notes }}
+                        </div>
+                    }
+                    @if (order.cancellationReason) {
+                        <div class="ff-order__note ff-order__note--warn">
+                            <span class="ff-order__note-label">{{
+                                t('orders.detail.cancellationReason')
+                            }}</span>
+                            {{ order.cancellationReason }}
+                        </div>
+                    }
+                </section>
             </div>
-
-            @if (order.notes) {
-                <div class="rounded-xl border p-4 text-sm">
-                    <div
-                        class="text-secondary mb-1 text-xs uppercase tracking-wide"
-                    >
-                        {{ t('orders.detail.notes') }}
-                    </div>
-                    {{ order.notes }}
-                </div>
-            }
-
-            @if (order.cancellationReason) {
-                <div
-                    class="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700"
-                >
-                    <div class="mb-1 text-xs uppercase tracking-wide">
-                        {{ t('orders.detail.cancellationReason') }}
-                    </div>
-                    {{ order.cancellationReason }}
-                </div>
-            }
 
             <div class="overflow-hidden rounded-xl border">
                 <div

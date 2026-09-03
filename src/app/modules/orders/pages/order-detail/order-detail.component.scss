@@ -1,0 +1,156 @@
+/*
+ * What the order cost, where it went, and when — three panels beside the lines
+ * that make up the goods total.
+ */
+.ff-order__panels {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: 1fr;
+
+    @screen md {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    @screen lg {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.ff-order__panel {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    border-radius: 1rem;
+    padding: 1.125rem 1.25rem;
+    background: #fff;
+
+    .dark & {
+        background: transparent;
+    }
+}
+
+.ff-order__panel-title {
+    margin-bottom: 0.75rem;
+    font-size: theme('fontSize.xs');
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    @apply text-secondary;
+}
+
+.ff-order__rows {
+    display: flex;
+    flex-direction: column;
+}
+
+/*
+ * Label left, value right, on one line — the shape a receipt is read in. A
+ * value too long for that (an address) says so and stacks instead.
+ */
+.ff-order__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.4375rem 0;
+    font-size: theme('fontSize.sm');
+
+    & + & {
+        border-top: 1px solid var(--fuse-border, rgb(0 0 0 / 0.06));
+    }
+
+    dt {
+        flex: none;
+        @apply text-secondary;
+    }
+
+    dd {
+        min-width: 0;
+        margin: 0;
+        overflow-wrap: anywhere;
+        text-align: right;
+        font-weight: 500;
+    }
+}
+
+.ff-order__row--stack {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.125rem;
+
+    dd {
+        text-align: left;
+    }
+}
+
+/* The figure that was actually charged, told apart from its parts. */
+.ff-order__row--total {
+    margin-top: 0.25rem;
+    border-top: 1px solid var(--fuse-border, rgb(0 0 0 / 0.14));
+    padding-top: 0.625rem;
+    font-size: theme('fontSize.base');
+    font-weight: 700;
+
+    dt {
+        @apply text-default;
+    }
+}
+
+/* The drop photo: a thumbnail that opens full size, not a bare link. */
+.ff-order__proof {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid var(--fuse-border, rgb(0 0 0 / 0.1));
+    padding: 0.5rem;
+    font-size: theme('fontSize.sm');
+    font-weight: 500;
+    transition: border-color 150ms ease;
+    @apply text-secondary;
+
+    img {
+        height: 3.5rem;
+        width: 3.5rem;
+        flex: none;
+        border-radius: 0.5rem;
+        object-fit: cover;
+    }
+
+    &:hover,
+    &:focus-visible {
+        @apply border-primary text-primary;
+    }
+}
+
+.ff-order__note {
+    margin-top: 1rem;
+    border-radius: 0.75rem;
+    padding: 0.625rem 0.875rem;
+    font-size: theme('fontSize.sm');
+    background: var(--fuse-bg-hover, rgb(0 0 0 / 0.04));
+}
+
+.ff-order__note--warn {
+    background: rgb(248 113 113 / 0.14);
+    color: rgb(153 27 27);
+
+    .dark & {
+        color: rgb(254 202 202);
+    }
+}
+
+.ff-order__note-label {
+    display: block;
+    font-size: theme('fontSize.xs');
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    @apply text-secondary;
+}
+
+.ff-order__note--warn .ff-order__note-label {
+    color: inherit;
+    opacity: 0.75;
+}
